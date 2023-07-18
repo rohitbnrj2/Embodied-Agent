@@ -9,7 +9,8 @@ from math import cos, sin, radians
 from cambrian.renderer.ray import Ray
 from cambrian.renderer.wall import Wall
 from cambrian.utils.renderer_utils import map_one_range_to_other, scale_intensity, touint8
-from cambrian.utils.pygame_colors import colors as PY_GAME_COLORS, rgb2grey
+from cambrian.utils.pygame_colors import colors as PY_GAME_COLORS
+from cambrian.utils.pygame_colors import rgbfloat2grey
 
 
 class TwoDRenderer:
@@ -74,7 +75,7 @@ class TwoDRenderer:
                     intersection_points.append(closestPoint)
                     if viz:
                         true_ray_colors.append(ray_color)
-                        intensity += rgb2grey(ray_color)
+                        intensity += rgbfloat2grey(ray_color)
                         # if camera_idx == 'left': print(ray_color.rgb2grey())
                         rgb_intensity += ray_color # output is in float: 0-1
                         aperture_ray.append(False)

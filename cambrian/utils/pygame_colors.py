@@ -12,8 +12,11 @@ class RGB(Color):
         """returns RGB """
         return np.array([self.red/255., self.green/255., self.blue/255.])
 
+def rgbfloat2grey(rgb):
+    """Convets RGB -> grayscale """
+    return np.mean([rgb[0], rgb[1], rgb[2]])
 
-def rgb2grey(rgb):
+def rgbuint82grey(rgb):
     """Convets RGB -> grayscale """
     return np.mean([rgb[0], rgb[1], rgb[2]])/255.
 
