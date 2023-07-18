@@ -87,7 +87,7 @@ class TwoDRenderer:
                     intensity += self.cfg.ambient_color 
                     # rgb_intensity += np.zeros(3)
                     intersection_points.append(None)
-                    true_ray_colors.append('black')
+                    true_ray_colors.append([0,0,0])
 
             # 4. final intensity value per pixel per-pixel
             # if camera_idx == 'left': print("number of rays viz:", cnt, intensity)
@@ -145,8 +145,7 @@ class TwoDRenderer:
             for i in range(len(render_dict[k]['rays'])):
                 if render_dict[k]['intersection_points'][i] is not None: 
                     ray = render_dict[k]['rays'][i]
-                    # rgb = render_dict[k]['rgb'][i]
-                    rgb = render_dict[k]['true_ray_colors'][i]
+                    rgb = (render_dict[k]['true_ray_colors'][i] * 255).astype(np.uint8) # takes in np.uint8
                     # draw line to closest point
                     # if aperture ray check if we want to visualize it
                     if render_dict[k]['aperture_ray'][i]:

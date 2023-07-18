@@ -28,7 +28,7 @@ class BeeSimulator:
                 self.cfg = yaml.load(ymlfile, Loader=yaml.Loader)
                 self.cfg = Prodict.from_dict(self.cfg)
         
-        self.window_size = self.cfg.sim_config.window_size # Width x Height in pixels
+        # self.window_size = self.cfg.sim_config.window_size # Width x Height in pixels
         self.logdir = Path("{}/{}".format(self.cfg.env_config.logdir, 
                                           self.cfg.env_config.exp_name))
         if not self.logdir.exists():
@@ -49,10 +49,11 @@ class BeeSimulator:
         self.create_simulator(self.cfg.geometry, self.cfg.imaging, self.cfg.renderer_config)
         self.reset(init_x, init_y)
 
-    def update_state_dict(self, x,y, render_dict):
+    def update_state_dict(self, x,y, render_dict, is_collision, out_of_bounds):
         # update trial number
         self.trial += 1
         self.sim_states.positions_rollout.append([x,y]) # should be a list of [[x,y], ...]
+        self.sim_states.collision_rollout.append(True if is_collision or out_of_bounds else False) # should be a list of [FFFT]
         self.curr_render_dict = render_dict
         if self.mode == 'test':
             # in train state there is no renderer states...
@@ -68,6 +69,7 @@ class BeeSimulator:
             # 'list_of_camera_configs': None,
             # 'geometry': [], # walls 
             'positions_rollout': [],
+            'collision_rollout': [],
             'renderer_state_rollout': [],
             'cam_intensities' : {f"cam_{i}":[] for i in range(self.n_cams)}
         }
@@ -96,16 +98,13 @@ class BeeSimulator:
         self.renderer.render_all_cameras()
         # tt = time.time()-st
         # print("Time per render all cameras {}".format(tt))
-        # print("left time period:", self.cfg.geometry.left_wall_color_time_period)
         # print("length of cameras: ", self.renderer.cameras)
         # print("length of walls: ", len(self.maze.walls))
-        # print("length of true ray colors", len(self.renderer.renderer_state['left']['curr_render_dict'][0]['true_ray_colors']))
-        # print("length of aperture rays", len(self.renderer.renderer_state['right']['curr_render_dict'][0]['aperture_ray']))
 
-        self.update_state_dict(self.x, self.y, self.renderer.renderer_state)
         # check collision
         is_collision = self.maze.collision(self.x, self.y, self.cfg.sim_config.collision_threshold)
         out_of_bounds = self.maze.check_bounds(self.x, self.y)
+        self.update_state_dict(self.x, self.y, self.renderer.renderer_state, is_collision, out_of_bounds)
         
         cur_cam_intensities = {f"cam_{i}": 0 for i in range(self.n_cams)}
         for cam in cur_cam_intensities:
@@ -123,8 +122,8 @@ class BeeSimulator:
         if not self.cfg.sim_config.use_display:
             DISPLAY = (1, 1)
         else:
-            DISPLAY = tuple(self.window_size)
-            self.display = pygame.Surface(self.window_size)
+            DISPLAY = tuple(self.maze.window_size)
+            self.display = pygame.Surface(self.maze.window_size)
             pygame.display.set_caption('RoboBee Simulator')
 
         self.screen = pygame.display.set_mode(DISPLAY, FLAGS, DEPTH)
@@ -140,9 +139,15 @@ class BeeSimulator:
             
         save_img_dir.mkdir(exist_ok=True)
         while idx < len(self.sim_states.positions_rollout):
-            work_surface = pygame.Surface(tuple(self.window_size))
+            work_surface = pygame.Surface(tuple(self.maze.window_size))
             work_surface.fill((self.cfg.sim_config.background_color))
             pos = self.sim_states.positions_rollout[idx]
+            end = self.sim_states.collision_rollout[idx]
+            if end:
+                ct = self.cfg.sim_config.collision_threshold 
+                bee_rect = pygame.Rect(self.x - ct, self.y, 2*ct, ct)
+                pygame.draw.rect(work_surface, [255,0,0], bee_rect)
+
             # draw bee position 
             mx, my = pos[0], pos[1]
             pygame.draw.circle(work_surface,(0,0,255), pos, 15)
@@ -257,7 +262,7 @@ if __name__ == "__main__":
     sim.reset(start_pos_x, start_pos_y)
     print("num walls", len(sim.maze.walls))
     # simulate a trajectory of 100 steps going forward  
-    num_steps = 1 #00# 270
+    num_steps = 10 #00# 270
     p = 5
 
     st = time.time()

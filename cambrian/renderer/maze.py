@@ -39,7 +39,6 @@ class Maze:
                     }
                     self.maze.append(Prodict.from_dict(_dict))
                     
-        print(f"Creating Maze with {len(self.walls)} Walls!")
         
         h = self.y_scale_factor*h
         w = self.x_scale_factor*w
@@ -49,6 +48,7 @@ class Maze:
         self.goal_start_pos = [h/2 - 2, 0]
         self.goal_end_pos = [h/2 + 2, w]
         self.window_size = [h,w]
+        print(f"Creating Maze with {len(self.walls)} Walls fo size ({h, w})!")
 
     def _sample_colors(self,):
         if self.binarize_colors: 

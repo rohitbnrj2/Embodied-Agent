@@ -4,7 +4,7 @@ import glob
 from moviepy.editor import VideoFileClip
 import os
 
-def make_video(save_path, path_to_images, fps=10, save_gif=False):
+def make_video(save_path, path_to_images, fps=10, save_gif=True):
     img_array = []
     size = None
     for filename in path_to_images:
