@@ -1,9 +1,26 @@
 import numpy as np
 import math
+import pygame
+
 from cambrian.utils.pygame_colors import colors as PY_GAME_COLORS
 
 _EPSILON_ = 1e-7
 
+def visualize_rays(display, photoreceptors, visualize_aperture=True):
+
+    for out in photoreceptors:
+        rays = out.rays
+        photoreceptor_intensity = out.raw_radiance
+        for ray in rays: 
+            rgb = ray.intensity
+            # ray.type = 'aperture'
+            # if ray.type == 'aperture':
+            if False:
+                if visualize_aperture:
+                    pygame.draw.line(display, rgb, (ray.x, ray.y), render_dict[k]['intersection_points'][i])
+            else:
+                pygame.draw.line(display, rgb, (ray.x, ray.y), ray.collision_point)
+    return display
 
 def ray_wall_collision(ray, walls):
     closest = 100000
@@ -44,6 +61,9 @@ def gaussian(x, mu, sig):
     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
 
 def points_on_circumference(center = (0.0, 0.0), r: float = 50.0, n: int = 100, direction='right'):
+    """
+    Outputs in increasing order of y, a[0] is the lowest value
+    """
     pts = []
     b1 = int(-n/2)
     b2 = int(n/2) + 1

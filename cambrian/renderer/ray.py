@@ -6,6 +6,8 @@ class Ray:
         self.x = x
         self.y = y
         self.dir = (math.cos(angle), math.sin(angle))
+        self.intensity = None # rgb value # optional  
+        self.collision_point = None # end point # optional 
 
     def update(self, mx, my):
         self.x = mx

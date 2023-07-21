@@ -13,7 +13,7 @@ from cambrian.utils.pygame_colors import colors as PY_GAME_COLORS
 from cambrian.utils.pygame_colors import rgbfloat2grey
 
 
-class PyGameRenderer:
+class TwoDRenderer:
     """
     TwoDRenderer
     """
@@ -24,6 +24,7 @@ class PyGameRenderer:
         self.maze = maze
         self.cameras = {}
         self.cfg = cfg
+        self.num_rays_per_pixel = cfg.num_rays_per_pixel
         # stores the current rendered rays
         self.renderer_state = {}
         for camera in cameras:
@@ -297,4 +298,105 @@ class Camera:
         # print('num rays: {}'.format(len(pixel_to_ray_viz[i]['rays'])))
         return pixel_to_ray_viz
 
-  
+    def create_sensor_plane(self, ):
+        sensor_x = self.f * np.ones(self.num_rays_per_pixel * self.num_pixels) # will use these points to create a line 
+        sensor_y = np.linspace(-self.sensor_size/2, self.sensor_size/2, self.num_rays_per_pixel * self.num_pixels)
+        sensor_line = np.vstack([sensor_x, sensor_y])
+        self.sensor_line = self.pos  + np.matmul(self.rot, sensor_line)
+
+    #     # sensor wall for viz purposes 
+    #     x = self.f * np.ones(2) + _APERTURE_SENSOR_DISTANCE_
+    #     y = np.linspace(-self.sensor_size/2, self.sensor_size/2, 2)
+    #     line = np.vstack([x, y])
+    #     line = self.pos + np.matmul(self.rot, line)
+    #     self.sensor_wall = Wall(line[0], line[1], type="sensor", color="magenta")
+
+    # def create_aperture(self):
+    #     aperture_x = (self.f + _APERTURE_SENSOR_DISTANCE_) * np.ones(2)
+    #     # enlarge by a little so all rays intersect (math trick)
+    #     aperture_y = np.linspace( -(self.sensor_size + _APERTURE_SENSOR_DISTANCE_)/2, (self.sensor_size + _APERTURE_SENSOR_DISTANCE_)/2, 2)
+    #     aperture_line = np.vstack([aperture_x, aperture_y])
+    #     self.aperture_line = self.pos + np.matmul(self.rot, aperture_line)
+    #     self.aperture_wall = Wall(self.aperture_line[0], self.aperture_line[1], type="aperture", color="pink1")
+        
+    # def check_ray_aperture_intersection(self, ray, aperture_mask):
+    #     """
+    #     ray: Ray()
+    #     aperture_mask: [Kx1] vector of K units 
+    #     """
+    #     ret = ray.checkCollision(self.aperture_wall)
+    #     if ret is not None: 
+    #         collidePos, wall = ret
+    #     else:
+    #         # print('no collision between aperture & Ray')
+    #         return False, -1, 0
+    #         # raise ValueError("No Intersection between Aperture & Ray")
+    #     # 1. compute distance between collision point & start of wall 
+    #     sp = np.array([self.aperture_wall.start_pos[0], self.aperture_wall.start_pos[1]])
+    #     length = math.dist(sp, collidePos) # euclidean
+    #     # 2. map collision point to a bin in the aperture mask
+    #     # self.aperture_wall.length maps to size K 
+    #     bin_idx = map_one_range_to_other(length, 0, len(aperture_mask), 0, self.aperture_wall.length)
+    #     bin_idx = int(bin_idx)-1 # length at wall collision maps to bin
+
+    #     # 3. Index the bin to find collisions
+    #     if bin_idx < len(aperture_mask):
+    #         if aperture_mask[bin_idx] > 0: 
+    #             return True, collidePos, bin_idx # collides since aperture is 1
+    #         else: 
+    #             return False, collidePos, bin_idx
+    #     else:
+    #         raise ValueError(self.aperture_wall.length, length, bin_idx)
+
+    def trace_camera_rays(self, rays, sample_num_rays=10):
+        x1 = self.x
+        y1 = self.y
+        # sensor extents 1 
+        # x2 = self.x + (self.dir[0] * np.cos(self.angle - self.fov/2.))
+        # y2 = self.y + (self.dir[1] * np.sin(self.angle - self.fov/2.))
+        angle_extents_1 = self.angle - self.fov_r/2. # np.tan((x2-x1)/(y2-y1)) 
+        # print("angle1", angle_extents_1 * 180./np.pi)
+
+        # sensor extents 2
+        # x3 = self.x + (self.dir[0] * np.cos(self.angle + self.fov/2.))
+        # y3 = self.y + (self.dir[1] * np.sin(self.angle + self.fov/2.))
+        angle_extents_2 = self.angle + self.fov_r/2. # np.tan((x3-x1)/(y3-y1)) 
+        # print("angle2", angle_extents_2*180./np.pi)
+
+        if sample_num_rays > 0: 
+            dthetas = np.linspace(angle_extents_1, angle_extents_2, sample_num_rays)
+            for theta in dthetas:
+                rays.append(Ray(x1,y1, theta))
+        else:
+            rays.append(Ray(x1, y1, angle_extents_1))
+            rays.append(Ray(x1, y1, angle_extents_2))
+
+        return rays
+    
+    def visualize_aperture(self, d='auto'):
+        f = self.sensor_size / (2*np.sin(self.fov_r)) # focal_length 
+        # create an aperture at f 
+        a_x = self.x + (self.dir[0] * f)
+        a_y = self.y + (self.dir[1] * f) # ray: o + td 
+
+        # add two walls with some opening 
+        if d == 'auto':
+            D = self.sensor_size/11
+        elif d == 'random':
+            # r = random.choice([2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+            r = random.randint(2,20)
+            D = self.sensor_size/r
+        else:
+            D = float(d) # d must be a number
+
+        aperture_length = self.sensor_size/4 # should cover all edge rays
+        y_1 = a_y + D 
+        y_2 = y_1 + aperture_length
+        y_3 = a_y - D
+        y_4 = y_3 - aperture_length
+
+        aperture_walls = []
+        aperture_walls.append(Wall((a_x, y_1), (a_x, y_2), type='aperture', color = 'red1'))
+        aperture_walls.append(Wall((a_x, y_3), (a_x, y_4), type='aperture', color = 'red1'))
+        return aperture_walls
+
