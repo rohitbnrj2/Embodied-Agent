@@ -12,14 +12,17 @@ def visualize_rays(display, photoreceptors, visualize_aperture=True):
         rays = out.rays
         photoreceptor_intensity = out.raw_radiance
         for ray in rays: 
-            rgb = ray.intensity
+            rgb = (ray.intensity * 255).astype(np.uint8)
+            # import pdb; pdb.set_trace()
             # ray.type = 'aperture'
             # if ray.type == 'aperture':
-            if False:
-                if visualize_aperture:
-                    pygame.draw.line(display, rgb, (ray.x, ray.y), render_dict[k]['intersection_points'][i])
-            else:
-                pygame.draw.line(display, rgb, (ray.x, ray.y), ray.collision_point)
+            if ray.collision_point is not None: 
+                # only render if ray collides with smthing
+                if False:
+                    if visualize_aperture:
+                        pygame.draw.line(display, rgb, (ray.x, ray.y), render_dict[k]['intersection_points'][i])
+                else:
+                    pygame.draw.line(display, rgb, (ray.x, ray.y), ray.collision_point)
     return display
 
 def ray_wall_collision(ray, walls):

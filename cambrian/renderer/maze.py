@@ -32,10 +32,11 @@ class Maze:
         for x in range(h):
             for y in range(w):
                 if int(maze_img_array[x,y])/255. < 0.995:
-                    self.walls.append(pygame.Rect(self.x_scale_factor*x, self.y_scale_factor*y, self.x_scale_factor, self.y_scale_factor))
+                    wall_ = pygame.Rect(self.x_scale_factor*x, self.y_scale_factor*y, self.x_scale_factor, self.y_scale_factor)
+                    self.walls.append(wall_)
                     _dict = {
                         'color' : np.array(self._sample_colors()).astype(np.uint8),
-                        'wall' : self.walls[-1]
+                        'wall' : wall_
                     }
                     self.maze.append(Prodict.from_dict(_dict))
                     
@@ -74,7 +75,7 @@ class Maze:
         closestPoint = None
         ray_color = None
 
-        for i in range(len(self.maze)): 
+        for i in range(len(self.maze)):
             ret = ray.checkPyGameRectCollision(self.maze[i].wall, self.window_size)
             if ret is not None: 
                 intersectPoint, distance = ret

@@ -7,8 +7,7 @@ import yaml
 
 
 from cambrian.evolution_envs.eye import SinglePixel
-from cambrian.utils.renderer_utils import name_to_fdir
-from utils.renderer_utils import points_on_circumference
+from cambrian.utils.renderer_utils import name_to_fdir, points_on_circumference
 
 class OculozoicAnimal:
     def __init__(self, config):
@@ -16,20 +15,25 @@ class OculozoicAnimal:
         self.max_photoreceptors = config.max_photoreceptors
         self.mutation_count = 0 
         self.num_photoreceptors = self.config.init_photoreceptors
+        self.pixels = []
 
         # constants 
         self.radius = self.config.radius
         self.max_num_eyes_per_side = self.config.max_num_eyes_per_side
         self.visual_acuity_sigma = self.config.visual_acuity_sigma
 
-        # we will sample pixel positions from the circle 
+
+    def init_animal(self, mx, my):
+        self.reset_position(mx, my)
+        self.num_photoreceptprs_per_pixel = 2
+        self.num_pixels = 1
+        # Initialize positions on the eye
         self.right_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side, direction='right')
         self.right_eye_pixels_occupancy = np.zeros(len(self.right_eye_pixels))
         self.left_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side, direction='left')
         self.left_eye_pixels_occupancy = np.zeros(len(self.left_eye_pixels))
 
-    def init_animal(self, mx, my):
-        self.reset(mx, my)
+
         imaging_model = 'simple'
         fov = 150
         angle = 60
@@ -37,24 +41,33 @@ class OculozoicAnimal:
         self.left_eye_pixels_occupancy[-1] = 1
         pixel_pos = self.left_eye_pixels[-1]
         pixel_config = self.generate_pixel_config(imaging_model, fov, angle, pixel_pos=pixel_pos, direction='left') # should be looking left down
-        init_pixel = self.add_pixel(pixel_config)
-        self.pixels = [init_pixel]
-        self.num_pixels = len(self.pixels)
+        self.add_pixel(pixel_config)
         self.mutation_count += 1
         self.mutation_chain = []
 
     def observe_scene(self, dx, dy, geometry):
+        """
+        processed_eye_intensity: List of Intensity outputs (per eye)
+            [21, 39, 28, 9, 1...]
+        eye_out: List of photoreceptors outputs per eye
+            [raw_photoreceptor_1, raw_photoreceptor_2, ..., raw_photoreceptor_n]
+        """
         self._update_position(dx, dy)
         eye_out = []
+        processed_eye_intensity = []
         for i in range(self.num_pixels):
-            raw_photoreceptor_output = self.pixels[i].render(dx, dy, geometry, self.num_photoreceptprs_per_pixel)
-            if self.config.total_intensity_output_only:
+            final_intensity, raw_photoreceptor_output = self.pixels[i].render_pixel(dx, dy, 
+                                                                   geometry,
+                                                                    self.num_photoreceptprs_per_pixel)
+            if False:
+            # if self.config.total_intensity_output_only:
                 intensity, _ = np.mean(raw_photoreceptor_output)
                 eye_out.append(intensity)
             else:
                 eye_out.append(raw_photoreceptor_output)
+                processed_eye_intensity.append(final_intensity)
 
-        return eye_out
+        return processed_eye_intensity, eye_out
     
     def reset_position(self, mx, my):
         self.x = mx
@@ -68,7 +81,8 @@ class OculozoicAnimal:
 
         if mutation_type == 'add_photoreceptor':
             self.num_photoreceptors += self.config.increment_photoreceptor
-            self.num_photoreceptors = np.clip(self.num_photoreceptors, 0, self.max_photoreceptors)
+            self.num_photoreceptors = np.clip(self.num_photoreceptors, 
+                                              self.init_photoreceptors, self.max_photoreceptors)
             _mut.args = {'num_photoreceptors': self.num_photoreceptors}
 
         elif mutation_type == 'simple_to_lens':
@@ -100,18 +114,22 @@ class OculozoicAnimal:
         self.mutation_chain.append(_mut)
 
     def add_pixel(self, pixel_config):
-        self.num_photoreceptprs_per_pixel = int(self.num_rays/self.num_pixels)
+        if self.num_photoreceptors < self.num_pixels: 
+            # atleast one photoreceptor per pixel
+            # print("atleast one photoreceptor per pixel")
+            return 
+        self.num_photoreceptprs_per_pixel = int(self.num_photoreceptors/self.num_pixels)
         pixel = SinglePixel(pixel_config)
         self.pixels.append(pixel)
         self.num_pixels = len(self.pixels)
 
     def remove_pixel(self, ):
         self.num_pixels -= 1
-        self.num_photoreceptprs_per_pixel = int(self.num_rays/self.num_pixels)
+        self.num_photoreceptprs_per_pixel = int(self.num_photoreceptors/self.num_pixels)
         self.pixels.pop()
 
     def generate_pixel_config(self, imaging_model, fov, angle, pixel_pos=None, direction='left'):
-        config = {}
+        config = Prodict()
         if pixel_pos is None: 
             pixel_pos = self._sample_new_pixel_position(direction)
         config.x = pixel_pos[0]
@@ -122,7 +140,6 @@ class OculozoicAnimal:
         config.f_dir = name_to_fdir(direction)
         config.visual_acuity = self.num_photoreceptprs_per_pixel/self.visual_acuity_sigma
         config.imaging_model = imaging_model
-        config = Prodict.from_dict(config)
         return config 
 
     def load_animal_from_state(self, state_config_file):
@@ -132,7 +149,7 @@ class OculozoicAnimal:
             _state = Prodict.from_dict(dict_cfg)
 
         # load animal constant
-        self.num_photoreceptprs_per_pixel = _state.num_rays_per_pixel
+        self.num_photoreceptprs_per_pixel = _state.num_photoreceptprs_per_pixel
         self.radius = _state.radius
         self.max_num_eyes_per_side = _state.max_num_pixels_per_side
         self.visual_acuity_sigma = _state.visual_acuity_sigma
@@ -157,7 +174,7 @@ class OculozoicAnimal:
         _state = Prodict.from_dict(_state)
         
         # save animal constant
-        _state.num_rays_per_pixel = self.num_photoreceptprs_per_pixel
+        _state.num_photoreceptprs_per_pixel = self.num_photoreceptprs_per_pixel
         _state.radius = self.radius
         _state.max_num_pixels_per_side = self.max_num_eyes_per_side
         _state.visual_acuity_sigma = self.visual_acuity_sigma

@@ -12,7 +12,7 @@ from cambrian.utils.renderer_utils import gaussian
 class SinglePixel:
     """
     A pixel is a single eye with a sensor plane that has 
-    atleast one photoreceptor. 
+    atleast two photoreceptors. 
     ----------------------------------------------
                 * photoreceptors * 
         ()()()()()()        ()()()()()() 
@@ -59,11 +59,11 @@ class SinglePixel:
 
         # other constants:
         self.DIFFUSE_SWEEP_RAYS = 90
-        self.num_photoreceptors = 1
+        self.num_photoreceptors = 2 # start with two 
         self.reset(self.config.x, self.config.y)
 
-    def render_pixel(self, geometry, num_photoreceptors, 
-                     photon_noise=True, scale_final_intensity=False, 
+    def render_pixel(self, dx, dy, geometry, num_photoreceptors, 
+                     photon_noise=False, scale_final_intensity=False, 
                      visual_accuity=True, distance_weight=False):
         # set num photoreceptors
         self.num_photoreceptors = num_photoreceptors
@@ -71,8 +71,9 @@ class SinglePixel:
 
         final_intensity = 0.
 
-        raw_photoreceptor_output = self.render(geometry)
-        raw_photoreceptor_output = self.forward_model(raw_photoreceptor_output, visual_accuity, distance_weight)
+        raw_photoreceptor_output = self.render(dx, dy, geometry)
+        if self.imaging_model == 'lens':
+            raw_photoreceptor_output = self.forward_model(raw_photoreceptor_output, visual_accuity, distance_weight)
 
         for r in raw_photoreceptor_output:
             final_intensity += r.raw_radiance
@@ -144,6 +145,7 @@ class SinglePixel:
         from all directions. 
         """
         # sample rays from a sensor plane
+        # TODO: why do you need to sample from a sensor_plane for this? 
         self._create_sensor_plane(self.num_photoreceptors)
         # angle between the first point and the last 
         w = Wall(self.sensor_line[0], self.sensor_line[-1])
@@ -158,11 +160,16 @@ class SinglePixel:
             total_radiance = 0.
             for ray_angle in angles: 
                 r = Ray(x,y, ray_angle)
-                sub_rays.append(r)
-                closest, closestPoint, intensity = geometry.check_ray_collision([r]) # returns intensity [0,1], distance to wall
-                r.intensity = intensity
-                r.collision_point = closestPoint
-                total_radiance += intensity # should be 0, 1
+                ret = geometry.check_ray_collision(r) # returns intensity [0,1], distance to wall
+                if ret is not None: 
+                    closest, closestPoint, intensity = ret
+                    r.intensity = intensity
+                    r.collision_point = closestPoint
+                    total_radiance += intensity # should be 0, 1
+                    sub_rays.append(r)
+                else: 
+                    # don't append the ray.. just ignore it.
+                    pass 
 
             _ray['raw_radiance'] = total_radiance # intensity per photoreceptor
             _ray['rays'] = sub_rays
@@ -192,10 +199,16 @@ class SinglePixel:
                 ray_angle = w.angle + math.radians(180.)
 
             r = Ray(x,y, ray_angle)
-            closest, closestPoint, intensity = geometry.check_ray_collision([r]) # returns intensity [0,1], distance to wall
-            r.intensity = intensity
-            r.collision_point = closestPoint
-            total_radiance += intensity 
+            ret = geometry.check_ray_collision(r) # returns intensity [0,1], distance to wall
+            if ret is not None: 
+                closest, closestPoint, intensity = ret
+                r.intensity = intensity
+                r.collision_point = closestPoint
+                total_radiance += intensity 
+            else: 
+                # don't append the ray.. just ignore it.
+                pass 
+
             _ray['ray'] = [r] # ray or rays that compose the intensity
             _ray['raw_radiance'] = intensity # intensity per photoreceptor
 
@@ -216,13 +229,13 @@ class SinglePixel:
 
         # get max distance to the wall
         if distance_weight:
-            max_dist = max([ray['distance'] for ray in photoreceptors])
+            max_dist = max([ray.distance for ray in photoreceptors])
 
-        for r in range(self.num_photoreceptors):
-            intensity = photoreceptors[r]['intensity']
+        for r in photoreceptors:
+            intensity = r.intensity
             if distance_weight:
                 # weight by distance to the wall
-                dist = photoreceptors[r]['distance']
+                dist = r.distance
                 intensity = intensity * dist/max_dist
             if visual_accuity:
                 # weight by visual acuity at that point.
