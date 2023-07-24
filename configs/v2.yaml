@@ -38,14 +38,15 @@ sim_config:
   collision_threshold: 25
 
 animal_config: 
-  init_photoreceptors: 2 # start with 2 so that the rendering is easier.
-  increment_photoreceptor: 4
+  init_photoreceptors: 10 
+  increment_photoreceptor: 25
   max_photoreceptors: 250
   radius: 10
   max_num_eyes_per_side: 25
   visual_acuity_sigma: 5
-  init_sensor_size: 10
+  init_sensor_size: 25
   total_intensity_output_only: False
+  diffuse_sweep_rays: 20
   
 scene_config:
  load_path : "./mazes/first_maze.png"

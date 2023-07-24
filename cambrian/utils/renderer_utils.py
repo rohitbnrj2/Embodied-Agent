@@ -12,7 +12,7 @@ def visualize_rays(display, photoreceptors, visualize_aperture=True):
         rays = out.rays
         photoreceptor_intensity = out.raw_radiance
         for ray in rays: 
-            rgb = (ray.intensity * 255).astype(np.uint8)
+            rgb = (ray.rgb * 255).astype(np.uint8)
             # import pdb; pdb.set_trace()
             # ray.type = 'aperture'
             # if ray.type == 'aperture':

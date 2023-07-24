@@ -44,9 +44,8 @@ class Maze:
         h = self.y_scale_factor*h
         w = self.x_scale_factor*w
         self.tunnel_width = h
-        self.start_pos = [0,0]
         
-        self.goal_start_pos = [h/2 - 2, 0]
+        self.goal_start_pos = [h/2 - 2, 40]
         self.goal_end_pos = [h/2 + 2, w]
         self.window_size = [h,w]
         print(f"Creating Maze with {len(self.walls)} Walls fo size ({h, w})!")

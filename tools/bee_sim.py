@@ -1,4 +1,5 @@
 from copy import deepcopy
+import math
 from cambrian.evolution_envs.animal import OculozoicAnimal
 from cambrian.utils.renderer_utils import visualize_rays
 from pygame.locals import *
@@ -76,6 +77,7 @@ class BeeSimulator:
 
         # check collision
         processed_eye_intensity, eye_out = self.animal.observe_scene(dx, dy, self.maze)
+        # pdb.set_trace()
         is_collision = self.maze.collision(self.animal.x, self.animal.y, self.cfg.sim_config.collision_threshold)
         out_of_bounds = self.maze.check_bounds(self.animal.x, self.animal.y)
         
@@ -187,20 +189,49 @@ if __name__ == "__main__":
     sim.init_animal(init_pos=None)
     print("num walls", len(sim.maze.walls))
     # simulate a trajectory of 100 steps going forward  
-    num_steps = 10 #00# 270
-    p = 5
+    num_steps = 5 #00# 270
+    p = 0
 
     st = time.time()
     for i in tqdm.tqdm(range(num_steps)):
         theta = np.pi/2 #np.random.uniform() * np.pi
         dx = p*np.cos(theta)
         dy = p*np.sin(theta)
-        for j in range (sim.cfg.env_config.steps_per_measurment):
+
+        #####
+        # mut_type = np.random.choice(sim.animal.mutation_types)
+        mut_type = 'simple_to_lens'
+        if mut_type == 'add_photoreceptor':
+            mut_args = None
+        elif mut_type == 'simple_to_lens':
+            mut_args = Prodict() 
+            mut_args.pixel_idx = None
+
+        elif mut_type == 'add_pixel':
+            mut_args = Prodict() 
+            mut_args.imaging_model = 'simple'
+            mut_args.fov = 150.
+            mut_args.angle = 0.
+        elif mut_type == 'update_pixel':
+            mut_args = Prodict() 
+            mut_args.pixel_idx = None # picks rangomly 
+            mut_args.fov_r_update = math.radians(-10)
+            mut_args.angel_r_update = math.radians(-25)
+            mut_args.sensor_update = -5
+
+        print('mutating animal with op: {}'.format(mut_type))
+        sim.animal.mutate(mut_type, mut_args=mut_args)
+        sim.animal.print_state()
+        # sim.animal.save_animal_state(sim.logdir)
+
+        for j in range (1):
+        # for j in range (sim.cfg.env_config.steps_per_measurment):
             _, c, oob = sim.step(dx, dy) # go down 
             if c or oob:
                 print("out of bounds: {}; collision: {}".format(oob, c))
                 break
         if c or oob:
             break
-
+        
+        break
     sim.render(current_canvas=False)

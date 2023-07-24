@@ -1,10 +1,12 @@
 import random
 from cambrian.renderer.ray import Ray
 from cambrian.renderer.wall import Wall
+from cambrian.utils.pygame_colors import rgbfloat2grey
 import numpy as np
 import math
 from typing import List, Tuple
 from prodict import Prodict
+import yaml 
 
 
 from cambrian.utils.renderer_utils import gaussian
@@ -19,7 +21,7 @@ class SinglePixel:
                 * sensor plane * 
         ===============        ===============
                 * Modulation of light * 
-            No Lens                Lens
+            Simple                  Lens
                 * incoming light * 
         ^^^^^^^^^^^         ^^^^^^^^^^^^
     ----------------------------------------------
@@ -36,11 +38,22 @@ class SinglePixel:
             and makes the `raw_radiance`. 
         
     """
-    def __init__(self, config):
-        self.config = config
-        self.update_pixel_params(self.config)
+    def __init__(self, config=None):
 
-    def update_pixel_params(self, config):
+        ##########################################
+        ###### Some Constants 
+        self.ALLOWED_ANGLES = [0. , 15., 30. , 45., 60. , 120. , 135. , 150. , 180.]
+        for i in range(len(self.ALLOWED_ANGLES)):
+            self.ALLOWED_ANGLES[i] = math.radians(self.ALLOWED_ANGLES[i])
+        ###### Some Constants
+        ##########################################
+
+        if config: 
+            self.config = config
+            self.init_pixel_from_config(self.config)
+
+
+    def init_pixel_from_config(self, config):
         self.config = config
         ###################################
         ##### Configurable Parameters #####
@@ -53,18 +66,64 @@ class SinglePixel:
         ##### Configurable Parameters #####
         ###################################
 
+        ##########################################################
+        ##### Parameters wrt the animal stored here for ease #####
+        self.animal_direction = self.config.animal_direction
+        self.animal_idx = self.config.animal_idx
+        ##### Parameters wrt the animal stored here for ease #####
+        ##########################################################
+
+        self.angle_r  = min(self.ALLOWED_ANGLES, key=lambda x:abs(x-self.angle_r ))
         self.f = (self.sensor_size/2) / (np.tan(self.fov_r/2)) # focal length
         self.rot = np.array([[math.cos(self.angle_r), math.sin(self.angle_r)], # rotation matrix
                              [-math.sin(self.angle_r), math.cos(self.angle_r)]])
 
         # other constants:
-        self.DIFFUSE_SWEEP_RAYS = 90
-        self.num_photoreceptors = 2 # start with two 
-        self.reset(self.config.x, self.config.y)
+        self.DIFFUSE_SWEEP_RAYS = self.config.diffuse_sweep_rays
+        # self.num_photoreceptors = 2 # start with two 
+        self.reset_position(self.config.x, self.config.y)
+
+    def get_config_state(self,):
+        config = Prodict()
+        config.fov_r = self.fov_r
+        config.angle_r = self.angle_r
+        config.sensor_size = self.sensor_size
+        config.visual_acuity = self.visual_acuity
+        config.imaging_model = self.imaging_model
+        config.diffuse_sweep_rays = self.DIFFUSE_SWEEP_RAYS
+        config.animal_direction = self.animal_direction
+        config.animal_idx = self.animal_idx
+        return config 
+    
+    def load_from_config(self, config):
+        """
+        LoadFromConfig: Loads directly from a saved checkpoint of the eye's mutation. 
+        """
+        
+        if isinstance(config, str):
+            with open(config, "r") as ymlfile:
+                dict_cfg = yaml.load(ymlfile, Loader=yaml.Loader)
+                config = Prodict.from_dict(dict_cfg)
+
+        self.fov_r = config.fov_r
+        self.angle_r = config.angle_r
+        self.sensor_size = config.sensor_size
+        self.visual_acuity = config.visual_acuity
+        self.imaging_model = config.imaging_model
+        self.DIFFUSE_SWEEP_RAYS = config.diffuse_sweep_rays
+        self.animal_direction = config.animal_direction
+        self.animal_idx = config.animal_idx
+        # update params
+        self.angle_r  = min(self.ALLOWED_ANGLES, key=lambda x:abs(x-self.angle_r ))
+        self.f_dir = (np.cos(self.angle_r), np.sin(self.angle_r)) # tuple 
+        self.f = (self.sensor_size/2) / (np.tan(self.fov_r/2)) # focal length
+        self.rot = np.array([[math.cos(self.angle_r), math.sin(self.angle_r)], # rotation matrix
+                             [-math.sin(self.angle_r), math.cos(self.angle_r)]])
+
 
     def render_pixel(self, dx, dy, geometry, num_photoreceptors, 
                      photon_noise=False, scale_final_intensity=False, 
-                     visual_accuity=True, distance_weight=False):
+                     visual_accuity=False, distance_weight=False):
         # set num photoreceptors
         self.num_photoreceptors = num_photoreceptors
         # self.fixed_incident_photon_flux = int(self.num_photoreceptors/10) # 1/10th of the total flux
@@ -91,12 +150,12 @@ class SinglePixel:
             final_intensity += np.random.normal(loc=0, scale=0.1)
 
         # clip to 0,1
-        final_intensity = np.clip(final_intensity, 0., 1.0)
+        # final_intensity = np.clip(final_intensity, 0., 1.0)
 
         # one idea could be to look at each ray as a photoreceptor -> instead of just outputing the final intensity! 
         return final_intensity, raw_photoreceptor_output
 
-    def reset(self, mx, my):
+    def reset_position(self, mx, my):
         self.x = mx
         self.y = my
         self.position = np.array([[self.x], [self.y]])
@@ -109,11 +168,19 @@ class SinglePixel:
     def update_pixel_config(self, dfov, dangle=None, dsensor_size=None):
         if dfov: 
             self.fov_r += dfov
-        if dangle: 
-            self.angle_r = dangle
-        if dsensor_size: 
-            self.sensor_size = dsensor_size
+            if self.imaging_model == 'lens':
+                self.fov_r = np.clip(self.fov_r, math.radians(30), math.radians(180))
+            elif self.imaging_model == 'simple':
+                self.fov_r = np.clip(self.fov_r, math.radians(90), math.radians(180))
 
+        if dangle: 
+            self.angle_r += dangle
+            
+        if dsensor_size: 
+            self.sensor_size += dsensor_size
+            self.sensor_size = np.clip(self.sensor_size, 10, 50)
+
+        self.angle_r  = min(self.ALLOWED_ANGLES, key=lambda x:abs(x-self.angle_r ))
         self.f_dir = (np.cos(self.angle_r), np.sin(self.angle_r)) # tuple 
         self.f = (self.sensor_size/2) / (np.tan(self.fov_r/2)) # focal length
         self.rot = np.array([[math.cos(self.angle_r), math.sin(self.angle_r)], # rotation matrix
@@ -146,7 +213,10 @@ class SinglePixel:
         """
         # sample rays from a sensor plane
         # TODO: why do you need to sample from a sensor_plane for this? 
-        self._create_sensor_plane(self.num_photoreceptors)
+        if self.num_photoreceptors < 2: 
+            self._create_sensor_plane(2)
+        else:
+            self._create_sensor_plane(self.num_photoreceptors)
         # angle between the first point and the last 
         w = Wall(self.sensor_line[0], self.sensor_line[-1])
         start_angle = w.angle
@@ -162,10 +232,11 @@ class SinglePixel:
                 r = Ray(x,y, ray_angle)
                 ret = geometry.check_ray_collision(r) # returns intensity [0,1], distance to wall
                 if ret is not None: 
-                    closest, closestPoint, intensity = ret
-                    r.intensity = intensity
+                    closest, closestPoint, rgb = ret
+                    r.intensity = rgbfloat2grey(rgb)
+                    r.rgb = rgb
                     r.collision_point = closestPoint
-                    total_radiance += intensity # should be 0, 1
+                    total_radiance += r.intensity # should be 0, 1
                     sub_rays.append(r)
                 else: 
                     # don't append the ray.. just ignore it.
@@ -180,6 +251,10 @@ class SinglePixel:
     def _render_lens_eye(self, geometry):
         """
         If the photoreceptor have 'lens' then use this! 
+        Returns: 
+            List of dicts of photoreceptors: 
+                - ray: ray attributes
+                - raw_radiance: radiance recorded at that photoreceptor
         """
         # set visual acuity field
         x = np.arange(0, self.num_photoreceptors)
@@ -188,7 +263,7 @@ class SinglePixel:
         # sample rays from a sensor plane
         self._create_sensor_plane(self.num_photoreceptors)
         photoreceptors = []
-        total_radiance = 0.
+
         for i in range(self.num_photoreceptors):
             _ray = {}
             x, y = self.sensor_line[0][i], self.sensor_line[1][i]
@@ -201,22 +276,26 @@ class SinglePixel:
             r = Ray(x,y, ray_angle)
             ret = geometry.check_ray_collision(r) # returns intensity [0,1], distance to wall
             if ret is not None: 
-                closest, closestPoint, intensity = ret
-                r.intensity = intensity
+                closest, closestPoint, rgb = ret
+                r.intensity = rgbfloat2grey(rgb)
+                r.rgb = rgb
                 r.collision_point = closestPoint
-                total_radiance += intensity 
             else: 
                 # don't append the ray.. just ignore it.
+                default_rgb = np.array([0., 0, .0])
+                r.intensity = rgbfloat2grey(default_rgb)
+                r.rgb = default_rgb
+
                 pass 
 
-            _ray['ray'] = [r] # ray or rays that compose the intensity
-            _ray['raw_radiance'] = intensity # intensity per photoreceptor
+            _ray['rays'] = [r] # ray or rays that compose the intensity
+            _ray['raw_radiance'] = r.intensity # intensity per photoreceptor
 
             photoreceptors.append(Prodict.from_dict(_ray))
 
         return photoreceptors
     
-    def forward_model(self, photoreceptors, visual_accuity=True, distance_weight=False):
+    def forward_model(self, photoreceptors, visual_accuity=False, distance_weight=False):
         """
         photoreceptors: list of N photoreceptors sorted from [0, sensor_size]
             each photoreceptors:
@@ -229,19 +308,16 @@ class SinglePixel:
 
         # get max distance to the wall
         if distance_weight:
-            max_dist = max([ray.distance for ray in photoreceptors])
+            max_dist = max([ray.distance for ray in photoreceptors.rays])
 
-        for r in photoreceptors:
-            intensity = r.intensity
+        for i, r in enumerate(photoreceptors):
             if distance_weight:
                 # weight by distance to the wall
                 dist = r.distance
-                intensity = intensity * dist/max_dist
+                r.raw_radiance = r.raw_radiance * dist/max_dist
             if visual_accuity:
                 # weight by visual acuity at that point.
-                intensity = intensity * self.visual_field[r]
-
-            photoreceptors[r]['intensity'] = intensity
+                r.raw_radiance = r.raw_radiance * self.visual_field[i]
 
         return photoreceptors
 
