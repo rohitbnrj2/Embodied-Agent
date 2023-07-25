@@ -40,7 +40,7 @@ class OculozoicAnimal:
         fov = 120
         _default_idx = -1 
         pixel_idx = len(self.left_eye_pixels)
-        angle = 95. #self.left_angles[_default_idx] #0. #60
+        angle = 95. # self.left_angles[_default_idx] #0. #60
         self.sensor_size = self.config.init_sensor_size # large sensor size 
         self.left_eye_pixels_occupancy[_default_idx] = 1
         pixel_pos = self.left_eye_pixels[_default_idx]
@@ -112,11 +112,12 @@ class OculozoicAnimal:
             _mut.args = {'cam_idx': mut_args.pixel_idx}
 
         elif mutation_type == 'add_pixel':
-            _dir = np.random.choice('left', 'right')
-            pixel_config = self.generate_pixel_config(mut_args.imaging_model, mut_args.fov, mut_args.angle, pixel_pos=None, direction=_dir)
+            if mut_args.direction is None: 
+                mut_args.direction = np.random.choice('left', 'right')
+            pixel_config = self.generate_pixel_config(mut_args.imaging_model, mut_args.fov, mut_args.angle, pixel_pos=None, direction=mut_args.direction)
             self.add_pixel(pixel_config)
             _mut.args = {'imaging_model': mut_args.imaging_model, 'fov': mut_args.fov, 'angle': mut_args.angle, 
-                         'pixel_pos': None, 'direction': _dir}
+                         'pixel_pos': None, 'direction': mut_args.direction}
 
         elif mutation_type == 'update_pixel':
             if mut_args.pixel_idx == None: 
@@ -156,6 +157,8 @@ class OculozoicAnimal:
         config = Prodict()
         if pixel_pos is None: 
             pixel_pos, pixel_idx = self._sample_new_pixel_position(direction)
+
+        print(pixel_idx)
 
         config.x = pixel_pos[0]
         config.y = pixel_pos[1]
@@ -252,7 +255,8 @@ class OculozoicAnimal:
             pixel_pos = self.left_eye_pixels[idx]
             self.left_eye_pixels_occupancy[idx] = 1
         else:
-            idx = get_idx(self.right_eye_pixels_occupancy)
+            idx = get_idx_simple(self.right_eye_pixels_occupancy)
+            # idx = get_idx(self.right_eye_pixels_occupancy)
             if idx is None: 
                 return None 
             pixel_pos = self.right_eye_pixels[idx]
@@ -274,6 +278,14 @@ class OculozoicAnimal:
 ################ 
 ## Utils
 ################ 
+
+def get_idx_simple(arr):
+    # give the last empty index
+    l = len(arr)
+    for i in range(l-1, -1, -1):
+        if arr[i] == 0:
+            return i 
+    return None
 
 def get_idx(arr):
     # start from the middle and iterate left and right to find the first empty index

@@ -308,18 +308,16 @@ class SinglePixel:
                 r.intensity = rgbfloat2grey(rgb)
                 r.rgb = rgb
                 r.collision_point = closestPoint
+                _ray['rays'] = [r] # ray or rays that compose the intensity
+                _ray['raw_radiance'] = r.intensity # intensity per photoreceptor
+                photoreceptors.append(Prodict.from_dict(_ray))
             else: 
                 # don't append the ray.. just ignore it.
-                default_rgb = np.array([0., 0, .0])
-                r.intensity = rgbfloat2grey(default_rgb)
-                r.rgb = default_rgb
-
+                # default_rgb = np.array([0., 0, .0])
+                # r.intensity = rgbfloat2grey(default_rgb)
+                # r.rgb = default_rgb
                 pass 
 
-            _ray['rays'] = [r] # ray or rays that compose the intensity
-            _ray['raw_radiance'] = r.intensity # intensity per photoreceptor
-
-            photoreceptors.append(Prodict.from_dict(_ray))
 
         return photoreceptors
     
