@@ -9,7 +9,7 @@ import yaml
 
 
 from cambrian.evolution_envs.eye import SinglePixel
-from cambrian.utils.renderer_utils import name_to_fdir, points_on_circumference
+from cambrian.utils.renderer_utils import get_sensor_plane_angles, name_to_fdir, points_on_circumference
 
 class OculozoicAnimal:
     def __init__(self, config):
@@ -31,18 +31,27 @@ class OculozoicAnimal:
         # Initialize positions on the eye
         self.right_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side, direction='right')
         self.right_eye_pixels_occupancy = np.zeros(len(self.right_eye_pixels))
+        self.right_angles = get_sensor_plane_angles(self.position, self.left_eye_pixels)
         self.left_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side, direction='left')
         self.left_eye_pixels_occupancy = np.zeros(len(self.left_eye_pixels))
+        self.left_angles = get_sensor_plane_angles(self.position, self.left_eye_pixels)
 
         imaging_model = 'simple'
-        fov = 180
-        angle = 120. #60
+        fov = 120
+        _default_idx = -1 
+        pixel_idx = len(self.left_eye_pixels)
+        angle = 95. #self.left_angles[_default_idx] #0. #60
         self.sensor_size = self.config.init_sensor_size # large sensor size 
-        self.left_eye_pixels_occupancy[-1] = 1
-        pixel_pos = self.left_eye_pixels[-1]
-        pixel_config = self.generate_pixel_config(imaging_model, fov, angle, direction='left', pixel_pos=pixel_pos, pixel_idx = len(self.left_eye_pixels)) # should be looking left down
+        self.left_eye_pixels_occupancy[_default_idx] = 1
+        pixel_pos = self.left_eye_pixels[_default_idx]
+        pixel_config = self.generate_pixel_config(imaging_model, fov, angle, direction='left', pixel_pos=pixel_pos, pixel_idx = pixel_idx) # should be looking left down
+
+        # self.right_eye_pixels_occupancy[_default_idx] = 1
+        # pixel_pos = self.right_eye_pixels[_default_idx]
+        # pixel_config = self.generate_pixel_config(imaging_model, fov, angle, direction='right', 
+        #                                           pixel_pos=pixel_pos, pixel_idx = pixel_idx) # should be looking left down
         self.add_pixel(pixel_config)
-        self.mutation_count += 1
+        # self.mutation_count += 1
         self.mutation_chain = []
 
     def observe_scene(self, dx, dy, geometry):
@@ -118,7 +127,8 @@ class OculozoicAnimal:
             self.pixels[mut_args.pixel_idx].update_pixel_config(mut_args.fov_r_update, mut_args.angel_r_update, mut_args.sensor_update)
             _mut.args = {'fov_update':mut_args.fov_r_update, 
                          'angel_r_update': mut_args.angel_r_update, 
-                         'sensor_update': mut_args.sensor_update}
+                         'sensor_update': mut_args.sensor_update
+                         }
         else:
             raise ValueError("{} not found".format(mutation_type))
         

@@ -42,7 +42,7 @@ class SinglePixel:
 
         ##########################################
         ###### Some Constants 
-        self.ALLOWED_ANGLES = [0. , 15., 30. , 45., 60. , 120. , 135. , 150. , 180.]
+        self.ALLOWED_ANGLES = [0. , 15., 30. , 45., 60. , 75., 120. , 135. , 150. , 180.]
         for i in range(len(self.ALLOWED_ANGLES)):
             self.ALLOWED_ANGLES[i] = math.radians(self.ALLOWED_ANGLES[i])
         ###### Some Constants
@@ -72,9 +72,12 @@ class SinglePixel:
         self.animal_idx = self.config.animal_idx
         ##### Parameters wrt the animal stored here for ease #####
         ##########################################################
-
-        self.angle_r  = min(self.ALLOWED_ANGLES, key=lambda x:abs(x-self.angle_r ))
+        self.angle_r = self._update_angles(self.angle_r)
         self.f = (self.sensor_size/2) / (np.tan(self.fov_r/2)) # focal length
+        # if self.f_dir[0] <= 0.:
+        #     print('hi')
+        #     self.f *= -1.
+
         self.rot = np.array([[math.cos(self.angle_r), math.sin(self.angle_r)], # rotation matrix
                              [-math.sin(self.angle_r), math.cos(self.angle_r)]])
 
@@ -113,8 +116,9 @@ class SinglePixel:
         self.DIFFUSE_SWEEP_RAYS = config.diffuse_sweep_rays
         self.animal_direction = config.animal_direction
         self.animal_idx = config.animal_idx
+        
         # update params
-        self.angle_r  = min(self.ALLOWED_ANGLES, key=lambda x:abs(x-self.angle_r ))
+        self.angle_r = self._update_angles(self.angle_r)
         self.f_dir = (np.cos(self.angle_r), np.sin(self.angle_r)) # tuple 
         self.f = (self.sensor_size/2) / (np.tan(self.fov_r/2)) # focal length
         self.rot = np.array([[math.cos(self.angle_r), math.sin(self.angle_r)], # rotation matrix
@@ -165,6 +169,16 @@ class SinglePixel:
         self.y += dy
         self.position = np.array([[self.x], [self.y]])
 
+    def _update_angles(self, angle_r):
+        """
+        clips angles to avoid rendering issues...
+        """
+        if self.animal_direction == 'left':
+            angle_r = np.clip(angle_r, math.radians(0), math.radians(90))
+        if self.animal_direction == 'right':
+            angle_r = np.clip(angle_r, math.radians(90), math.radians(180))
+        return angle_r
+
     def update_pixel_config(self, dfov, dangle=None, dsensor_size=None):
         if dfov: 
             self.fov_r += dfov
@@ -178,9 +192,9 @@ class SinglePixel:
             
         if dsensor_size: 
             self.sensor_size += dsensor_size
-            self.sensor_size = np.clip(self.sensor_size, 10, 50)
+            self.sensor_size = np.clip(self.sensor_size, 10, 75)
 
-        self.angle_r  = min(self.ALLOWED_ANGLES, key=lambda x:abs(x-self.angle_r ))
+        self.angle_r = self._update_angles(self.angle_r)
         self.f_dir = (np.cos(self.angle_r), np.sin(self.angle_r)) # tuple 
         self.f = (self.sensor_size/2) / (np.tan(self.fov_r/2)) # focal length
         self.rot = np.array([[math.cos(self.angle_r), math.sin(self.angle_r)], # rotation matrix
@@ -272,6 +286,20 @@ class SinglePixel:
                 ray_angle = w.angle
             else:
                 ray_angle = w.angle + math.radians(180.)
+            # if self.f_dir[0] <= 0. and self.f_dir[1] <= 0: # neg and neg
+            #     print('neg and neg rendering', math.degrees(w.angle))
+            #     ray_angle = w.angle
+            # elif self.f_dir[0] <= 0. and self.f_dir[1] >= 0: # neg and pos
+            #     print('neg and pos rendering', math.degrees(w.angle))
+            #     ray_angle = w.angle 
+            # elif self.f_dir[0] >= 0. and self.f_dir[1] >= 0: # pos and neg
+            #     print('pos and neg rendering', math.degrees(w.angle))
+            #     ray_angle = w.angle
+            # else:
+            #     # pos and pos
+            #     ray_angle = w.angle #+ math.radians(90)
+            #     ray_angle = math.radians(180) + w.angle 
+            #     print('pos and pos rendering', math.degrees(w.angle))
 
             r = Ray(x,y, ray_angle)
             ret = geometry.check_ray_collision(r) # returns intensity [0,1], distance to wall

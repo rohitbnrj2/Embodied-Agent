@@ -1,3 +1,4 @@
+from cambrian.renderer.wall import Wall
 import numpy as np
 import math
 import pygame
@@ -80,6 +81,14 @@ def points_on_circumference(center = (0.0, 0.0), r: float = 50.0, n: int = 100, 
         _y = 1.0 * center[1] + (1.0 * math.sin(2 * math.pi/2 / n * x) * r)  # y
         pts.append([_x, _y])
     return pts
+
+def get_sensor_plane_angles(center, pts):
+    angles = []
+    for pt in pts: 
+        w = Wall(center, pt)
+        _ang = math.degrees(w.angle) # + 90.
+        angles.append(_ang)
+    return angles
 
 def name_to_fdir(dir):
     if dir == 'left':
