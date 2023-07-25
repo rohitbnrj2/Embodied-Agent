@@ -246,5 +246,5 @@ if __name__ == "__main__":
         if c or oob:
             break
         
-        break
+        # break
     sim.render(current_canvas=False)

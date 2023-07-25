@@ -188,7 +188,7 @@ class SinglePixel:
         if self.animal_direction == 'left':
             angle_r = np.clip(angle_r, math.radians(0), math.radians(80))
         elif self.animal_direction == 'right':
-            angle_r = np.clip(angle_r, math.radians(110), math.radians(270))
+            angle_r = np.clip(angle_r, math.radians(110), math.radians(180))
         else:
             raise ValueError("{} not found.".format(self.animal_direction))
         return angle_r
