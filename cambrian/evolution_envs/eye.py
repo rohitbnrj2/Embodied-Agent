@@ -72,6 +72,7 @@ class SinglePixel:
         self.animal_idx = self.config.animal_idx
         ##### Parameters wrt the animal stored here for ease #####
         ##########################################################
+        self.fov_r = self._update_fov(self.fov_r)
         self.angle_r = self._update_angles(self.angle_r)
         self.f = (self.sensor_size/2) / (np.tan(self.fov_r/2)) # focal length
         # if self.f_dir[0] <= 0.:
@@ -118,6 +119,7 @@ class SinglePixel:
         self.animal_idx = config.animal_idx
         
         # update params
+        self.fov_r = self._update_fov(self.fov_r)
         self.angle_r = self._update_angles(self.angle_r)
         self.f_dir = (np.cos(self.angle_r), np.sin(self.angle_r)) # tuple 
         self.f = (self.sensor_size/2) / (np.tan(self.fov_r/2)) # focal length
@@ -169,23 +171,31 @@ class SinglePixel:
         self.y += dy
         self.position = np.array([[self.x], [self.y]])
 
+    def _update_fov(self, fov_r):
+        # update fov 
+        if self.imaging_model == 'simple':
+            fov_r = np.clip(fov_r, math.radians(90), math.radians(150)) 
+        elif self.imaging_model == 'lens':
+            fov_r = np.clip(fov_r, math.radians(30), math.radians(110)) 
+        else: 
+            ValueError("{} not found".format(self.imaging_model))
+        return fov_r
+
     def _update_angles(self, angle_r):
         """
         clips angles to avoid rendering issues...
         """
         if self.animal_direction == 'left':
-            angle_r = np.clip(angle_r, math.radians(0), math.radians(90))
-        if self.animal_direction == 'right':
-            angle_r = np.clip(angle_r, math.radians(90), math.radians(180))
+            angle_r = np.clip(angle_r, math.radians(0), math.radians(80))
+        elif self.animal_direction == 'right':
+            angle_r = np.clip(angle_r, math.radians(110), math.radians(270))
+        else:
+            raise ValueError("{} not found.".format(self.animal_direction))
         return angle_r
 
-    def update_pixel_config(self, dfov, dangle=None, dsensor_size=None):
+    def update_pixel_config(self, dfov=None, dangle=None, dsensor_size=None):
         if dfov: 
             self.fov_r += dfov
-            if self.imaging_model == 'lens':
-                self.fov_r = np.clip(self.fov_r, math.radians(30), math.radians(180))
-            elif self.imaging_model == 'simple':
-                self.fov_r = np.clip(self.fov_r, math.radians(90), math.radians(180))
 
         if dangle: 
             self.angle_r += dangle
@@ -194,12 +204,12 @@ class SinglePixel:
             self.sensor_size += dsensor_size
             self.sensor_size = np.clip(self.sensor_size, 10, 75)
 
+        self.fov_r = self._update_fov(self.fov_r)
         self.angle_r = self._update_angles(self.angle_r)
         self.f_dir = (np.cos(self.angle_r), np.sin(self.angle_r)) # tuple 
         self.f = (self.sensor_size/2) / (np.tan(self.fov_r/2)) # focal length
         self.rot = np.array([[math.cos(self.angle_r), math.sin(self.angle_r)], # rotation matrix
                              [-math.sin(self.angle_r), math.cos(self.angle_r)]])
-
 
     def _create_sensor_plane(self, num_photoreceptors):
         sensor_x = self.f * np.ones(num_photoreceptors) # will use these points to create a line
@@ -239,7 +249,7 @@ class SinglePixel:
         photoreceptors = []
         for i in range(self.num_photoreceptors):
             _ray = {}
-            distance_points, sub_rays = [], []
+            sub_rays = []
             x, y = self.sensor_line[0][i], self.sensor_line[1][i]
             total_radiance = 0.
             for ray_angle in angles: 
@@ -317,7 +327,6 @@ class SinglePixel:
                 # r.intensity = rgbfloat2grey(default_rgb)
                 # r.rgb = default_rgb
                 pass 
-
 
         return photoreceptors
     

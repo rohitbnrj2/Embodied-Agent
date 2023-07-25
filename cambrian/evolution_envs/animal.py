@@ -20,38 +20,40 @@ class OculozoicAnimal:
         self.pixels = []
 
         # constants 
-        self.mutation_types = ['add_photoreceptor', 'simple_to_lens', 'simple_to_lens', 'update_pixel']
+        self.mutation_types = ['add_photoreceptor', 'simple_to_lens', 'add_pixel', 'update_pixel']
         self.radius = self.config.radius
         self.max_num_eyes_per_side = self.config.max_num_eyes_per_side
         self.visual_acuity_sigma = self.config.visual_acuity_sigma
+        self.MINIMUM_NUM_PHOTORECEPTORS_FOR_LENS = 25
 
     def init_animal(self, mx, my):
         self.reset_position(mx, my)
-        self.num_pixels = 1
-        # Initialize positions on the eye
-        self.right_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side, direction='right')
+        self.right_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side*2, direction='right')
+        self.right_eye_pixels = self.right_eye_pixels[:self.max_num_eyes_per_side]
+        # self.right_eye_pixels.sort(key=lambda x: x[1:] ) #, reverse=True)
+        # self.right_eye_pixels.sort(reverse=True)
         self.right_eye_pixels_occupancy = np.zeros(len(self.right_eye_pixels))
-        self.right_angles = get_sensor_plane_angles(self.position, self.left_eye_pixels)
-        self.left_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side, direction='left')
+        # self.right_angles = get_sensor_plane_angles(self.position, self.left_eye_pixels)
+        self.left_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side*2, direction='left')
+        self.left_eye_pixels = self.left_eye_pixels[:self.max_num_eyes_per_side]
         self.left_eye_pixels_occupancy = np.zeros(len(self.left_eye_pixels))
-        self.left_angles = get_sensor_plane_angles(self.position, self.left_eye_pixels)
+        # self.left_angles = get_sensor_plane_angles(self.position, self.left_eye_pixels)
+        # Initialize eyes on the animal
+        self.num_pixels = 0 
+        for i in range (self.config.init_configuration.num_pixels):
+            imaging_model = self.config.init_configuration.imaging_model[i]
+            fov = self.config.init_configuration.fov[i]
+            angle = self.config.init_configuration.angle[i] 
+            sensor_size = self.config.init_configuration.sensor_size[i] # large sensor size 
+            direction = self.config.init_configuration.direction[i]
+            # if direction == 'right': 
+                # import pdb; pdb.set_trace()
+            self.num_pixels += 1
+            pixel_config = self.generate_pixel_config(imaging_model, fov, angle, direction=direction, sensor_size=sensor_size, 
+                                                    pixel_pos=None, pixel_idx = None) 
+            self.add_pixel(pixel_config)
 
-        imaging_model = 'simple'
-        fov = 120
-        _default_idx = -1 
-        pixel_idx = len(self.left_eye_pixels)
-        angle = 95. # self.left_angles[_default_idx] #0. #60
-        self.sensor_size = self.config.init_sensor_size # large sensor size 
-        self.left_eye_pixels_occupancy[_default_idx] = 1
-        pixel_pos = self.left_eye_pixels[_default_idx]
-        pixel_config = self.generate_pixel_config(imaging_model, fov, angle, direction='left', pixel_pos=pixel_pos, pixel_idx = pixel_idx) # should be looking left down
-
-        # self.right_eye_pixels_occupancy[_default_idx] = 1
-        # pixel_pos = self.right_eye_pixels[_default_idx]
-        # pixel_config = self.generate_pixel_config(imaging_model, fov, angle, direction='right', 
-        #                                           pixel_pos=pixel_pos, pixel_idx = pixel_idx) # should be looking left down
-        self.add_pixel(pixel_config)
-        # self.mutation_count += 1
+        self.num_pixels = len(self.pixels)
         self.mutation_chain = []
 
     def observe_scene(self, dx, dy, geometry):
@@ -65,6 +67,7 @@ class OculozoicAnimal:
         eye_out = []
         processed_eye_intensity = []
         num_photoreceptors_per_pixel = np.maximum(0, int(self.num_photoreceptors/self.num_pixels))
+        print("num_photoreceptors_per_pixel", num_photoreceptors_per_pixel)
         for i in range(self.num_pixels):
             final_intensity, raw_photoreceptor_output = self.pixels[i].render_pixel(dx, dy, 
                                                                    geometry,
@@ -98,6 +101,10 @@ class OculozoicAnimal:
             _mut.args = {'num_photoreceptors': self.num_photoreceptors}
 
         elif mutation_type == 'simple_to_lens':
+            if self.num_photoreceptors < self.MINIMUM_NUM_PHOTORECEPTORS_FOR_LENS: 
+                # cannot convert to lens if min photoreceptors is less 
+                print('Cannot convert to lens...')
+                return
             if mut_args.pixel_idx == None: 
                 # start from the first compound eye and incrementally add a lens, break after affing 
                 for i in range(self.num_pixels):
@@ -112,9 +119,16 @@ class OculozoicAnimal:
             _mut.args = {'cam_idx': mut_args.pixel_idx}
 
         elif mutation_type == 'add_pixel':
+            # check if a pixel can even be added. 
+            if len(self.pixels) + 1 > self.num_photoreceptors:
+                # cannot add one pixel per photoreceptor.
+                return 
+            
             if mut_args.direction is None: 
-                mut_args.direction = np.random.choice('left', 'right')
-            pixel_config = self.generate_pixel_config(mut_args.imaging_model, mut_args.fov, mut_args.angle, pixel_pos=None, direction=mut_args.direction)
+                mut_args.direction = np.random.choice(['left', 'right'])
+
+            pixel_config = self.generate_pixel_config(mut_args.imaging_model, mut_args.fov, mut_args.angle, direction=mut_args.direction, 
+                                                      sensor_size=mut_args.sensor_size, pixel_pos=None)
             self.add_pixel(pixel_config)
             _mut.args = {'imaging_model': mut_args.imaging_model, 'fov': mut_args.fov, 'angle': mut_args.angle, 
                          'pixel_pos': None, 'direction': mut_args.direction}
@@ -133,7 +147,7 @@ class OculozoicAnimal:
         else:
             raise ValueError("{} not found".format(mutation_type))
         
-        self.mutation_chain.append(_mut)
+        self.mutation_chain.append(_mut) 
 
     def add_pixel(self, pixel_config):
         if self.num_photoreceptors < self.num_pixels: 
@@ -144,11 +158,11 @@ class OculozoicAnimal:
         self.pixels.append(pixel)
         self.num_pixels = len(self.pixels)
 
-    def remove_pixel(self, ):
-        self.num_pixels -= 1
-        self.pixels.pop()
+    # def remove_pixel(self, ):
+    #     self.num_pixels -= 1
+    #     self.pixels.pop()
 
-    def generate_pixel_config(self, imaging_model, fov, angle, direction, pixel_pos=None, pixel_idx=None):
+    def generate_pixel_config(self, imaging_model, fov, angle, direction, sensor_size, pixel_pos=None, pixel_idx=None):
         """
         Generate a pixel configuration. The pixel config takes in eye properties 
         and a pixel position and index on the animal. If none, it will sample the closest 
@@ -157,17 +171,16 @@ class OculozoicAnimal:
         config = Prodict()
         if pixel_pos is None: 
             pixel_pos, pixel_idx = self._sample_new_pixel_position(direction)
-
-        print(pixel_idx)
-
+        
+        print(pixel_pos, pixel_idx)
         config.x = pixel_pos[0]
         config.y = pixel_pos[1]
-        config.sensor_size = self.sensor_size
+        config.sensor_size = sensor_size
         config.fov = fov
         config.angle = angle
         config.animal_direction = direction
         config.animal_idx = pixel_idx
-        num_photoreceptprs_per_pixel = int(self.num_photoreceptors/self.num_pixels)
+        num_photoreceptprs_per_pixel = np.maximum(0, int(self.num_photoreceptors/self.num_pixels))
         config.visual_acuity = num_photoreceptprs_per_pixel/self.visual_acuity_sigma
         config.imaging_model = imaging_model
         config.diffuse_sweep_rays = self.config.diffuse_sweep_rays
@@ -247,20 +260,23 @@ class OculozoicAnimal:
         self.right_eye_pixels += np.array([dx, dy])
         self.left_eye_pixels += np.array([dx, dy])
 
-    def _sample_new_pixel_position(self, direction='left'):
+    def _sample_new_pixel_position(self, direction):
         if direction == 'left':
-            idx = get_idx(self.left_eye_pixels_occupancy)
+            idx = get_idx_simple(self.left_eye_pixels_occupancy)
+            # idx = get_idx(self.left_eye_pixels_occupancy)
             if idx is None: 
                 return None 
             pixel_pos = self.left_eye_pixels[idx]
             self.left_eye_pixels_occupancy[idx] = 1
-        else:
+        elif direction == 'right':
             idx = get_idx_simple(self.right_eye_pixels_occupancy)
             # idx = get_idx(self.right_eye_pixels_occupancy)
             if idx is None: 
                 return None 
             pixel_pos = self.right_eye_pixels[idx]
             self.right_eye_pixels_occupancy[idx] = 1
+        else:
+            raise ValueError("not found {}".format(direction))
 
         return pixel_pos, idx
 
@@ -269,8 +285,8 @@ class OculozoicAnimal:
         print("Animal has {} eyes with {} photoreceptors.".format(self.num_pixels, self.num_photoreceptors))
         for i, p in enumerate(self.pixels): 
             print(
-                "Eye {} with type {} looking {}, fov: {}, angle: {}, sensor size: {}.".format(
-                    i, p.imaging_model, p.animal_direction, degrees(p.fov_r), degrees(p.angle_r), p.sensor_size
+                "Eye {} with type {} looking {} at pixel pos {} fov: {}, angle: {}, sensor size: {}.".format(
+                    i, p.imaging_model, p.animal_direction, p.animal_idx , degrees(p.fov_r), degrees(p.angle_r), p.sensor_size
                 )
             )
         print('--------------------')
