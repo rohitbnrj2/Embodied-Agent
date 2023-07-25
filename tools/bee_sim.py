@@ -189,7 +189,7 @@ if __name__ == "__main__":
     sim.init_animal(init_pos=None)
     print("num walls", len(sim.maze.walls))
     # simulate a trajectory of 100 steps going forward  
-    num_steps = 10 #00# 270
+    num_steps = 30 #00# 270
     p = 0
 
     st = time.time()
@@ -200,11 +200,11 @@ if __name__ == "__main__":
 
         #####
         mut_type = np.random.choice(sim.animal.mutation_types)
-        mut_type = 'simple_to_lens'
+        # mut_type = 'simple_to_lens'
         # if i >= 1: 
         #     mut_type = 'update_pixel'
         # if i >= 5: 
-        #     mut_type = 'add_pixel'
+        # mut_type = 'add_pixel'
 
         if mut_type == 'add_photoreceptor':
             mut_args = None
@@ -217,7 +217,7 @@ if __name__ == "__main__":
             mut_args.imaging_model = np.random.choice(['simple', 'lens'])
             mut_args.direction = np.random.choice(['left', 'right'])
             mut_args.fov = 120.
-            mut_args.sensor_size = 50.
+            mut_args.sensor_size = 5.
             if mut_args.direction == 'left':
                 mut_args.angle = math.radians(np.random.uniform(0, 90.))
             elif mut_args.direction == 'right':

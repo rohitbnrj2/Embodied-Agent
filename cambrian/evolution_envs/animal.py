@@ -28,20 +28,23 @@ class OculozoicAnimal:
 
     def init_animal(self, mx, my):
         self.reset_position(mx, my)
-        self.right_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side*2, direction='right')
-        self.right_eye_pixels = self.right_eye_pixels[:self.max_num_eyes_per_side]
+        self.right_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side, direction='right')
+        # self.right_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side*2, direction='right')
+        # self.right_eye_pixels = self.right_eye_pixels[:self.max_num_eyes_per_side]
         # self.right_eye_pixels.sort(key=lambda x: x[1:] ) #, reverse=True)
         # self.right_eye_pixels.sort(reverse=True)
         self.right_eye_pixels_occupancy = np.zeros(len(self.right_eye_pixels))
         # self.right_angles = get_sensor_plane_angles(self.position, self.left_eye_pixels)
-        self.left_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side*2, direction='left')
+        self.left_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side, direction='left')
+        # self.left_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side*2, direction='left')
         self.left_eye_pixels = self.left_eye_pixels[:self.max_num_eyes_per_side]
         self.left_eye_pixels_occupancy = np.zeros(len(self.left_eye_pixels))
         # self.left_angles = get_sensor_plane_angles(self.position, self.left_eye_pixels)
         # Initialize eyes on the animal
         self.num_pixels = 0 
         for i in range (self.config.init_configuration.num_pixels):
-            imaging_model = self.config.init_configuration.imaging_model[i]
+            imaging_model = self.config.init_configuration.imaging_model[i] 
+            # assert imaging_model == 'simple'
             fov = self.config.init_configuration.fov[i]
             angle = self.config.init_configuration.angle[i] 
             sensor_size = self.config.init_configuration.sensor_size[i] # large sensor size 
@@ -150,9 +153,11 @@ class OculozoicAnimal:
         self.mutation_chain.append(_mut) 
 
     def add_pixel(self, pixel_config):
+        if pixel_config is None: 
+            return 
+        
         if self.num_photoreceptors < self.num_pixels: 
             # atleast one photoreceptor per pixel
-            # print("atleast one photoreceptor per pixel")
             return 
         pixel = SinglePixel(pixel_config)
         self.pixels.append(pixel)
@@ -170,7 +175,10 @@ class OculozoicAnimal:
         """
         config = Prodict()
         if pixel_pos is None: 
-            pixel_pos, pixel_idx = self._sample_new_pixel_position(direction)
+            ret = self._sample_new_pixel_position(direction)
+            if ret is None: 
+                return None
+            pixel_pos, pixel_idx = ret
         
         print(pixel_pos, pixel_idx)
         config.x = pixel_pos[0]
