@@ -18,21 +18,27 @@ class Maze:
         self.y_scale_factor = self.cfg.y_scale_factor
         self.binarize_colors = self.cfg.binarize_colors
         self.grey = self.cfg.grey
+        self.window_size = self.cfg.window_size
+        self.font = pygame.font.SysFont('Arial', 20)
+
 
         maze_img = Image.open(self.cfg.load_path)
-        w, h = maze_img.size
-        maze_img = maze_img.resize((int(w/8) + 1, int(h/8)+ 1))
-        maze_img_array = np.array(maze_img)
-        maze_img_array = maze_img_array[:,:,1]
-        maze_img_array = np.swapaxes(maze_img_array, 0, 1) #pygame has opposite convention for x,y
-        h, w = maze_img_array.shape[0], maze_img_array.shape[1]
+        maze_img = np.array(maze_img)
+        maze_img = maze_img[:,:, :3]
+        maze_img = np.swapaxes(maze_img, 0, 1)
+        
+        yellow_pixels = []
+        green_pixels = []
+        h, w = maze_img.shape[0], maze_img.shape[1]
         self.walls = []
         self.maze = []
         
-        for x in range(h):
-            for y in range(w):
-                if int(maze_img_array[x,y])/255. < 0.995:
-                    wall_ = pygame.Rect(self.x_scale_factor*x, self.y_scale_factor*y, self.x_scale_factor, self.y_scale_factor)
+        for i in range(maze_img.shape[0]):
+            for j in range(maze_img.shape[1]):
+                
+                if list(maze_img[i,j,:]) == [0,0,0]:
+                    wall_ = pygame.Rect(self.x_scale_factor*i, self.y_scale_factor*j,
+                                        self.x_scale_factor, self.y_scale_factor)
                     self.walls.append(wall_)
                     _dict = {
                         'color' : np.array(self._sample_colors()).astype(np.uint8),
@@ -40,14 +46,16 @@ class Maze:
                     }
                     self.maze.append(Prodict.from_dict(_dict))
                     
-        
-        h = self.y_scale_factor*h
-        w = self.x_scale_factor*w
-        self.tunnel_width = h
-        
-        self.goal_start_pos = [h/2 - 2, 40]
-        self.goal_end_pos = [h/2 + 2, w]
-        self.window_size = [h,w]
+                elif list(maze_img[i,j,:]) == [250,255,8]:
+                    yellow_pixels.append((self.x_scale_factor*i, self.y_scale_factor*j))
+                
+                elif list(maze_img[i,j,:]) == [0,255,11]:
+                    green_pixels.append((self.x_scale_factor*i, self.y_scale_factor*j))
+                    
+        self.goal_start_pos = random.choice(yellow_pixels)
+        self.goal_end_pos = random.choice(green_pixels)
+        self.window_size = self.window_size
+        self.tunnel_width = self.window_size[0]
         print(f"Creating Maze with {len(self.walls)} Walls fo size ({h, w})!")
 
     def _sample_colors(self,):
@@ -112,4 +120,19 @@ class Maze:
         pygame.draw.circle(work_surface,(0,255,0), self.goal_end_pos, 20)
         for rect in self.maze: 
             pygame.draw.rect(work_surface, rect.color, rect.wall)
+        return work_surface
+    
+    def render_intensity(self, work_surface, processed_eye):
+        # draw the intensities 
+        n_cams = len(processed_eye)
+        for ct, p_intensity in enumerate(processed_eye):
+            # print("p_intensity", p_intensity)
+            p_intensity = (p_intensity * 255).astype(np.uint8)
+            color = pygame.Color([p_intensity,p_intensity,p_intensity])
+            
+            rect = pygame.Rect(self.window_size[0] - 300 + 300*(ct/n_cams), self.window_size[1]-100, 300*(ct/n_cams), 100)
+            pygame.draw.rect(work_surface, color, rect)
+            text = self.font.render('Pixel: {}'.format(ct), True, (255,0,0))
+            work_surface.blit(text, (self.window_size[0] - 300 + 300*(ct/n_cams), self.window_size[1]-100))
+
         return work_surface

@@ -42,6 +42,7 @@ class SinglePixel:
 
         ##########################################
         ###### Some Constants 
+        self.constraint_angles = False
         self.ALLOWED_ANGLES = [0. , 15., 30. , 45., 60. , 75., 120. , 135. , 150. , 180.]
         for i in range(len(self.ALLOWED_ANGLES)):
             self.ALLOWED_ANGLES[i] = math.radians(self.ALLOWED_ANGLES[i])
@@ -128,37 +129,49 @@ class SinglePixel:
 
 
     def render_pixel(self, dx, dy, geometry, num_photoreceptors, 
-                     photon_noise=False, scale_final_intensity=False, 
+                     photon_noise=False, scale_final_intensity=True, 
                      visual_accuity=False, distance_weight=False):
+        """
+        final_intensity: 
+            - Adds up radiance from each of the photoreceptors. 
+        raw_photoreceptor_output: 
+            - List of Dicts: 
+                - Rays: [list of rays that make up the photoreceptor]
+                - intensity: intensity of the photoreceptor
+        """
         # set num photoreceptors
         self.num_photoreceptors = num_photoreceptors
         # self.fixed_incident_photon_flux = int(self.num_photoreceptors/10) # 1/10th of the total flux
 
         final_intensity = 0.
-
         raw_photoreceptor_output = self.render(dx, dy, geometry)
-        if self.imaging_model == 'lens':
-            raw_photoreceptor_output = self.forward_model(raw_photoreceptor_output, visual_accuity, distance_weight)
 
-        for r in raw_photoreceptor_output:
-            final_intensity += r.raw_radiance
+        if len(raw_photoreceptor_output) > 0: 
+            if self.imaging_model == 'lens':
+                raw_photoreceptor_output = self.forward_model(raw_photoreceptor_output, visual_accuity, distance_weight)
 
-        if photon_noise:
-            # add camera noise, each ray is a photon striking the eye
-            final_intensity = self.add_camera_noise(final_intensity)
+            for r in raw_photoreceptor_output:
+                final_intensity += r.raw_radiance
 
-        # scale by num_photoreceptors (should be turned off with aperture)
-        if scale_final_intensity:
-            final_intensity = final_intensity/self.num_photoreceptors
+            if photon_noise:
+                # add camera noise, each ray is a photon striking the eye
+                final_intensity = self.add_camera_noise(final_intensity)
 
-        if not photon_noise:
-            # add some noise, if photon noise is disabled
-            final_intensity += np.random.normal(loc=0, scale=0.1)
+            # scale by num_photoreceptors (should be turned off with aperture)
+            if scale_final_intensity:
+                # import pdb; pdb.set_trace()
+                # final_intensity = final_intensity/self.num_photoreceptors
+                final_intensity = final_intensity/len(raw_photoreceptor_output)
 
-        # clip to 0,1
-        # final_intensity = np.clip(final_intensity, 0., 1.0)
+            if not photon_noise:
+                # add some noise, if photon noise is disabled
+                final_intensity += np.random.normal(loc=0, scale=0.1)
 
-        # one idea could be to look at each ray as a photoreceptor -> instead of just outputing the final intensity! 
+            # clip to 0,1
+            # final_intensity = np.clip(final_intensity, 0., 1.0)
+
+        # one idea could be to look at each ray as a photoreceptor -> instead of just outputing the final intensity!
+        final_intensity = np.clip(final_intensity, 0, 1)
         return final_intensity, raw_photoreceptor_output
 
     def reset_position(self, mx, my):
@@ -185,12 +198,13 @@ class SinglePixel:
         """
         clips angles to avoid rendering issues...
         """
-        if self.animal_direction == 'left':
-            angle_r = np.clip(angle_r, math.radians(0), math.radians(80))
-        elif self.animal_direction == 'right':
-            angle_r = np.clip(angle_r, math.radians(110), math.radians(180))
-        else:
-            raise ValueError("{} not found.".format(self.animal_direction))
+        if self.constraint_angles: 
+            if self.animal_direction == 'left':
+                angle_r = np.clip(angle_r, math.radians(0), math.radians(80))
+            elif self.animal_direction == 'right':
+                angle_r = np.clip(angle_r, math.radians(110), math.radians(180))
+            else:
+                raise ValueError("{} not found.".format(self.animal_direction))
         return angle_r
 
     def update_pixel_config(self, dfov=None, dangle=None, dsensor_size=None):
@@ -266,7 +280,8 @@ class SinglePixel:
                     # don't append the ray.. just ignore it.
                     pass 
 
-            _ray['raw_radiance'] = total_radiance # intensity per photoreceptor
+            _ray['raw_radiance'] = total_radiance/self.DIFFUSE_SWEEP_RAYS # intensity per photoreceptor
+            # _ray['raw_radiance'] = total_radiance # intensity per photoreceptor
             _ray['rays'] = sub_rays
             photoreceptors.append(Prodict.from_dict(_ray))
 
@@ -292,10 +307,22 @@ class SinglePixel:
             _ray = {}
             x, y = self.sensor_line[0][i], self.sensor_line[1][i]
             w = Wall((x,y), (self.x, self.y))
+            # angle = math.atan2( y - self.y, x - self.x)
             if self.f_dir[0] <= 0.:
                 ray_angle = w.angle
+                # ray_angle = angle
             else:
                 ray_angle = w.angle + math.radians(180.)
+                # ray_angle = angle + math.radians(180.)
+
+            # hacky fix since this is annoying... 
+            if ray_angle > 250 and ray_angle < 290:
+                if np.abs(290 - ray_angle) < np.abs(250 - ray_angle):
+                    ray_angle = 290
+                    continue 
+                else:
+                    ray_angle = 250
+                    continue 
             # if self.f_dir[0] <= 0. and self.f_dir[1] <= 0: # neg and neg
             #     print('neg and neg rendering', math.degrees(w.angle))
             #     ray_angle = w.angle

@@ -15,3 +15,6 @@ Run Optimization:
 ```
 upcoming!
 ```
+
+## NOTES
+Angle of 0 degrees points left because the sensor plane is straight. 180 is looking right. 

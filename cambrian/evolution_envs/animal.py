@@ -1,6 +1,8 @@
 import json
 from math import degrees, radians
+import math
 from pathlib import Path
+from cambrian.renderer.wall import Wall
 from cambrian.utils.utils import NumpyEncoder
 import numpy as np
 from typing import List, Tuple
@@ -25,6 +27,7 @@ class OculozoicAnimal:
         self.max_num_eyes_per_side = self.config.max_num_eyes_per_side
         self.visual_acuity_sigma = self.config.visual_acuity_sigma
         self.MINIMUM_NUM_PHOTORECEPTORS_FOR_LENS = 25
+        self.angle_overwrite_to_normal = self.config.angle_overwrite_to_normal
 
     def init_animal(self, mx, my):
         self.reset_position(mx, my)
@@ -70,7 +73,7 @@ class OculozoicAnimal:
         eye_out = []
         processed_eye_intensity = []
         num_photoreceptors_per_pixel = np.maximum(0, int(self.num_photoreceptors/self.num_pixels))
-        print("num_photoreceptors_per_pixel", num_photoreceptors_per_pixel)
+        # print("num_photoreceptors_per_pixel", num_photoreceptors_per_pixel)
         for i in range(self.num_pixels):
             final_intensity, raw_photoreceptor_output = self.pixels[i].render_pixel(dx, dy, 
                                                                    geometry,
@@ -180,12 +183,28 @@ class OculozoicAnimal:
                 return None
             pixel_pos, pixel_idx = ret
         
-        print(pixel_pos, pixel_idx)
+        # print("pixel_pos, pixel_idx", pixel_pos, pixel_idx)
         config.x = pixel_pos[0]
         config.y = pixel_pos[1]
         config.sensor_size = sensor_size
         config.fov = fov
-        config.angle = angle
+        if self.angle_overwrite_to_normal: 
+            # compute the line between center of bee and the pixel position. 
+            # that line's angle is the angle of the camera s.t 
+            # it points along the line.
+            if direction == 'left':
+                pos = self.left_eye_pixels[pixel_idx]
+            elif direction == 'right':
+                pos = self.right_eye_pixels[pixel_idx]
+
+            angle = degrees(math.atan2( pos[1] - self.position[1], pos[0] - self.position[0]))
+            angle = 180. - angle
+            config.angle = angle
+        else:
+            config.angle = angle
+
+        # config.angle = 300.
+
         config.animal_direction = direction
         config.animal_idx = pixel_idx
         num_photoreceptprs_per_pixel = np.maximum(0, int(self.num_photoreceptors/self.num_pixels))

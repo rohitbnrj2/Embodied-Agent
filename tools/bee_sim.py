@@ -158,6 +158,8 @@ class BeeSimulator:
             work_surface = self.maze.render(work_surface=work_surface)
             # save images 
             raw_eye_out = self.sim_states.animal_raw_obsevations_rollout[idx]
+            processed_eye = self.sim_states.animal_obsevations_rollout[idx]
+            work_surface = self.maze.render_intensity(work_surface, processed_eye)
             # import pdb; pdb.set_trace()
             if not self.cfg.sim_config.use_display:
                 for raw_photoreceptor_output in raw_eye_out:
@@ -189,8 +191,8 @@ if __name__ == "__main__":
     sim.init_animal(init_pos=None)
     print("num walls", len(sim.maze.walls))
     # simulate a trajectory of 100 steps going forward  
-    num_steps = 30 #00# 270
-    p = 0
+    num_steps = 10 #30 #00# 270
+    p = 5
 
     st = time.time()
     for i in tqdm.tqdm(range(num_steps)):
@@ -204,7 +206,8 @@ if __name__ == "__main__":
         # if i >= 1: 
         #     mut_type = 'update_pixel'
         # if i >= 5: 
-        # mut_type = 'add_pixel'
+        mut_type = 'add_pixel'
+        # mut_type = 'add_photoreceptor'
 
         if mut_type == 'add_photoreceptor':
             mut_args = None
@@ -215,13 +218,15 @@ if __name__ == "__main__":
         elif mut_type == 'add_pixel':
             mut_args = Prodict() 
             mut_args.imaging_model = np.random.choice(['simple', 'lens'])
-            mut_args.direction = np.random.choice(['left', 'right'])
-            mut_args.fov = 120.
+            mut_args.imaging_model = np.random.choice(['lens'])
+            mut_args.direction = np.random.choice(['right'])
+            # mut_args.direction = np.random.choice(['left', 'right'])
+            mut_args.fov = 45.
             mut_args.sensor_size = 5.
             if mut_args.direction == 'left':
-                mut_args.angle = math.radians(np.random.uniform(0, 90.))
+                mut_args.angle = None #np.random.uniform(0, 90.)
             elif mut_args.direction == 'right':
-                mut_args.angle = math.radians(np.random.uniform(100, 180.))
+                mut_args.angle = None #np.random.uniform(110, 180.)
             else:
                 raise ValueError("??")
 

@@ -38,27 +38,35 @@ sim_config:
   collision_threshold: 25
 
 animal_config: 
-  init_photoreceptors: 2 # has to be atleast one photoreceptor per pixel
+  init_photoreceptors: 100 # has to be atleast one photoreceptor per pixel
   increment_photoreceptor: 5
   max_photoreceptors: 100
   radius: 20
+  angle_overwrite_to_normal: True
   max_num_eyes_per_side: 10
   visual_acuity_sigma: 5
   init_sensor_size: 50
   total_intensity_output_only: False
   diffuse_sweep_rays: 20
   init_configuration: 
-    num_pixels: 2
-    fov: [150, 150]
-    angle: [180, 80]
-    sensor_size: [5, 5]
-    direction: ['right', 'left']
-    imaging_model: ['simple', 'simple']
+    num_pixels: 1
+    fov: [10]
+    angle: [90]
+    sensor_size: [5]
+    direction: ['right']
+    imaging_model: ['lens']
+    # fov: [150, 150]
+    # angle: [180, 80]
+    # sensor_size: [5, 5]
+    # direction: ['right', 'left']
+    # imaging_model: ['lens', 'simple']
   
 scene_config:
- load_path : "./mazes/first_maze.png"
- x_scale_factor : 15
- y_scale_factor : 15
+ load_path : "/Users/ktiwary/mit/flatland-bee/new_mazes_paint/right_turn_constant_width.png"
+ x_scale_factor : 2
+ y_scale_factor : 2
+ window_size: [1200, 600]
+#  window_size: [1366, 768]
  binarize_colors: true
  grey: true
 
