@@ -316,12 +316,14 @@ class SinglePixel:
                 # ray_angle = angle + math.radians(180.)
 
             # hacky fix since this is annoying... 
-            if ray_angle > 250 and ray_angle < 290:
-                if np.abs(290 - ray_angle) < np.abs(250 - ray_angle):
-                    ray_angle = 290
+            _min_angle_ = 220
+            _max_angle_ = 300
+            if ray_angle > _min_angle_ and ray_angle < _max_angle_:
+                if np.abs(_max_angle_ - ray_angle) < np.abs(_min_angle_ - ray_angle):
+                    ray_angle = _max_angle_
                     continue 
                 else:
-                    ray_angle = 250
+                    ray_angle = _min_angle_
                     continue 
             # if self.f_dir[0] <= 0. and self.f_dir[1] <= 0: # neg and neg
             #     print('neg and neg rendering', math.degrees(w.angle))

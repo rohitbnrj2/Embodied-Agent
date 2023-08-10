@@ -32,8 +32,9 @@ class OculozoicAnimal:
     def init_animal(self, mx, my):
         self.reset_position(mx, my)
         self.right_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side, direction='right')
+        self.right_eye_pixels = self.right_eye_pixels[:self.max_num_eyes_per_side]
+        
         # self.right_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side*2, direction='right')
-        # self.right_eye_pixels = self.right_eye_pixels[:self.max_num_eyes_per_side]
         # self.right_eye_pixels.sort(key=lambda x: x[1:] ) #, reverse=True)
         # self.right_eye_pixels.sort(reverse=True)
         self.right_eye_pixels_occupancy = np.zeros(len(self.right_eye_pixels))

@@ -25,7 +25,10 @@ class BeeSimulator:
     def __init__(self, config_file, cfg=None):
         if config_file is None: 
             # initilize directly from cfg dict instead of file
-                self.cfg = Prodict.from_dict(cfg)
+                if isinstance(cfg, dict):
+                    self.cfg = Prodict.from_dict(cfg)
+                else:
+                    self.cfg = cfg
         else:
             with open(config_file, "r") as ymlfile:
                 self.cfg = yaml.load(ymlfile, Loader=yaml.Loader)
@@ -53,7 +56,7 @@ class BeeSimulator:
             init_pos = self.maze.goal_start_pos
         self.animal.init_animal(init_pos[0], init_pos[1])
 
-    def reset_simulator(self, bee_init_pos, reset_animal=False, reset_maze=False, 
+    def reset_simulator(self, bee_init_pos=None, reset_animal=False, reset_maze=False, 
                         randomize_colors=True, scene_config=None, animal_config=None): 
         # resets the environment
         if reset_maze:
@@ -67,14 +70,13 @@ class BeeSimulator:
                 raise ValueError("animal config cannot be none")
             self.animal = OculozoicAnimal(animal_config)
 
+        if bee_init_pos is None: 
+            bee_init_pos = self.maze.goal_start_pos
+
         self.animal.reset_position(bee_init_pos[0], bee_init_pos[1])
         self.sim_states = self._reset_sim_states()
 
     def step(self, dx, dy):
-        # print("Time per render all cameras {}".format(tt))
-        # print("length of cameras: ", self.renderer.cameras)
-        # print("length of walls: ", len(self.maze.walls))
-
         # check collision
         processed_eye_intensity, eye_out = self.animal.observe_scene(dx, dy, self.maze)
         # pdb.set_trace()
@@ -237,8 +239,8 @@ if __name__ == "__main__":
             mut_args.angel_r_update = math.radians(np.random.uniform(-10,10)) #math.radians(-10)
             mut_args.sensor_update = None
 
-        print('mutating animal with op: {}'.format(mut_type))
-        sim.animal.mutate(mut_type, mut_args=mut_args)
+        # print('mutating animal with op: {}'.format(mut_type))
+        # sim.animal.mutate(mut_type, mut_args=mut_args)
         sim.animal.print_state()
         # sim.animal.save_animal_state(sim.logdir)
 
