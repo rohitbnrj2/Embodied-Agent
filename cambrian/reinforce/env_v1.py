@@ -1,6 +1,8 @@
 from pathlib import Path
 import pdb
 import random
+from cambrian.utils.renderer_utils import map_one_range_to_other
+from cambrian.utils.rl_utils import SaveOnBestTrainingRewardCallback
 import numpy as np
 import sys
 from prodict import Prodict
@@ -243,18 +245,18 @@ class BeeEnv(gym.Env):
             self.obs_position_history.appendleft(_pos) # append new positoin 
 
         # save prev location since we take 10 steps in the same direction. 
-        self.prev_sim_x = self.sim.x
-        self.prev_sim_y = self.sim.y
+        self.prev_sim_x = self.sim.animal.x
+        self.prev_sim_y = self.sim.animal.y
         curr_obs = []
 
         # Get Observations for N steps 
         for i in range(self.cfg.env_config.steps_per_measurment):
-            cur_cam_intensities , c, ob = self.sim.step(dx, dy)
+            processed_eye_intensity, raw_eye_out , c, ob = self.sim.step(dx, dy)
             
             cur_intensities = []
             
-            for i in range(self.n_cams):
-                cur_intensities.append(cur_cam_intensities[f"cam_{i}"])
+            for ct, p_intensity in enumerate(processed_eye_intensity):
+                cur_intensities.append(p_intensity)
                 
             _pval = np.array(cur_intensities).astype(np.float32)
             curr_obs.append(_pval)
@@ -282,6 +284,7 @@ class BeeEnv(gym.Env):
         # _rect_x = self.sim.window_size[0]
         _rect_y = self.sim.tunnel.goal_end_pos[1]
         # should get close to the bottom!
+        # _GOAL_THRESHOLD_ = _rect_y * 0.6 # 60 percent of the way there.
         _GOAL_THRESHOLD_ = _rect_y * 0.1 # 90 percent of the way there.
         if np.abs(self.sim.y - _rect_y) < _GOAL_THRESHOLD_: 
             # if it is inside a 50 pixel radius
@@ -293,9 +296,9 @@ class BeeEnv(gym.Env):
             # print(obs_intensity, obs_intensity.min(), obs_intensity.max())
             # pdb.set_trace()
             obs_intensity = map_one_range_to_other(obs_intensity, 
-                                                            0., 1., 
-                                                            obs_intensity.min(), 
-                                                            obs_intensity.max())
+                                                   0., 1., 
+                                                   obs_intensity.min(), 
+                                                   obs_intensity.max())
         else:
             # noramlize left and right seperately 
             obs_intensity[:,0] = map_one_range_to_other(obs_intensity[:,0], 0, 1, 
@@ -335,7 +338,7 @@ class BeeEnv(gym.Env):
 
         self.episode_step +=1 
 
-        return obs_space['intensity'] , reward, done, {}
+        return obs_space , reward, done, {}
 
     def _fixed_n_steps(self, rg, collision, out_of_bounds):
         done = False
@@ -346,13 +349,13 @@ class BeeEnv(gym.Env):
             reward = 5.0 
         elif collision or out_of_bounds: 
             done = True 
-            reward = -2.0
+            reward = -1.0
         else: 
-            MAX_STEPS = 50 + int(self.sim.window_size[1]/self.cfg.env_config.steps_per_measurment)
+            MAX_STEPS = 100 #+ int(self.sim.window_size[1]/self.cfg.env_config.steps_per_measurment)
             if self.episode_step > MAX_STEPS: 
                 done = True 
                 #reward = -1.0 * np.abs(self.sim.window_size[1] - self.sim.y)/self.sim.window_size[1]
-                reward = -1.0
+                reward = -2.0
             else:
                 # reward = 0.1 # incentivizes staying alive
                 #reward = 1.0 - np.abs(self.sim.window_size[1] - self.sim.y)/self.sim.window_size[1]
@@ -431,18 +434,16 @@ if __name__ == "__main__":
         # ------------ LOAD PPO MODEL FROM CHECKPOINT ------------
     else:
         print("Init policy from Scratch")
-        """
         policy_kwargs = dict(activation_fn=torch.nn.ReLU,
                      net_arch=[128, 256, 256, dict(vf=[256, 128, 128], pi=[256, 128, 128])])
-        """
+        # policy_kwargs = dict(activation_fn=torch.nn.ReLU,
+        #              net_arch=[128, 256, dict(vf=[256, 128], pi=[256, 128])])
         # Create the agent
-        policy_kwargs = dict(features_extractor_class= Cam_Shared_Feature_Extractor,
-                             features_extractor_kwargs=dict(features_dim = cfg.imaging.camera_properties.n_cams),)
         model = PPO("MultiInputPolicy",
                 env,
                 n_steps=cfg.env_config.n_steps,
                 batch_size=cfg.env_config.batch_size,
-                policy_kwargs=policy_kwargs,
+                # policy_kwargs=policy_kwargs,
                 verbose=2)
 
     timesteps = 1e12

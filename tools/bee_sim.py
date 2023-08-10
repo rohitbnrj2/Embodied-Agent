@@ -86,7 +86,7 @@ class BeeSimulator:
         self._update_state_dict(self.animal.x, self.animal.y, 
                                 processed_eye_intensity, eye_out, 
                                 is_collision, out_of_bounds)
-        return eye_out, is_collision, out_of_bounds
+        return processed_eye_intensity, eye_out, is_collision, out_of_bounds
 
     def render(self, current_canvas=True, render_video=True, overwrite_path = None):
         if current_canvas: 
@@ -241,12 +241,12 @@ if __name__ == "__main__":
 
         # print('mutating animal with op: {}'.format(mut_type))
         # sim.animal.mutate(mut_type, mut_args=mut_args)
-        sim.animal.print_state()
+        # sim.animal.print_state()
         # sim.animal.save_animal_state(sim.logdir)
 
         for j in range (1):
         # for j in range (sim.cfg.env_config.steps_per_measurment):
-            _, c, oob = sim.step(dx, dy) # go down 
+            _, _, c, oob = sim.step(dx, dy) # go down 
             if c or oob:
                 print("out of bounds: {}; collision: {}".format(oob, c))
                 break

@@ -4,7 +4,7 @@ env_config:
   n_steps: 800000 #65536 #16384 #8192
   load_from_ppo_checkpoint: false
   ppo_checkpoint_path: None
-  seed: 424041
+  seed: 414241
   num_cpu: 70
   batch_size: 64
   check_freq: 64
@@ -12,7 +12,7 @@ env_config:
   num_pixels_per_step: 3
   min_spatial_freq: 5 #5
   max_spatial_freq: 6 #20
-  observation_size: 10
+  observation_size: 5
   steps_per_measurment: 10
   left_aperture_size: 11
   right_aperture_size: 11
@@ -20,7 +20,7 @@ env_config:
   normalize_obs_max_obs_value: false # normalize_obs with the max value in observation space
   contininous_action_space: true
   add_action_to_obs_space: false
-  add_pos_to_obs_space: false
+  add_pos_to_obs_space: true
   add_goal_pos_to_obs_space: true
 
 sim_config: 
