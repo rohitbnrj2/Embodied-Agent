@@ -8,7 +8,6 @@ env_config:
   num_cpu: 70
   batch_size: 64
   check_freq: 64
-  max_steps_per_episode: 5
   num_pixels_per_step: 3
   min_spatial_freq: 5 #5
   max_spatial_freq: 6 #20
@@ -22,6 +21,7 @@ env_config:
   add_action_to_obs_space: false
   add_pos_to_obs_space: false
   add_goal_pos_to_obs_space: true
+  max_steps_per_episode: 50
 
 sim_config: 
   window_size: [800, 800]

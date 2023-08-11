@@ -1,9 +1,9 @@
 env_config: 
-  exp_name: "ten_coumpound_eyes_v1_30deg"
+  exp_name: "ten_coumpound_eyes_v1_30deg_scratch_2k_max_steps"
   logdir: "./logs/"
   n_steps: 800000 #65536 #16384 #8192
   load_from_ppo_checkpoint: false
-  ppo_checkpoint_path: "logs/ten_coumpound_eyes_v1_30deg/ppo/best_model.zip"
+  ppo_checkpoint_path: None
   seed: 424041
   num_cpu: 50
   batch_size: 500000
@@ -21,7 +21,7 @@ env_config:
   add_action_to_obs_space: false
   add_pos_to_obs_space: true #false
   add_goal_pos_to_obs_space: true
-  max_steps_per_episode: 50
+  max_steps_per_episode: 2000
 
 sim_config: 
   window_size: [800, 800]

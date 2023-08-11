@@ -136,7 +136,6 @@ class BeeSimulator:
             pygame.display.set_caption('RoboBee Simulator')
 
         self.screen = pygame.display.set_mode(DISPLAY, FLAGS, DEPTH)
-        self.font = pygame.font.SysFont('Arial', 20)
 
         # save paths 
         if overwrite_path is None: 

@@ -1,18 +1,17 @@
 env_config: 
   exp_name: "two_coumpound_eyes"
-  logdir: "./logtest/"
+  logdir: "./logs/"
   n_steps: 800000 #65536 #16384 #8192
   load_from_ppo_checkpoint: false
-  ppo_checkpoint_path: None
+  ppo_checkpoint_path: "./logs/two_coumpound_eyes/ppo/best_model.zip"
   seed: 414241
-  num_cpu: 70
-  batch_size: 64
+  num_cpu: 50
+  batch_size: 100000
   check_freq: 64
-  max_steps_per_episode: 5
   num_pixels_per_step: 3
   min_spatial_freq: 5 #5
   max_spatial_freq: 6 #20
-  observation_size: 5
+  observation_size: 40
   steps_per_measurment: 10
   left_aperture_size: 11
   right_aperture_size: 11
@@ -22,6 +21,7 @@ env_config:
   add_action_to_obs_space: false
   add_pos_to_obs_space: true
   add_goal_pos_to_obs_space: true
+  max_steps_per_episode: 50
 
 sim_config: 
   window_size: [800, 800]
@@ -57,7 +57,7 @@ animal_config:
     imaging_model: ['lens', 'lens']
   
 scene_config:
- load_path : "/Users/ktiwary/mit/flatland-bee/new_mazes_paint/right_turn_constant_width.png"
+ load_path : "new_mazes_paint/right_turn_constant_width.png"
  x_scale_factor : 2
  y_scale_factor : 2
  window_size: [1200, 600]

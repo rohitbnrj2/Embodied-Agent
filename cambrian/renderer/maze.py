@@ -19,7 +19,6 @@ class Maze:
         self.binarize_colors = self.cfg.binarize_colors
         self.grey = self.cfg.grey
         self.window_size = self.cfg.window_size
-        self.font = pygame.font.SysFont('Arial', 20)
 
 
         maze_img = Image.open(self.cfg.load_path)
@@ -125,6 +124,7 @@ class Maze:
     def render_intensity(self, work_surface, processed_eye):
         # draw the intensities 
         n_cams = len(processed_eye)
+        self.font = pygame.font.SysFont('Arial', 20)
         for ct, p_intensity in enumerate(processed_eye):
             # print("p_intensity", p_intensity)
             p_intensity = (p_intensity * 255).astype(np.uint8)

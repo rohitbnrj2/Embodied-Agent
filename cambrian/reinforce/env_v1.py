@@ -65,7 +65,7 @@ class BeeEnv(gym.Env):
             self.cfg = Prodict.from_dict(self.cfg)
 
         self.sim = BeeSimulator(config_file)
-        self.sim.init('train')
+        self.sim.init_maze('train')
         self.sim.init_animal(init_pos=None)
 
         self.episode_step = 0 # episode step
@@ -96,7 +96,7 @@ class BeeEnv(gym.Env):
 
         # Create Observation Space 
 
-        self.obs_dim = self.cfg.animal_config.max_photoreceptors
+        self.obs_dim = self.cfg.animal_config.init_configuration.num_pixels #max_photoreceptors
 
         self.obs_size = self.cfg.env_config.observation_size
         self.ra_size = int(self.obs_size/self.cfg.env_config.steps_per_measurment)
@@ -105,7 +105,7 @@ class BeeEnv(gym.Env):
         if self.cfg.env_config.normalize_obs_max_obs_value:
             _obs_range = [0., 1.]
         else:
-            _obs_range = [0., float(self.cfg.sim_config.total_rays)/float(self.obs_dim)]
+            _obs_range = [0., float(self.cfg.animal_config.max_photoreceptors)/float(self.obs_dim)]
 
         # all network inputs should be normalized between 0 and 1!
         obs_dict = {
@@ -120,6 +120,8 @@ class BeeEnv(gym.Env):
         if self.cfg.env_config.add_goal_pos_to_obs_space:
             obs_dict['goal_position'] = spaces.Box(0., 1., (2,), dtype=np.float32)
 
+        self.observation_space = spaces.Dict(obs_dict)
+        print("Observation Shape: {}".format(self.observation_space.shape))
         self.reset()
 
     def reset_sim(self,):
@@ -128,7 +130,7 @@ class BeeEnv(gym.Env):
         if self.sim.mode == 'test':
             print("Visualizing rollout... at {}".format(self._timestep))
             st = time.time()
-            self.sim.visualize_rollout()
+            self.sim.render(current_canvas=False)
             tt = time.time()-st
             print("Visualization Time {}".format(tt))
 
@@ -136,13 +138,13 @@ class BeeEnv(gym.Env):
         self.sim.reset_simulator()
 
         if self.force_set_env_rendering: 
-            self.sim.init(mode='test') # forcefully set to test mode (used for evaluation)
+            self.sim.init_maze(mode='test') # forcefully set to test mode (used for evaluation)
         else:
             if self.rendering_env and self._timestep % self.cfg.env_config.check_freq == 0:
                 # print("Setting mode to test to visualize ")
-                self.sim.init(mode='test') # enable test mode to visualize rollout
+                self.sim.init_maze(mode='test') # enable test mode to visualize rollout
             else:
-                self.sim.init(mode='train')
+                self.sim.init_maze(mode='train')
 
     def reset(self,):
         # reset simulator & update 
@@ -155,8 +157,8 @@ class BeeEnv(gym.Env):
                                             maxlen=self.obs_size) # should contain NON-normalized values
         self.obs_position_history = deque(np.zeros((self.ra_size,2), dtype = np.float32), maxlen=self.ra_size)
         self.obs_action_history = deque(np.zeros((self.ra_size,2), dtype = np.float32), maxlen=self.ra_size)
-        self.obs_goal_position = np.array([self.sim.tunnel.goal_end_pos[0]/self.sim.window_size[0], 
-                                           self.sim.tunnel.goal_end_pos[1]/self.sim.window_size[1]
+        self.obs_goal_position = np.array([self.sim.maze.goal_end_pos[0]/self.sim.maze.window_size[0], 
+                                           self.sim.maze.goal_end_pos[1]/self.sim.maze.window_size[1]
                                           ])
         # self.obs_reward = np.zeros(1, dtype = np.float32)
         obs_space = {}
@@ -171,7 +173,7 @@ class BeeEnv(gym.Env):
         if self.cfg.env_config.add_goal_pos_to_obs_space:
             obs_space['goal_position'] = np.array(self.obs_goal_position).reshape(-1)
         # obs_space['reward'] = self.obs_reward
-        return obs_space['intensity']
+        return obs_space #['intensity']
     
     def _rescale_theta(self, theta):
         """
@@ -239,8 +241,8 @@ class BeeEnv(gym.Env):
             self.obs_action_history.appendleft(_aval) # shift the deque & append new action 
 
         if self.cfg.env_config.add_pos_to_obs_space:
-            _pos = np.array([float(self.sim.x/self.sim.window_size[0]),
-                                float(self.sim.y/self.sim.window_size[1])]
+            _pos = np.array([float(self.sim.animal.x/self.sim.maze.window_size[0]),
+                                float(self.sim.animal.y/self.sim.maze.window_size[1])]
                                 ).astype(np.float32)
             self.obs_position_history.appendleft(_pos) # append new positoin 
 
@@ -282,11 +284,11 @@ class BeeEnv(gym.Env):
 
     def _reach_goal(self,):
         # _rect_x = self.sim.window_size[0]
-        _rect_y = self.sim.tunnel.goal_end_pos[1]
+        _rect_y = self.sim.maze.goal_end_pos[1]
         # should get close to the bottom!
         # _GOAL_THRESHOLD_ = _rect_y * 0.6 # 60 percent of the way there.
         _GOAL_THRESHOLD_ = _rect_y * 0.1 # 90 percent of the way there.
-        if np.abs(self.sim.y - _rect_y) < _GOAL_THRESHOLD_: 
+        if np.abs(self.sim.animal.y - _rect_y) < _GOAL_THRESHOLD_: 
             # if it is inside a 50 pixel radius
             return True
         return False
@@ -351,7 +353,7 @@ class BeeEnv(gym.Env):
             done = True 
             reward = -1.0
         else: 
-            MAX_STEPS = 100 #+ int(self.sim.window_size[1]/self.cfg.env_config.steps_per_measurment)
+            MAX_STEPS = self.cfg.env_config.max_steps_per_episode #+ int(self.sim.window_size[1]/self.cfg.env_config.steps_per_measurment)
             if self.episode_step > MAX_STEPS: 
                 done = True 
                 #reward = -1.0 * np.abs(self.sim.window_size[1] - self.sim.y)/self.sim.window_size[1]
@@ -360,7 +362,7 @@ class BeeEnv(gym.Env):
                 # reward = 0.1 # incentivizes staying alive
                 #reward = 1.0 - np.abs(self.sim.window_size[1] - self.sim.y)/self.sim.window_size[1]
                 
-                if np.abs(self.sim.y - self.prev_sim_y) > 5:
+                if np.abs(self.sim.animal.y - self.prev_sim_y) > 5:
                      reward = 0.15 # incentivizes downward movement
                 else:
                      reward = -0.05 # incentivizes downward movement; so it doesn't go left <-> right

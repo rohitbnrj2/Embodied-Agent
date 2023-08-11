@@ -3,6 +3,9 @@ import numpy as np
 import glob
 from moviepy.editor import VideoFileClip
 import json
+from moviepy.config import change_settings
+change_settings({"FFMPEG_BINARY": "/usr/bin/ffmpeg"})
+
 
 class NumpyEncoder(json.JSONEncoder):
     """ Custom encoder for numpy data types """

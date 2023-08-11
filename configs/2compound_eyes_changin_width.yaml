@@ -1,12 +1,12 @@
 env_config: 
-  exp_name: "ten_coumpound_eyes_v1_30deg"
-  logdir: "./logs/"
+  exp_name: "two_coumpound_eyes_2k_maxsteps"
+  logdir: "./logs-right-changing-width/"
   n_steps: 800000 #65536 #16384 #8192
   load_from_ppo_checkpoint: false
-  ppo_checkpoint_path: "logs/ten_coumpound_eyes_v1_30deg/ppo/best_model.zip"
-  seed: 424041
+  ppo_checkpoint_path: "./logs/two_coumpound_eyes/ppo/best_model.zip"
+  seed: 414241
   num_cpu: 50
-  batch_size: 500000
+  batch_size: 100000
   check_freq: 64
   num_pixels_per_step: 3
   min_spatial_freq: 5 #5
@@ -19,9 +19,9 @@ env_config:
   normalize_obs_max_obs_value: false # normalize_obs with the max value in observation space
   contininous_action_space: true
   add_action_to_obs_space: false
-  add_pos_to_obs_space: true #false
+  add_pos_to_obs_space: true
   add_goal_pos_to_obs_space: true
-  max_steps_per_episode: 50
+  max_steps_per_episode: 2000
 
 sim_config: 
   window_size: [800, 800]
@@ -38,9 +38,9 @@ sim_config:
   collision_threshold: 25
 
 animal_config: 
-  init_photoreceptors: 500 # has to be atleast one photoreceptor per pixel
+  init_photoreceptors: 200 # has to be atleast one photoreceptor per pixel
   increment_photoreceptor: 5
-  max_photoreceptors: 500
+  max_photoreceptors: 200
   radius: 20
   angle_overwrite_to_normal: True
   max_num_eyes_per_side: 10
@@ -49,15 +49,15 @@ animal_config:
   total_intensity_output_only: False
   diffuse_sweep_rays: 20
   init_configuration: 
-    num_pixels: 10
-    fov: [30, 30, 30, 30, 30, 30, 30, 30, 30, 30]
-    angle: [90, 90, 90, 90, 90, 90, 90, 90, 90, 90]
-    sensor_size: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
-    direction: ['right', 'right', 'right', 'right', 'right', 'left', 'left', 'left', 'left', 'left']
-    imaging_model: ['lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens']
+    num_pixels: 2
+    fov: [110, 110]
+    angle: [90, 150]
+    sensor_size: [5, 5]
+    direction: ['right', 'left']
+    imaging_model: ['lens', 'lens']
   
 scene_config:
- load_path : "new_mazes_paint/right_turn_constant_width.png"
+ load_path : "new_mazes_paint/right_turn_changing_width.png"
  x_scale_factor : 2
  y_scale_factor : 2
  window_size: [1200, 600]
