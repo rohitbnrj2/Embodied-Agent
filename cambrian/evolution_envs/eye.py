@@ -129,7 +129,7 @@ class SinglePixel:
 
 
     def render_pixel(self, dx, dy, geometry, num_photoreceptors, 
-                     photon_noise=False, scale_final_intensity=True, 
+                     photon_noise=False, scale_final_intensity=False, 
                      visual_accuity=False, distance_weight=False):
         """
         final_intensity: 
@@ -157,21 +157,22 @@ class SinglePixel:
                 # add camera noise, each ray is a photon striking the eye
                 final_intensity = self.add_camera_noise(final_intensity)
 
+            if not photon_noise:
+                # add some noise, if photon noise is disabled
+                final_intensity += np.random.normal(loc=0, scale=0.1)
+
             # scale by num_photoreceptors (should be turned off with aperture)
             if scale_final_intensity:
                 # import pdb; pdb.set_trace()
                 # final_intensity = final_intensity/self.num_photoreceptors
                 final_intensity = final_intensity/len(raw_photoreceptor_output)
+                final_intensity = np.clip(final_intensity, 0, 1)
 
-            if not photon_noise:
-                # add some noise, if photon noise is disabled
-                final_intensity += np.random.normal(loc=0, scale=0.1)
 
             # clip to 0,1
             # final_intensity = np.clip(final_intensity, 0., 1.0)
 
         # one idea could be to look at each ray as a photoreceptor -> instead of just outputing the final intensity!
-        final_intensity = np.clip(final_intensity, 0, 1)
         return final_intensity, raw_photoreceptor_output
 
     def reset_position(self, mx, my):

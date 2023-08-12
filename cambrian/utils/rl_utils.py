@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import torch
+import time
 
 from stable_baselines3 import TD3
 from stable_baselines3.common.monitor import Monitor
@@ -80,7 +81,8 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
                       if sim.mode == 'test':
                         print("Visualizing rollout... at {}".format(self.n_calls))
                         st = time.time()
-                        self.sim.visualize_rollout(overwrite_path="best_model_{}".format(self.n_calls))
+                        sim.render(current_canvas=False, overwrite_path="best_model_{}".format(self.n_calls))
+                        # sim.visualize_rollout(overwrite_path="best_model_{}".format(self.n_calls))
                         tt = time.time()-st
                         print("Visualization Time {}".format(tt))
 

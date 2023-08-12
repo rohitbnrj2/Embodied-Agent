@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 import pdb
 import random
@@ -91,14 +92,13 @@ class BeeEnv(gym.Env):
         print("Action Space size:", self.action_space.sample().shape)
         
         self.velocity_range = [2,10]
-        self.theta_range = [0, np.pi]
+        self.theta_range = [math.radians(30), math.radians(150.)] 
+        # self.theta_range = [0, np.pi]
         
-
         # Create Observation Space 
-
         self.obs_dim = self.cfg.animal_config.init_configuration.num_pixels #max_photoreceptors
 
-        self.obs_size = self.cfg.env_config.observation_size
+        self.obs_size = self.cfg.env_config.observation_size * self.cfg.env_config.steps_per_measurment
         self.ra_size = int(self.obs_size/self.cfg.env_config.steps_per_measurment)
 
         print("obs size: {}, ra size: {}".format(self.obs_size, self.ra_size))
@@ -145,6 +145,7 @@ class BeeEnv(gym.Env):
                 self.sim.init_maze(mode='test') # enable test mode to visualize rollout
             else:
                 self.sim.init_maze(mode='train')
+        # self.sim.init_maze(mode='train')
 
     def reset(self,):
         # reset simulator & update 
@@ -249,7 +250,7 @@ class BeeEnv(gym.Env):
         # save prev location since we take 10 steps in the same direction. 
         self.prev_sim_x = self.sim.animal.x
         self.prev_sim_y = self.sim.animal.y
-        curr_obs = []
+        curr_obs = np.zeros((self.cfg.env_config.steps_per_measurment, self.obs_dim))
 
         # Get Observations for N steps 
         for i in range(self.cfg.env_config.steps_per_measurment):
@@ -261,7 +262,7 @@ class BeeEnv(gym.Env):
                 cur_intensities.append(p_intensity)
                 
             _pval = np.array(cur_intensities).astype(np.float32)
-            curr_obs.append(_pval)
+            curr_obs[i] = _pval
             # normalize position to be between 0 & 1
             if c: 
                 collision = True
@@ -269,8 +270,9 @@ class BeeEnv(gym.Env):
             if ob: 
                 out_of_bounds = True
                 break 
-        
-        curr_obs = np.array(curr_obs)
+
+        curr_obs = np.array(curr_obs).astype(np.float32)
+        # print("curr_obs --> ", curr_obs.shape, curr_obs)
         # normalize set of observations per n steps 
         if self.cfg.env_config.normalize_obs_max_obs_value:
             curr_obs = self._noramlize_obs(curr_obs)
@@ -354,20 +356,20 @@ class BeeEnv(gym.Env):
             reward = -1.0
         else: 
             MAX_STEPS = self.cfg.env_config.max_steps_per_episode #+ int(self.sim.window_size[1]/self.cfg.env_config.steps_per_measurment)
-            if self.episode_step > MAX_STEPS: 
-                done = True 
-                #reward = -1.0 * np.abs(self.sim.window_size[1] - self.sim.y)/self.sim.window_size[1]
-                reward = -2.0
-            else:
+            if not (MAX_STEPS == 0): 
+                if self.episode_step > MAX_STEPS: 
+                    done = True 
+                    reward = -1.0
+                    #reward = -1.0 * np.abs(self.sim.window_size[1] - self.sim.y)/self.sim.window_size[1]
+            if not done:
                 # reward = 0.1 # incentivizes staying alive
                 #reward = 1.0 - np.abs(self.sim.window_size[1] - self.sim.y)/self.sim.window_size[1]
                 
                 if np.abs(self.sim.animal.y - self.prev_sim_y) > 5:
-                     reward = 0.15 # incentivizes downward movement
+                     reward = 0.10 # incentivizes downward movement
                 else:
-                     reward = -0.05 # incentivizes downward movement; so it doesn't go left <-> right
+                     reward = -0.01 # incentivizes downward movement; so it doesn't go left <-> right
                 
-
                 #reward += (self.episode_step - 20) #encourage to go in straight line so tak minimum steps!
                 #reward = -1.0
         return reward, done

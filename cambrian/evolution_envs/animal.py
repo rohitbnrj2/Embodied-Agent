@@ -78,7 +78,8 @@ class OculozoicAnimal:
         for i in range(self.num_pixels):
             final_intensity, raw_photoreceptor_output = self.pixels[i].render_pixel(dx, dy, 
                                                                    geometry,
-                                                                    num_photoreceptors_per_pixel)
+                                                                    num_photoreceptors_per_pixel, 
+                                                                    scale_final_intensity=self.config.scale_final_intensity)
             if False:
             # if self.config.total_intensity_output_only:
                 intensity, _ = np.mean(raw_photoreceptor_output)

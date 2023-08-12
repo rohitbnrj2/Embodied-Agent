@@ -1,9 +1,9 @@
 env_config: 
-  exp_name: "ten_coumpound_eyes_v1_30deg_changing_width_2k_maxsteps"
+  exp_name: "ten_coumpound_eyes_v1_30deg_changing_width_2k_maxsteps_2"
   logdir: "./logs-right-changing-width/"
   n_steps: 800000 #65536 #16384 #8192
-  load_from_ppo_checkpoint: false
-  ppo_checkpoint_path: None
+  load_from_ppo_checkpoint: true
+  ppo_checkpoint_path: "logs-right-changing-width/ten_coumpound_eyes_v1_30deg_changing_width_2k_maxsteps/ppo/best_model.zip"
   seed: 424041
   num_cpu: 50
   batch_size: 500000
@@ -48,6 +48,7 @@ animal_config:
   init_sensor_size: 50
   total_intensity_output_only: False
   diffuse_sweep_rays: 20
+  scale_final_intensity: True
   init_configuration: 
     num_pixels: 10
     fov: [30, 30, 30, 30, 30, 30, 30, 30, 30, 30]

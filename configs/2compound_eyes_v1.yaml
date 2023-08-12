@@ -1,9 +1,9 @@
 env_config: 
-  exp_name: "two_coumpound_eyes"
+  exp_name: "two_coumpound_eyes_2"
   logdir: "./logs/"
   n_steps: 800000 #65536 #16384 #8192
-  load_from_ppo_checkpoint: false
-  ppo_checkpoint_path: "./logs/two_coumpound_eyes/ppo/best_model.zip"
+  load_from_ppo_checkpoint: true
+  ppo_checkpoint_path: "logs/two_coumpound_eyes/ppo/best_model.zip"
   seed: 414241
   num_cpu: 50
   batch_size: 100000
@@ -48,6 +48,7 @@ animal_config:
   init_sensor_size: 50
   total_intensity_output_only: False
   diffuse_sweep_rays: 20
+  scale_final_intensity: True
   init_configuration: 
     num_pixels: 2
     fov: [110, 110]

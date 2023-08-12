@@ -1,17 +1,17 @@
 env_config: 
-  exp_name: "ten_coumpound_eyes_v1_30deg"
-  logdir: "./logs/"
-  n_steps: 800000 #65536 #16384 #8192
-  load_from_ppo_checkpoint: false
-  ppo_checkpoint_path: "logs/ten_coumpound_eyes_v1_30deg/ppo/best_model.zip"
+  exp_name: "ten_eyes_only_intensity"
+  logdir: "./logs-no-max-steps/"
+  n_steps: 1000000 #65536 #16384 #8192
+  load_from_ppo_checkpoint: false #true
+  ppo_checkpoint_path: "logs/debug_1/ppo/best_model.zip"
   seed: 424041
-  num_cpu: 50
+  num_cpu: 30
   batch_size: 500000
-  check_freq: 64
+  check_freq: 1
   num_pixels_per_step: 3
   min_spatial_freq: 5 #5
   max_spatial_freq: 6 #20
-  observation_size: 40
+  observation_size: 4
   steps_per_measurment: 10
   left_aperture_size: 11
   right_aperture_size: 11
@@ -19,9 +19,9 @@ env_config:
   normalize_obs_max_obs_value: false # normalize_obs with the max value in observation space
   contininous_action_space: true
   add_action_to_obs_space: false
-  add_pos_to_obs_space: true #false
-  add_goal_pos_to_obs_space: true
-  max_steps_per_episode: 50
+  add_pos_to_obs_space: false #false
+  add_goal_pos_to_obs_space: false
+  max_steps_per_episode: 0
 
 sim_config: 
   window_size: [800, 800]
@@ -48,6 +48,7 @@ animal_config:
   init_sensor_size: 50
   total_intensity_output_only: False
   diffuse_sweep_rays: 20
+  scale_final_intensity: False
   init_configuration: 
     num_pixels: 10
     fov: [30, 30, 30, 30, 30, 30, 30, 30, 30, 30]

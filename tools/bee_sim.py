@@ -132,10 +132,10 @@ class BeeSimulator:
             DISPLAY = (1, 1)
         else:
             DISPLAY = tuple(self.maze.window_size)
-            self.display = pygame.Surface(self.maze.window_size)
+            display = pygame.Surface(self.maze.window_size)
             pygame.display.set_caption('RoboBee Simulator')
 
-        self.screen = pygame.display.set_mode(DISPLAY, FLAGS, DEPTH)
+        screen = pygame.display.set_mode(DISPLAY, FLAGS, DEPTH)
 
         # save paths 
         if overwrite_path is None: 

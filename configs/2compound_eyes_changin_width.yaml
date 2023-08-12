@@ -6,7 +6,7 @@ env_config:
   ppo_checkpoint_path: "./logs/two_coumpound_eyes/ppo/best_model.zip"
   seed: 414241
   num_cpu: 50
-  batch_size: 100000
+  batch_size: 500000
   check_freq: 64
   num_pixels_per_step: 3
   min_spatial_freq: 5 #5
@@ -48,6 +48,7 @@ animal_config:
   init_sensor_size: 50
   total_intensity_output_only: False
   diffuse_sweep_rays: 20
+  scale_final_intensity: True
   init_configuration: 
     num_pixels: 2
     fov: [110, 110]

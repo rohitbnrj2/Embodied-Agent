@@ -49,6 +49,7 @@ animal_config:
   init_sensor_size: 50
   total_intensity_output_only: False
   diffuse_sweep_rays: 20
+  scale_final_intensity: True
   init_configuration: 
     num_pixels: 10
     fov: [45, 45, 45, 45, 45, 45, 45, 45, 45, 45]
