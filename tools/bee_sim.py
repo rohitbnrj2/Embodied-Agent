@@ -89,11 +89,15 @@ class BeeSimulator:
         return processed_eye_intensity, eye_out, is_collision, out_of_bounds
 
     def render(self, current_canvas=True, render_video=True, overwrite_path = None):
-        if current_canvas: 
-            self._visualize_rollout(start_idx=len(self.sim_states.positions_rollout)-1, 
-                                    render_video=False, overwrite_path=overwrite_path)
-        else: 
-            self._visualize_rollout(start_idx=0, render_video=render_video, overwrite_path=overwrite_path)
+        try: 
+            if current_canvas: 
+                self._visualize_rollout(start_idx=len(self.sim_states.positions_rollout)-1, 
+                                        render_video=False, overwrite_path=overwrite_path)
+            else: 
+                self._visualize_rollout(start_idx=0, render_video=render_video, overwrite_path=overwrite_path)
+        except Exception as e: 
+            # just catch everything so that training doens't stop.
+            print("Couldn't visualize Rollout..., failed with error {}".format(e))
 
     def _reset_sim_states(self, ):
         _dict =  {

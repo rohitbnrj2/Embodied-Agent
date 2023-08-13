@@ -157,6 +157,19 @@ class OculozoicAnimal:
         
         self.mutation_chain.append(_mut) 
 
+    def get_animal_encoding(self,):
+        angles = []
+        for i in range(self.num_pixels):
+            angle = self.pixels[i].angle_r
+            fov = self.pixels[i].fov_r
+            if self.pixels[i].imaging_model == 'lens':
+                im_model = 0
+            else: 
+                im_model = 1
+            angles.append([angle, fov, im_model])
+        
+        return np.array(angles).reshape(self.num_pixels, 3)
+
     def add_pixel(self, pixel_config):
         if pixel_config is None: 
             return 

@@ -2,6 +2,7 @@ import math
 from pathlib import Path
 import pdb
 import random
+from cambrian.reinforce.models import MultiInputFeatureExtractor
 from cambrian.utils.renderer_utils import map_one_range_to_other
 from cambrian.utils.rl_utils import SaveOnBestTrainingRewardCallback
 import numpy as np
@@ -21,13 +22,10 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecMoni
 from stable_baselines3.common.monitor import Monitor
 from collections import deque 
 
-#
-
 def set_global_seeds(seed):
     np.random.seed(seed)
     random.seed(seed)
     torch.manual_seed(seed)
-
 
 def make_env(rank, seed, config_file, idx):
     """
@@ -91,8 +89,8 @@ class BeeEnv(gym.Env):
 
         print("Action Space size:", self.action_space.sample().shape)
         
-        self.velocity_range = [2,10]
-        self.theta_range = [math.radians(30), math.radians(150.)] 
+        self.velocity_range = [5,25]
+        self.theta_range = [math.radians(15), math.radians(165.)] 
         # self.theta_range = [0, np.pi]
         
         # Create Observation Space 
@@ -115,10 +113,15 @@ class BeeEnv(gym.Env):
         if self.cfg.env_config.add_action_to_obs_space:
             # give lidar data, fourier data? 
             obs_dict['action_history'] = spaces.Box(0., 1., (self.ra_size, 2), dtype=np.float32)
+
         if self.cfg.env_config.add_pos_to_obs_space:
             obs_dict['position_history'] = spaces.Box(0., 1., (self.ra_size, 2), dtype=np.float32)
+
         if self.cfg.env_config.add_goal_pos_to_obs_space:
             obs_dict['goal_position'] = spaces.Box(0., 1., (2,), dtype=np.float32)
+
+        # add animal config. 
+        obs_dict['animal_config'] = spaces.Box(0., np.pi, (self.obs_dim, 3), dtype=np.float32)
 
         self.observation_space = spaces.Dict(obs_dict)
         print("Observation Shape: {}".format(self.observation_space.shape))
@@ -127,26 +130,26 @@ class BeeEnv(gym.Env):
     def reset_sim(self,):
 
         # save the run with images 
-        # if self.sim.mode == 'test':
-        #     print("Visualizing rollout... at {}".format(self._timestep))
-        #     st = time.time()
-        #     self.sim.render(current_canvas=False)
-        #     tt = time.time()-st
-        #     print("Visualization Time {}".format(tt))
+        if self.sim.mode == 'test':
+            print("Visualizing rollout... at {}".format(self._timestep))
+            st = time.time()
+            self.sim.render(current_canvas=False)
+            tt = time.time()-st
+            print("Visualization Time {}".format(tt))
 
         ## reset simulator
         self.sim.reset_simulator()
 
-        # if self.force_set_env_rendering: 
-        #     self.sim.init_maze(mode='test') # forcefully set to test mode (used for evaluation)
-        # else:
-        #     if self.rendering_env and self._timestep % self.cfg.env_config.check_freq == 0:
-        #         # print("Setting mode to test to visualize ")
-        #         self.sim.init_maze(mode='test') # enable test mode to visualize rollout
-        #     else:
-        #         self.sim.init_maze(mode='train')
+        if self.force_set_env_rendering: 
+            self.sim.init_maze(mode='test') # forcefully set to test mode (used for evaluation)
+        else:
+            if self.rendering_env and self._timestep % self.cfg.env_config.check_freq == 0:
+                # print("Setting mode to test to visualize ")
+                self.sim.init_maze(mode='test') # enable test mode to visualize rollout
+            else:
+                self.sim.init_maze(mode='train')
 
-        self.sim.init_maze(mode='train')
+        # self.sim.init_maze(mode='train')
 
     def reset(self,):
         # reset simulator & update 
@@ -157,6 +160,7 @@ class BeeEnv(gym.Env):
         self.obs_intensity = deque(np.zeros((self.obs_size, self.obs_dim), 
                                             dtype = np.float32), 
                                             maxlen=self.obs_size) # should contain NON-normalized values
+        self.animal_config = self.sim.animal.get_animal_encoding()
         self.obs_position_history = deque(np.zeros((self.ra_size,2), dtype = np.float32), maxlen=self.ra_size)
         self.obs_action_history = deque(np.zeros((self.ra_size,2), dtype = np.float32), maxlen=self.ra_size)
         self.obs_goal_position = np.array([self.sim.maze.goal_end_pos[0]/self.sim.maze.window_size[0], 
@@ -165,17 +169,18 @@ class BeeEnv(gym.Env):
         # self.obs_reward = np.zeros(1, dtype = np.float32)
         obs_space = {}
         obs_space['intensity'] = np.array(self.obs_intensity)
+        obs_space['animal_config'] = np.array(self.animal_config)
 
         if self.cfg.env_config.add_pos_to_obs_space:
             obs_space['position_history'] = np.array(self.obs_position_history)
-        # if self.cfg.env_config.contininous_action_space:
+
         if self.cfg.env_config.add_action_to_obs_space:
             obs_space['action_history'] = np.array(self.obs_action_history)
         
         if self.cfg.env_config.add_goal_pos_to_obs_space:
             obs_space['goal_position'] = np.array(self.obs_goal_position).reshape(-1)
-        # obs_space['reward'] = self.obs_reward
-        return obs_space #['intensity']
+
+        return obs_space 
     
     def _rescale_theta(self, theta):
         """
@@ -276,7 +281,9 @@ class BeeEnv(gym.Env):
         # print("curr_obs --> ", curr_obs.shape, curr_obs)
         # normalize set of observations per n steps 
         if self.cfg.env_config.normalize_obs_max_obs_value:
+            # print(curr_obs.max())
             curr_obs = self._noramlize_obs(curr_obs)
+            # print(curr_obs.max())
 
         # last element of the deque() is the most recent observation
         for i in range(curr_obs.shape[0]):
@@ -296,7 +303,7 @@ class BeeEnv(gym.Env):
             return True
         return False
 
-    def _noramlize_obs(self, obs_intensity, noramlize_joint=False):
+    def _noramlize_obs(self, obs_intensity, noramlize_joint=True):
         if noramlize_joint:
             # print(obs_intensity, obs_intensity.min(), obs_intensity.max())
             # pdb.set_trace()
@@ -327,6 +334,7 @@ class BeeEnv(gym.Env):
         obs_space = {}
 
         obs_space['intensity'] = np.array(self.obs_intensity)
+        obs_space['animal_config'] = np.array(self.sim.animal.get_animal_encoding())
         
         # compute reward 
         # reward, done = self._sparse_reward(rg, collision, out_of_bounds)
@@ -439,16 +447,14 @@ if __name__ == "__main__":
         # ------------ LOAD PPO MODEL FROM CHECKPOINT ------------
     else:
         print("Init policy from Scratch")
-        policy_kwargs = dict(activation_fn=torch.nn.ReLU,
-                     net_arch=[128, 256, 256, dict(vf=[256, 128, 128], pi=[256, 128, 128])])
-        # policy_kwargs = dict(activation_fn=torch.nn.ReLU,
-        #              net_arch=[128, 256, dict(vf=[256, 128], pi=[256, 128])])
-        # Create the agent
+        policy_kwargs = dict(features_extractor_class=MultiInputFeatureExtractor,
+                             features_extractor_kwargs=dict(features_dim = 256),)
+        
         model = PPO("MultiInputPolicy",
                 env,
                 n_steps=cfg.env_config.n_steps,
                 batch_size=cfg.env_config.batch_size,
-                # policy_kwargs=policy_kwargs,
+                policy_kwargs=policy_kwargs,
                 verbose=2)
 
     timesteps = 1e12

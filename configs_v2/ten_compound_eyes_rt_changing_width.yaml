@@ -1,25 +1,25 @@
 env_config: 
-  exp_name: "ten_eyes_pos_intensity_2"
-  logdir: "./logs-no-max-steps/"
-  n_steps: 1000000 #65536 #16384 #8192
-  load_from_ppo_checkpoint: false #true
-  ppo_checkpoint_path: None #"logs/debug_1/ppo/best_model.zip"
+  exp_name: "ten_compound_eyes_1024_nsteps"
+  logdir: "./logs-env-v2/"
+  n_steps: 1024 #1000000 
+  load_from_ppo_checkpoint: false
+  ppo_checkpoint_path: None 
   seed: 424041
-  num_cpu: 40
-  batch_size: 500000
+  num_cpu: 50
+  batch_size: 1024 #500000
   check_freq: 64
   num_pixels_per_step: 3
   min_spatial_freq: 5 #5
   max_spatial_freq: 6 #20
-  observation_size: 4
-  steps_per_measurment: 10
+  observation_size: 5
+  steps_per_measurment: 1
   left_aperture_size: 11
   right_aperture_size: 11
   use_random_actions: False # should be false! 
   normalize_obs_max_obs_value: true # normalize_obs with the max value in observation space
   contininous_action_space: true
-  add_action_to_obs_space: false
-  add_pos_to_obs_space: true #false
+  add_action_to_obs_space: true
+  add_pos_to_obs_space: true 
   add_goal_pos_to_obs_space: false
   max_steps_per_episode: 0
 
@@ -48,7 +48,7 @@ animal_config:
   init_sensor_size: 50
   total_intensity_output_only: False
   diffuse_sweep_rays: 20
-  scale_final_intensity: False
+  scale_final_intensity: false
   init_configuration: 
     num_pixels: 10
     fov: [30, 30, 30, 30, 30, 30, 30, 30, 30, 30]
@@ -58,7 +58,7 @@ animal_config:
     imaging_model: ['lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens']
   
 scene_config:
- load_path : "new_mazes_paint/right_turn_constant_width.png"
+ load_path : "new_mazes_paint/right_turn_changing_width.png"
  x_scale_factor : 2
  y_scale_factor : 2
  window_size: [1200, 600]
