@@ -17,27 +17,46 @@ class MultiInputFeatureExtractor(BaseFeaturesExtractor):
         POS_INPUT_DIM = 2
         EYE_INPUT_DIM = 3
         MULTIRES = 5
-        self.pos_embeder, pos_out_dim = get_embedder(multires=MULTIRES, input_dim=POS_INPUT_DIM)
-        
-        eye_input = True
-        if eye_input: 
-            self.eye_embeder, eye_out_dim = get_embedder(multires=MULTIRES, input_dim=EYE_INPUT_DIM)
-        else: 
-            eye_out_dim = 0
-        
+
         # features_dim = position + action + animal_config + features 
-        # features_dim = pos_out_dim + pos_out_dim + eye_out_dim + features_dim
+        self.f_dim = 0 
         _DIM_ = 64
-        self.f_dim = _DIM_ * 3 + features_dim
+        # import pdb; pdb.set_trace()
+
+        if 'position_history' in observation_space.keys():
+            print("Adding Position to MLP")
+            self.pos_embeder, pos_out_dim = get_embedder(multires=MULTIRES, input_dim=POS_INPUT_DIM)
+            self.f_dim += _DIM_
+        
+        if 'animal_config' in observation_space.keys(): 
+            print("Adding Animal Config to MLP")
+            self.eye_embeder, eye_out_dim = get_embedder(multires=MULTIRES, input_dim=EYE_INPUT_DIM)
+            self.f_dim += _DIM_
+        
+        if 'action_history' in observation_space.keys():
+            print("Adding Action to MLP")
+            self.f_dim += _DIM_
+
+        self.f_dim += features_dim
         super().__init__(observation_space, self.f_dim)
 
-        print("observation_space: {}, features_dim: {}".format(observation_space['intensity'].shape, self.f_dim))
+        print("features_dim shape: {}".format(self.f_dim))
 
         # import pdb; pdb.set_trace()
-        self._obs_dim = observation_space['intensity'].shape[0] * observation_space['intensity'].shape[1] # obs_size x num_pixels
+
+        if 'position_history' in observation_space.keys():
+            self._pos_dim = observation_space['position_history'].shape[0] * pos_out_dim # num_pixels x 22 
+            self.pos_linear = nn.Sequential(nn.Linear(self._pos_dim , _DIM_), nn.ReLU())
+        if 'animal_config' in observation_space.keys(): 
+            self._eye_dim = observation_space['animal_config'].shape[0] * eye_out_dim # num_pixels x 33
+            self.eye_linear = nn.Sequential(nn.Linear(self._eye_dim , _DIM_), nn.ReLU())
+        if 'action_history' in observation_space.keys():
+            self.action_linear = nn.Sequential(nn.Linear(self._pos_dim , _DIM_), nn.ReLU())
+
         # TODO: Currently we are processing everythign at once. we should take 
         # each eye's output and create a feature vector that is sent to a main layer for 
         # processing. This is scalable for multiple pixels. 
+        self._obs_dim = observation_space['intensity'].shape[0] * observation_space['intensity'].shape[1] # obs_size x num_pixels
         self.linear = nn.Sequential(OrderedDict([
             ('linear1', nn.Linear(self._obs_dim, 256)),
             ('relu1', nn.ReLU()),
@@ -46,38 +65,32 @@ class MultiInputFeatureExtractor(BaseFeaturesExtractor):
             ('linear3', nn.Linear(128, features_dim)),
             ]))
 
-
-        self._pos_dim = observation_space['position_history'].shape[0] * pos_out_dim # num_pixels x 22 
-        self.pos_linear = nn.Sequential(nn.Linear(self._pos_dim , _DIM_), nn.ReLU())
-        self.action_linear = nn.Sequential(nn.Linear(self._pos_dim , _DIM_), nn.ReLU())
-
-        self._eye_dim = observation_space['animal_config'].shape[0] * eye_out_dim # num_pixels x 33
-        self.eye_linear = nn.Sequential(nn.Linear(self._eye_dim , _DIM_), nn.ReLU())
-
         print('Dimensions:', self._pos_dim, self._eye_dim, self._obs_dim)
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        B, N, C = observations['position_history'].shape
+        B, N, C = observations['intensity'].shape
+        obs_intensity = observations['intensity'].reshape(-1, self._obs_dim)
+        obs_features = self.linear(obs_intensity)
 
-        pos = observations['position_history']
-        embed_pos = self.pos_embeder(pos).reshape(-1, self._pos_dim)
-        feature_pos = self.pos_linear(embed_pos)
+        if 'position_history' in observations:
+            pos = observations['position_history']
+            embed_pos = self.pos_embeder(pos).reshape(-1, self._pos_dim)
+            feature_pos = self.pos_linear(embed_pos)
+            all_features = feature_pos.reshape(B, -1)
 
         if 'action_history' in observations:
             act = observations['action_history']
             embed_action = self.pos_embeder(act).reshape(-1, self._pos_dim)
             feature_action = self.action_linear(embed_action)
+            all_features = torch.cat([feature_pos, feature_action], dim=-1).reshape(B, -1)
 
         if 'animal_config' in observations: 
             an_cf = observations['animal_config']
             embed_eye = self.eye_embeder(an_cf).reshape(-1, self._eye_dim)
             feature_eye = self.eye_linear(embed_eye)
+            all_features = torch.cat([feature_pos, feature_action, feature_eye], dim=-1).reshape(B, -1)
 
-        obs_intensity = observations['intensity'].reshape(-1, self._obs_dim)
-        # import pdb; pdb.set_trace()
-        obs_features = self.linear(obs_intensity)
-        
-        ret = torch.cat([obs_features, feature_pos, feature_action, feature_eye], dim=-1).reshape(B, self.f_dim)
+        ret = torch.cat([obs_features, all_features], dim=-1).reshape(B, self.f_dim)
 
         return ret
 

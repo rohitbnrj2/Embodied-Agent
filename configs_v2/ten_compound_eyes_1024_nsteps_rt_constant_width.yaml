@@ -1,13 +1,13 @@
 env_config: 
-  exp_name: "ten_compound_eyes_1024_nsteps"
-  logdir: "./logs-env-v2/"
-  n_steps: 4096 #1000000 
+  exp_name: "ten_compound_eyes_1024_nsteps_rt_constant_width"
+  logdir: "./logs-env-v2-new/"
+  n_steps: 1024 #1000000 
   load_from_ppo_checkpoint: false
   ppo_checkpoint_path: None 
   seed: 424041
-  num_cpu: 50
-  batch_size: 4096 #500000
-  check_freq: 128
+  num_cpu: 40
+  batch_size: 1024 #500000
+  check_freq: 64
   num_pixels_per_step: 3
   min_spatial_freq: 5 #5
   max_spatial_freq: 6 #20
@@ -58,7 +58,7 @@ animal_config:
     imaging_model: ['lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens']
   
 scene_config:
- load_path : "new_mazes_paint/right_turn_changing_width.png"
+ load_path : "new_mazes_paint/right_turn_constant_width.png"
  x_scale_factor : 2
  y_scale_factor : 2
  window_size: [1200, 600]

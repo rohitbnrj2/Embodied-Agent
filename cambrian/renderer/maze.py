@@ -126,9 +126,9 @@ class Maze:
         n_cams = len(processed_eye)
         self.font = pygame.font.SysFont('Arial', 20)
         for ct, p_intensity in enumerate(processed_eye):
-            # print("p_intensity", p_intensity)
-            p_intensity = (p_intensity * 255).astype(np.uint8)
-            color = pygame.Color([p_intensity,p_intensity,p_intensity])
+            p_intensity = np.clip(p_intensity, 0, 1) * 255.
+            c_ = np.array([p_intensity, p_intensity, p_intensity]).astype(np.uint8)
+            color = pygame.Color(c_)
             
             rect = pygame.Rect(self.window_size[0] - 300 + 300*(ct/n_cams), self.window_size[1]-100, 300*(ct/n_cams), 100)
             pygame.draw.rect(work_surface, color, rect)

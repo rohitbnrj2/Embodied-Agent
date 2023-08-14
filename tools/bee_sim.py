@@ -196,7 +196,7 @@ if __name__ == "__main__":
     sim.init_animal(init_pos=None)
     print("num walls", len(sim.maze.walls))
     # simulate a trajectory of 100 steps going forward  
-    num_steps = 10 #30 #00# 270
+    num_steps = 1 #30 #00# 270
     p = 5
 
     st = time.time()
@@ -244,7 +244,6 @@ if __name__ == "__main__":
 
         # print('mutating animal with op: {}'.format(mut_type))
         # sim.animal.mutate(mut_type, mut_args=mut_args)
-        # sim.animal.print_state()
         # sim.animal.save_animal_state(sim.logdir)
 
         for j in range (1):
@@ -256,5 +255,6 @@ if __name__ == "__main__":
         if c or oob:
             break
         
-        # break
+    sim.animal.print_state()
+    # break
     sim.render(current_canvas=False)

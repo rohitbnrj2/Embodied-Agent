@@ -257,9 +257,17 @@ class SinglePixel:
         else:
             self._create_sensor_plane(self.num_photoreceptors)
         # angle between the first point and the last 
-        w = Wall(self.sensor_line[0], self.sensor_line[-1])
-        start_angle = w.angle
-        end_angle = w.angle + np.pi # a + 180
+        # w1 = Wall(self.position, self.sensor_line[0])
+        # w2 = Wall(self.position, self.sensor_line[-1])
+        # start_angle = w1.angle
+        # end_angle = w2.angle
+        if self.animal_direction == 'right':
+            start_angle = self.angle_r #+ self.fov_r/2 #+ np.pi
+            end_angle = self.angle_r - self.fov_r #+ np.pi
+        if self.animal_direction == 'left':
+            start_angle = self.angle_r #+ self.fov_r/2 #+ np.pi
+            end_angle = self.angle_r + self.fov_r #+ np.pi
+
         angles = np.random.uniform(start_angle, end_angle, size=[self.DIFFUSE_SWEEP_RAYS])
         photoreceptors = []
         for i in range(self.num_photoreceptors):
@@ -268,6 +276,16 @@ class SinglePixel:
             x, y = self.sensor_line[0][i], self.sensor_line[1][i]
             total_radiance = 0.
             for ray_angle in angles: 
+                # hacky fix since this is annoying... 
+                _min_angle_ = 220
+                _max_angle_ = 300
+                if ray_angle > _min_angle_ and ray_angle < _max_angle_:
+                    if np.abs(_max_angle_ - ray_angle) < np.abs(_min_angle_ - ray_angle):
+                        ray_angle = _max_angle_
+                        continue 
+                    else:
+                        ray_angle = _min_angle_
+                        continue 
                 r = Ray(x,y, ray_angle)
                 ret = geometry.check_ray_collision(r) # returns intensity [0,1], distance to wall
                 if ret is not None: 

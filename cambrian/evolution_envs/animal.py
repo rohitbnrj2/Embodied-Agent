@@ -56,8 +56,9 @@ class OculozoicAnimal:
             # if direction == 'right': 
                 # import pdb; pdb.set_trace()
             self.num_pixels += 1
-            pixel_config = self.generate_pixel_config(imaging_model, fov, angle, direction=direction, sensor_size=sensor_size, 
-                                                    pixel_pos=None, pixel_idx = None) 
+            pixel_config = self.generate_pixel_config(imaging_model, fov, angle, direction=direction, 
+                                                      sensor_size=sensor_size, 
+                                                      pixel_pos=None, pixel_idx = None) 
             self.add_pixel(pixel_config)
 
         self.num_pixels = len(self.pixels)
