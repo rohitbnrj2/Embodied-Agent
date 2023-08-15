@@ -11,6 +11,7 @@ def visualize_rays(display, photoreceptors, visualize_aperture=True):
 
     for out in photoreceptors:
         rays = out.rays
+        # print('len(rays)', len(rays))
         photoreceptor_intensity = out.raw_radiance
         for ray in rays: 
             rgb = (ray.rgb * 255).astype(np.uint8)

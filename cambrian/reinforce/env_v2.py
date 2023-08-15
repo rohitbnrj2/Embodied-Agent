@@ -90,7 +90,8 @@ class BeeEnv(gym.Env):
         print("Action Space size:", self.action_space.sample().shape)
         
         self.velocity_range = [5,25]
-        self.theta_range = [math.radians(15), math.radians(165.)] 
+        # self.theta_range = [math.radians(15), math.radians(165.)] 
+        self.theta_range = [math.radians(0), math.radians(180.)] 
         # self.theta_range = [0, np.pi]
         
         # Create Observation Space 
@@ -137,8 +138,6 @@ class BeeEnv(gym.Env):
             tt = time.time()-st
             print("Visualization Time {}".format(tt))
 
-        ## reset simulator
-        self.sim.reset_simulator()
 
         if self.force_set_env_rendering: 
             self.sim.init_maze(mode='test') # forcefully set to test mode (used for evaluation)
@@ -150,6 +149,9 @@ class BeeEnv(gym.Env):
                 self.sim.init_maze(mode='train')
 
         # self.sim.init_maze(mode='train')
+
+        ## reset simulator
+        self.sim.reset_simulator()
 
     def reset(self,):
         # reset simulator & update 
@@ -374,7 +376,7 @@ class BeeEnv(gym.Env):
                 # reward = 0.1 # incentivizes staying alive
                 #reward = 1.0 - np.abs(self.sim.window_size[1] - self.sim.y)/self.sim.window_size[1]
                 
-                if np.abs(self.sim.animal.y - self.prev_sim_y) > 5:
+                if np.abs(self.sim.animal.y - self.prev_sim_y) > 5 or np.abs(self.sim.animal.x - self.prev_sim_x) > 5:
                      reward = 0.10 # incentivizes downward movement
                 else:
                      reward = -0.01 # incentivizes downward movement; so it doesn't go left <-> right

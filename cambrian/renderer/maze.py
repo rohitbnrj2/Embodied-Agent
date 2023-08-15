@@ -48,12 +48,17 @@ class Maze:
                 elif list(maze_img[i,j,:]) == [250,255,8]:
                     yellow_pixels.append((self.x_scale_factor*i, self.y_scale_factor*j))
                 
-                elif list(maze_img[i,j,:]) == [0,255,11]:
+                elif list(maze_img[i,j,:]) == [0,255,11] or list(maze_img[i,j,:]) == [0,255,123]:
+                # elif maze_img[i,j,0] == 0 or maze_img[i,j,1] == 255:
                     green_pixels.append((self.x_scale_factor*i, self.y_scale_factor*j))
                     
         self.goal_start_pos = random.choice(yellow_pixels)
         self.goal_end_pos = random.choice(green_pixels)
-        self.window_size = self.window_size
+        # self.goal_end_pos = (self.goal_end_pos[0] * self.x_scale_factor, self.goal_end_pos[1] * self.y_scale_factor)
+        print("goal_end_position: {}".format(self.goal_end_pos))
+        # print("green_pixels", green_pixels)
+        self.window_size = (h * self.x_scale_factor, w * self.y_scale_factor)
+        # self.window_size = (h, w)
         self.tunnel_width = self.window_size[0]
         print(f"Creating Maze with {len(self.walls)} Walls fo size ({h, w})!")
 
@@ -88,7 +93,7 @@ class Maze:
                 if (distance < closest):
                     closestPoint = intersectPoint
                     closest = distance
-                    ray_color = self.maze[i].color.astype(np.float32)/255.
+                    ray_color = np.array(self.maze[i].color, dtype=np.float32)/255.
 
         if ray_color is not None: 
             return closest, closestPoint, ray_color
@@ -110,13 +115,16 @@ class Maze:
     def check_bounds(self, x, y, ct = 50):
         """
         returns True if out of bounds of pygame
-        """
-        if np.abs(x - self.window_size[0]) < ct or np.abs(y - self.window_size[1]) < ct: 
+        """ 
+        # if np.abs(x - self.window_size[0]) < ct or np.abs(y - self.window_size[1]) < ct: 
+        if x - ct < 0 or y - ct < 0:
+            return True
+        if x + ct > self.window_size[0] or y + ct > self.window_size[1]:
             return True
         return False
     
     def render(self, work_surface):
-        pygame.draw.circle(work_surface,(0,255,0), self.goal_end_pos, 20)
+        pygame.draw.circle(work_surface,(255,255,255), self.goal_end_pos, 20)
         for rect in self.maze: 
             pygame.draw.rect(work_surface, rect.color, rect.wall)
         return work_surface

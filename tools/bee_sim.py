@@ -164,6 +164,7 @@ class BeeSimulator:
             # save images 
             raw_eye_out = self.sim_states.animal_raw_obsevations_rollout[idx]
             processed_eye = self.sim_states.animal_obsevations_rollout[idx]
+            # print("length of raw_eye_out {}, {}".format(len(raw_eye_out), len(processed_eye)))
             work_surface = self.maze.render_intensity(work_surface, processed_eye)
             # import pdb; pdb.set_trace()
             if not self.cfg.sim_config.use_display:

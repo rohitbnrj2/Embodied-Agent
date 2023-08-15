@@ -95,8 +95,13 @@ class OculozoicAnimal:
         self.x = mx
         self.y = my
         self.position = np.array([self.x, self.y])
-        self.right_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side, direction='right')
-        self.left_eye_pixels = points_on_circumference(center = self.position, r= self.radius, n = self.max_num_eyes_per_side, direction='left')
+        self.right_eye_pixels = points_on_circumference(center = self.position, r= self.radius, 
+                                                        n = self.max_num_eyes_per_side, direction='right')
+        self.left_eye_pixels = points_on_circumference(center = self.position, r= self.radius, 
+                                                       n = self.max_num_eyes_per_side, direction='left')
+        # reset pixel positions
+        for i in range(len(self.pixels)):
+            self.pixels[i].reset_position(self.x, self.y)
 
     def mutate(self, mutation_type, mut_args=Prodict):
         self.mutation_count += 1

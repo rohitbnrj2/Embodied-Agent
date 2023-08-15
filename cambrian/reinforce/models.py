@@ -27,6 +27,8 @@ class MultiInputFeatureExtractor(BaseFeaturesExtractor):
             print("Adding Position to MLP")
             self.pos_embeder, pos_out_dim = get_embedder(multires=MULTIRES, input_dim=POS_INPUT_DIM)
             self.f_dim += _DIM_
+        else:
+            self.pos_embeder = None
         
         if 'animal_config' in observation_space.keys(): 
             print("Adding Animal Config to MLP")
@@ -35,6 +37,8 @@ class MultiInputFeatureExtractor(BaseFeaturesExtractor):
         
         if 'action_history' in observation_space.keys():
             print("Adding Action to MLP")
+            if self.pos_embeder == None: 
+                self.pos_embeder, pos_out_dim = get_embedder(multires=MULTIRES, input_dim=POS_INPUT_DIM)
             self.f_dim += _DIM_
 
         self.f_dim += features_dim
@@ -65,12 +69,12 @@ class MultiInputFeatureExtractor(BaseFeaturesExtractor):
             ('linear3', nn.Linear(128, features_dim)),
             ]))
 
-        print('Dimensions:', self._pos_dim, self._eye_dim, self._obs_dim)
-
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         B, N, C = observations['intensity'].shape
         obs_intensity = observations['intensity'].reshape(-1, self._obs_dim)
-        obs_features = self.linear(obs_intensity)
+        ret = self.linear(obs_intensity)
+
+        all_features = None
 
         if 'position_history' in observations:
             pos = observations['position_history']
@@ -82,15 +86,21 @@ class MultiInputFeatureExtractor(BaseFeaturesExtractor):
             act = observations['action_history']
             embed_action = self.pos_embeder(act).reshape(-1, self._pos_dim)
             feature_action = self.action_linear(embed_action)
-            all_features = torch.cat([feature_pos, feature_action], dim=-1).reshape(B, -1)
+            if all_features is None: 
+                all_features = feature_action.reshape(B, -1)
+            else:
+                all_features = torch.cat([all_features, feature_action], dim=-1).reshape(B, -1)
 
         if 'animal_config' in observations: 
             an_cf = observations['animal_config']
             embed_eye = self.eye_embeder(an_cf).reshape(-1, self._eye_dim)
             feature_eye = self.eye_linear(embed_eye)
-            all_features = torch.cat([feature_pos, feature_action, feature_eye], dim=-1).reshape(B, -1)
+            if all_features is None: 
+                all_features = feature_eye.reshape(B, -1)
+            else:
+                all_features = torch.cat([all_features, feature_eye], dim=-1).reshape(B, -1)
 
-        ret = torch.cat([obs_features, all_features], dim=-1).reshape(B, self.f_dim)
+        ret = torch.cat([ret, all_features], dim=-1).reshape(B, self.f_dim)
 
         return ret
 
