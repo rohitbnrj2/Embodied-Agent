@@ -89,7 +89,8 @@ class BeeEnv(gym.Env):
 
         print("Action Space size:", self.action_space.sample().shape)
         
-        self.velocity_range = [5,25]
+        # self.velocity_range = [5,25]
+        self.velocity_range = [2,10]
         # self.theta_range = [math.radians(15), math.radians(165.)] 
         self.theta_range = [math.radians(0), math.radians(180.)] 
         # self.theta_range = [0, np.pi]
