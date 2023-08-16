@@ -31,6 +31,7 @@ class Maze:
         h, w = maze_img.shape[0], maze_img.shape[1]
         self.walls = []
         self.maze = []
+        color_change_period = 8
         
         for i in range(maze_img.shape[0]):
             for j in range(maze_img.shape[1]):
@@ -39,8 +40,10 @@ class Maze:
                     wall_ = pygame.Rect(self.x_scale_factor*i, self.y_scale_factor*j,
                                         self.x_scale_factor, self.y_scale_factor)
                     self.walls.append(wall_)
+                    # _color = np.array(self._sample_colors()).astype(np.uint8)
+                    _color = np.array(self._sample_colors_freq(i, j, color_change_period)).astype(np.uint8)
                     _dict = {
-                        'color' : np.array(self._sample_colors()).astype(np.uint8),
+                        'color' : _color,
                         'wall' : wall_
                     }
                     self.maze.append(Prodict.from_dict(_dict))
@@ -55,12 +58,19 @@ class Maze:
         self.goal_start_pos = random.choice(yellow_pixels)
         self.goal_end_pos = random.choice(green_pixels)
         # self.goal_end_pos = (self.goal_end_pos[0] * self.x_scale_factor, self.goal_end_pos[1] * self.y_scale_factor)
-        print("goal_end_position: {}".format(self.goal_end_pos))
+        # print("goal_end_position: {}".format(self.goal_end_pos))
         # print("green_pixels", green_pixels)
         self.window_size = (h * self.x_scale_factor, w * self.y_scale_factor)
         # self.window_size = (h, w)
         self.tunnel_width = self.window_size[0]
-        print(f"Creating Maze with {len(self.walls)} Walls fo size ({h, w})!")
+        print(f"Creating Maze with {len(self.walls)} Walls fo size ({h, w}) and goal end position: {self.goal_end_pos}!")
+
+    def _sample_colors_freq(self,  i, j, color_change_period=8,):
+        if int((i+j)/color_change_period) % 2 == 0:
+            color = [0.0,0.0,0.0]
+        else:
+            color = [255,255,255]
+        return color
 
     def _sample_colors(self,):
         if self.binarize_colors: 
