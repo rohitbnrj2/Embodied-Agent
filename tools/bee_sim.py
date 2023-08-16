@@ -81,7 +81,7 @@ class BeeSimulator:
         processed_eye_intensity, eye_out = self.animal.observe_scene(dx, dy, self.maze)
         # pdb.set_trace()
         is_collision = self.maze.collision(self.animal.x, self.animal.y, self.cfg.sim_config.collision_threshold)
-        out_of_bounds = self.maze.check_bounds(self.animal.x, self.animal.y)
+        out_of_bounds = self.maze.check_bounds(self.animal.x, self.animal.y, self.cfg.sim_config.collision_threshold)
         
         self._update_state_dict(self.animal.x, self.animal.y, 
                                 processed_eye_intensity, eye_out, 

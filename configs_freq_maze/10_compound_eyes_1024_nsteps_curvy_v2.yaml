@@ -1,11 +1,11 @@
 env_config: 
   exp_name: "10_compound_eyes_1024_nsteps_curvy_v2"
-  logdir: "./logs-env-only-intensity-curvy/"
+  logdir: "./logs-freq-maze-only-intensity-curvy/"
   n_steps: 1024 #1000000 
   load_from_ppo_checkpoint: false
   ppo_checkpoint_path: None 
   seed: 424041
-  num_cpu: 40
+  num_cpu: 30
   batch_size: 1024 #500000
   check_freq: 64
   num_pixels_per_step: 3
