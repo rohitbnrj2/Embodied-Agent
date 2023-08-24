@@ -1,17 +1,17 @@
 env_config: 
-  exp_name: "10_compound_eyes_1024_nsteps_curvy_v1"
-  logdir: "./logs-env-only-intensity-curvy/"
+  exp_name: "10_compound_eyes_rt_changing_width"
+  logdir: "./logs-freq-maze-only-intensity-simple/"
   n_steps: 1024 #1000000 
   load_from_ppo_checkpoint: false
   ppo_checkpoint_path: None 
   seed: 424041
-  num_cpu: 40
+  num_cpu: 30
   batch_size: 1024 #500000
   check_freq: 64
   num_pixels_per_step: 3
   min_spatial_freq: 5 #5
   max_spatial_freq: 6 #20
-  observation_size: 5
+  observation_size: 10
   steps_per_measurment: 1
   left_aperture_size: 11
   right_aperture_size: 11
@@ -58,7 +58,7 @@ animal_config:
     imaging_model: ['lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens']
   
 scene_config:
- load_path: "new_mazes_paint/curvy_v1.png"
+ load_path: "new_mazes_paint/right_turn_changing_width.png"
  x_scale_factor : 2
  y_scale_factor : 2
  window_size: [1200, 600]

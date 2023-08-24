@@ -69,6 +69,7 @@ class BeeEnv(gym.Env):
 
         self.episode_step = 0 # episode step
         self._timestep = 1
+        self.prev_progress = 0 
         self.rendering_env = rendering_env
         self.force_set_env_rendering = force_set_env_rendering
         if self.rendering_env: 
@@ -341,7 +342,8 @@ class BeeEnv(gym.Env):
         
         # compute reward 
         # reward, done = self._sparse_reward(rg, collision, out_of_bounds)
-        reward, done = self._fixed_n_steps(rg, collision, out_of_bounds)
+        # reward, done = self._fixed_n_steps(rg, collision, out_of_bounds)
+        reward, done =  self._euclidean_reward(rg, collision, out_of_bounds)
 
         if self.cfg.env_config.add_pos_to_obs_space:
             obs_space['position_history'] = np.array(self.obs_position_history)        
@@ -355,6 +357,53 @@ class BeeEnv(gym.Env):
         self.episode_step +=1 
 
         return obs_space , reward, done, {}
+
+    def _euclidean_reward(self, rg, collision, out_of_bounds):
+        """
+        More Sparse but based on how close the agent is to the goal.
+        """
+        done = False
+        reward = 0.
+        if rg:
+            # check rg first, if satisfied then dont need to check collision. 
+            done = True 
+            reward = 5.0 
+        elif collision or out_of_bounds: 
+            done = True 
+            reward = -1.0
+        else: 
+            MAX_STEPS = self.cfg.env_config.max_steps_per_episode #+ int(self.sim.window_size[1]/self.cfg.env_config.steps_per_measurment)
+            if not (MAX_STEPS == 0): 
+                if self.episode_step > MAX_STEPS: 
+                    done = True 
+                    reward = -1.0
+                    #reward = -1.0 * np.abs(self.sim.window_size[1] - self.sim.y)/self.sim.window_size[1]
+            if not done:
+                # if self.prev_progress == 0: 
+                    # reward = 0.01 # reward for staying alive initially 
+                prev_pos = np.array([self.prev_sim_x, self.prev_sim_y])
+                curr_pos = np.array([self.sim.animal.x, self.sim.animal.y])
+                # prev_dist = math.dist(prev_pos, self.sim.maze.goal_end_pos)
+                # curr_dist = math.dist(curr_pos, self.sim.maze.goal_end_pos)
+                prev_ydist = math.dist(np.array([self.prev_sim_y]), np.array([self.sim.maze.goal_end_pos[1]]))
+                curr_ydist = math.dist(np.array([self.sim.animal.y]), np.array([self.sim.maze.goal_end_pos[1]]))
+                # Sparse Rewards: give a reward at checkpoints
+                # total_dist = math.dist(self.sim.maze.goal_start_pos, self.sim.maze.goal_end_pos)
+                # _progress = np.round((100 * (total_dist-curr_dist)/total_dist),-1)
+                # if _progress > self.prev_progress: 
+                #     self.prev_progress = _progress
+                #     reward = 0.10
+                # if np.abs(curr_dist - prev_dist) > 5: 
+                    # reward = 0.10
+
+                # NOTE: (ktiwary)
+                # prev dist should be greater than curr_dist! 
+                # only get reward for for progress in y direction. 
+                # x direction progress has no reward so it doesn't get stuck at horizontals. 
+                if np.abs(curr_ydist - prev_ydist) > 5: 
+                    reward = 0.10
+                
+        return reward, done
 
     def _fixed_n_steps(self, rg, collision, out_of_bounds):
         done = False

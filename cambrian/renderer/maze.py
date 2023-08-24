@@ -20,8 +20,13 @@ class Maze:
         self.grey = self.cfg.grey
         self.window_size = self.cfg.window_size
 
+        if isinstance(self.load_path, list):
+            # selects a maze at random if it is a list of mazes
+            load_path = self._select_maze(self.load_path)
+        else:
+            load_path = self.load_path
 
-        maze_img = Image.open(self.cfg.load_path)
+        maze_img = Image.open(load_path)
         maze_img = np.array(maze_img)
         maze_img = maze_img[:,:, :3]
         maze_img = np.swapaxes(maze_img, 0, 1)
@@ -63,7 +68,10 @@ class Maze:
         self.window_size = (h * self.x_scale_factor, w * self.y_scale_factor)
         # self.window_size = (h, w)
         self.tunnel_width = self.window_size[0]
-        print(f"Creating Maze with {len(self.walls)} Walls fo size ({h, w}) and goal end position: {self.goal_end_pos}!")
+        print(f"Creating Maze with {len(self.walls)} Walls of size ({h, w}) and goal end position: {self.goal_end_pos}!")
+
+    def _select_maze(self, mazes):
+        return np.random.choice(mazes)
 
     def _sample_colors_freq(self,  i, j, color_change_period=8,):
         if int((i+j)/color_change_period) % 2 == 0:

@@ -1,6 +1,6 @@
 env_config: 
   exp_name: "10_compound_eyes_1024_nsteps_curvy_v2"
-  logdir: "./logs-freq-maze-only-intensity-curvy/"
+  logdir: "./logs-only-intensity-curvy-euclidean-reward/"
   n_steps: 1024 #1000000 
   load_from_ppo_checkpoint: false
   ppo_checkpoint_path: None 
@@ -21,7 +21,7 @@ env_config:
   add_action_to_obs_space: false
   add_pos_to_obs_space: false
   add_goal_pos_to_obs_space: false
-  max_steps_per_episode: 0
+  max_steps_per_episode: 300
 
 sim_config: 
   window_size: [800, 800]

@@ -2,8 +2,8 @@ env_config:
   exp_name: "simple_1024_nsteps_curvy_v1"
   logdir: "./logs-env-only-intensity-curvy/"
   n_steps: 1024 #1000000 
-  load_from_ppo_checkpoint: false
-  ppo_checkpoint_path: None 
+  load_from_ppo_checkpoint: true
+  ppo_checkpoint_path: "logs-env-only-intensity-curvy/simple_1024_nsteps_curvy_v1/ppo/best_model.zip" 
   seed: 424041
   num_cpu: 30
   batch_size: 1024 #500000

@@ -14,7 +14,7 @@ def moving_average(values, window):
     return np.convolve(values, weights, 'valid')
 
 
-def plot_results(log_folder, name, title='Learning Curve', window=1000):
+def plot_results(log_folder, name, window=1000):
     """
     plot the results
 
@@ -26,11 +26,11 @@ def plot_results(log_folder, name, title='Learning Curve', window=1000):
     # Truncate x
     x = x[len(x) - len(y):]
 
-    fig = plt.figure(title)
+    fig = plt.figure()
     plt.plot(x, y)
     plt.xlabel('Number of Timesteps')
     plt.ylabel('Rewards')
-    plt.title(title + " Smoothed")
+    plt.title('/'.join(log_folder.split('/')[1:3]))
     plt.savefig(name)
 
 
@@ -38,4 +38,4 @@ if __name__ == "__main__":
     log_dir = sys.argv[1]
     name = sys.argv[2]
     window = sys.argv[3] 
-    plot_results(log_dir, name, window)
+    plot_results(log_dir, name, int(window))

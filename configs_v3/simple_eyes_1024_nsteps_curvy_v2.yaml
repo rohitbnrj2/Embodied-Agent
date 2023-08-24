@@ -11,7 +11,7 @@ env_config:
   num_pixels_per_step: 3
   min_spatial_freq: 5 #5
   max_spatial_freq: 6 #20
-  observation_size: 5
+  observation_size: 10
   steps_per_measurment: 1
   left_aperture_size: 11
   right_aperture_size: 11
