@@ -1,4 +1,4 @@
-"""Setup derl."""
+"""Setup camrbian library using pip"""
 
 from setuptools import setup
 

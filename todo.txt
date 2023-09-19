@@ -1,0 +1,6 @@
+TODO Kush September 11-13: 
+- Symmetric Animal [done]
+- Fix loading and saving animals [in prog]
+- Add mutations correctly on to the animal [done]
+- Get the basic_evo working with the right saving etc. [in prog]
+- Run the basic_evo with scratch training [in prog]

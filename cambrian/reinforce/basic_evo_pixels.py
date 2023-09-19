@@ -14,7 +14,6 @@ from pathlib import Path
 import pdb
 import random
 import sys
-sys.path.append("/home/gridsan/bagrawalla/EyesOfCambrian-main")
 from cambrian.reinforce.models import MultiInputFeatureExtractor
 from cambrian.utils.renderer_utils import map_one_range_to_other
 from cambrian.utils.rl_utils import SaveOnBestTrainingRewardCallback
@@ -48,9 +47,6 @@ generation_wise_mazes = ["right_turn_constant_width.png",
                         "right_turn_changing_width.png",]
 init_animal_config_path = project_path + "configs_evo/debug.yaml"
 # -
-
-
-
 
 
 class TestEvoRun:

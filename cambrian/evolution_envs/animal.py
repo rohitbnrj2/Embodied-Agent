@@ -308,17 +308,27 @@ class OculozoicAnimal:
         self.right_eye_pixels += np.array([dx, dy])
         self.left_eye_pixels += np.array([dx, dy])
 
-    def _sample_new_pixel_position(self, direction):
+    def _sample_new_pixel_position(self, direction, sampling_method='simple'):
+        """
+        Currently it samples 
+        """
+        if sampling_method == 'simple':
+            sampling_func = get_idx_simple
+        elif sampling_method == 'middle':
+            sampling_func = get_idx
+        elif sampling_method == 'random':
+            sampling_func = get_random_idx
+        else:
+            raise NotImplementedError("{} not found. pick from [simple, middle, random]".format(sampling_method))
+
         if direction == 'left':
-            idx = get_idx_simple(self.left_eye_pixels_occupancy)
-            # idx = get_idx(self.left_eye_pixels_occupancy)
+            idx = sampling_func(self.left_eye_pixels_occupancy)
             if idx is None: 
                 return None 
             pixel_pos = self.left_eye_pixels[idx]
             self.left_eye_pixels_occupancy[idx] = 1
         elif direction == 'right':
-            idx = get_idx_simple(self.right_eye_pixels_occupancy)
-            # idx = get_idx(self.right_eye_pixels_occupancy)
+            idx = sampling_func(self.right_eye_pixels_occupancy)
             if idx is None: 
                 return None 
             pixel_pos = self.right_eye_pixels[idx]
@@ -379,3 +389,8 @@ def get_idx(arr):
         i +=1 
     
     return idx
+
+def get_random_idx(arr):
+    # Gets a random idx where arr == 0 
+    args = np.where(arr == 0)
+    return np.random.choice(args[0])

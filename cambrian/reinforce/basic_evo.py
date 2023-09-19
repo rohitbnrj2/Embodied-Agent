@@ -1,6 +1,8 @@
 from copy import deepcopy
 import functools
 
+from cambrian.evolution_envs.animal import OculozoicAnimal
+
 
 class TestEvoRun:
     """
@@ -12,11 +14,11 @@ class TestEvoRun:
     def __init__(self, 
                  evo_config,
                  init_animal_config, 
-                 generation_wise_mazes,
+                 generation_wise_envs,
                  init_population_size = 5,
                  best_agents_per_generation = 5,
                  
-                 num_muations_per_agent = 2, 
+                 num_mutations_per_agent = 2, 
                  max_population_size = 10,
                  max_generations = 5):
         

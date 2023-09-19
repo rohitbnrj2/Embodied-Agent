@@ -4,3 +4,4 @@ log*/
 *$py.class
 .DS_Store
 *.egg-info*/
+*.sh.*
