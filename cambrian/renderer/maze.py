@@ -60,6 +60,8 @@ class Maze:
                 # elif maze_img[i,j,0] == 0 or maze_img[i,j,1] == 255:
                     green_pixels.append((self.x_scale_factor*i, self.y_scale_factor*j))
                     
+        self.occupancy_grid = self.convert_to_occupancy_grid(self.maze, w, h)
+
         self.goal_start_pos = random.choice(yellow_pixels)
         self.goal_end_pos = random.choice(green_pixels)
         # self.goal_end_pos = (self.goal_end_pos[0] * self.x_scale_factor, self.goal_end_pos[1] * self.y_scale_factor)
@@ -69,6 +71,27 @@ class Maze:
         # self.window_size = (h, w)
         self.tunnel_width = self.window_size[0]
         print(f"Creating Maze with {len(self.walls)} Walls of size ({h, w}) and goal end position: {self.goal_end_pos}!")
+
+    def convert_to_occupancy_grid(self, walls, grid_width, grid_height):
+        # Create an empty grid filled with zeros
+        occupancy_grid = np.full((grid_width, grid_height, 3), None)
+
+        # Iterate through the list of walls and mark corresponding grid cells as occupied
+        for wall_info in walls:
+            color = wall_info.color
+            wall = wall_info.wall
+            x1, y1, x2, y2 = wall.left, wall.top, wall.right, wall.bottom
+
+            # Convert wall coordinates to grid coordinates
+            x1 //= 2  # Assuming each cell is represented as 2x2 units
+            x2 //= 2
+            y1 //= 2
+            y2 //= 2
+
+            # Mark the grid cells occupied by the wall
+            occupancy_grid[x1:x2, y1:y2] = color
+
+        return occupancy_grid
 
     def _select_maze(self, mazes):
         return np.random.choice(mazes)
@@ -104,19 +127,26 @@ class Maze:
         closestPoint = None
         ray_color = None
 
-        for i in range(len(self.maze)):
-            ret = ray.checkPyGameRectCollision(self.maze[i].wall, self.window_size)
-            if ret is not None: 
-                intersectPoint, distance = ret
-                if (distance < closest):
-                    closestPoint = intersectPoint
-                    closest = distance
-                    ray_color = np.array(self.maze[i].color, dtype=np.float32)/255.
+        w,h = self.occupancy_grid.shape[0], self.occupancy_grid.shape[1]
+        x,y = ray.x, ray.y
+        dx, dy = ray.dir / np.linalg.norm(ray.dir)
+        for _ in range(closest):
+            x += dx
+            y += dy
 
-        if ray_color is not None: 
-            return closest, closestPoint, ray_color
-        
-        return None
+            map_x = int(x / self.x_scale_factor)
+            map_y = int(y / self.y_scale_factor)
+            if map_x > w - 1 or map_x < 0 or map_y > h - 1 or map_y < 0:
+                return None
+
+            square = self.occupancy_grid[map_x][map_y]
+            if np.all(square != None):
+                ray_color = np.array(square, dtype=np.float32) / 255.
+                closestPoint = np.array([x,y])
+                closest = np.linalg.norm(np.array([ray.x, ray.y]) - closestPoint)
+                break
+
+        return closest, closestPoint, ray_color
 
     def collision(self, x, y, ct):
         """
