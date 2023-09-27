@@ -197,7 +197,7 @@ if __name__ == "__main__":
     sim.init_animal(init_pos=None)
     print("num walls", len(sim.maze.walls))
     # simulate a trajectory of 100 steps going forward  
-    num_steps = 1 #30 #00# 270
+    num_steps = 2 #30 #00# 270
     p = 5
 
     st = time.time()
@@ -214,13 +214,13 @@ if __name__ == "__main__":
         # if i >= 5: 
         mut_type = 'add_pixel'
         # mut_type = 'add_photoreceptor'
+        mut_type = None
 
         if mut_type == 'add_photoreceptor':
             mut_args = None
         elif mut_type == 'simple_to_lens':
             mut_args = Prodict() 
             mut_args.pixel_idx = None
-
         elif mut_type == 'add_pixel':
             mut_args = Prodict() 
             mut_args.imaging_model = np.random.choice(['simple', 'lens'])
@@ -247,8 +247,8 @@ if __name__ == "__main__":
         # sim.animal.mutate(mut_type, mut_args=mut_args)
         # sim.animal.save_animal_state(sim.logdir)
 
-        for j in range (1):
-        # for j in range (sim.cfg.env_config.steps_per_measurment):
+        # for j in range (1):
+        for j in range (sim.cfg.env_config.steps_per_measurment):
             _, _, c, oob = sim.step(dx, dy) # go down 
             if c or oob:
                 print("out of bounds: {}; collision: {}".format(oob, c))

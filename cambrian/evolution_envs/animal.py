@@ -2,6 +2,7 @@ import json
 from math import degrees, radians
 import math
 from pathlib import Path
+import time
 from cambrian.renderer.wall import Wall
 from cambrian.utils.utils import NumpyEncoder
 import numpy as np
@@ -10,7 +11,8 @@ from prodict import Prodict
 import yaml
 
 
-from cambrian.evolution_envs.eye import SinglePixel
+# from cambrian.evolution_envs.eye import SinglePixel
+from cambrian.evolution_envs.eyeV2 import SinglePixel
 from cambrian.utils.renderer_utils import get_sensor_plane_angles, name_to_fdir, points_on_circumference
 
 class OculozoicAnimal:
@@ -53,11 +55,13 @@ class OculozoicAnimal:
             angle = self.config.init_configuration.angle[i] 
             sensor_size = self.config.init_configuration.sensor_size[i] # large sensor size 
             direction = self.config.init_configuration.direction[i]
+            closed_pinhole_percentage = self.config.init_configuration.closed_pinhole_percentage[i]
             # if direction == 'right': 
                 # import pdb; pdb.set_trace()
             self.num_pixels += 1
             pixel_config = self.generate_pixel_config(imaging_model, fov, angle, direction=direction, 
                                                       sensor_size=sensor_size, 
+                                                      closed_pinhole_percentage=closed_pinhole_percentage, 
                                                       pixel_pos=None, pixel_idx = None) 
             self.add_pixel(pixel_config)
 
@@ -77,10 +81,12 @@ class OculozoicAnimal:
         num_photoreceptors_per_pixel = np.maximum(0, int(self.num_photoreceptors/self.num_pixels))
         # print("num_photoreceptors_per_pixel", num_photoreceptors_per_pixel)
         for i in range(self.num_pixels):
+            st = time.time()
             final_intensity, raw_photoreceptor_output = self.pixels[i].render_pixel(dx, dy, 
                                                                    geometry,
                                                                     num_photoreceptors_per_pixel, 
                                                                     scale_final_intensity=self.config.scale_final_intensity)
+            print("rendering time per pixel: {}".format((time.time()-st)/60))
             if False:
             # if self.config.total_intensity_output_only:
                 intensity, _ = np.mean(raw_photoreceptor_output)
@@ -191,7 +197,7 @@ class OculozoicAnimal:
     #     self.num_pixels -= 1
     #     self.pixels.pop()
 
-    def generate_pixel_config(self, imaging_model, fov, angle, direction, sensor_size, pixel_pos=None, pixel_idx=None):
+    def generate_pixel_config(self, imaging_model, fov, angle, direction, sensor_size, closed_pinhole_percentage=0, pixel_pos=None, pixel_idx=None):
         """
         Generate a pixel configuration. The pixel config takes in eye properties 
         and a pixel position and index on the animal. If none, it will sample the closest 
@@ -232,6 +238,7 @@ class OculozoicAnimal:
         config.visual_acuity = num_photoreceptprs_per_pixel/self.visual_acuity_sigma
         config.imaging_model = imaging_model
         config.diffuse_sweep_rays = self.config.diffuse_sweep_rays
+        config.closed_pinhole_percentage = closed_pinhole_percentage
         return config 
 
     def load_animal_from_state(self, state_config_file):
@@ -244,7 +251,7 @@ class OculozoicAnimal:
         self.radius = _state.radius
         self.max_num_eyes_per_side = _state.max_num_pixels_per_side
         self.visual_acuity_sigma = _state.visual_acuity_sigma
-        _state.num_photoreceptors = self.num_photoreceptors
+        self.num_photoreceptors = _state.num_photoreceptors
         self.mutation_count = _state.mutation_count
         self.mutation_types = _state.mutation_types
         self.mutation_chain = _state.mutation_chain

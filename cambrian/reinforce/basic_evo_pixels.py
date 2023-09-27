@@ -113,9 +113,6 @@ class TestEvoRun:
             self.save_prodict_as_yaml(child_cfg, child_cfg_save_path)
             
             children.append((child_cfg_save_path, f"{agent_id}_{i}"))
-            
-            
-            
         
         return children
     
@@ -124,7 +121,6 @@ class TestEvoRun:
         #adds or subtracts pixels symmetrically and randomly from agent
         
         allowed_angles = [10.*i for i in range(18)] #allowed angles for pixel placement on either side
-        
         max_pixels = 2*len(allowed_angles)
      
         with open(agent, "r") as ymlfile:

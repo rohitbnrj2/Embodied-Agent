@@ -9,7 +9,7 @@ from prodict import Prodict
 import yaml 
 
 
-from cambrian.utils.renderer_utils import gaussian
+from cambrian.utils.renderer_utils import gaussian, map_one_range_to_other
 
 class SinglePixel:
     """
@@ -76,10 +76,7 @@ class SinglePixel:
         self.fov_r = self._update_fov(self.fov_r)
         self.angle_r = self._update_angles(self.angle_r)
         self.f = (self.sensor_size/2) / (np.tan(self.fov_r/2)) # focal length
-        # if self.f_dir[0] <= 0.:
-        #     print('hi')
-        #     self.f *= -1.
-
+        self.closed_pinhole_percentage = self.config.closed_pinhole_percentage # number between 0 and 1 
         self.rot = np.array([[math.cos(self.angle_r), math.sin(self.angle_r)], # rotation matrix
                              [-math.sin(self.angle_r), math.cos(self.angle_r)]])
 
@@ -98,6 +95,7 @@ class SinglePixel:
         config.diffuse_sweep_rays = self.DIFFUSE_SWEEP_RAYS
         config.animal_direction = self.animal_direction
         config.animal_idx = self.animal_idx
+        config.closed_pinhole_percentage = self.closed_pinhole_percentage
         return config 
     
     def load_from_config(self, config):
@@ -168,7 +166,6 @@ class SinglePixel:
                 final_intensity = final_intensity/len(raw_photoreceptor_output)
                 final_intensity = np.clip(final_intensity, 0, 1)
 
-
             # clip to 0,1
             # final_intensity = np.clip(final_intensity, 0., 1.0)
 
@@ -230,19 +227,23 @@ class SinglePixel:
         sensor_x = self.f * np.ones(num_photoreceptors) # will use these points to create a line
         sensor_y = np.linspace(-self.sensor_size/2, self.sensor_size/2, num_photoreceptors)
         sensor_line = np.vstack([sensor_x, sensor_y])
+        # import pdb; pdb.set_trace()
         self.sensor_line = self.position + np.matmul(self.rot, sensor_line)
         # just mute points from here that are ommitted due to the aperture
+
+    def _create_aperture_plane(self, num_points_aperture):
+        x = self.f * np.ones(num_points_aperture) # will use these points to create a line
+        y = np.linspace(-self.sensor_size/2, self.sensor_size/2, num_points_aperture)
+        line = np.vstack([x, y])
+        # offset position by f * (dx, dy)
+        # import pdb; pdb.set_trace()
+        offset = self.position + np.array(self.f * np.array(self.f_dir)).reshape(2,1)
+        self.aperture_line = offset + np.matmul(self.rot, line)
 
     def render(self, dx, dy, geometry):
         # update position
         self._update(dx, dy)
-        
-        if self.imaging_model == 'simple':
-            return self._render_simple_eye(geometry)
-        elif self.imaging_model == 'lens':
-            return self._render_lens_eye(geometry)
-        else:
-            raise ValueError("{} not exist".format(self.imaging_model))
+        return self._render_lens_eye(geometry)
 
     def _render_simple_eye(self, geometry):
         """
@@ -320,61 +321,93 @@ class SinglePixel:
 
         # sample rays from a sensor plane
         self._create_sensor_plane(self.num_photoreceptors)
+        # create aperture 
+        NUM_POINTS_APERTURE = self.sensor_size
+        self._create_aperture_plane(NUM_POINTS_APERTURE)
+        # this could be a coded aperture at some point
+        self.aperture_mask = np.zeros(NUM_POINTS_APERTURE)
+        self.closed_pinhole_percentage = np.clip(0, 1, self.closed_pinhole_percentage)
+        num_closed = map_one_range_to_other(self.closed_pinhole_percentage, 0, int(NUM_POINTS_APERTURE/2), 0, 1)
+        print("num_closed aperture:", num_closed)
+        # num_closed = (np.clip(0, 1, self.closed_pinhole_percentage) * NUM_POINTS_APERTURE)/2
+        num_closed = int(np.round(num_closed))
+        if num_closed > 0:
+            # 1 means it's closed. 
+            self.aperture_mask[0:num_closed] = 1
+            self.aperture_mask[-num_closed:-1] = 1
+            self.aperture_mask[-1] = 1 
+
         photoreceptors = []
 
         for i in range(self.num_photoreceptors):
             _ray = {}
-            x, y = self.sensor_line[0][i], self.sensor_line[1][i]
-            w = Wall((x,y), (self.x, self.y))
-            # angle = math.atan2( y - self.y, x - self.x)
-            if self.f_dir[0] <= 0.:
-                ray_angle = w.angle
-                # ray_angle = angle
-            else:
-                ray_angle = w.angle + math.radians(180.)
-                # ray_angle = angle + math.radians(180.)
-
-            # hacky fix since this is annoying... 
-            _min_angle_ = 220
-            _max_angle_ = 300
-            if ray_angle > _min_angle_ and ray_angle < _max_angle_:
-                if np.abs(_max_angle_ - ray_angle) < np.abs(_min_angle_ - ray_angle):
-                    ray_angle = _max_angle_
-                    continue 
+            sub_rays = []
+            total_radiance = 0.
+            px, py = self.sensor_line[0][i], self.sensor_line[1][i]
+            # Photoreceptor accepts light from all points... 
+            # for j in range(len(self.aperture_mask)):
+                # if self.aperture_mask[j] == 1: 
+                #     # aperture is closed 
+                #     continue
+            for j in range(1):
+                ap_x, ap_y = self.aperture_line[0][j], self.aperture_line[1][j]
+                # ap_x, ap_y = self.x, self.y 
+                w = Wall((px, py), (ap_x, ap_y))
+                # angle = math.atan2( y - self.y, x - self.x)
+                if self.f_dir[0] <= 0.:
+                    ray_angle = w.angle
+                    # ray_angle = angle
                 else:
-                    ray_angle = _min_angle_
-                    continue 
-            # if self.f_dir[0] <= 0. and self.f_dir[1] <= 0: # neg and neg
-            #     print('neg and neg rendering', math.degrees(w.angle))
-            #     ray_angle = w.angle
-            # elif self.f_dir[0] <= 0. and self.f_dir[1] >= 0: # neg and pos
-            #     print('neg and pos rendering', math.degrees(w.angle))
-            #     ray_angle = w.angle 
-            # elif self.f_dir[0] >= 0. and self.f_dir[1] >= 0: # pos and neg
-            #     print('pos and neg rendering', math.degrees(w.angle))
-            #     ray_angle = w.angle
-            # else:
-            #     # pos and pos
-            #     ray_angle = w.angle #+ math.radians(90)
-            #     ray_angle = math.radians(180) + w.angle 
-            #     print('pos and pos rendering', math.degrees(w.angle))
+                    ray_angle = w.angle + math.radians(180.)
 
-            r = Ray(x,y, ray_angle)
-            ret = geometry.check_ray_collision(r) # returns intensity [0,1], distance to wall
-            if ret is not None: 
-                closest, closestPoint, rgb = ret
-                r.intensity = rgbfloat2grey(rgb)
-                r.rgb = rgb
-                r.collision_point = closestPoint
-                _ray['rays'] = [r] # ray or rays that compose the intensity
-                _ray['raw_radiance'] = r.intensity # intensity per photoreceptor
-                photoreceptors.append(Prodict.from_dict(_ray))
-            else: 
-                # don't append the ray.. just ignore it.
-                # default_rgb = np.array([0., 0, .0])
-                # r.intensity = rgbfloat2grey(default_rgb)
-                # r.rgb = default_rgb
-                pass 
+                    # ray_angle = angle + math.radians(180.)
+
+                # hacky fix since this is annoying... 
+                # _min_angle_ = 220
+                # _max_angle_ = 300
+                # if ray_angle > _min_angle_ and ray_angle < _max_angle_:
+                #     if np.abs(_max_angle_ - ray_angle) < np.abs(_min_angle_ - ray_angle):
+                #         ray_angle = _max_angle_
+                #         # continue 
+                #     else:
+                #         ray_angle = _min_angle_
+                #         # continue 
+                # if self.f_dir[0] <= 0. and self.f_dir[1] <= 0: # neg and neg
+                #     print('neg and neg rendering', math.degrees(w.angle))
+                #     ray_angle = w.angle
+                # elif self.f_dir[0] <= 0. and self.f_dir[1] >= 0: # neg and pos
+                #     print('neg and pos rendering', math.degrees(w.angle))
+                #     ray_angle = w.angle 
+                # elif self.f_dir[0] >= 0. and self.f_dir[1] >= 0: # pos and neg
+                #     print('pos and neg rendering', math.degrees(w.angle))
+                #     ray_angle = w.angle
+                # else:
+                #     # pos and pos
+                #     ray_angle = w.angle #+ math.radians(90)
+                #     ray_angle = math.radians(180) + w.angle 
+                #     print('pos and pos rendering', math.degrees(w.angle))
+
+                r = Ray(px,py, ray_angle)
+                ret = geometry.check_ray_collision(r) # returns intensity [0,1], distance to wall
+                if ret is not None: 
+                    closest, closestPoint, rgb = ret
+                    r.intensity = rgbfloat2grey(rgb)
+                    ## add noise per ray
+                    # r.intensity += 
+                    r.rgb = rgb
+                    r.collision_point = closestPoint
+                    total_radiance += r.intensity # should be 0, 1
+                    sub_rays.append(r)
+                else: 
+                    # don't append the ray.. just ignore it.
+                    #  TODO(): if there is no intersection it probably intersects with the maze 
+                    # boundary. we should just do line-line interesection with those values. 
+                    pass 
+
+            _ray['raw_radiance'] = total_radiance/np.maximum(1, len(sub_rays)) #/self.DIFFUSE_SWEEP_RAYS # intensity per photoreceptor
+            # _ray['raw_radiance'] = total_radiance # intensity per photoreceptor
+            _ray['rays'] = sub_rays
+            photoreceptors.append(Prodict.from_dict(_ray))
 
         return photoreceptors
     
@@ -420,7 +453,7 @@ class SinglePixel:
         # # Add dark noise
         # electrons_out = rs.normal(scale=dark_noise, size=electrons.shape) + electrons
 
-        # # Convert to ADU and add baseline
+        # Convert to ADU and add baseline
         # max_adu     = int(2**bitdepth - 1)
         # adu         = (electrons_out * sensitivity).astype(int) # Convert to discrete numbers
         # adu += baseline

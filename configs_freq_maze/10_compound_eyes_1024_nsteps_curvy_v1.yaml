@@ -38,7 +38,7 @@ sim_config:
   collision_threshold: 10
 
 animal_config: 
-  init_photoreceptors: 500 # has to be atleast one photoreceptor per pixel
+  init_photoreceptors: 100 # has to be atleast one photoreceptor per pixel
   increment_photoreceptor: 5
   max_photoreceptors: 500
   radius: 20
@@ -56,6 +56,8 @@ animal_config:
     sensor_size: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
     direction: ['right', 'right', 'right', 'right', 'right', 'left', 'left', 'left', 'left', 'left']
     imaging_model: ['lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens', 'lens']
+    # init_closed_pinhole_percentage: [0,0,0,0,0,0,0,0,0,0]
+    init_closed_pinhole_percentage: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
   
 scene_config:
  load_path: "new_mazes_paint/curvy_v1.png"
