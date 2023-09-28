@@ -37,13 +37,14 @@ class Agent(OculozoicAnimal):
         >>> # Only adding a photoreceptor
         >>> type = MutationType.ADD_PHOTORECEPTOR
         >>> # Both adding a photoreceptor and changing a simple eye to lens
-        >>> type = MutationType.ADD_PHOTORECEPTOR | MutationType.SIMPLE_TO_LENS
+        >>> type = MutationType.ADD_PHOTORECEPTOR | MutationType.ADD_EYE
         """
 
-        ADD_PHOTORECEPTOR = auto()
-        SIMPLE_TO_LENS = auto()
-        ADD_PIXEL = auto()
-        UPDATE_PIXEL = auto()
+        ADD_PHOTORECEPTORS = auto()
+        REMOVE_PHOTORECEPTORS = auto()
+        ADD_EYE = auto()
+        REMOVE_EYE = auto()
+        EDIT_EYE = auto()
 
     ModificationTypeMap = {
         "MUTATION": ModificationType.MUTATION,
@@ -51,10 +52,11 @@ class Agent(OculozoicAnimal):
     }
 
     MutationOptions = [
-        MutationType.ADD_PHOTORECEPTOR,
-        MutationType.SIMPLE_TO_LENS,
-        MutationType.ADD_PIXEL,
-        MutationType.UPDATE_PIXEL,
+        MutationType.ADD_PHOTORECEPTORS,
+        MutationType.REMOVE_PHOTORECEPTORS,
+        MutationType.ADD_EYE,
+        MutationType.REMOVE_EYE,
+        MutationType.EDIT_EYE,
     ]
 
     def __init__(self, config: Prodict, *, verbose: int = 0):
@@ -100,7 +102,7 @@ class Agent(OculozoicAnimal):
             )
             mutations = reduce(lambda x, y: x | y, mutations)
 
-        if mutations & Agent.MutationType.ADD_PHOTORECEPTOR:
+        if mutations & Agent.MutationType.ADD_PHOTORECEPTORS:
             if self.verbose > 1:
                 print("Adding photoreceptor...")
             self.config.init_photoreceptors += self.config.increment_photoreceptor
@@ -108,24 +110,31 @@ class Agent(OculozoicAnimal):
                 self.config.init_photoreceptors, self.config.max_photoreceptors
             )
 
-        if mutations & Agent.MutationType.SIMPLE_TO_LENS:
+        if mutations & Agent.MutationType.REMOVE_PHOTORECEPTORS:
             if self.verbose > 1:
-                print("Changing simple eye to lens...")
-            for i, eye in enumerate(self.config.init_configuration.imaging_model):
-                if eye == "simple":
-                    self.config.init_configuration.imaging_model[i] = "lens"
+                print("Removing photoreceptor...")
+            self.config.init_photoreceptors -= self.config.increment_photoreceptor
+            self.config.init_photoreceptors = max(0, self.config.init_photoreceptors)
 
-        if mutations & Agent.MutationType.ADD_PIXEL:
+        if mutations & Agent.MutationType.ADD_EYE:
             if self.verbose > 1:
                 print("Adding pixel...")
 
-            # TODO: Does it need to be symmetric?
-            imaging_model = np.random.choice(["simple", "lens"])
-            fov = np.random.uniform(0, 180)
-            angle = 0  # np.random.uniform(0, 180)
-            sensor_size = np.random.uniform(0, 20)
-
             init_config = self.config.init_configuration
+
+            # Use the same probability as the current number of simple eyes
+            simple_prob = (
+                init_config.imaging_model.count("simple") / init_config.num_pixels
+            )
+            imaging_model = np.random.choice(
+                ["simple", "lens"], p=[simple_prob, 1 - simple_prob]
+            )
+
+            # set the rest to be the mean of the current values
+            fov = np.mean(init_config.fov)  # np.random.uniform(0, 180)
+            angle = np.mean(init_config.angle)  # np.random.uniform(0, 180)
+            sensor_size = np.mean(init_config.sensor_size)  # np.random.uniform(0, 20)
+
             init_config.num_pixels += 2
             init_config.direction.extend(["left", "right"])
             init_config.imaging_model.extend([imaging_model, imaging_model])
@@ -133,29 +142,52 @@ class Agent(OculozoicAnimal):
             init_config.angle.extend([angle, angle])
             init_config.fov.extend([fov, fov])
 
-        if mutations & Agent.MutationType.UPDATE_PIXEL:
+        if mutations & Agent.MutationType.REMOVE_EYE:
+            if self.verbose > 1:
+                print("Removing pixel...")
+
+            init_config = self.config.init_configuration
+            pixel_idx = np.random.randint(0, init_config.num_pixels // 2)
+
+            assert init_config.direction[pixel_idx * 2] == "left"
+            del init_config.direction[pixel_idx * 2]
+            del init_config.sensor_size[pixel_idx * 2]
+            del init_config.angle[pixel_idx * 2]
+            del init_config.fov[pixel_idx * 2]
+
+            # NOTE: not plus one since 1 was removed
+            assert init_config.direction[pixel_idx * 2] == "right"
+            del init_config.direction[pixel_idx * 2]
+            del init_config.sensor_size[pixel_idx * 2]
+            del init_config.angle[pixel_idx * 2]
+            del init_config.fov[pixel_idx * 2]
+
+        if mutations & Agent.MutationType.EDIT_EYE:
             if self.verbose > 1:
                 print("Updating pixel...")
 
             init_config = self.config.init_configuration
-            # TODO: Does it need to be symmetric? This one doesn't maintain symmetry
-            pixel_idx = np.random.randint(0, self.config.init_configuration.num_pixels)
+            pixel_idx = np.random.randint(0, init_config.num_pixels // 2)
 
             # add random noise at roughly 10% of the original magnitude
+            # it is assumed that the left and right eyes are symmetric/identical
             def add_noise(x):
                 return x + np.random.normal(0, 0.1 * x)
-
-            imaging_model = np.random.choice(["simple", "lens"])
             sensor_size = add_noise(init_config.sensor_size[pixel_idx])
-            angle = init_config.angle[
-                pixel_idx
-            ]  # add_noise(init_config.angle[pixel_idx])
+            angle = init_config.angle[pixel_idx] 
             fov = add_noise(init_config.fov[pixel_idx])
 
-            # init_config.imaging_model[pixel_idx] = imaging_model # NOTE: keep imaging model the same
-            init_config.sensor_size[pixel_idx] = sensor_size
-            init_config.angle[pixel_idx] = angle
-            init_config.fov[pixel_idx] = fov
+            # Left
+            assert init_config.direction[pixel_idx * 2] == "left"
+            init_config.sensor_size[pixel_idx * 2] = sensor_size
+            init_config.angle[pixel_idx * 2] = angle
+            init_config.fov[pixel_idx * 2] = fov
+
+            # Right
+            assert init_config.direction[pixel_idx * 2 + 1] == "right"
+            init_config.sensor_size[pixel_idx * 2 * +1] = sensor_size
+            init_config.angle[pixel_idx * 2 + 1] = angle
+            init_config.fov[pixel_idx * 2 + 1] = fov
 
     def crossover(self):
         """Crossover the agent with another agent. Crossover differs from mutation in that it is sexual reproduction, i.e. there is a combination/crossover of genes with another agent."""

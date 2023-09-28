@@ -54,9 +54,7 @@ class AgentPool(ABC):
     def insert_into_pool(self, performance: Performance, config: Prodict):
         position = bisect.bisect_left([perf for perf, _ in self.pool], performance)
         if self.verbose > 1:
-            print(
-                f"{self.rank}: Inserting into pool at position {position}. Current pool size: {len(self.pool)}"
-            )
+            print(f"{self.rank}: Performance {performance:0.2f} received. Current pool: {[p for p,_ in self.pool]}. Inserting into pool at position {position}.")
         self.pool.insert(position, (performance, config))
         if len(self.pool) == self.population_size + 1:
             self.pool.popleft()

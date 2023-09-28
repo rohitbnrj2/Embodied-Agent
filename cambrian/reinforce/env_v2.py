@@ -38,8 +38,8 @@ def make_env(rank, seed, config_file, idx, **kwargs):
     """
 
     def _init():
-        env = BeeEnv(config_file=config_file, rendering_env=idx < 1, **kwargs)
-        env.seed(seed + rank)
+        env = BeeEnv(config_file=config_file, rendering_env=rank == 0, **kwargs)
+        env.seed(seed + idx)
         return env
     
     set_global_seeds(seed)

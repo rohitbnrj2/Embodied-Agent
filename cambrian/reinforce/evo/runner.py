@@ -4,6 +4,7 @@ import argparse
 from typing import Union, List, Tuple, Any
 from pathlib import Path
 from prodict import Prodict
+import numpy as np
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import VecEnv, SubprocVecEnv, VecMonitor
@@ -123,10 +124,18 @@ class EvoRunner:
         model.learn(total_timesteps=self.env_config.total_timesteps, callback=eval_cb)
 
     def _make_env(self, ppodir: Path) -> VecEnv:
-        env = make_env(
-            self.rank, self.env_config.seed, self.config, self.rank, animal_override=self.agent
+        env = SubprocVecEnv(
+            [
+                make_env(
+                    self.rank,
+                    self.env_config.seed,
+                    self.config,
+                    i,
+                    animal_override=self.agent,
+                )
+                for i in range(self.env_config.num_cpu)
+            ]
         )
-        env = SubprocVecEnv([env for _ in range(self.env_config.num_cpu)])
         env = VecMonitor(env, ppodir.as_posix())
         return env
 
@@ -161,7 +170,9 @@ if __name__ == "__main__":
             )
 
     if args.rank is None:
-        raise ValueError("Rank cannot be determined. Pass rank using the `-r` argument.")
+        raise ValueError(
+            "Rank cannot be determined. Pass rank using the `-r` argument."
+        )
 
     runner = EvoRunner(args.config, args.overrides, args.rank)
     runner.start()
