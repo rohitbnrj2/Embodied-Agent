@@ -2,10 +2,67 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 from gym import spaces
+from typing import List, Dict, Tuple
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
+class VariableMultiInputFeatureExtractor(BaseFeaturesExtractor):
+    MULTIRES: int = 5 # what is this?
+    EMBEDDER_OUTPUT_DIM: int = 64 # 
+
+    def __init__(self, observation_space: spaces.Dict, features_dim: int, conv_dim: int):
+        metadata_observation_space = {k: v for k, v in observation_space.items() if k != 'intensity'}
+        super().__init__(observation_space, features_dim + self.EMBEDDER_OUTPUT_DIM * len(metadata_observation_space))
+
+        self.metadata: Dict[str, Tuple[int, Embedder, nn.Sequential]] = {}
+
+        for key, obs in metadata_observation_space.items():
+            print(f"Adding {key} to MLP")
+            embedder, dim = get_embedder(multires=self.MULTIRES, input_dim=obs.shape[1])
+            dim *= obs.shape[0]
+
+            self.metadata[key] = (
+                dim,
+                embedder, 
+                nn.Sequential(OrderedDict([
+                    (f"{key}_linear", nn.Linear(dim, self.EMBEDDER_OUTPUT_DIM)),
+                    (f"{key}_relu", nn.ReLU()),
+                ]))
+            )
+
+
+        # 3d 1x1x1 conv, avg pool, fc
+        N,K,t = observation_space['intensity'].shape # eyes, photorecepetors, time buffer
+        self.conv = nn.Conv2d(in_channels=N, out_channels=N, kernel_size=(1,K), padding=(0, K // 2))
+        self.relu = nn.ReLU()
+        self.pool = nn.AvgPool2d(2)
+        self.linear = torch.nn.Sequential(OrderedDict([
+            ('linear1', torch.nn.Linear(int(N * int(K/2) * int(t/2)), 256)),
+            ('relu1', torch.nn.ReLU()),
+            ('linear2', torch.nn.Linear(256, 128)),
+            ('relu2', torch.nn.ReLU()),
+            ('linear3', torch.nn.Linear(128, features_dim)),
+        ]))
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        B, N, K, t = observations['intensity'].shape
+
+        ret = observations['intensity'].reshape(B,K,N,t)
+        ret = self.conv(ret)
+        ret = self.relu(ret)
+        ret = self.pool(ret)
+        ret = ret.reshape(B, -1)
+        ret = self.linear(ret)
+
+        for key, (dim, embedder, linear) in self.metadata.items():
+            obs = observations[key]
+            embed = embedder(obs).reshape(-1, dim)
+            linear.to(obs.device) # why do I need this??????
+            embed = linear(embed).reshape(B, -1)
+            ret = torch.cat([ret, embed], dim=-1).reshape(B, -1)
+
+        return ret.reshape(B, self.features_dim)
 
 class MultiInputFeatureExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space: spaces.Box, features_dim):

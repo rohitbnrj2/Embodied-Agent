@@ -22,13 +22,15 @@ import glob
 
 
 class BeeSimulator:
-    def __init__(self, config_file, cfg=None):
+    def __init__(self, config_file, cfg=None, *, animal_override = None):
         if config_file is None: 
             # initilize directly from cfg dict instead of file
                 if isinstance(cfg, dict):
                     self.cfg = Prodict.from_dict(cfg)
                 else:
                     self.cfg = cfg
+        elif isinstance(config_file, Prodict):
+            self.cfg = config_file
         else:
             with open(config_file, "r") as ymlfile:
                 self.cfg = yaml.load(ymlfile, Loader=yaml.Loader)
@@ -42,6 +44,7 @@ class BeeSimulator:
             Path.mkdir(self.logdir)
 
         self.trial = 0 
+        self.animal_override = animal_override
         self.sim_states = self._reset_sim_states()
 
     def init_maze(self, mode='train'):
@@ -51,7 +54,10 @@ class BeeSimulator:
 
     def init_animal(self, init_pos):
         # call reset & create an environment & animal that can sample the world 
-        self.animal = OculozoicAnimal(self.cfg.animal_config)
+        if self.animal_override is not None: 
+            self.animal = self.animal_override
+        else:
+            self.animal = OculozoicAnimal(self.cfg.animal_config)
         if init_pos is None: 
             init_pos = self.maze.goal_start_pos
         self.animal.init_animal(init_pos[0], init_pos[1])

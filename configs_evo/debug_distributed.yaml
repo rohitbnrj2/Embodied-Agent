@@ -1,0 +1,97 @@
+env_config:
+  exp_name: "debug"
+  logdir: "logs-distributed-evo"
+  n_steps: 1024 #1000000
+  total_timesteps: 400_000
+  reward_threshold: 20
+  load_from_ppo_checkpoint: false
+  ppo_checkpoint_path: None
+  seed: 424041
+  num_cpu: 50
+  batch_size: 500000
+  check_freq: 64
+  num_pixels_per_step: 3
+  min_spatial_freq: 5 #5
+  max_spatial_freq: 6 #20
+  observation_size: 10
+  steps_per_measurment: 1
+  left_aperture_size: 11
+  right_aperture_size: 11
+  use_random_actions: False # should be false!
+  normalize_obs_max_obs_value: true # normalize_obs with the max value in observation space
+  contininous_action_space: true
+  add_action_to_obs_space: false
+  add_pos_to_obs_space: false
+  add_goal_pos_to_obs_space: false
+  max_steps_per_episode: 0
+  verbose: 2
+
+evo_config:
+  num_generations: 10
+  num_children_per_parent: 2
+  num_top_performers: 4
+  population_size: 4
+  modification_type: ["MUTATION"]
+  agent_pool_type: "SocketAgentPool"
+  agent_pool_socket_port: 5000
+  agent_pool_socket_ip_folder: "agent_pool_ips"
+  # agent_pool_type: "SharedFileAgentPool"
+  agent_pool_shared_filename: "agent_pool.pkl" # going to be placed at logdir/exp_name/<name>
+
+sim_config:
+  window_size: [800, 800]
+  background_color: [2, 113, 72]
+  init_x: 0 # ignored will always start from center of the tunnel
+  x_offset: 0
+  init_y: 0
+  y_offset: 0
+  use_display: false
+  save_imgs: true
+  save_vid: true
+  visualize_aperture: true
+  # defines the upper saturation point, if 100 if 100 rays hit white then it the pixel will saturate
+  collision_threshold: 10
+
+animal_config:
+  init_photoreceptors: 6 # has to be atleast one photoreceptor per pixel
+  increment_photoreceptor: 5
+  max_photoreceptors: 500
+  radius: 20
+  angle_overwrite_to_normal: True
+  max_num_eyes_per_side: 4
+  visual_acuity_sigma: 5
+  init_sensor_size: 5
+  total_intensity_output_only: False
+  diffuse_sweep_rays: 50
+  scale_final_intensity: false
+  init_configuration:
+    num_pixels: 2
+    fov: [150, 150]
+    angle: [0, 0]
+    sensor_size: [5, 5]
+    direction: ["left", "right"]
+    # imaging_model: ['lens', 'lens']
+    imaging_model: ["simple", "simple"]
+
+scene_config:
+  load_path: "new_mazes_paint/right_turn_constant_width.png"
+  x_scale_factor: 2
+  y_scale_factor: 2
+  window_size: [1200, 600]
+  #  window_size: [1366, 768]
+  binarize_colors: true
+  grey: true
+
+imaging:
+  camera_properties:
+    n_cams: 6
+    angles: [0., 30., 60., 120., 150., 180.]
+    x: 10
+    y: 10
+    angle: 0
+    fov: 120
+    f_dir: -1.0
+    num_pixels: 1
+    sensor_size: 10
+    aperture_size: 11
+    aperture_narrow_size: 0

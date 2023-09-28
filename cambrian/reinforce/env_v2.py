@@ -27,7 +27,7 @@ def set_global_seeds(seed):
     random.seed(seed)
     torch.manual_seed(seed)
 
-def make_env(rank, seed, config_file, idx):
+def make_env(rank, seed, config_file, idx, **kwargs):
     """
     Utility function for multiprocessed env.
 
@@ -38,7 +38,7 @@ def make_env(rank, seed, config_file, idx):
     """
 
     def _init():
-        env = BeeEnv(config_file=config_file, rendering_env= True if idx < 1 else False)
+        env = BeeEnv(config_file=config_file, rendering_env=idx < 1, **kwargs)
         env.seed(seed + rank)
         return env
     
@@ -50,7 +50,7 @@ class BeeEnv(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, config_file, rendering_env=True, force_set_env_rendering=False):
+    def __init__(self, config_file, rendering_env=True, force_set_env_rendering=False, **kwargs):
         """
         Experiment validates if compound eyes perform better than simple. 
         - fixed number of photoreceptors
@@ -59,11 +59,14 @@ class BeeEnv(gym.Env):
 
         """
         super(BeeEnv, self).__init__()
-        with open(config_file, "r") as ymlfile:
-            self.cfg = yaml.load(ymlfile, Loader=yaml.Loader)
-            self.cfg = Prodict.from_dict(self.cfg)
+        if isinstance(config_file, Prodict):
+            self.cfg = config_file
+        else:
+            with open(config_file, "r") as ymlfile:
+                self.cfg = yaml.load(ymlfile, Loader=yaml.Loader)
+                self.cfg = Prodict.from_dict(self.cfg)
 
-        self.sim = BeeSimulator(config_file)
+        self.sim = BeeSimulator(config_file, **kwargs)
         self.sim.init_maze('train')
         self.sim.init_animal(init_pos=None)
 
