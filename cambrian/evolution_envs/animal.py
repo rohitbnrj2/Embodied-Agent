@@ -86,7 +86,7 @@ class OculozoicAnimal:
                                                                    geometry,
                                                                     num_photoreceptors_per_pixel, 
                                                                     scale_final_intensity=self.config.scale_final_intensity)
-            print("rendering time per pixel: {}".format((time.time()-st)/60))
+            # print("rendering time per pixel: {}".format((time.time()-st)/60))
             if False:
             # if self.config.total_intensity_output_only:
                 intensity, _ = np.mean(raw_photoreceptor_output)

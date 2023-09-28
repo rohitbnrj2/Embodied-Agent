@@ -184,12 +184,12 @@ class SinglePixel:
 
     def _update_fov(self, fov_r):
         # update fov 
-        if self.imaging_model == 'simple':
-            fov_r = np.clip(fov_r, math.radians(90), math.radians(150)) 
-        elif self.imaging_model == 'lens':
-            fov_r = np.clip(fov_r, math.radians(30), math.radians(110)) 
-        else: 
-            ValueError("{} not found".format(self.imaging_model))
+        fov_r = np.clip(fov_r, math.radians(30), math.radians(150)) 
+        # if self.imaging_model == 'simple':
+        # elif self.imaging_model == 'lens':
+        #     fov_r = np.clip(fov_r, math.radians(30), math.radians(110)) 
+        # else: 
+        #     ValueError("{} not found".format(self.imaging_model))
         return fov_r
 
     def _update_angles(self, angle_r):
@@ -237,8 +237,16 @@ class SinglePixel:
         line = np.vstack([x, y])
         # offset position by f * (dx, dy)
         # import pdb; pdb.set_trace()
-        offset = self.position + np.array(self.f * np.array(self.f_dir)).reshape(2,1)
-        self.aperture_line = offset + np.matmul(self.rot, line)
+        # print("fdir: {}, {}, {}".format(self.position, self.f, self.f_dir))
+        # offset = self.position - np.array(self.f * np.array(self.f_dir)).reshape(2,1)
+        # self.aperture_line = offset + np.matmul(self.rot, line)
+        # self.aperture_line = offset + np.matmul(self.rot, line)
+
+        ###
+        x = self.position[0] * np.ones(num_points_aperture)
+        y = self.position[1] + np.linspace(-self.sensor_size/2, self.sensor_size/2, num_points_aperture)
+        line = np.vstack([x, y])
+        self.aperture_line = line 
 
     def render(self, dx, dy, geometry):
         # update position
@@ -322,14 +330,12 @@ class SinglePixel:
         # sample rays from a sensor plane
         self._create_sensor_plane(self.num_photoreceptors)
         # create aperture 
-        NUM_POINTS_APERTURE = self.sensor_size
+        NUM_POINTS_APERTURE = self.sensor_size  * 5
         self._create_aperture_plane(NUM_POINTS_APERTURE)
         # this could be a coded aperture at some point
         self.aperture_mask = np.zeros(NUM_POINTS_APERTURE)
         self.closed_pinhole_percentage = np.clip(0, 1, self.closed_pinhole_percentage)
         num_closed = map_one_range_to_other(self.closed_pinhole_percentage, 0, int(NUM_POINTS_APERTURE/2), 0, 1)
-        print("num_closed aperture:", num_closed)
-        # num_closed = (np.clip(0, 1, self.closed_pinhole_percentage) * NUM_POINTS_APERTURE)/2
         num_closed = int(np.round(num_closed))
         if num_closed > 0:
             # 1 means it's closed. 
@@ -345,14 +351,15 @@ class SinglePixel:
             total_radiance = 0.
             px, py = self.sensor_line[0][i], self.sensor_line[1][i]
             # Photoreceptor accepts light from all points... 
-            # for j in range(len(self.aperture_mask)):
-                # if self.aperture_mask[j] == 1: 
-                #     # aperture is closed 
-                #     continue
-            for j in range(1):
+            for j in range(len(self.aperture_mask)):
+                if self.aperture_mask[j] == 1: 
+                    # aperture is closed
+                    continue
+            # for j in range(1):
                 ap_x, ap_y = self.aperture_line[0][j], self.aperture_line[1][j]
                 # ap_x, ap_y = self.x, self.y 
                 w = Wall((px, py), (ap_x, ap_y))
+                # w = Wall((px, py), (self.x, self.y))
                 # angle = math.atan2( y - self.y, x - self.x)
                 if self.f_dir[0] <= 0.:
                     ray_angle = w.angle
@@ -371,7 +378,7 @@ class SinglePixel:
                 #         # continue 
                 #     else:
                 #         ray_angle = _min_angle_
-                #         # continue 
+                        # continue 
                 # if self.f_dir[0] <= 0. and self.f_dir[1] <= 0: # neg and neg
                 #     print('neg and neg rendering', math.degrees(w.angle))
                 #     ray_angle = w.angle
@@ -404,7 +411,7 @@ class SinglePixel:
                     # boundary. we should just do line-line interesection with those values. 
                     pass 
 
-            _ray['raw_radiance'] = total_radiance/np.maximum(1, len(sub_rays)) #/self.DIFFUSE_SWEEP_RAYS # intensity per photoreceptor
+            _ray['raw_radiance'] = total_radiance/np.maximum(1, len(sub_rays)) # intensity per photoreceptor
             # _ray['raw_radiance'] = total_radiance # intensity per photoreceptor
             _ray['rays'] = sub_rays
             photoreceptors.append(Prodict.from_dict(_ray))
