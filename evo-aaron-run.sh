@@ -22,7 +22,7 @@ export CAMBRIAN_IP_DIR=$REPO/ips/
 
 # Hacky: We're going to write our IP to a file that is available to all other agent pools on different nodes/processes
 mkdir -p $REPO/ips
-echo "$SLURM_ARRAY_TASK_ID $(hostname -i)" > $REPO/ips/ip_$SLURM_ARRAY_TASK_ID.txt
+echo "$SLURM_ARRAY_TASK_ID $(hostname -i)" > $REPO/logs-distributed-evo/debug/agent_pool_ips/ip_$SLURM_ARRAY_TASK_ID.txt
 
 cd $REPO
 source env/bin/activate
