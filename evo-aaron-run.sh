@@ -17,13 +17,12 @@ module load cuda/11.8
 export OPENBLAS_NUM_THREADS=1
 export PMIX_MCA_gds=hash
 
-REPO=/home/gridsan/ayoung/robobees/EyesOfCambrian-ppo
-export CAMBRIAN_IP_DIR=$REPO/ips/
+REPO=/home/gridsan/ayoung/Pseudos/bees/EyesOfCambrian
+LOGS=$REPO/logs-distributed-evo/debug/
 
 # Hacky: We're going to write our IP to a file that is available to all other agent pools on different nodes/processes
-mkdir -p $REPO/ips
-echo "$SLURM_ARRAY_TASK_ID $(hostname -i)" > $REPO/logs-distributed-evo/debug/agent_pool_ips/ip_$SLURM_ARRAY_TASK_ID.txt
+mkdir -p $LOGS/agent_pool_ips
+echo "$SLURM_ARRAY_TASK_ID $(hostname -i)" > $LOGS/agent_pool_ips/ip_$SLURM_ARRAY_TASK_ID.txt
 
 cd $REPO
-source env/bin/activate
 python -u cambrian/reinforce/evo/runner.py configs_evo/debug_distributed.yaml

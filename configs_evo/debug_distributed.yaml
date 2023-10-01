@@ -27,7 +27,7 @@ env_config:
   verbose: 2
 
 evo_config:
-  num_generations: 10
+  num_generations: 20
   num_children_per_parent: 2
   num_top_performers: 4
   population_size: 4
@@ -69,6 +69,7 @@ animal_config:
     fov: [150, 150]
     angle: [0, 0]
     sensor_size: [5, 5]
+    closed_pinhole_percentage: [0, 0]
     direction: ["left", "right"]
     # imaging_model: ['lens', 'lens']
     imaging_model: ["simple", "simple"]

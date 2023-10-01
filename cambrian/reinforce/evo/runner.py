@@ -123,6 +123,8 @@ class EvoRunner:
         )
         model.learn(total_timesteps=self.env_config.total_timesteps, callback=eval_cb)
 
+        env.close()
+
     def _make_env(self, ppodir: Path) -> VecEnv:
         env = SubprocVecEnv(
             [

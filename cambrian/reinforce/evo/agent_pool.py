@@ -89,15 +89,15 @@ class SocketAgentPool(AgentPool):
         def send(self, data: bytes, attempts: int = 10) -> bool:
             """Send data to this client."""
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect((self.ip, self.port))
-
                 for _ in range(attempts):
                     try:
+                        s.connect((self.ip, self.port))
                         s.sendall(struct.pack("I", len(data)))
                         s.sendall(data)
                         return True
                     except ConnectionRefusedError:
                         time.sleep(2)
+
             return False
 
         def connect(self):
@@ -118,7 +118,7 @@ class SocketAgentPool(AgentPool):
         def start(self, num_clients: int):
             """Simply start listening. Non-blocking."""
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             self.socket.bind((self.ip, self.port))
             self.socket.listen(num_clients)
 

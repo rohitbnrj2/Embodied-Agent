@@ -93,6 +93,8 @@ class Agent(OculozoicAnimal):
 
         NOTE: If crossover AND mutation is specified, then crossover will occur first, followed by mutation. This basically implies that mutation in this scenario is random variation in offspring not attributed to the parents.
         """
+        init_config = self.config.init_configuration
+
         if self.verbose > 2:
             print("Mutating agent...")
         if mutations is None:
@@ -114,26 +116,26 @@ class Agent(OculozoicAnimal):
             if self.verbose > 1:
                 print("Removing photoreceptor...")
             self.config.init_photoreceptors -= self.config.increment_photoreceptor
-            self.config.init_photoreceptors = max(0, self.config.init_photoreceptors)
+            self.config.init_photoreceptors = max(5, self.config.init_photoreceptors)
 
         if mutations & Agent.MutationType.ADD_EYE:
             if self.verbose > 1:
                 print("Adding pixel...")
 
-            init_config = self.config.init_configuration
-
             # Use the same probability as the current number of simple eyes
             simple_prob = (
                 init_config.imaging_model.count("simple") / init_config.num_pixels
             )
+            simple_prob = np.clip(simple_prob, 0.01, 0.99)
             imaging_model = np.random.choice(
                 ["simple", "lens"], p=[simple_prob, 1 - simple_prob]
             )
 
             # set the rest to be the mean of the current values
-            fov = np.mean(init_config.fov)  # np.random.uniform(0, 180)
-            angle = np.mean(init_config.angle)  # np.random.uniform(0, 180)
-            sensor_size = np.mean(init_config.sensor_size)  # np.random.uniform(0, 20)
+            fov = np.mean(init_config.fov, dtype=int)  # np.random.uniform(0, 180)
+            angle = np.mean(init_config.angle, dtype=int)  # np.random.uniform(0, 180)
+            sensor_size = np.mean(init_config.sensor_size, dtype=int)  
+            closed_pinhole_percentage = np.mean(init_config.closed_pinhole_percentage)
 
             init_config.num_pixels += 2
             init_config.direction.extend(["left", "right"])
@@ -141,53 +143,69 @@ class Agent(OculozoicAnimal):
             init_config.sensor_size.extend([sensor_size, sensor_size])
             init_config.angle.extend([angle, angle])
             init_config.fov.extend([fov, fov])
+            init_config.closed_pinhole_percentage.extend(
+                [closed_pinhole_percentage, closed_pinhole_percentage]
+            )
 
-        if mutations & Agent.MutationType.REMOVE_EYE:
+        if mutations & Agent.MutationType.REMOVE_EYE and init_config.num_pixels > 2:
             if self.verbose > 1:
                 print("Removing pixel...")
 
-            init_config = self.config.init_configuration
+            init_config.num_pixels -= 2
             pixel_idx = np.random.randint(0, init_config.num_pixels // 2)
 
             assert init_config.direction[pixel_idx * 2] == "left"
+            del init_config.imaging_model[pixel_idx * 2]
             del init_config.direction[pixel_idx * 2]
             del init_config.sensor_size[pixel_idx * 2]
             del init_config.angle[pixel_idx * 2]
             del init_config.fov[pixel_idx * 2]
+            del init_config.closed_pinhole_percentage[pixel_idx * 2]
 
             # NOTE: not plus one since 1 was removed
             assert init_config.direction[pixel_idx * 2] == "right"
+            del init_config.imaging_model[pixel_idx * 2]
             del init_config.direction[pixel_idx * 2]
             del init_config.sensor_size[pixel_idx * 2]
             del init_config.angle[pixel_idx * 2]
             del init_config.fov[pixel_idx * 2]
+            del init_config.closed_pinhole_percentage[pixel_idx * 2]
 
         if mutations & Agent.MutationType.EDIT_EYE:
             if self.verbose > 1:
                 print("Updating pixel...")
 
-            init_config = self.config.init_configuration
             pixel_idx = np.random.randint(0, init_config.num_pixels // 2)
 
             # add random noise at roughly 10% of the original magnitude
             # it is assumed that the left and right eyes are symmetric/identical
             def add_noise(x):
                 return x + np.random.normal(0, 0.1 * x)
-            sensor_size = add_noise(init_config.sensor_size[pixel_idx])
-            angle = init_config.angle[pixel_idx] 
+
+            sensor_size = int(add_noise(init_config.sensor_size[pixel_idx]))
+            angle = init_config.angle[pixel_idx]
             fov = add_noise(init_config.fov[pixel_idx])
+            closed_pinhole_percentage = add_noise(
+                init_config.closed_pinhole_percentage[pixel_idx]
+            )
 
             # Left
             assert init_config.direction[pixel_idx * 2] == "left"
             init_config.sensor_size[pixel_idx * 2] = sensor_size
             init_config.angle[pixel_idx * 2] = angle
             init_config.fov[pixel_idx * 2] = fov
+            init_config.closed_pinhole_percentage[
+                pixel_idx * 2
+            ] = closed_pinhole_percentage
 
             # Right
             assert init_config.direction[pixel_idx * 2 + 1] == "right"
             init_config.sensor_size[pixel_idx * 2 * +1] = sensor_size
             init_config.angle[pixel_idx * 2 + 1] = angle
             init_config.fov[pixel_idx * 2 + 1] = fov
+            init_config.closed_pinhole_percentage[
+                pixel_idx * 2 + 1
+            ] = closed_pinhole_percentage
 
     def crossover(self):
         """Crossover the agent with another agent. Crossover differs from mutation in that it is sexual reproduction, i.e. there is a combination/crossover of genes with another agent."""
