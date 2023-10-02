@@ -127,7 +127,7 @@ class EvoRunner:
             verbose=verbose,
         )
         
-        parent_folder = self.get_parents_folder()
+        parent_folder = self.get_parent_folder()
         parent_weights_file = f"{parent_folder}/ppodir/model_weights.pth"
         
         self.transfer_weights(model, parent_weights_file)
