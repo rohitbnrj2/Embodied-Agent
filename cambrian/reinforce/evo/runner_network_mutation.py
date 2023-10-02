@@ -126,7 +126,7 @@ class EvoRunner:
         model.learn(total_timesteps=self.env_config.total_timesteps, callback=eval_cb)
         
         #save model weights
-        th.save(model.policy.state_dict(), "ppodir/model_weights.pth")
+        th.save(model.policy.state_dict(), f"{ppodir}/model_weights.pth")
         
         env.close()
     
