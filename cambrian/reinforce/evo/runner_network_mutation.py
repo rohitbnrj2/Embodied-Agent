@@ -82,6 +82,11 @@ class EvoRunner:
     def mutate_agent(self):
         self.agent.modify(self.evo_config.modification_type)
         self.config.animal_config = self.agent.config
+    
+    def get_parent_folder(self):
+        #gets parent of the current agent that is about to be trained
+        
+        raise NotImplementedError
 
     def train_agent(self):
         verbose = self.verbose
@@ -122,11 +127,16 @@ class EvoRunner:
             verbose=verbose,
         )
         
+        parent_folder = self.get_parents_folder()
+        parent_weights_file = f"{parent_folder}/ppodir/model_weights.pth"
+        
+        self.transfer_weights(model, parent_weights_file)
+        
         #th.save()
         model.learn(total_timesteps=self.env_config.total_timesteps, callback=eval_cb)
         
         #save model weights
-        th.save(model.policy.state_dict(), f"{ppodir}/model_weights.pth")
+        th.save(model.policy.state_dict(), "ppodir/model_weights.pth")
         
         env.close()
     
