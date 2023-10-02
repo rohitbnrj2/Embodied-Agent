@@ -128,7 +128,7 @@ class EvoRunner:
         )
         
         parent_folder = self.get_parent_folder()
-        parent_weights_file = f"{parent_folder}/ppodir/model_weights.pth"
+        parent_weights_file = f"{parent_folder}/ppo/model_weights.pth"
         
         self.transfer_weights(model, parent_weights_file)
         
@@ -136,7 +136,7 @@ class EvoRunner:
         model.learn(total_timesteps=self.env_config.total_timesteps, callback=eval_cb)
         
         #save model weights
-        th.save(model.policy.state_dict(), "ppodir/model_weights.pth")
+        th.save(model.policy.state_dict(), f"{ppodir}/model_weights.pth")
         
         env.close()
     
