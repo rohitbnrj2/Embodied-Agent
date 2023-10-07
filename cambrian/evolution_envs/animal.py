@@ -79,7 +79,7 @@ class OculozoicAnimal:
         eye_out = []
         processed_eye_intensity = []
         num_photoreceptors_per_pixel = np.maximum(0, int(self.num_photoreceptors/self.num_pixels))
-        # print("num_photoreceptors_per_pixel", num_photoreceptors_per_pixel)
+        # print("num_photoreceptgors_per_pixel", num_photoreceptors_per_pixel)
         for i in range(self.num_pixels):
             st = time.time()
             final_intensity, raw_photoreceptor_output = self.pixels[i].render_pixel(dx, dy, 

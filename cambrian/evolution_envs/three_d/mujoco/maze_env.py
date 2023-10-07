@@ -1,361 +1,412 @@
-# adapted from https://github.com/Farama-Foundation/D4RL/blob/master/d4rl/locomotion/maze_env.py
-import os
+"""A maze environment with Gymnasium API.
+
+GitHub Sauce: (https://github.com/Farama-Foundation/Gymnasium-Robotics/blob/main/gymnasium_robotics/envs/maze/maps.py)
+
+"""
+import math
 import tempfile
 import xml.etree.ElementTree as ET
-import math
+from os import path
+from typing import Dict, List, Optional, Union
+
 import numpy as np
-import gym
-from copy import deepcopy
 
-RESET = R = 'r'  # Reset position.
-GOAL = G = 'g'
-
-# Maze specifications for dataset generation
-U_MAZE = [[1, 1, 1, 1, 1],
-          [1, R, 0, 0, 1],
-          [1, 1, 1, 0, 1],
-          [1, G, 0, 0, 1],
-          [1, 1, 1, 1, 1]]
-
-BIG_MAZE = [[1, 1, 1, 1, 1, 1, 1, 1],
-            [1, R, 0, 1, 1, 0, 0, 1],
-            [1, 0, 0, 1, 0, 0, G, 1],
-            [1, 1, 0, 0, 0, 1, 1, 1],
-            [1, 0, 0, 1, 0, 0, 0, 1],
-            [1, G, 1, 0, 0, 1, 0, 1],
-            [1, 0, 0, 0, 1, G, 0, 1],
-            [1, 1, 1, 1, 1, 1, 1, 1]]
-
-HARDEST_MAZE = [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                [1, R, 0, 0, 0, 1, G, 0, 0, 0, 0, 1],
-                [1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-                [1, 0, 0, 0, 0, G, 0, 1, 0, 0, G, 1],
-                [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-                [1, 0, G, 1, 0, 1, 0, 0, 0, 0, 0, 1],
-                [1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1],
-                [1, 0, 0, 1, G, 0, G, 1, 0, G, 0, 1],
-                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]
-
-# Maze specifications with a single target goal
-U_MAZE_TEST = [[1, 1, 1, 1, 1],
-              [1, R, 0, 0, 1],
-              [1, 1, 1, 0, 1],
-              [1, G, 0, 0, 1],
-              [1, 1, 1, 1, 1]]
-
-BIG_MAZE_TEST = [[1, 1, 1, 1, 1, 1, 1, 1],
-                [1, R, 0, 1, 1, 0, 0, 1],
-                [1, 0, 0, 1, 0, 0, 0, 1],
-                [1, 1, 0, 0, 0, 1, 1, 1],
-                [1, 0, 0, 1, 0, 0, 0, 1],
-                [1, 0, 1, 0, 0, 1, 0, 1],
-                [1, 0, 0, 0, 1, 0, G, 1],
-                [1, 1, 1, 1, 1, 1, 1, 1]]
-
-HARDEST_MAZE_TEST = [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [1, R, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-                    [1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-                    [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-                    [1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1],
-                    [1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1],
-                    [1, 0, 0, 1, 0, 0, 0, 1, 0, G, 0, 1],
-                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]
-
-# Maze specifications for evaluation
-U_MAZE_EVAL = [[1, 1, 1, 1, 1],
-              [1, 0, 0, R, 1],
-              [1, 0, 1, 1, 1],
-              [1, 0, 0, G, 1],
-              [1, 1, 1, 1, 1]]
-
-BIG_MAZE_EVAL = [[1, 1, 1, 1, 1, 1, 1, 1],
-                [1, R, 0, 0, 0, 0, G, 1],
-                [1, 0, 1, 0, 1, 1, 0, 1],
-                [1, 0, 0, 0, 0, 1, 0, 1],
-                [1, 1, 1, 0, 0, 1, 1, 1],
-                [1, G, 0, 0, 0, 0, 0, 1],
-                [1, 0, 0, 1, 1, G, 0, 1],
-                [1, 1, 1, 1, 1, 1, 1, 1]]
-
-HARDEST_MAZE_EVAL = [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [1, R, 0, 1, G, 0, 0, 1, 0, G, 0, 1],
-                    [1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
-                    [1, 0, 0, 1, 0, 1, G, 0, 0, 0, 0, 1],
-                    [1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1],
-                    [1, G, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1],
-                    [1, 0, 0, 0, G, 1, G, 0, 0, 0, G, 1],
-                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]
-
-U_MAZE_EVAL_TEST = [[1, 1, 1, 1, 1],
-              [1, 0, 0, R, 1],
-              [1, 0, 1, 1, 1],
-              [1, 0, 0, G, 1],
-              [1, 1, 1, 1, 1]]
-
-BIG_MAZE_EVAL_TEST = [[1, 1, 1, 1, 1, 1, 1, 1],
-                [1, R, 0, 0, 0, 0, G, 1],
-                [1, 0, 1, 0, 1, 1, 0, 1],
-                [1, 0, 0, 0, 0, 1, 0, 1],
-                [1, 1, 1, 0, 0, 1, 1, 1],
-                [1, 0, 0, 0, 0, 0, 0, 1],
-                [1, 0, 0, 1, 1, 0, 0, 1],
-                [1, 1, 1, 1, 1, 1, 1, 1]]
-
-HARDEST_MAZE_EVAL_TEST = [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [1, R, 0, 1, 0, 0, 0, 1, 0, G, 0, 1],
-                    [1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
-                    [1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1],
-                    [1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1],
-                    [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1],
-                    [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]
+from cambrian.evolution_envs.three_d.mujoco.goal_env import GoalEnv
+from cambrian.evolution_envs.three_d.mujoco.maps import COMBINED, GOAL, RESET, U_MAZE
 
 
-class MazeEnv(gym.Env):
-  LOCOMOTION_ENV = None  # Must be specified by child class.
+class Maze:
+    r"""This class creates and holds information about the maze in the MuJoCo simulation.
 
-  def __init__(
-      self,
-      maze_map,
-      maze_size_scaling,
-      maze_height=0.5,
-      manual_collision=False,
-      non_zero_reset=False,
-      reward_type='dense',
-      *args,
-      **kwargs):
-    if self.LOCOMOTION_ENV is None:
-      raise ValueError('LOCOMOTION_ENV is unspecified.')
+    The accessible attributes are the following:
+    - :attr:`maze_map` - The maze discrete data structure.
+    - :attr:`maze_size_scaling` - The maze scaling for the continuous coordinates in the MuJoCo simulation.
+    - :attr:`maze_height` - The height of the walls in the MuJoCo simulation.
+    - :attr:`unique_goal_locations` - All the `(i,j)` possible cell indices for goal locations.
+    - :attr:`unique_reset_locations` - All the `(i,j)` possible cell indices for agent initialization locations.
+    - :attr:`combined_locations` - All the `(i,j)` possible cell indices for goal and agent initialization locations.
+    - :attr:`map_length` - Maximum value of j cell index
+    - :attr:`map_width` - Mazimum value of i cell index
+    - :attr:`x_map_center` - The x coordinate of the map's center
+    - :attr:`y_map_center` - The y coordinate of the map's center
 
-    xml_path = self.LOCOMOTION_ENV.FILE
-    tree = ET.parse(xml_path)
-    worldbody = tree.find(".//worldbody")
+    The Maze class also presents a method to convert from cell indices to `(x,y)` coordinates in the MuJoCo simulation:
+    - :meth:`cell_rowcol_to_xy` - Convert from `(i,j)` to `(x,y)`
 
-    self._maze_map = maze_map
+    ### Version History
+    * v4: Refactor compute_terminated into a pure function compute_terminated and a new function update_goal which resets the goal position. Bug fix: missing maze_size_scaling factor added in generate_reset_pos() -- only affects AntMaze.
+    * v3: refactor version of the D4RL environment, also create dependency on newest [mujoco python bindings](https://mujoco.readthedocs.io/en/latest/python.html) maintained by the MuJoCo team in Deepmind.
+    * v2 & v1: legacy versions in the [D4RL](https://github.com/Farama-Foundation/D4RL).
+    """
 
-    self._maze_height = maze_height
-    self._maze_size_scaling = maze_size_scaling
-    self._manual_collision = manual_collision
+    def __init__(
+        self,
+        maze_map: List[List[Union[str, int]]],
+        maze_size_scaling: float,
+        maze_height: float,
+    ):
 
-    self._maze_map = maze_map
+        self._maze_map = maze_map
+        self._maze_size_scaling = maze_size_scaling
+        self._maze_height = maze_height
 
-    # Obtain a numpy array form for a maze map in case we want to reset
-    # to multiple starting states
-    temp_maze_map = deepcopy(self._maze_map)
-    for i in range(len(maze_map)):
-      for j in range(len(maze_map[0])):
-        if temp_maze_map[i][j] in [RESET,]:
-          temp_maze_map[i][j] = 0
-        elif temp_maze_map[i][j] in [GOAL,]:
-          temp_maze_map[i][j] = 1
-    
-    self._np_maze_map = np.array(temp_maze_map)
+        self._unique_goal_locations = []
+        self._unique_reset_locations = []
+        self._combined_locations = []
 
-    torso_x, torso_y = self._find_robot()
-    self._init_torso_x = torso_x
-    self._init_torso_y = torso_y
+        # Get the center cell Cartesian position of the maze. This will be the origin
+        self._map_length = len(maze_map)
+        self._map_width = len(maze_map[0])
+        self._x_map_center = self.map_width / 2 * maze_size_scaling
+        self._y_map_center = self.map_length / 2 * maze_size_scaling
 
-    for i in range(len(self._maze_map)):
-      for j in range(len(self._maze_map[0])):
-        struct = self._maze_map[i][j]
-        if struct == 1:  # Unmovable block.
-          # Offset all coordinates so that robot starts at the origin.
-          ET.SubElement(
-              worldbody, "geom",
-              name="block_%d_%d" % (i, j),
-              pos="%f %f %f" % (j * self._maze_size_scaling - torso_x,
-                                i * self._maze_size_scaling - torso_y,
-                                self._maze_height / 2 * self._maze_size_scaling),
-              size="%f %f %f" % (0.5 * self._maze_size_scaling,
-                                 0.5 * self._maze_size_scaling,
-                                 self._maze_height / 2 * self._maze_size_scaling),
-              type="box",
-              material="",
-              contype="1",
-              conaffinity="1",
-              rgba="0.7 0.5 0.3 1.0",
-          )
+    @property
+    def maze_map(self) -> List[List[Union[str, int]]]:
+        """Returns the list[list] data structure of the maze."""
+        return self._maze_map
 
-    torso = tree.find(".//body[@name='torso']")
-    geoms = torso.findall(".//geom")
+    @property
+    def maze_size_scaling(self) -> float:
+        """Returns the scaling value used to integrate the maze
+        encoding in the MuJoCo simulation.
+        """
+        return self._maze_size_scaling
 
-    _, file_path = tempfile.mkstemp(text=True, suffix='.xml')
-    tree.write(file_path)
+    @property
+    def maze_height(self) -> float:
+        """Returns the un-scaled height of the walls in the MuJoCo
+        simulation.
+        """
+        return self._maze_height
 
-    self.LOCOMOTION_ENV.__init__(self, *args, file_path=file_path, non_zero_reset=non_zero_reset, reward_type=reward_type, **kwargs)
+    @property
+    def unique_goal_locations(self) -> List[np.ndarray]:
+        """Returns all the possible goal locations in discrete cell
+        coordinates (i,j)
+        """
+        return self._unique_goal_locations
 
-    self.target_goal = None
+    @property
+    def unique_reset_locations(self) -> List[np.ndarray]:
+        """Returns all the possible reset locations for the agent in
+        discrete cell coordinates (i,j)
+        """
+        return self._unique_reset_locations
 
-  def _xy_to_rowcol(self, xy):
-    size_scaling = self._maze_size_scaling
-    xy = (max(xy[0], 1e-4), max(xy[1], 1e-4))
-    return (int(1 + (xy[1]) / size_scaling),
-            int(1 + (xy[0]) / size_scaling))
-  
-  def _get_reset_location(self,):
-    prob = (1.0 - self._np_maze_map) / np.sum(1.0 - self._np_maze_map) 
-    prob_row = np.sum(prob, 1)
-    row_sample = np.random.choice(np.arange(self._np_maze_map.shape[0]), p=prob_row)
-    col_sample = np.random.choice(np.arange(self._np_maze_map.shape[1]), p=prob[row_sample] * 1.0 / prob_row[row_sample])
-    reset_location = self._rowcol_to_xy((row_sample, col_sample))
-    
-    # Add some random noise
-    random_x = np.random.uniform(low=0, high=0.5) * 0.5 * self._maze_size_scaling
-    random_y = np.random.uniform(low=0, high=0.5) * 0.5 * self._maze_size_scaling
+    @property
+    def combined_locations(self) -> List[np.ndarray]:
+        """Returns all the possible goal/reset locations in discrete cell
+        coordinates (i,j)
+        """
+        return self._combined_locations
 
-    return (max(reset_location[0] + random_x, 0), max(reset_location[1] + random_y, 0))
+    @property
+    def map_length(self) -> int:
+        """Returns the length of the maze in number of discrete vertical cells
+        or number of rows i.
+        """
+        return self._map_length
 
-  def _rowcol_to_xy(self, rowcol, add_random_noise=False):
-    row, col = rowcol
-    x = col * self._maze_size_scaling - self._init_torso_x
-    y = row * self._maze_size_scaling - self._init_torso_y
-    if add_random_noise:
-      x = x + np.random.uniform(low=0, high=self._maze_size_scaling * 0.25)
-      y = y + np.random.uniform(low=0, high=self._maze_size_scaling * 0.25)
-    return (x, y)
+    @property
+    def map_width(self) -> int:
+        """Returns the width of the maze in number of discrete horizontal cells
+        or number of columns j.
+        """
+        return self._map_width
 
-  def goal_sampler(self, np_random, only_free_cells=True, interpolate=True):
-    valid_cells = []
-    goal_cells = []
+    @property
+    def x_map_center(self) -> float:
+        """Returns the x coordinate of the center of the maze in the MuJoCo simulation"""
+        return self._x_map_center
 
-    for i in range(len(self._maze_map)):
-      for j in range(len(self._maze_map[0])):
-        if self._maze_map[i][j] in [0, RESET, GOAL] or not only_free_cells:
-          valid_cells.append((i, j))
-        if self._maze_map[i][j] == GOAL:
-          goal_cells.append((i, j))
+    @property
+    def y_map_center(self) -> float:
+        """Returns the x coordinate of the center of the maze in the MuJoCo simulation"""
+        return self._y_map_center
 
-    # If there is a 'goal' designated, use that. Otherwise, any valid cell can
-    # be a goal.
-    sample_choices = goal_cells if goal_cells else valid_cells
-    cell = sample_choices[np_random.choice(len(sample_choices))]
-    xy = self._rowcol_to_xy(cell, add_random_noise=True)
+    def cell_rowcol_to_xy(self, rowcol_pos: np.ndarray) -> np.ndarray:
+        """Converts a cell index `(i,j)` to x and y coordinates in the MuJoCo simulation"""
+        x = (rowcol_pos[1] + 0.5) * self.maze_size_scaling - self.x_map_center
+        y = self.y_map_center - (rowcol_pos[0] + 0.5) * self.maze_size_scaling
 
-    random_x = np.random.uniform(low=0, high=0.5) * 0.25 * self._maze_size_scaling
-    random_y = np.random.uniform(low=0, high=0.5) * 0.25 * self._maze_size_scaling
+        return np.array([x, y])
 
-    xy = (max(xy[0] + random_x, 0), max(xy[1] + random_y, 0))
+    def cell_xy_to_rowcol(self, xy_pos: np.ndarray) -> np.ndarray:
+        """Converts a cell x and y coordinates to `(i,j)`"""
+        i = math.floor((self.y_map_center - xy_pos[1]) / self.maze_size_scaling)
+        j = math.floor((xy_pos[0] + self.x_map_center) / self.maze_size_scaling)
+        return np.array([i, j])
 
-    return xy
-  
-  def set_target_goal(self, goal_input=None):
-    if goal_input is None:
-      self.target_goal = self.goal_sampler(np.random)
-    else:
-      self.target_goal = goal_input
-    
-    print ('Target Goal: ', self.target_goal)
-    ## Make sure that the goal used in self._goal is also reset:
-    self._goal = self.target_goal
+    @classmethod
+    def make_maze(
+        cls,
+        agent_xml_path: str,
+        maze_map: list,
+        maze_size_scaling: float,
+        maze_height: float,
+    ):
+        """Class method that returns an instance of Maze with a decoded maze information and the temporal
+           path to the new MJCF (xml) file for the MuJoCo simulation.
 
-  def _find_robot(self):
-    structure = self._maze_map
-    size_scaling = self._maze_size_scaling
-    for i in range(len(structure)):
-      for j in range(len(structure[0])):
-        if structure[i][j] == RESET:
-          return j * size_scaling, i * size_scaling
-    raise ValueError('No robot in maze specification.')
+        Args:
+            agent_xml_path (str): the goal that was achieved during execution
+            maze_map (list[list[str,int]]): the desired goal that we asked the agent to attempt to achieve
+            maze_size_scaling (float): an info dictionary with additional information
+            maze_height (float): an info dictionary with additional information
 
-  def _is_in_collision(self, pos):
-    x, y = pos
-    structure = self._maze_map
-    size_scaling = self._maze_size_scaling
-    for i in range(len(structure)):
-      for j in range(len(structure[0])):
-        if structure[i][j] == 1:
-          minx = j * size_scaling - size_scaling * 0.5 - self._init_torso_x
-          maxx = j * size_scaling + size_scaling * 0.5 - self._init_torso_x
-          miny = i * size_scaling - size_scaling * 0.5 - self._init_torso_y
-          maxy = i * size_scaling + size_scaling * 0.5 - self._init_torso_y
-          if minx <= x <= maxx and miny <= y <= maxy:
-            return True
-    return False
+        Returns:
+            Maze: The reward that corresponds to the provided achieved goal w.r.t. to the desired
+            goal. Note that the following should always hold true:
+            str: The xml temporal file to the new mjcf model with the included maze.
+        """
+        tree = ET.parse(agent_xml_path)
+        worldbody = tree.find(".//worldbody")
 
-  def step(self, action):
-    if self._manual_collision:
-      old_pos = self.get_xy()
-      inner_next_obs, inner_reward, done, info = self.LOCOMOTION_ENV.step(self, action)
-      new_pos = self.get_xy()
-      if self._is_in_collision(new_pos):
-        self.set_xy(old_pos)
-    else:
-      inner_next_obs, inner_reward, done, info = self.LOCOMOTION_ENV.step(self, action)
-    next_obs = self._get_obs()
-    return next_obs, inner_reward, done, info
+        maze = cls(maze_map, maze_size_scaling, maze_height)
+        empty_locations = []
+        for i in range(maze.map_length):
+            for j in range(maze.map_width):
+                struct = maze_map[i][j]
+                # Store cell locations in simulation global Cartesian coordinates
+                x = (j + 0.5) * maze_size_scaling - maze.x_map_center
+                y = maze.y_map_center - (i + 0.5) * maze_size_scaling
+                if struct == 1:  # Unmovable block.
+                    # Offset all coordinates so that maze is centered.
+                    ET.SubElement(
+                        worldbody,
+                        "geom",
+                        name=f"block_{i}_{j}",
+                        pos=f"{x} {y} {maze_height / 2 * maze_size_scaling}",
+                        size=f"{0.5 * maze_size_scaling} {0.5 * maze_size_scaling} {maze_height / 2 * maze_size_scaling}",
+                        type="box",
+                        material="",
+                        contype="1",
+                        conaffinity="1",
+                        rgba="0.7 0.5 0.3 1.0",
+                    )
 
-  def _get_best_next_rowcol(self, current_rowcol, target_rowcol):
-    """Runs BFS to find shortest path to target and returns best next rowcol. 
-       Add obstacle avoidance"""
-    current_rowcol = tuple(current_rowcol)
-    target_rowcol = tuple(target_rowcol)
-    if target_rowcol == current_rowcol:
-        return target_rowcol
+                elif struct == RESET:
+                    maze._unique_reset_locations.append(np.array([x, y]))
+                elif struct == GOAL:
+                    maze._unique_goal_locations.append(np.array([x, y]))
+                elif struct == COMBINED:
+                    maze._combined_locations.append(np.array([x, y]))
+                elif struct == 0:
+                    empty_locations.append(np.array([x, y]))
 
-    visited = {}
-    to_visit = [target_rowcol]
-    while to_visit:
-      next_visit = []
-      for rowcol in to_visit:
-        visited[rowcol] = True
-        row, col = rowcol
-        left = (row, col - 1)
-        right = (row, col + 1)
-        down = (row + 1, col)
-        up = (row - 1, col)
-        for next_rowcol in [left, right, down, up]:
-          if next_rowcol == current_rowcol:  # Found a shortest path.
-            return rowcol
-          next_row, next_col = next_rowcol
-          if next_row < 0 or next_row >= len(self._maze_map):
-            continue
-          if next_col < 0 or next_col >= len(self._maze_map[0]):
-            continue
-          if self._maze_map[next_row][next_col] not in [0, RESET, GOAL]:
-            continue
-          if next_rowcol in visited:
-            continue
-          next_visit.append(next_rowcol)
-      to_visit = next_visit
+        # Add target site for visualization
+        ET.SubElement(
+            worldbody,
+            "site",
+            name="target",
+            pos=f"0 0 {maze_height / 2 * maze_size_scaling}",
+            size=f"{0.2 * maze_size_scaling}",
+            rgba="1 0 0 0.7",
+            type="sphere",
+        )
 
-    raise ValueError('No path found to target.')
+        # Add the combined cell locations (goal/reset) to goal and reset
+        if (
+            not maze._unique_goal_locations
+            and not maze._unique_reset_locations
+            and not maze._combined_locations
+        ):
+            # If there are no given "r", "g" or "c" cells in the maze data structure,
+            # any empty cell can be a reset or goal location at initialization.
+            maze._combined_locations = empty_locations
+        elif not maze._unique_reset_locations and not maze._combined_locations:
+            # If there are no given "r" or "c" cells in the maze data structure,
+            # any empty cell can be a reset location at initialization.
+            maze._unique_reset_locations = empty_locations
+        elif not maze._unique_goal_locations and not maze._combined_locations:
+            # If there are no given "g" or "c" cells in the maze data structure,
+            # any empty cell can be a gaol location at initialization.
+            maze._unique_goal_locations = empty_locations
 
-  def create_navigation_policy(self,
-                               goal_reaching_policy_fn,
-                               obs_to_robot=lambda obs: obs[:2], 
-                               obs_to_target=lambda obs: obs[-2:],
-                               relative=False):
-    """Creates a navigation policy by guiding a sub-policy to waypoints."""
+        maze._unique_goal_locations += maze._combined_locations
+        maze._unique_reset_locations += maze._combined_locations
 
-    def policy_fn(obs):
-      # import ipdb; ipdb.set_trace()
-      robot_x, robot_y = obs_to_robot(obs)
-      robot_row, robot_col = self._xy_to_rowcol([robot_x, robot_y])
-      target_x, target_y = self.target_goal
-      if relative:
-        target_x += robot_x  # Target is given in relative coordinates.
-        target_y += robot_y
-      target_row, target_col = self._xy_to_rowcol([target_x, target_y])
-      print ('Target: ', target_row, target_col, target_x, target_y)
-      print ('Robot: ', robot_row, robot_col, robot_x, robot_y)
+        # Save new xml with maze to a temporary file
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_xml_path = path.join(path.dirname(tmp_dir), "ant_maze.xml")
+            tree.write(temp_xml_path)
 
-      waypoint_row, waypoint_col = self._get_best_next_rowcol(
-          [robot_row, robot_col], [target_row, target_col])
-      
-      if waypoint_row == target_row and waypoint_col == target_col:
-        waypoint_x = target_x
-        waypoint_y = target_y
-      else:
-        waypoint_x, waypoint_y = self._rowcol_to_xy([waypoint_row, waypoint_col], add_random_noise=True)
+        return maze, temp_xml_path
 
-      goal_x = waypoint_x - robot_x
-      goal_y = waypoint_y - robot_y
 
-      print ('Waypoint: ', waypoint_row, waypoint_col, waypoint_x, waypoint_y)
+class MazeEnv(GoalEnv):
+    def __init__(
+        self,
+        agent_xml_path: str,
+        reward_type: str = "dense",
+        continuing_task: bool = True,
+        reset_target: bool = True,
+        maze_map: List[List[Union[int, str]]] = U_MAZE,
+        maze_size_scaling: float = 1.0,
+        maze_height: float = 0.5,
+        position_noise_range: float = 0.25,
+        **kwargs,
+    ):
 
-      return goal_reaching_policy_fn(obs, (goal_x, goal_y))
+        self.reward_type = reward_type
+        self.continuing_task = continuing_task
+        self.reset_target = reset_target
+        self.maze, self.tmp_xml_file_path = Maze.make_maze(
+            agent_xml_path, maze_map, maze_size_scaling, maze_height
+        )
 
-    return policy_fn
+        self.position_noise_range = position_noise_range
+
+    def generate_target_goal(self) -> np.ndarray:
+        assert len(self.maze.unique_goal_locations) > 0
+        goal_index = self.np_random.integers(
+            low=0, high=len(self.maze.unique_goal_locations)
+        )
+        goal = self.maze.unique_goal_locations[goal_index].copy()
+        return goal
+
+    def generate_reset_pos(self) -> np.ndarray:
+        assert len(self.maze.unique_reset_locations) > 0
+
+        # While reset position is close to goal position
+        reset_pos = self.goal.copy()
+        while (
+            np.linalg.norm(reset_pos - self.goal) <= 0.5 * self.maze.maze_size_scaling
+        ):
+            reset_index = self.np_random.integers(
+                low=0, high=len(self.maze.unique_reset_locations)
+            )
+            reset_pos = self.maze.unique_reset_locations[reset_index].copy()
+
+        return reset_pos
+
+    def reset(
+        self,
+        *,
+        seed: Optional[int] = None,
+        options: Optional[Dict[str, Optional[np.ndarray]]] = None,
+    ):
+        """Reset the maze simulation.
+
+        Args:
+            options (dict[str, np.ndarray]): the options dictionary can contain two items, "goal_cell" and "reset_cell" that will set the initial goal and reset location (i,j) in the self.maze.map list of list maze structure.
+
+        """
+        super().reset(seed=seed)
+
+        if options is None:
+            goal = self.generate_target_goal()
+            # Add noise to goal position
+            self.goal = self.add_xy_position_noise(goal)
+            reset_pos = self.generate_reset_pos()
+        else:
+            if "goal_cell" in options and options["goal_cell"] is not None:
+                # assert that goal cell is valid
+                assert self.maze.map_length > options["goal_cell"][0]
+                assert self.maze.map_width > options["goal_cell"][1]
+                assert (
+                    self.maze.maze_map[options["goal_cell"][0]][options["goal_cell"][1]]
+                    != 1
+                ), f"Goal can't be placed in a wall cell, {options['goal_cell']}"
+
+                goal = self.maze.cell_rowcol_to_xy(options["goal_cell"])
+
+            else:
+                goal = self.generate_target_goal()
+
+            # Add noise to goal position
+            self.goal = self.add_xy_position_noise(goal)
+
+            if "reset_cell" in options and options["reset_cell"] is not None:
+                # assert that goal cell is valid
+                assert self.maze.map_length > options["reset_cell"][0]
+                assert self.maze.map_width > options["reset_cell"][1]
+                assert (
+                    self.maze.maze_map[options["reset_cell"][0]][
+                        options["reset_cell"][1]
+                    ]
+                    != 1
+                ), f"Reset can't be placed in a wall cell, {options['reset_cell']}"
+
+                reset_pos = self.maze.cell_rowcol_to_xy(options["reset_cell"])
+
+            else:
+                reset_pos = self.generate_reset_pos()
+
+        # Update the position of the target site for visualization
+        self.update_target_site_pos()
+        # Add noise to reset position
+        self.reset_pos = self.add_xy_position_noise(reset_pos)
+
+        # Update the position of the target site for visualization
+        self.update_target_site_pos()
+
+    def add_xy_position_noise(self, xy_pos: np.ndarray) -> np.ndarray:
+        """Pass an x,y coordinate and it will return the same coordinate with a noise addition
+        sampled from a uniform distribution
+        """
+        noise_x = (
+            self.np_random.uniform(
+                low=-self.position_noise_range, high=self.position_noise_range
+            )
+            * self.maze.maze_size_scaling
+        )
+        noise_y = (
+            self.np_random.uniform(
+                low=-self.position_noise_range, high=self.position_noise_range
+            )
+            * self.maze.maze_size_scaling
+        )
+        xy_pos[0] += noise_x
+        xy_pos[1] += noise_y
+
+        return xy_pos
+
+    def compute_reward(
+        self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info
+    ) -> float:
+        distance = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
+        if self.reward_type == "dense":
+            return np.exp(-distance)
+        elif self.reward_type == "sparse":
+            return (distance <= 0.45).astype(np.float64)
+
+    def compute_terminated(
+        self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info
+    ) -> bool:
+        if not self.continuing_task:
+            # If task is episodic terminate the episode when the goal is reached
+            return bool(np.linalg.norm(achieved_goal - desired_goal) <= 0.45)
+        else:
+            # Continuing tasks don't terminate, episode will be truncated when time limit is reached (`max_episode_steps`)
+            return False
+
+    def update_goal(self, achieved_goal: np.ndarray) -> None:
+        """Update goal position if continuing task and within goal radius."""
+
+        if (
+            self.continuing_task
+            and self.reset_target
+            and bool(np.linalg.norm(achieved_goal - self.goal) <= 0.45)
+            and len(self.maze.unique_goal_locations) > 1
+        ):
+            # Generate a goal while within 0.45 of achieved_goal. The distance check above
+            # is not redundant, it avoids calling update_target_site_pos() unless necessary
+            while np.linalg.norm(achieved_goal - self.goal) <= 0.45:
+                # Generate another goal
+                goal = self.generate_target_goal()
+                # Add noise to goal position
+                self.goal = self.add_xy_position_noise(goal)
+
+            # Update the position of the target site for visualization
+            self.update_target_site_pos()
+
+    def compute_truncated(
+        self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info
+    ) -> bool:
+        return False
+
+    def update_target_site_pos(self, pos):
+        """Override this method to update the site qpos in the MuJoCo simulation
+        after a new goal is selected. This is mainly for visualization purposes."""
+        raise NotImplementedError
