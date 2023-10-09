@@ -9,6 +9,8 @@ class Renderer(mj.Renderer):
     documentation.
 
     TODO: Honestly, we probably could just write our own and not even use the mujoco one
+    not sure about the performance implications of deleting and creating new contexts
+    on each image render. Could maybe have one renderer per eye?
     """
 
     def __init__(self, *args, **kwargs):

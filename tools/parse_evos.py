@@ -179,7 +179,6 @@ def plot(generations: Dict, output_folder: Path) -> Dict:
             _config_plot("closed_pinhole_percentage")
 
             # Accumulate the data from all ranks
-            print(init_config.num_pixels)
             data["config"]["num_pixels"].append(init_config.num_pixels)
             data["config"]["angle"].append(np.average(np.abs(init_config.angle)))
             data["config"]["fov"].append(np.average(np.abs(init_config.fov)))
