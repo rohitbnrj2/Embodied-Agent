@@ -55,6 +55,9 @@ class Eye:
 
         # populates with default width and height, to be overwritten anyways
         self._renderer = Renderer(model)
+        # TOOD(ktiwary): figure out we creating renderes adds unnecessary overhead
+        self._depth_renderer = Renderer(model)
+        self._depth_renderer.enable_depth_rendering()
 
     @property
     def position(self) -> np.ndarray:
@@ -80,6 +83,16 @@ class Eye:
         self._renderer.reset_context(*self.resolution)
         self._renderer.update_scene(self._data, self._camera)
         return self._renderer.render()
+
+    def render_depth(self) -> np.ndarray:
+        self._depth_renderer.reset_context(*self.resolution)
+        self._depth_renderer.update_scene(self._data, self._camera)
+        return self._depth_renderer.render()
+
+    def render_psf(self) -> np.ndarray:
+        rgb = self.render()
+        depth = self.render_depth()
+        # depth dependent convolution with the psf 
 
     def _get_cam_attr(self, obj, attr):
         return getattr(obj, attr)[self.fixedcamid]
@@ -111,6 +124,7 @@ if __name__ == "__main__":
     # ==================
 
     import argparse
+    import os
 
     parser = argparse.ArgumentParser()
 
@@ -145,8 +159,17 @@ if __name__ == "__main__":
     parser.add_argument("--plot", action="store_true", help="Plot the demo")
     parser.add_argument("--save", action="store_true", help="Save the demo")
     parser.add_argument("--test", action="store_true", help="Run the tests")
+    parser.add_argument("--supercloud", action="store_true", help="Run the tests")
 
     args = parser.parse_args()
+
+    if args.supercloud:
+        # set some supercloud specific params
+        os.environ["PYOPENGL_PLATFORM"] = "osmesa"
+        os.environ["DISPLAY"] = ":0"
+        os.environ["MUJOCO_GL"]="osmesa"
+        # export LD_PRELOAD=/usr/lib/libGL.so.1 && export MUJOCO_GL=egl
+        # export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
 
     if not args.plot and not args.save and not args.no_demo:
         print("Warning: No output specified. Use --plot or --save to see the demo.")
