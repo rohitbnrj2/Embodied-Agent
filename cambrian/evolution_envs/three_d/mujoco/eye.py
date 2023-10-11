@@ -40,11 +40,77 @@ class Renderer(mj.Renderer):
         )
 
 
-class Eye:
+class EyeV1:
     def __init__(self, name: str, model: mj.MjModel, data: mj.MjData):
         self.name = name
         self._model = model
         self._data = data
+
+        self.fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, name)
+        assert self.fixedcamid != -1, f"Camera '{name}' not found."
+
+        self._camera = mj.MjvCamera()
+        self._camera.type = mj.mjtCamera.mjCAMERA_FIXED
+        self._camera.fixedcamid = self.fixedcamid
+
+        # populates with default width and height, to be overwritten anyways
+        self._renderer = Renderer(model)
+
+    @property
+    def position(self) -> np.ndarray:
+        return np.asarray(self._data.cam_xpos[self.fixedcamid])
+
+    @position.setter
+    def position(self, position: List):
+        self._data.cam_xpos[self.fixedcamid] += np.asarray(position)
+
+    @property
+    def rotation(self) -> np.ndarray:
+        mat0 = np.asarray(self._model.cam_mat0[self.fixedcamid]).reshape(3, 3)
+        xmat = np.asarray(self._data.cam_xmat[self.fixedcamid]).reshape(3, 3)
+        return np.matmul(mat0, xmat)
+
+    @rotation.setter
+    def rotation(self, rotation: List):
+        mat0 = self._model.cam_mat0[self.fixedcamid].reshape(3, 3)
+        rot = np.asarray(rotation).reshape(3, 3)
+        self._data.cam_xmat[self.fixedcamid] = np.matmul(mat0, rot).flatten()
+
+    def render(self) -> np.ndarray:
+        self._renderer.reset_context(*self.resolution)
+        self._renderer.update_scene(self._data, self._camera)
+        return self._renderer.render()
+
+    def _get_cam_attr(self, obj, attr):
+        return getattr(obj, attr)[self.fixedcamid]
+
+    def _set_cam_attr(self, value, obj, attr):
+        getattr(obj, attr)[self.fixedcamid] = value
+
+    fovy: float = property(
+        lambda self: self._get_cam_attr(self._model, "cam_fovy"),
+        lambda self, value: self._set_cam_attr(value, self._model, "cam_fovy"),
+    )
+    sensorsize: Tuple[float, float] = property(
+        lambda self: self._get_cam_attr(self._model, "cam_sensorsize"),
+        lambda self, value: self._set_cam_attr(value, self._model, "cam_sensorsize"),
+    )
+    resolution: Tuple[int, int] = property(
+        lambda self: self._get_cam_attr(self._model, "cam_resolution"),
+        lambda self, value: self._set_cam_attr(value, self._model, "cam_resolution"),
+    )
+    intrinsic: Tuple[float, float, float, float] = property(
+        lambda self: self._get_cam_attr(self._model, "cam_intrinsic"),
+        lambda self, value: self._set_cam_attr(value, self._model, "cam_intrinsic"),
+    )
+
+
+class Eye:
+    def __init__(self, name: str, model: mj.MjModel, data: mj.MjData, height_mask: np.array, scene_resolution: (100,100)):
+        self.name = name
+        self._model = model
+        self._data = data
+        self._scene_resolution = scene_resolution
 
         self.fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, name)
         assert self.fixedcamid != -1, f"Camera '{name}' not found."
@@ -79,20 +145,48 @@ class Eye:
         rot = np.asarray(rotation).reshape(3, 3)
         self._data.cam_xmat[self.fixedcamid] = np.matmul(mat0, rot).flatten()
 
-    def render(self) -> np.ndarray:
-        self._renderer.reset_context(*self.resolution)
+    def render(self, crop = True) -> np.ndarray:
+        self._renderer.reset_context(*self._scene_resolution)
         self._renderer.update_scene(self._data, self._camera)
-        return self._renderer.render()
+        rgb = self._renderer.render()
+        if crop: 
+            rgb = self._crop_array(rgb)
+        return rgb 
 
-    def render_depth(self) -> np.ndarray:
-        self._depth_renderer.reset_context(*self.resolution)
+    def render_depth(self, crop = True) -> np.ndarray:
+        self._depth_renderer.reset_context(*self._scene_resolution)
         self._depth_renderer.update_scene(self._data, self._camera)
+        if crop: 
+            rgb = self._crop_array(rgb)
         return self._depth_renderer.render()
 
     def render_psf(self) -> np.ndarray:
-        rgb = self.render()
-        depth = self.render_depth()
+        rgb = self.render(crop=False)
+        depth = self.render_depth(crop=False)
         # depth dependent convolution with the psf 
+
+
+    def _crop_array(self, arr):
+        CW, CH = int(self._scene_resolution[0]/2), int(self._scene_resolution[0]/2)
+        # take the center of the image 
+        # self.resolution must be greater than (1,1) & less than scene res
+        self.resolution = np.clip(self.resolution, np.ones(2), self._scene_resolution)
+        if self.resolution[0] > 1: 
+            top_left_x = int(CW - int(self.resolution[0]/2))
+            bottom_left_x = int(top_left_x + self.resolution[0])
+        else: 
+            top_left_x = CW # take the center pixel
+            bottom_left_x = CW + 1
+
+        if self.resolution[1] > 1: 
+            top_left_y = int(CH - int(self.resolution[1]/2))
+            bottom_left_y = int(top_left_y + self.resolution[1])
+        else:
+            top_left_y = CH 
+            bottom_left_y = CH + 1
+
+        arr = arr[top_left_x:bottom_left_x, top_left_y:bottom_left_y, :]
+        return arr
 
     def _get_cam_attr(self, obj, attr):
         return getattr(obj, attr)[self.fixedcamid]
@@ -221,8 +315,8 @@ if __name__ == "__main__":
     # ==============
 
     if args.test:
-        eye1 = Eye("eye1", model, data)
-        eye2 = Eye("eye2", model, data)
+        eye1 = EyeV1("eye1", model, data)
+        eye2 = EyeV1("eye2", model, data)
 
         eyes = [eye1.fixedcamid, eye2.fixedcamid]
 
@@ -263,7 +357,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from scipy.spatial.transform import Rotation as R
 
-    eye = Eye("eye", model, data)
+    eye = EyeV1("eye", model, data)
 
     X_NUM = args.xnum
     Y_NUM = args.ynum
