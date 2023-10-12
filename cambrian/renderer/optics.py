@@ -167,14 +167,27 @@ class Optics():
         return blur
 
     def compute_disc_depths(self, mj_depth):
+        """
+        mj_depth must be between (min, max)
+        """
         disc_depth = []
         # for each depth value see if it's close to self.disc_depth_range[n-1] < x < self.disc_depth_range[n]
         mj_depth = mj_depth.round().astype(np.uint8)
-        for i in range(min_bin, max_bin+1, 1):
-            idx = np.where(mj_depth == i)
+        # self.min_depth
+        # self.max_depth
+        for i in range(len(self.disc_depth_range)-1):
+            _min = self.disc_depth_range[i] 
+            _max = self.disc_depth_range[i+1] 
+            idx = np.where(mj_depth >= _min and mj_depth < _max)
             disc_depth_i = np.zeros_like(mj_depth ,dtype=np.float32)
             disc_depth_i[idx] = 1
             disc_depth.append(torch.tensor(disc_depth_i).unsqueeze(-1))
+
+        # append the last one 
+        idx = np.where(mj_depth >= _min)
+        disc_depth_i = np.zeros_like(mj_depth ,dtype=np.float32)
+        disc_depth_i[idx] = 1
+        disc_depth.append(torch.tensor(disc_depth_i).unsqueeze(-1))
 
         disc_depth = torch.concat(disc_depth, -1)
         return disc_depth
