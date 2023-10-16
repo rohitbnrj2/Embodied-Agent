@@ -1,0 +1,32 @@
+# See `cambrian.evolution_envs.three_d.mujoco.config` for more info
+
+training_config:
+  logdir: "logs-mujoco"
+  exp_name: "test"
+  ppo_checkpoint_path: None
+  total_timesteps: 400_000
+  check_freq: 64
+  batch_size: 1024
+  n_steps: 1024
+  seed: 424041
+  verbose: 2
+
+env_config:
+  num_animals: 1
+  frame_skip: 10
+  render_mode: "rgb_array"
+  maze_config:
+    name: "U_MAZE" 
+    size_scaling: 4.0
+    height: 0.5
+
+animal_config:
+  name: "swimmer"
+  model_path: "assets/swimmer.xml" 
+  num_eyes: 1
+  joint_name: "slider1"
+  default_eye_config:
+    name_prefix: "eye"
+    resolution: "200 200"
+    pos: "0 0 0.4"
+    quat: "0.5 0.5 0.5 0.5"

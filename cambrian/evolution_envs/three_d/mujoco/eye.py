@@ -1,214 +1,224 @@
 from typing import List, Tuple
 import numpy as np
+
 import mujoco as mj
+from gymnasium import spaces
+
+from cambrian_xml import MjCambrianXML
+from config import MjCambrianEyeConfig
+from renderer import MjCambrianRenderer
+
+RENDERER: MjCambrianRenderer = None
 
 
-class Renderer(mj.Renderer):
-    """This is an extension of the mujoco renderer helper class. It allows dynamically
-    changing the width and height of the rendering window. See `mj.Renderer` for further
-    documentation.
+class MjCambrianEye:
+    """Defines an eye for the cambrian environment. It essentially wraps a mujoco Camera
+    object and provides some helper methods for rendering and generating the XML. The
+    eye is attached to the parent body such that movement of the parent body will move
+    the eye.
 
-    TODO: Honestly, we probably could just write our own and not even use the mujoco one
-    not sure about the performance implications of deleting and creating new contexts
-    on each image render. Could maybe have one renderer per eye?
+    Args:
+        config (MjCambrianEyeConfig): The configuration for the eye.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    _renderer: MjCambrianRenderer = None
+    """
+    NOTE: this is a static renderer; it's shared across all eyes. First eye will
+          initialize. reset_context should be called before rendering to reset the
+          resolution
+    NOTE #2: the renderer is initialized by an outside entity with access to the 
+             mj.MjModel and mj.MjData objects.
+    """
 
-    def reset_context(self, width: int, height: int):
-        """This method facilitates the dynamic resizing of the rendering window. It will
-        reset the OpenGL context and the mujoco renderer context to match the new height
-        and width."""
+    def __init__(self, config: MjCambrianEyeConfig):
+        self.config = config
 
-        self._width = width
-        self._height = height
-        self._rect = mj._render.MjrRect(0, 0, width, height)
+        self._model: mj.MjModel = None
+        self._data: mj.MjData = None
+        self._camera: mj.MjvCamera = None
 
-        # Clear the old contexts
-        del self._gl_context
-        del self._mjr_context
+    def generate_xml(
+        self, parent_xml: MjCambrianXML, parent_body_name: str
+    ) -> MjCambrianXML:
+        """Generate the xml for the eye.
 
-        # Make the new ones
-        self._gl_context = mj.gl_context.GLContext(width, height)
-        self._gl_context.make_current()
-        self._mjr_context = mj._render.MjrContext(
-            self._model, mj._enums.mjtFontScale.mjFONTSCALE_150.value
-        )
-        mj._render.mjr_setBuffer(
-            mj._enums.mjtFramebuffer.mjFB_OFFSCREEN.value, self._mjr_context
-        )
+        In order to combine the xml for an eye with the xml for the animal that it's
+        attached to, we need to replicate the path with which we want to attach the eye.
+        For instance, if the body with which we want to attach the eye to is at
+        `mujoco/worldbody/torso`, then we need to replicate that path in the new xml.
+        This is kind of difficult with the `xml` library, but we'll utilize the
+        `CambrianXML` helpers for this.
 
+        Args:
+            parent_xml (MjCambrianXML): The xml of the parent body. Used as a reference to
+            extract the path of the parent body.
+            parent_body_name (str): The name of the parent body. Will search for the
+            body tag with this name, i.e. <body name="<parent_body_name>" ...>.
+        """
 
-class EyeV1:
-    def __init__(self, name: str, model: mj.MjModel, data: mj.MjData):
-        self.name = name
+        xml = MjCambrianXML.make_empty()
+
+        # Get the parent body reference
+        parent_body = parent_xml.find(".//body", name=parent_body_name)
+        assert parent_body is not None, f"Could not find body '{parent_body_name}'."
+
+        # Iterate through the path and add the parent elements to the new xml
+        parent = None
+        elements, _ = parent_xml.get_path(parent_body)
+        for element in elements:
+            if (
+                temp_parent := xml.find(f".//{element.tag}", **element.attrib)
+            ) is not None:
+                # If the element already exists, then we'll use that as the parent
+                parent = temp_parent
+                continue
+            parent = xml.add(parent, element.tag, **element.attrib)
+
+        # Finally add the camera element at the end
+        assert parent is not None
+        config = MjCambrianEyeConfig.from_dict(self.config.copy())
+        del config["name_prefix"]
+        del config["filter_size"]
+        xml.add(parent, "camera", **config)
+
+        return xml
+
+    def reset(self, model: mj.MjModel, data: mj.MjData):
+        """Sets up the camera for rendering. This should be called before rendering
+        the first time."""
         self._model = model
         self._data = data
 
-        self.fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, name)
-        assert self.fixedcamid != -1, f"Camera '{name}' not found."
+        fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, self.name)
+        assert fixedcamid != -1, f"Camera '{self.name}' not found."
 
+        # The camera used to update the scene
         self._camera = mj.MjvCamera()
         self._camera.type = mj.mjtCamera.mjCAMERA_FIXED
-        self._camera.fixedcamid = self.fixedcamid
+        self._camera.fixedcamid = fixedcamid
 
-        # populates with default width and height, to be overwritten anyways
-        self._renderer = Renderer(model)
+        # TODO: Set the new fov based on the additional pixels that need to be rendered 
+        # for the psf. probs wanna use focal
+        # self.fovy *= self.padded_resolution[1] / self.resolution[1]
 
-    @property
-    def position(self) -> np.ndarray:
-        return np.asarray(self._data.cam_xpos[self.fixedcamid])
+        # Create the render. It's static, so we only want to create it once for all eyes
+        global RENDERER
+        if RENDERER is None:
+            RENDERER = MjCambrianRenderer(model)
 
-    @position.setter
-    def position(self, position: List):
-        self._data.cam_xpos[self.fixedcamid] += np.asarray(position)
+        return self.step()
 
-    @property
-    def rotation(self) -> np.ndarray:
-        mat0 = np.asarray(self._model.cam_mat0[self.fixedcamid]).reshape(3, 3)
-        xmat = np.asarray(self._data.cam_xmat[self.fixedcamid]).reshape(3, 3)
-        return np.matmul(mat0, xmat)
+    def step(self) -> np.ndarray:
+        """Simply calls `render(return_depth=False)`.
+        See `render()` for more information."""
+        return self.render(return_depth=False)
 
-    @rotation.setter
-    def rotation(self, rotation: List):
-        mat0 = self._model.cam_mat0[self.fixedcamid].reshape(3, 3)
-        rot = np.asarray(rotation).reshape(3, 3)
-        self._data.cam_xmat[self.fixedcamid] = np.matmul(mat0, rot).flatten()
+    def render(
+        self, return_depth: bool = True
+    ) -> np.ndarray | Tuple[np.ndarray, np.ndarray]:
+        """Render the image from the camera. If `return_depth` is True, returns the both depth image and rgb, otherwise only rgb.
 
-    def render(self) -> np.ndarray:
-        self._renderer.reset_context(*self.resolution)
-        self._renderer.update_scene(self._data, self._camera)
-        return self._renderer.render()
+        NOTE: The actual rendered resolution is `self.padded_resolution`. This is so
+        that the convolution with the psf filter doesn't cut off any of the image. After
+        the psf is applied, the image will be cropped to `self.resolution`.
+        """
+        RENDERER.reset_context(*self.padded_resolution)
+        RENDERER.update_scene(self._data, self._camera)
 
-    def _get_cam_attr(self, obj, attr):
-        return getattr(obj, attr)[self.fixedcamid]
+        rgb = RENDERER.render().transpose(1, 0, 2)  # convert to (W, H, C)
 
-    def _set_cam_attr(self, value, obj, attr):
-        getattr(obj, attr)[self.fixedcamid] = value
+        if return_depth:
+            RENDERER.enable_depth_rendering()
+            depth = RENDERER.render().transpose(1, 0)  # convert to (W, H)
+            RENDERER.disable_depth_rendering()
 
-    fovy: float = property(
-        lambda self: self._get_cam_attr(self._model, "cam_fovy"),
-        lambda self, value: self._set_cam_attr(value, self._model, "cam_fovy"),
-    )
-    sensorsize: Tuple[float, float] = property(
-        lambda self: self._get_cam_attr(self._model, "cam_sensorsize"),
-        lambda self, value: self._set_cam_attr(value, self._model, "cam_sensorsize"),
-    )
-    resolution: Tuple[int, int] = property(
-        lambda self: self._get_cam_attr(self._model, "cam_resolution"),
-        lambda self, value: self._set_cam_attr(value, self._model, "cam_resolution"),
-    )
-    intrinsic: Tuple[float, float, float, float] = property(
-        lambda self: self._get_cam_attr(self._model, "cam_intrinsic"),
-        lambda self, value: self._set_cam_attr(value, self._model, "cam_intrinsic"),
-    )
+        # TODO: do psf stuff here
 
+        rgb = self._crop(rgb)
+        depth = self._crop(depth) if return_depth else None
 
-class Eye:
-    def __init__(self, name: str, model: mj.MjModel, data: mj.MjData, height_mask: np.array, scene_resolution: (100,100)):
-        self.name = name
-        self._model = model
-        self._data = data
-        self._scene_resolution = scene_resolution
+        return rgb if not return_depth else (rgb, depth)
 
-        self.fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, name)
-        assert self.fixedcamid != -1, f"Camera '{name}' not found."
-
-        self._camera = mj.MjvCamera()
-        self._camera.type = mj.mjtCamera.mjCAMERA_FIXED
-        self._camera.fixedcamid = self.fixedcamid
-
-        # populates with default width and height, to be overwritten anyways
-        self._renderer = Renderer(model)
-        # TOOD(ktiwary): figure out we creating renderes adds unnecessary overhead
-        self._depth_renderer = Renderer(model)
-        self._depth_renderer.enable_depth_rendering()
+    def _crop(self, image: np.ndarray) -> np.ndarray:
+        """Crop the image to the resolution specified in the config."""
+        resolution = self.resolution
+        cw, ch = int(np.ceil(resolution[0] / 2)), int(np.ceil(resolution[1] / 2))
+        ox, oy = 1 if resolution[0] == 1 else 0, 1 if resolution[1] == 1 else 0
+        bl = (image.shape[0] // 2 - cw + ox, image.shape[1] // 2 - ch + oy)
+        tr = (image.shape[0] // 2 + cw, image.shape[1] // 2 + ch)
+        return image[bl[0] : tr[0], bl[1] : tr[1]]
 
     @property
-    def position(self) -> np.ndarray:
-        return np.asarray(self._data.cam_xpos[self.fixedcamid])
-
-    @position.setter
-    def position(self, position: List):
-        self._data.cam_xpos[self.fixedcamid] += np.asarray(position)
+    def name(self) -> str:
+        return self.config.name
 
     @property
-    def rotation(self) -> np.ndarray:
-        mat0 = np.asarray(self._model.cam_mat0[self.fixedcamid]).reshape(3, 3)
-        xmat = np.asarray(self._data.cam_xmat[self.fixedcamid]).reshape(3, 3)
-        return np.matmul(mat0, xmat)
+    def fixedcamid(self) -> int:
+        return self._camera.fixedcamid
 
-    @rotation.setter
-    def rotation(self, rotation: List):
-        mat0 = self._model.cam_mat0[self.fixedcamid].reshape(3, 3)
-        rot = np.asarray(rotation).reshape(3, 3)
-        self._data.cam_xmat[self.fixedcamid] = np.matmul(mat0, rot).flatten()
+    @property
+    def observation_space(self) -> spaces.Box:
+        """The observation space is just the rgb image."""
 
-    def render(self, crop = True) -> np.ndarray:
-        self._renderer.reset_context(*self._scene_resolution)
-        self._renderer.update_scene(self._data, self._camera)
-        rgb = self._renderer.render()
-        if crop: 
-            rgb = self._crop_array(rgb)
-        return rgb 
+        observation_space = spaces.Box(
+            0, 255, shape=(*self.resolution, 3), dtype=np.uint8
+        )
+        return observation_space
 
-    def render_depth(self, crop = True) -> np.ndarray:
-        self._depth_renderer.reset_context(*self._scene_resolution)
-        self._depth_renderer.update_scene(self._data, self._camera)
-        if crop: 
-            rgb = self._crop_array(rgb)
-        return self._depth_renderer.render()
+    @property
+    def resolution(self) -> Tuple[int, int]:
+        """Get the resolution of the camera.
 
-    def render_psf(self) -> np.ndarray:
-        rgb = self.render(crop=False)
-        depth = self.render_depth(crop=False)
-        # depth dependent convolution with the psf 
-
-
-    def _crop_array(self, arr):
-        CW, CH = int(self._scene_resolution[0]/2), int(self._scene_resolution[0]/2)
-        # take the center of the image 
-        # self.resolution must be greater than (1,1) & less than scene res
-        self.resolution = np.clip(self.resolution, np.ones(2), self._scene_resolution)
-        if self.resolution[0] > 1: 
-            top_left_x = int(CW - int(self.resolution[0]/2))
-            bottom_left_x = int(top_left_x + self.resolution[0])
-        else: 
-            top_left_x = CW # take the center pixel
-            bottom_left_x = CW + 1
-
-        if self.resolution[1] > 1: 
-            top_left_y = int(CH - int(self.resolution[1]/2))
-            bottom_left_y = int(top_left_y + self.resolution[1])
+        This method might be called before `self._model` is set, so we need to parse
+        the config to get the resolution
+        """
+        if self._model is None:
+            return [int(x) for x in self.config.resolution.split(" ")]
         else:
-            top_left_y = CH 
-            bottom_left_y = CH + 1
+            return self._get_mj_attr(self._model, "cam_resolution")
 
-        arr = arr[top_left_x:bottom_left_x, top_left_y:bottom_left_y, :]
-        return arr
+    @resolution.setter
+    def resolution(self, value: Tuple[int, int]):
+        """Set the resolution of the camera.
 
-    def _get_cam_attr(self, obj, attr):
-        return getattr(obj, attr)[self.fixedcamid]
+        Like the getter, this might be called before `self._model` is set, so we need to
+        parse the config to get the resolution
+        """
+        if self._model is None:
+            self.config.resolution = f"{value[0]} {value[1]}"
+        else:
+            self._set_mj_attr(value, self._model, "cam_resolution")
 
-    def _set_cam_attr(self, value, obj, attr):
-        getattr(obj, attr)[self.fixedcamid] = value
+    @property
+    def padded_resolution(self) -> Tuple[int, int]:
+        """This is the resolution padded with the filter size / 2. The actual render
+        call should use this resolution instead and the cropped after the psf is
+        applied."""
+        filter_size = self.config.filter_size
+        return (
+            self.resolution[0] + filter_size[0],
+            self.resolution[1] + filter_size[1],
+        )
+
+    def _get_mj_attr(self, obj, attr):
+        """Helper method for getting an attribute from the mujoco data structures."""
+        return getattr(obj, attr)[self._camera.fixedcamid]
+
+    def _set_mj_attr(self, value, obj, attr):
+        """Helper method for setting an attribute from the mujoco data structures."""
+        getattr(obj, attr)[self._camera.fixedcamid] = value
 
     fovy: float = property(
-        lambda self: self._get_cam_attr(self._model, "cam_fovy"),
-        lambda self, value: self._set_cam_attr(value, self._model, "cam_fovy"),
+        lambda self: self._get_mj_attr(self._model, "cam_fovy"),
+        lambda self, value: self._set_mj_attr(value, self._model, "cam_fovy"),
     )
     sensorsize: Tuple[float, float] = property(
-        lambda self: self._get_cam_attr(self._model, "cam_sensorsize"),
-        lambda self, value: self._set_cam_attr(value, self._model, "cam_sensorsize"),
-    )
-    resolution: Tuple[int, int] = property(
-        lambda self: self._get_cam_attr(self._model, "cam_resolution"),
-        lambda self, value: self._set_cam_attr(value, self._model, "cam_resolution"),
+        lambda self: self._get_mj_attr(self._model, "cam_sensorsize"),
+        lambda self, value: self._set_mj_attr(value, self._model, "cam_sensorsize"),
     )
     intrinsic: Tuple[float, float, float, float] = property(
-        lambda self: self._get_cam_attr(self._model, "cam_intrinsic"),
-        lambda self, value: self._set_cam_attr(value, self._model, "cam_intrinsic"),
+        lambda self: self._get_mj_attr(self._model, "cam_intrinsic"),
+        lambda self, value: self._set_mj_attr(value, self._model, "cam_intrinsic"),
     )
 
 
@@ -218,7 +228,6 @@ if __name__ == "__main__":
     # ==================
 
     import argparse
-    import os
 
     parser = argparse.ArgumentParser()
 
@@ -253,17 +262,18 @@ if __name__ == "__main__":
     parser.add_argument("--plot", action="store_true", help="Plot the demo")
     parser.add_argument("--save", action="store_true", help="Save the demo")
     parser.add_argument("--test", action="store_true", help="Run the tests")
-    parser.add_argument("--supercloud", action="store_true", help="Run the tests")
+    parser.add_argument(
+        "-sc", "--supercloud", action="store_true", help="Supercloud specific config"
+    )
 
     args = parser.parse_args()
 
     if args.supercloud:
-        # set some supercloud specific params
+        import os
+
         os.environ["PYOPENGL_PLATFORM"] = "osmesa"
         os.environ["DISPLAY"] = ":0"
-        os.environ["MUJOCO_GL"]="osmesa"
-        # export LD_PRELOAD=/usr/lib/libGL.so.1 && export MUJOCO_GL=egl
-        # export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
+        os.environ["MUJOCO_GL"] = "osmesa"
 
     if not args.plot and not args.save and not args.no_demo:
         print("Warning: No output specified. Use --plot or --save to see the demo.")
@@ -275,7 +285,7 @@ if __name__ == "__main__":
     # Create the cameras
     # ==================
 
-    XML = f"""
+    XML = """
     <mujoco>
         <statistic center="0 0 0.1" extent="0.6" meansize=".05"/>
         <visual>
@@ -292,11 +302,7 @@ if __name__ == "__main__":
 
         <worldbody>
             <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
-            <body pos="0 0 0.1">
-                <camera name="eye" pos="-0.15 0 0.1" quat="0.5 0.5 0.5 0.5" mode="fixed" resolution="{args.width} {args.height}"/>
-                <camera name="eye1" pos="0 0 0" mode="fixed"/>
-                <camera name="eye2" pos="0 0 0.1" mode="fixed" resolution="10 10"/>
-
+            <body name="body" pos="0 0 0.1">
                 <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
                 <geom name="box1" type="box" size="0.1 0.1 0.1" pos="-1 0 0.2" condim="1" rgba="0 0 1 1" quat="1 0 0 0"/>
                 <geom name="box2" type="box" size="0.1 0.1 0.1" pos="-1 0.25 0.2" condim="1" rgba="0 1 0 1" quat="1 0 0 0"/>
@@ -305,8 +311,51 @@ if __name__ == "__main__":
         </worldbody>
     </mujoco>
     """
+    xml = MjCambrianXML.from_string(XML)
 
-    model = mj.MjModel.from_xml_string(XML)
+    from scipy.spatial.transform import Rotation as R
+    default_rot = R.from_euler("xz", [np.pi / 2, np.pi / 2])
+
+    if not args.no_demo:
+
+        X_NUM = args.xnum
+        Y_NUM = args.ynum
+        X_RANGE = args.xrange
+        Y_RANGE = args.yrange
+
+
+        eyes: List[MjCambrianEye] = []
+        for i in range(X_NUM):
+            x_angle = -X_RANGE / 2 + X_RANGE / (X_NUM + 1) * (i + 1)
+            for j in range(Y_NUM):
+                y_angle = -Y_RANGE / 2 + Y_RANGE / (Y_NUM + 1) * (j + 1)
+
+                quat = (default_rot * R.from_euler("xy", [x_angle, y_angle])).as_quat()
+
+                eye_config = MjCambrianEyeConfig(
+                    name=f"eye_{i}_{j}",
+                    resolution=f"{args.width} {args.height}",
+                    pos="0 0 0.2",
+                    quat=" ".join(map(str, quat)),
+                )
+                eye = MjCambrianEye(eye_config)
+                eyes.append(eye)
+
+                xml += eye.generate_xml(xml, "body")
+    if args.test:
+        eye1_config = MjCambrianEyeConfig(
+            name="eye1", resolution="1 1", quat=" ".join(map(str, default_rot.as_quat()))
+        )
+        eye1 = MjCambrianEye(eye1_config)
+        xml += eye1.generate_xml(xml, "body")
+
+        eye2_config = MjCambrianEyeConfig(
+            name="eye2", resolution="10 10", quat=" ".join(map(str, default_rot.as_quat()))
+        )
+        eye2 = MjCambrianEye(eye2_config)
+        xml += eye2.generate_xml(xml, "body")
+
+    model = mj.MjModel.from_xml_string(str(xml))
     data = mj.MjData(model)
     mj.mj_step(model, data)
 
@@ -315,37 +364,31 @@ if __name__ == "__main__":
     # ==============
 
     if args.test:
-        eye1 = EyeV1("eye1", model, data)
-        eye2 = EyeV1("eye2", model, data)
+        eye1.reset(model, data)
+        eye2.reset(model, data)
 
-        eyes = [eye1.fixedcamid, eye2.fixedcamid]
+        test_eyes = [eye1.fixedcamid, eye2.fixedcamid]
 
         assert eye1.fovy == 45.0
         eye1.fovy = 10
         assert eye1.fovy == 10.0
         assert model.cam_fovy[eye1.fixedcamid] == 10.0
-        assert np.allclose(model.cam_fovy[eyes], [10.0, 45.0])
+        assert np.allclose(model.cam_fovy[test_eyes], [10.0, 45.0])
 
         assert np.allclose(eye2.sensorsize, [0.0, 0.0])
-        assert np.allclose(model.cam_sensorsize[eyes], [[0.0, 0.0], [0.0, 0.0]])
+        assert np.allclose(model.cam_sensorsize[test_eyes], [[0.0, 0.0], [0.0, 0.0]])
         eye1.sensorsize = [0.1, 1.1]
         assert np.allclose(eye1.sensorsize, [0.1, 1.1])
-        assert np.allclose(model.cam_sensorsize[eyes], [[0.1, 1.1], [0.0, 0.0]])
+        assert np.allclose(model.cam_sensorsize[test_eyes], [[0.1, 1.1], [0.0, 0.0]])
 
         # should be all black
-        image1 = eye1.render()
+        image1 = eye1.render(return_depth=False)
         assert np.allclose(image1.shape, [1, 1, 3])  # default is 1, 1
-        assert np.allclose(image1, np.full_like(image1, [29, 48, 68]))
+        assert np.allclose(image1, np.full_like(image1, [5, 10, 15])), image1
 
-        image2 = eye2.render()
+        image2 = eye2.render(return_depth=False)
+        print(image2.shape)
         assert np.allclose(image2.shape, [10, 10, 3])
-
-        assert np.allclose(eye1.position, [0.0, 0.0, 0.1])
-        assert np.allclose(eye2.position, [0.0, 0.0, 0.2])
-        assert np.allclose(model.cam_pos0[eyes], [[0.0, 0.0, 0.0], [0.0, 0.0, 0.1]])
-        assert np.allclose(eye1.rotation, np.eye((3)))
-        eye2.position = [0.1, 0.2, 0.3]
-        assert np.allclose(eye2.position, [0.1, 0.2, 0.5])
 
     # ==============
     # Demo
@@ -354,46 +397,48 @@ if __name__ == "__main__":
         exit()
 
     # Quick test to make sure the renderer is working
+    # TODO: The axes images and subplots are in weird spots. not sure why i need to flip
+    import time
     import matplotlib.pyplot as plt
-    from scipy.spatial.transform import Rotation as R
 
-    eye = EyeV1("eye", model, data)
+    if args.plot or args.save:
+        fig, ax = plt.subplots(Y_NUM, X_NUM, figsize=(Y_NUM, X_NUM))
+        if X_NUM == 1 and Y_NUM == 1:
+            ax = np.array([[ax]])
+        ax = np.flipud(ax)
+        assert X_NUM == Y_NUM
 
-    X_NUM = args.xnum
-    Y_NUM = args.ynum
-    X_RANGE = args.xrange
-    Y_RANGE = args.yrange
-
-    fig, ax = plt.subplots(X_NUM, Y_NUM, figsize=(Y_NUM, X_NUM))
-    if X_NUM == 1 and Y_NUM == 1:
-        ax = np.array([[ax]])
-
+    times = []
+    start = time.time()
     for i in range(X_NUM):
-        x_angle = -X_RANGE / 2 + X_RANGE / (X_NUM + 1) * (i + 1)
         for j in range(Y_NUM):
-            y_angle = -Y_RANGE / 2 + Y_RANGE / (Y_NUM + 1) * (j + 1)
+            eye = eyes[i * X_NUM + j]
+            t0 = time.time()
+            image = eye.reset(model, data)
+            t1 = time.time()
+            times.append(t1 - t0)
 
-            r = R.from_euler("xy", [x_angle, y_angle])
-            eye.rotation = r.as_matrix()
+            if args.plot or args.save:
+                ax[j, i].imshow(image.transpose(1, 0, 2))
 
-            print(f"Rendering eye at ({x_angle:0.2f}, {y_angle:0.2f})...")
-            image = eye.render()
-            print(f"Done rendering eye at ({x_angle:0.2f}, {y_angle:0.2f}).")
+                ax[j, i].set_xticks([])
+                ax[j, i].set_yticks([])
+                ax[j, i].set_xticklabels([])
+                ax[j, i].set_yticklabels([])
 
-            if args.plot:
-                ax[Y_NUM - i - 1, X_NUM - j - 1].imshow(image)
+    print("Total time (including setup/plotting/etc):", time.time() - start)
+    print("Total time (minus setup/plotting/etc):", sum(times))
+    print("Median time:", np.median(times))
+    print("Max time:", np.max(times))
+    print("Min time:", np.min(times))
 
-                ax[i, j].set_xticks([])
-                ax[i, j].set_yticks([])
-                ax[i, j].set_xticklabels([])
-                ax[i, j].set_yticklabels([])
-
-    fig.suptitle(args.title)
-    plt.subplots_adjust(wspace=0, hspace=0)
+    if args.plot or args.save:
+        fig.suptitle(args.title)
+        plt.subplots_adjust(wspace=0, hspace=0)
 
     if args.save:
         # save the figure without the frame
-        plt.axis('off')
+        plt.axis("off")
         plt.savefig(f"{args.title}.png", bbox_inches="tight", dpi=300)
 
     if args.plot:

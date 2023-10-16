@@ -1,5 +1,5 @@
 from gymnasium.envs.registration import register
-from cambrian.evolution_envs.three_d.mujoco import maps
+from cambrian.evolution_envs.three_d.mujoco import maze
 
 
 def register_envs():
@@ -8,7 +8,7 @@ def register_envs():
         entry_point='cambrian.evolution_envs.three_d.mujoco.ant_v4_maze:AntMazeEnv',
         max_episode_steps= 700,
         kwargs={
-            'maze_map': maps.U_MAZE,
+            'maze_map': maze.U_MAZE,
             'reward_type':'sparse',
         }
     )
@@ -18,7 +18,7 @@ def register_envs():
         entry_point='cambrian.evolution_envs.three_d.mujoco.ant_v4_maze:AntMazeEnv',
         max_episode_steps= 700,
         kwargs={
-            'maze_map': maps.LARGE_MAZE_DIVERSE_GR,
+            'maze_map': maze.LARGE_MAZE_DIVERSE_GR,
             'reward_type':'sparse',
         }
     )
