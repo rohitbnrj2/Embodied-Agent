@@ -1,18 +1,19 @@
-from typing import Dict, Any, SupportsFloat, Tuple, List
+from typing import Dict, Any, Tuple
 from pathlib import Path
 import tempfile
 import numpy as np
 import cv2
 
+import mujoco as mj
 from gymnasium import spaces
 from gymnasium.envs.mujoco import MujocoEnv
-from gymnasium.core import ActType, ObsType
 from stable_baselines3.common.utils import set_random_seed
+from pettingzoo.utils.env import ParallelEnv
 
 from animal import MjCambrianAnimal
 from maze import MjCambrianMaze
 from cambrian_xml import MjCambrianXML
-from config import MjCambrianConfig
+from config import MjCambrianConfig, MjCambrianAnimalConfig
 
 
 def make_env(rank: int, seed: float, config_path: str | Path) -> "MjCambrianEnv":
@@ -27,7 +28,7 @@ def make_env(rank: int, seed: float, config_path: str | Path) -> "MjCambrianEnv"
     return _init
 
 
-class MjCambrianEnv(MujocoEnv):
+class MjCambrianEnv(MujocoEnv, ParallelEnv):
     """A MjCambrianEnv defines a gymnasium environment that's based off mujoco.
 
     In our context, a MjCambrianEnv contains a maze and at least one animal.
@@ -38,6 +39,9 @@ class MjCambrianEnv(MujocoEnv):
 
     NOTE #2: the `action_space` is defined by MujocoEnv as all the controllable joints
     present in the simulation.
+
+    TODO: Should load in the base model, do checks on geometry, etc. and then reload
+    the xml
 
     Args:
         config_path (str | Path | MjCambrianConfig): The path to the config file or the
@@ -50,7 +54,9 @@ class MjCambrianEnv(MujocoEnv):
         self.config = MjCambrianConfig.load(config)
         self.env_config = self.config.env_config
 
-        self.animals: List[MjCambrianAnimal] = []
+        self.animals: Dict[str, MjCambrianAnimal] = {}
+        self._create_animals()
+
         self.xml = self.generate_xml()
 
         # Write the xml to a tempfile so that MujocoEnv can read it in
@@ -58,53 +64,59 @@ class MjCambrianEnv(MujocoEnv):
             self.xml.write(f.name)
             self.env_config.model_path = f.name
 
-        # Create a flattened observations space
-        self.observation_space = spaces.Dict()
-        for animal in self.animals:
-            for eye in animal.eyes:
-                key = f"{animal.name}_{eye.name}"
-                self.observation_space.spaces[key] = eye.observation_space
-        self.observation_space.spaces["position"] = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
-        )
+        # Create the observation_spaces
+        observation_spaces: Dict[str, spaces.Space] = {}
+        for name, animal in self.animals.items():
+            observation_spaces[name] = animal.observation_space
 
-        super().__init__(
+        MujocoEnv.__init__(
+            self,
             model_path=self.env_config.model_path,
             frame_skip=self.env_config.frame_skip,
-            observation_space=self.observation_space,
+            observation_space=observation_spaces,
             render_mode=self.env_config.render_mode,
             width=self.env_config.width,
             height=self.env_config.height,
             camera_name=self.env_config.camera_name,
-            camera_id=self.env_config.camera_id,
         )
+
+        # Set the class variables associated with the ParallelEnv
+        # observation_spaces is already set
+        # NOTE: possible_agents is assumed to be the same as agents
+        self.agents = list(self.animals.keys())
+        self.possible_agents = self.agents
+        self.action_spaces = {n: a.action_space for n, a in self.animals.items()}
+
+    def _create_animals(self):
+        """Helper method to create the animals."""
+        default_animal_config = self.config.animal_config
+        for i in range(self.env_config.num_animals):
+            animal_config = MjCambrianAnimalConfig(**default_animal_config)
+            if animal_config.name is None:
+                animal_config.name = f"animal_{i}"
+            assert animal_config.name not in self.animals
+            self.animals[animal_config.name] = MjCambrianAnimal.create(animal_config)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
         xml = MjCambrianXML.make_empty()
 
-        # Create the animals and add them to the xml
-        animal_config = self.config.animal_config
-        for i in range(self.env_config.num_animals):
-            animal = MjCambrianAnimal(animal_config)
-            self.animals.append(animal)
-
+        # Add the animals to the xml
+        for animal in self.animals.values():
             xml += animal.generate_xml()
 
         # Create the maze and add it to the xml
         self.maze, maze_xml = MjCambrianMaze.make_maze(self.env_config.maze_config)
         xml += maze_xml
 
-        # Create the track camera, if it doesn't exist
+        # Create the track camera, if it doesn't exist. camera_name must be set
         # NOTE: tracks the first animal only
-        # TODO: currently only supports camera_name, not camera_id
         track_cam = self.env_config.camera_name
         if track_cam is not None and xml.find(".//camera", name=track_cam) is None:
-            tracked_body_name = self.animals[0].config.body_name
+            animal = next(iter(self.animals.values()))
+            tracked_body_name = animal.config.body_name
             tracked_body = xml.find(".//body", name=tracked_body_name)
-            assert (
-                tracked_body is not None
-            ), f"Could not find body with name {tracked_body_name}."
+            assert tracked_body is not None
             xml.add(
                 tracked_body,
                 "camera",
@@ -121,77 +133,108 @@ class MjCambrianEnv(MujocoEnv):
         self.maze.reset(self.model, self.data)
 
         obs: Dict[str, Dict[str, Any]] = {}
-        for animal in self.animals:
+        for name, animal in self.animals.items():
             init_qpos = self.maze.generate_reset_pos()
-            obs[animal.name] = animal.reset(self.model, self.data, init_qpos)
+            obs[name] = animal.reset(self.model, self.data, init_qpos)
 
-        return self._get_obs(obs)
+        return obs
+
+    def _get_reset_info(self) -> Dict[str, Dict[str, Any]]:
+        """Function that generates the `info` that is returned during a `reset()`.
+        Called by `reset` in `MujocoEnv`."""
+        return {a: {} for a in self.animals}
 
     def step(
-        self, action: ActType
-    ) -> Tuple[ObsType, SupportsFloat, bool, bool, Dict[str, Any]]:
-        self.do_simulation(action, self.frame_skip)
+        self, action: Dict[str, Any]
+    ) -> Tuple[
+        Dict[str, Any],
+        Dict[str, float],
+        Dict[str, bool],
+        Dict[str, bool],
+        Dict[str, Dict[str, Any]],
+    ]:
+        """Step the environment.
 
-        obs: Dict[str, Dict[str, Any]] = {}
-        for animal in self.animals:
-            obs[animal.name] = animal.step()
+        THe dynamics is updated through the `do_simulation` method.
+
+        Args:
+            action (Dict[str, Any]): The action to take for each animal. The keys
+            define the animal name, and the values define the action for that animal.
+
+        Returns:
+            Dict[str, Any]: The observations for each animal.
+            Dict[str, float]: The reward for each animal.
+            Dict[str, bool]: Whether each animal has terminated.
+            Dict[str, bool]: Whether each animal has truncated.
+            Dict[str, Dict[str, Any]]: The info dict for each animal.
+        """
+        obs: Dict[str, Any] = {}
+        for name, animal in self.animals.items():
+            obs[name] = animal.step(action[name])
 
         reward = self.compute_reward()
         terminated = self.compute_terminated()
         truncated = self.compute_truncated()
+        info = {a: {} for a in self.animals}
+
+        self._step_mujoco_simulation(self.frame_skip)
 
         if self.render_mode == "human":
             self.render()
 
-        return self._get_obs(obs), reward, terminated, truncated, {}
+        return obs, reward, terminated, truncated, info
 
-    def compute_reward(self) -> float:
+    def _step_mujoco_simulation(self, n_frames):
+        """Overwrites the MujocoEnv method to allow for directly setting the actuators
+        on an animal-by-animal basis."""
+        mj.mj_step(self.model, self.data, nstep=n_frames)
+
+        # As of MuJoCo 2.0, force-related quantities like cacc are not computed
+        # unless there's a force sensor in the model.
+        # See https://github.com/openai/gym/issues/1541
+        mj.mj_rnePostConstraint(self.model, self.data)
+
+    def compute_reward(self) -> Dict[str, float]:
         """Computes the reward for the environment. Currently just euclidean distance
         to the goal.
-        
+
         Using dense reward in maze_env.
         """
 
-        reward = 0
-        for animal in self.animals:
-            reward += np.exp(-np.linalg.norm(animal.qpos[:2] - self.maze.goal))
+        reward: Dict[str, float] = {}
+        for name, animal in self.animals.items():
+            reward[name] = np.exp(-np.linalg.norm(animal.qpos[:2] - self.maze.goal))
 
         return reward
 
-    def compute_terminated(self) -> bool:
-        """Compute whether the env has terminated. Termination indicates success, 
-        whereas truncated indicates failure.
-        
-        TODO: Assumes there is one animal
-        """
-        animal = self.animals[0]
+    def compute_terminated(self) -> Dict[str, bool]:
+        """Compute whether the env has terminated. Termination indicates success,
+        whereas truncated indicates failure."""
 
-        return np.linalg.norm(animal.qpos[:2] - self.maze.goal) < 0.5
+        terminated: Dict[str, bool] = {}
+        for name, animal in self.animals.items():
+            terminated[name] = np.linalg.norm(animal.qpos[:2] - self.maze.goal) < 0.5
+
+        return terminated
 
     def compute_truncated(self) -> bool:
         """Compute whether the env has terminated. Termination indicates success,
         whereas truncated indicates failure. Failure, for now, indicates that the
-        animal has touched the wall.
-        
-        TODO: Assumes there is one animal
-        """
-        animal = self.animals[0]
+        animal has touched the wall."""
 
-        # TODO
-        return False
+        truncated: Dict[str, bool] = {}
+        for name, animal in self.animals.items():
+            truncated[name] = False  # TODO
 
-    def _get_obs(self, obs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
-        """Flattens the observations from the animal's eyes."""
-        out_obs: Dict[str, Any] = {}
-        for animal_obs_name, animal_obs in obs.items():
-            for eye_obs_name, eye_obs in animal_obs.items():
-                out_obs[f"{animal_obs_name}_{eye_obs_name}"] = eye_obs
-        out_obs["position"] = self.animals[0].qpos[:2]
-        return out_obs
+        return truncated
 
     def render(self):
-        """Override the render method only to add human rendering. 
-        Doesn't work otherwise for some reason."""
+        """Override the render method only to add human rendering.
+        Doesn't work otherwise for some reason.
+
+        NOTE: This is more of a patch of the non-functional "human" mode. Really should
+        figure out why it's not working first.
+        """
 
         if self.render_mode == "human":
             self.render_mode = "rgb_array"

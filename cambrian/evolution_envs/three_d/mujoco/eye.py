@@ -77,7 +77,6 @@ class MjCambrianEye:
         # Finally add the camera element at the end
         assert parent is not None
         config = MjCambrianEyeConfig.from_dict(self.config.copy())
-        del config["name_prefix"]
         del config["filter_size"]
         xml.add(parent, "camera", **config)
 

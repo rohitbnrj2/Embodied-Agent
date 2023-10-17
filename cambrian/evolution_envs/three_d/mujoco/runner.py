@@ -1,20 +1,17 @@
 from typing import List, Tuple, Any
 from pathlib import Path
-from prodict import Prodict
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import (
     VecEnv,
     DummyVecEnv,
-    SubprocVecEnv,
     VecMonitor,
 )
 from stable_baselines3.common.callbacks import EvalCallback
 
-from config import MjCambrianConfig
+from config import MjCambrianConfig, write_yaml
+from wrappers import make_single_env
 from cambrian.reinforce.evo.runner import _update_config_with_overrides
-from cambrian.reinforce.evo.utils import write_yaml
-from cambrian.evolution_envs.three_d.mujoco.env import make_env
 
 
 class MjCambrianRunner:
@@ -48,7 +45,7 @@ class MjCambrianRunner:
 
         # Callbacks
         check_freq = self.training_config.check_freq
-        eval_cb = EvalCallback(
+        EvalCallback(
             env,
             best_model_save_path=ppodir,
             log_path=ppodir,
@@ -66,7 +63,7 @@ class MjCambrianRunner:
         )
 
         model.learn(
-            total_timesteps=self.training_config.total_timesteps, callback=eval_cb
+            total_timesteps=self.training_config.total_timesteps, progress_bar=True
         )
 
         model.save(ppodir / "best_model")
@@ -95,7 +92,7 @@ class MjCambrianRunner:
 
     def _make_env(self, ppodir: Path) -> VecEnv:
         """Create the environment."""
-        env = DummyVecEnv([make_env(0, 0, self.config)])
+        env = DummyVecEnv([make_single_env(0, 0, self.config)])
         env = VecMonitor(env, ppodir.as_posix())
         return env
 

@@ -125,7 +125,7 @@ class EvoRunner:
             policy_kwargs=policy_kwargs,
             verbose=verbose,
         )
-        model.learn(total_timesteps=self.env_config.total_timesteps)
+        model.learn(total_timesteps=self.env_config.total_timesteps, callback=eval_cb)
 
         env.close()
 

@@ -76,10 +76,7 @@ class MjCambrianEnvConfig(Prodict):
         render_mode (str): The render mode to use.
         width (int): The width of the rendered image.
         height (int): The height of the rendered image.
-        camera_name (str): The name of the camera to use for rendering. Mutually
-        exclusive with `camera_id`.
-        camera_id (int): The id of the camera to use for rendering. Mutually exclusive
-        with `camera_name`.
+        camera_name (str): The name of the camera to use for eval rendering.
         maze_config (MjCambrianMazeConfig): The config for the maze.
     """
 
@@ -94,7 +91,6 @@ class MjCambrianEnvConfig(Prodict):
     width: int
     height: int
     camera_name: str
-    camera_id: int
 
     # ============
 
@@ -114,13 +110,8 @@ class MjCambrianEyeConfig(Prodict):
     """Defines the config for an eye. Used for type hinting.
 
     Attributes:
-        name (str): Placeholder for the name of the eye. See `name_prefix` for more
-        info. If set directly, `name_prefix` is ignored.
-        name_prefix (str): The name of the eye. Used to uniquely identify the eye. The
-        resolved name will be `{name_prefix}_{eye_index}_{animal_name}`. Therefore, the
-        `name_prefix` doesn't necessarily need to be unique. The resolved name should
-        then be accessible through `name`.
-        Fmt: "width height".
+        name (str): Placeholder for the name of the eye. If set, used directly. If
+        unset, the name is set to `{animal.name}_eye_{eye_index}`.
         mode (str): The mode of the camera. Should always be "fixed". See the mujoco
         documentation for more info.
         pos (str): The initial position of the camera. Fmt: "x y z".
@@ -132,7 +123,6 @@ class MjCambrianEyeConfig(Prodict):
     """
 
     name: str
-    name_prefix: str
     mode: str
     pos: str
     quat: str
@@ -142,7 +132,6 @@ class MjCambrianEyeConfig(Prodict):
 
     def init(self):
         """Set defaults."""
-        self.name_prefix = "eye"
         self.resolution = "1 1"
         self.mode = "fixed"
         self.pos = "0 0 0"
@@ -155,21 +144,36 @@ class MjCambrianAnimalConfig(Prodict):
     """Defines the config for an animal. Used for type hinting.
 
     Attributes:
+        type (str): The type of animal. Used to determine which animal subclass to 
+        create.
         name (str): The name of the animal. Used to uniquely name the animal and its
-        eyes.
+        eyes. Defaults to `{type}_{i}` where i is the index at which the animal was
+        created.
         body_name (str): The name of the body that defines the main body of the animal.
+        This will probably be set through a MjCambrianAnimal subclass.
         joint_name (str): The root joint name for the animal. For positioning (see qpos)
-        model_path (Union[Path, str]): The path to the mujoco model file for the animal.
+        num_actuators(int): The number of actuators in the animal. Used as observations.
+        This will probably be set through a MjCambrianAnimal subclass.
+        num_qpos (int): The number of qpos in the animal. Used as observations. This
+        will probably be set through a MjCambrianAnimal subclass.
+        num_qvel (int): The number of qpos in the animal. Used as observations. This
+        will probably be set through a MjCambrianAnimal subclass.
+        model_path (Path | str): The path to the mujoco model file for the animal.
         Either absolute, relative to execution path or relative to
-        cambrian.evolution_envs.three_d.mujoco.animal.py file.
+        cambrian.evolution_envs.three_d.mujoco.animal.py file. This will probably be set
+        through a MjCambrianAnimal subclass.
         num_eyes (int): The number of eyes to add to the animal.
         default_eye_config (EyeConfig): The default eye config to use for the eyes.
     """
 
+    type: str
     name: str
+
     body_name: str
     joint_name: str
-
+    num_actuators: int
+    num_qpos: int
+    num_qvel: int
     model_path: Path | str
 
     num_eyes: int
@@ -177,9 +181,6 @@ class MjCambrianAnimalConfig(Prodict):
 
     def init(self):
         """Initializes the config with defaults."""
-        self.body_name = "torso"
-        self.joint_name = "root"
-
         self.default_eye_config = MjCambrianEyeConfig()
 
 
