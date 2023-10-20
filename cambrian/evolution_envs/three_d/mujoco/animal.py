@@ -415,6 +415,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Animal Test")
 
     parser.add_argument("config_path", type=str, help="Path to the config file.")
+    parser.add_argument("title", type=str, help="Title of the demo.")
     parser.add_argument("--plot", action="store_true", help="Plot the demo")
     parser.add_argument("--save", action="store_true", help="Save the demo")
 
@@ -453,7 +454,7 @@ if __name__ == "__main__":
                 ax[i, j].set_yticklabels([])
 
     if args.plot or args.save:
-        fig.suptitle("TITLE")
+        fig.suptitle(args.title)
         plt.subplots_adjust(wspace=0, hspace=0)
 
     if args.save:
@@ -465,5 +466,3 @@ if __name__ == "__main__":
         fig_manager = plt.get_current_fig_manager()
         fig_manager.full_screen_toggle()
         plt.show()
-
-    plt.show()
