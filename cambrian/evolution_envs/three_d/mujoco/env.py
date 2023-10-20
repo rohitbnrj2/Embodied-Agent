@@ -58,7 +58,7 @@ class MjCambrianEnv(MujocoEnv):
             config object itself.
     """
 
-    metadata = {"render_modes": ["human", "rgb_array", "depth_array"], "render_fps": 5}
+    metadata = {"render_modes": ["human", "rgb_array", "depth_array"]}
 
     def __init__(self, config: str | Path | MjCambrianConfig):
         self.config = MjCambrianConfig.load(config)
@@ -168,6 +168,8 @@ class MjCambrianEnv(MujocoEnv):
             obs[name]["pos"] = animal.pos.copy()
 
         self._episode_step = 0
+
+        self._step_mujoco_simulation(self.frame_skip)
 
         return obs
 
@@ -301,29 +303,31 @@ class MjCambrianEnv(MujocoEnv):
 
 if __name__ == "__main__":
     import argparse
+    from cambrian.reinforce.evo.runner import _update_config_with_overrides
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument("config_path", type=str, help="Path to the config file.")
     parser.add_argument(
-        "--render-mode",
-        type=str,
-        choices=MjCambrianEnv.metadata["render_modes"],
-        default="human",
+        "-o",
+        "--override",
+        dest="overrides",
+        action="append",
+        type=lambda v: v.split("="),
+        help="Override config values. Do <dot separated yaml config>=<value>",
+        default=[],
     )
 
     args = parser.parse_args()
+    args.overrides.insert(0, ("env_config.render_mode", "human"))
 
     config = MjCambrianConfig.load(args.config_path)
-    config.env_config.render_mode = args.render_mode
+    _update_config_with_overrides(config, args.overrides)
 
     env = MjCambrianEnv(config)
-    # env.reset()
-
-    # for _ in range(1000):
-    #     env.step(env.action_spaces.sample())
-    #     env.render()
+    env.render_mode = "rgb_array"
+    env.reset()
+    env.render_mode = config.env_config.render_mode
 
     import mujoco.viewer
-
-    mujoco.viewer.launch(env.model)
+    mujoco.viewer.launch(env.model, env.data)

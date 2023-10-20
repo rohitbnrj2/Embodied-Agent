@@ -16,7 +16,7 @@ env_config:
   scene_path: "assets/scene.xml"
   frame_skip: 10
   render_mode: "human"
-  camera_name: "ant_0_track"
+  camera_name: "track"
   maze_config:
     name: "U_MAZE" 
     size_scaling: 4.0
@@ -24,9 +24,7 @@ env_config:
 
 animal_config:
   type: "ant"
-  num_eyes_lat: 3
-  num_eyes_lon: 3
-  eyes_lat_range: [-30, 30]
-  eyes_lon_range: [-90, 90]
+  num_eyes_lat: 1
+  num_eyes_lon: 1
   default_eye_config:
-    resolution: "200 200"
+    resolution: "10 10"

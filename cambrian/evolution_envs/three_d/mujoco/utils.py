@@ -1,6 +1,7 @@
-from typing import Any, List, Tuple
+from typing import Any, List
 from pathlib import Path
 from dataclasses import dataclass
+import numpy as np
 
 import mujoco as mj
 
@@ -90,11 +91,9 @@ class MjCambrianGeometry:
     Attributes:
         adr (int): The Mujoco geometry ID (index into model.geom_* arrays).
         rbound (float): The radius of the geometry's bounding sphere.
-        aabb (List[float]): The axis-aligned bounding box of the geometry. Is a list
-            with shape (6,) where the first 3 values are the min x, y, z and the last
-            3 values are the max x, y, z.
+        pos (np.ndarray): The position of the geometry relative to the body.
     """
 
     adr: int
     rbound: float
-    aabb: List[float]
+    pos: np.ndarray 

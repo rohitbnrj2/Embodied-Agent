@@ -21,6 +21,7 @@ from utils import (
 
 class MjCambrianAnimalType(Enum):
     ANT: str = "ant"
+    SWIMMER: str = "swimmer"
 
 
 class MjCambrianAnimal:
@@ -126,8 +127,9 @@ class MjCambrianAnimal:
             geom_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_GEOM, name)
             assert geom_id != -1, f"Could not find geom with name {name}."
             geom_rbound = model.geom_rbound[geom_id]
-            geom_aabb = model.geom_aabb[geom_id]
-            self._geoms.append(MjCambrianGeometry(geom_id, geom_rbound, geom_aabb))
+            geom_pos = model.geom_pos[geom_id]
+
+            self._geoms.append(MjCambrianGeometry(geom_id, geom_rbound, geom_pos))
 
     def _place_eyes(self):
         """Place the eyes on the animal.
@@ -144,23 +146,34 @@ class MjCambrianAnimal:
         - `eye.[lat|long]range` are in degrees.
 
         TODO: Why are the transformations so weird?
-        TODO: Have a way to change the placement method, like rectangular or custom 
+        TODO: Have a way to change the placement method, like rectangular or custom
             shape
         """
+
+        eyes_lat_range = np.radians(self.config.eyes_lat_range)
+        if self.config.num_eyes_lat == 1:
+            latitudes = [np.sum(eyes_lat_range) / 2]
+        else:
+            latitudes = np.linspace(*eyes_lat_range, self.config.num_eyes_lat)
+
+        eyes_lon_range = np.radians(self.config.eyes_lon_range)
+        if self.config.num_eyes_lon == 1:
+            longitudes = [np.sum(eyes_lon_range) / 2]
+        else:
+            longitudes = np.linspace(*eyes_lon_range, self.config.num_eyes_lon)
 
         # The default rotation to have the camera point forward
         default_rot = R.from_euler("z", np.pi / 2)
 
         eyes = list(self.eyes.values())
-        latitudes = np.linspace(*self.config.eyes_lat_range, self.config.num_eyes_lat)
-        longitudes = np.linspace(*self.config.eyes_lon_range, self.config.num_eyes_lon)
+
         for lat_idx in range(self.config.num_eyes_lat):
             for lon_idx in range(self.config.num_eyes_lon):
                 # Get the geometry to place the eye on
                 geom = np.random.choice(self._geoms)
 
-                latitude = np.radians(latitudes[lat_idx])
-                longitude = np.radians(longitudes[lon_idx])
+                latitude = latitudes[lat_idx]
+                longitude = longitudes[lon_idx] + np.pi / 2
 
                 # TODO: why is this transformation so weird? Make it into one
                 pos_rot = default_rot * R.from_euler("yz", [latitude, longitude])
@@ -169,7 +182,7 @@ class MjCambrianAnimal:
                 rot_rot *= default_rot
 
                 # Calc the pos/quat of the eye
-                pos = pos_rot.apply([-geom.rbound, 0, 0])
+                pos = pos_rot.apply([-geom.rbound, 0, 0]) + geom.pos
                 quat = rot_rot.as_quat()
 
                 # Must be space separated strings for the xml
@@ -384,6 +397,8 @@ class MjCambrianAnimal:
 
         if type == MjCambrianAnimalType.ANT:
             return MjCambrianAnt(config)
+        elif type == MjCambrianAnimalType.SWIMMER:
+            return MjCambrianSwimmer(config)
         else:
             raise ValueError(f"Animal type {type} not supported.")
 
@@ -401,11 +416,37 @@ class MjCambrianAnt(MjCambrianAnimal):
         body_name="torso",
         joint_name="root",
         geom_names=["torso_geom"],
+        eyes_lat_range=[-30, 30],
+        eyes_lon_range=[-120, 120],
     )
 
     def __init__(self, config: MjCambrianAnimalConfig):
         config.update(self.CONFIG)
         super().__init__(config)
+
+
+class MjCambrianSwimmer(MjCambrianAnimal):
+    """Defines an swimmer animal.
+
+    See `https://gymnasium.farama.org/environments/mujoco/swimmer/` for more info.
+
+    This class simply defines some default config attributes that are specific for
+    swimmers.
+    """
+
+    CONFIG = dict(
+        model_path="assets/swimmer.xml",
+        body_name="torso",
+        joint_name="slider2",
+        geom_names=["head"],
+        eyes_lat_range=[1, 60],
+        eyes_lon_range=[-120, 120],
+    )
+
+    def __init__(self, config: MjCambrianAnimalConfig):
+        config.update(self.CONFIG)
+        super().__init__(config)
+
 
 if __name__ == "__main__":
     import argparse
