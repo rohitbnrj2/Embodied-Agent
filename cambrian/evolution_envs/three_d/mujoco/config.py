@@ -1,4 +1,4 @@
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 from prodict import Prodict
 from pathlib import Path
 import yaml
@@ -7,9 +7,11 @@ import yaml
 def read_yaml(filename: Path | str) -> Dict:
     return yaml.safe_load(Path(filename).read_text())
 
+
 def write_yaml(config: Any, filename: Path | str):
     with open(filename, "w") as f:
         yaml.dump(config, f)
+
 
 def load_config(config_file: Path | str | Prodict) -> "MjCambrianConfig":
     if isinstance(config_file, (Path, str)):
@@ -71,16 +73,23 @@ class MjCambrianEnvConfig(Prodict):
 
     Attributes:
         num_animals (int): The number of animals to spawn in the env.
-        model_path (Union[Path, str]): The path to the mujoco model file.
+        scene_path (str | Path): The path to the scene file. This is the file that
+            contains the xml for the environment. The path is either absolute, relative
+            to the execution path or relative to the
+            cambrian.evolution_envs.three_d.mujoco
+
+        model_path (Path | str): The path to the mujoco model file.
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
         render_mode (str): The render mode to use.
         width (int): The width of the rendered image.
         height (int): The height of the rendered image.
         camera_name (str): The name of the camera to use for eval rendering.
+
         maze_config (MjCambrianMazeConfig): The config for the maze.
     """
 
     num_animals: int
+    scene_path: Path | str
 
     # ============
     # Defined based on `MujocoEnv`
@@ -111,15 +120,16 @@ class MjCambrianEyeConfig(Prodict):
 
     Attributes:
         name (str): Placeholder for the name of the eye. If set, used directly. If
-        unset, the name is set to `{animal.name}_eye_{eye_index}`.
+            unset, the name is set to `{animal.name}_eye_{eye_index}`.
         mode (str): The mode of the camera. Should always be "fixed". See the mujoco
-        documentation for more info.
+            documentation for more info.
         pos (str): The initial position of the camera. Fmt: "x y z".
         quat (str): The initial rotation of the camera. Fmt: "w x y z".
         resolution (str): The width and height of the rendered image.
-        Fmt: "width height". NOTE: only available in 2.3.8.
+            Fmt: "width height". NOTE: only available in 2.3.8.
+
         filter_size (Tuple[int, int]): The psf filter size. This is convoluted across
-        the image, so the actual resolution of the image is plus filter_size / 2
+            the image, so the actual resolution of the image is plus filter_size / 2
     """
 
     name: str
@@ -139,44 +149,69 @@ class MjCambrianEyeConfig(Prodict):
 
         self.filter_size = [23, 23]
 
+    def to_xml_kwargs(self) -> Dict:
+        return dict(
+            name=self.name,
+            mode=self.mode,
+            pos=self.pos,
+            quat=self.quat,
+            resolution=self.resolution,
+        )
+
 
 class MjCambrianAnimalConfig(Prodict):
     """Defines the config for an animal. Used for type hinting.
 
     Attributes:
-        type (str): The type of animal. Used to determine which animal subclass to 
-        create.
+        type (str): The type of animal. Used to determine which animal subclass to
+            create.
         name (str): The name of the animal. Used to uniquely name the animal and its
-        eyes. Defaults to `{type}_{i}` where i is the index at which the animal was
-        created.
-        body_name (str): The name of the body that defines the main body of the animal.
-        This will probably be set through a MjCambrianAnimal subclass.
-        joint_name (str): The root joint name for the animal. For positioning (see qpos)
-        num_actuators(int): The number of actuators in the animal. Used as observations.
-        This will probably be set through a MjCambrianAnimal subclass.
-        num_qpos (int): The number of qpos in the animal. Used as observations. This
-        will probably be set through a MjCambrianAnimal subclass.
-        num_qvel (int): The number of qpos in the animal. Used as observations. This
-        will probably be set through a MjCambrianAnimal subclass.
+            eyes. Defaults to `{type}_{i}` where i is the index at which the animal was
+            created.
+        idx (int): The index of the animal as it was created in the env. Used to 
+            uniquely change the animal's xml elements. Placeholder; should be set by
+            the env.
+
+
         model_path (Path | str): The path to the mujoco model file for the animal.
-        Either absolute, relative to execution path or relative to
-        cambrian.evolution_envs.three_d.mujoco.animal.py file. This will probably be set
-        through a MjCambrianAnimal subclass.
-        num_eyes (int): The number of eyes to add to the animal.
+            Either absolute, relative to execution path or relative to
+            cambrian.evolution_envs.three_d.mujoco.animal.py file. This will probably
+            be set through a MjCambrianAnimal subclass.
+        body_name (str): The name of the body that defines the main body of the animal.
+            This will probably be set through a MjCambrianAnimal subclass.
+        joint_name (str): The root joint name for the animal. For positioning (see qpos)
+            This will probably be set through a MjCambrianAnimal subclass.
+        geom_names (List[str]): The names of the geoms that are used for eye
+            placement. If a geom is present in the list, it's aab will be parsed from
+            the xml and eyes will be placed on the surface of the aabb based on some
+            criteria.
+
+        num_eyes_lat (int): The number of eyes to place latitudinally/vertically.
+        num_eyes_lon (int): The number of eyes to place longitudinally/horizontally.
+        eyes_lat_range (Tuple[float, float]): The x range of the eye. This is used to 
+            determine the placement of the eye on the animal. Specified in radians. This
+            is the latitudinal/vertical range of the evenly placed eye about the 
+            animal's bounding sphere.
+        eyes_lon_range (Tuple[float, float]): The y range of the eye. This is used to 
+            determine the placement of the eye on the animal. Specified in radians. This
+            is the longitudinal/horizontal range of the evenly placed eye about the 
+            animal's bounding sphere.
         default_eye_config (EyeConfig): The default eye config to use for the eyes.
     """
 
     type: str
     name: str
+    idx: int
 
+    model_path: Path | str
     body_name: str
     joint_name: str
-    num_actuators: int
-    num_qpos: int
-    num_qvel: int
-    model_path: Path | str
+    geom_names: List[str]
 
-    num_eyes: int
+    num_eyes_lat: int
+    num_eyes_lon: int
+    eyes_lat_range: Tuple[float, float]
+    eyes_lon_range: Tuple[float, float]
     default_eye_config: MjCambrianEyeConfig
 
     def init(self):

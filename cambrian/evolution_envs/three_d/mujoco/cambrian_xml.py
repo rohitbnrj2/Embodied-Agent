@@ -52,7 +52,9 @@ class MjCambrianXML:
         """
         return ET.SubElement(parent, tag, *args, **kwargs)
 
-    def find(self, tag: str, **kwargs) -> ET.Element | None:
+    def find(
+        self, tag: str, *, _all: bool = False, **kwargs
+    ) -> List[ET.Element] | ET.Element | None:
         """Find an element by tag.
 
         If any additional keyword arguments are passed, they will be used to filter the
@@ -64,11 +66,24 @@ class MjCambrianXML:
 
         If not found, `None` will be returned.
 
+        Args:
+            tag (str): The tag of the element to find.
+            _all (bool): If true, will use `ET.findall`, else `ET.find`.
+            **kwargs: The keyword arguments to filter the elements by.
+
         Returns:
-            ET.Element | None: The element or `None` if not found.
+            List[ET.Element] | ET.Element | None: The element or `None` if not found. If
+                `_all` is true, a list of elements will be returned.
         """
         kwargs_str = "".join([f"[@{key}='{value}']" for key, value in kwargs.items()])
-        return self._root.find(f"{tag}{kwargs_str}")
+        if _all:
+            return self._root.findall(f"{tag}{kwargs_str}")
+        else:
+            return self._root.find(f"{tag}{kwargs_str}")
+
+    def findall(self, tag: str, **kwargs) -> List[ET.Element]:
+        """Alias for `find(tag, _all=True, **kwargs)`."""
+        return self.find(tag, _all=True, **kwargs)
 
     def get_path(self, element: ET.Element) -> Tuple[List[ET.Element], str]:
         """Get the path of an element in the xml tree. Unfortunately, there is no

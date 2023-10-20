@@ -14,6 +14,7 @@ from animal import MjCambrianAnimal
 from maze import MjCambrianMaze
 from cambrian_xml import MjCambrianXML
 from config import MjCambrianConfig, MjCambrianAnimalConfig
+from utils import get_model_path
 
 
 def make_env(rank: int, seed: float, config_path: str | Path) -> "MjCambrianEnv":
@@ -28,31 +29,42 @@ def make_env(rank: int, seed: float, config_path: str | Path) -> "MjCambrianEnv"
     return _init
 
 
-class MjCambrianEnv(MujocoEnv, ParallelEnv):
+class MjCambrianEnv(MujocoEnv):
     """A MjCambrianEnv defines a gymnasium environment that's based off mujoco.
 
     In our context, a MjCambrianEnv contains a maze and at least one animal.
 
-    NOTE: a third person tracking camera is implemented through the `render()` method
+    Initialization progression goes as follows:
+    - create each animal and for each
+        - load the base xml to MjModel
+        - parse the geometry and place eyes at the appropriate locations
+        - load the actuators/joints
+        - create the action/observation spaces
+        - return the a new xml which includes adjustments (e.g. eyes/cameras, etc.)
+    - create the environment xml (maze + animals + etc.)
+    - create the main MjModel/MjData (through MujocoEnv constructor)
+
+    NOTES:
+    - a third person tracking camera is implemented through the `render()` method
     in the `MujocoEnv` class. By default, this is set in `MjCambrianEnvConfig`, which is
     "track" by default.
-
-    NOTE #2: the `action_space` is defined by MujocoEnv as all the controllable joints
-    present in the simulation.
-
-    TODO: Should load in the base model, do checks on geometry, etc. and then reload
-    the xml
+    - The MujocoEnv uses the standard gym API that only supports single agents in the
+    simulation. This environment instead uses the pettingzoo.ParallelEnv API, which
+    is similar to gym but inputs/outputs a dictionary for each type that encodes the obj
+    on a per-agent basis.
 
     Args:
         config_path (str | Path | MjCambrianConfig): The path to the config file or the
             config object itself.
     """
 
-    metadata = {"render_modes": ["human", "rgb_array", "depth_array"]}
+    metadata = {"render_modes": ["human", "rgb_array", "depth_array"], "render_fps": 5}
 
     def __init__(self, config: str | Path | MjCambrianConfig):
         self.config = MjCambrianConfig.load(config)
         self.env_config = self.config.env_config
+
+        self.env_config.scene_path = get_model_path(self.env_config.scene_path)
 
         self.animals: Dict[str, MjCambrianAnimal] = {}
         self._create_animals()
@@ -67,17 +79,22 @@ class MjCambrianEnv(MujocoEnv, ParallelEnv):
         # Create the observation_spaces
         observation_spaces: Dict[str, spaces.Space] = {}
         for name, animal in self.animals.items():
-            observation_spaces[name] = animal.observation_space
+            observation_space: spaces.Dict = animal.observation_space
+            observation_space.spaces["goal"] = spaces.Box(
+                low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
+            )
+            observation_space.spaces["pos"] = spaces.Box(
+                low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32
+            )
+            observation_spaces[name] = observation_space
+        self.observation_spaces = spaces.Dict(observation_spaces)
 
         MujocoEnv.__init__(
             self,
             model_path=self.env_config.model_path,
             frame_skip=self.env_config.frame_skip,
-            observation_space=observation_spaces,
+            observation_space=self.observation_spaces,
             render_mode=self.env_config.render_mode,
-            width=self.env_config.width,
-            height=self.env_config.height,
-            camera_name=self.env_config.camera_name,
         )
 
         # Set the class variables associated with the ParallelEnv
@@ -85,13 +102,25 @@ class MjCambrianEnv(MujocoEnv, ParallelEnv):
         # NOTE: possible_agents is assumed to be the same as agents
         self.agents = list(self.animals.keys())
         self.possible_agents = self.agents
-        self.action_spaces = {n: a.action_space for n, a in self.animals.items()}
+        self.action_spaces = spaces.Dict(
+            {n: a.action_space for n, a in self.animals.items()}
+        )
+
+        self._episode_step = 0
+        self._max_episode_steps = int(self.config.training_config.n_steps * 0.9)
 
     def _create_animals(self):
-        """Helper method to create the animals."""
+        """Helper method to create the animals.
+
+        Under the hood, the `create` method does the following:
+            - load the base xml to MjModel
+            - parse the geometry and place eyes at the appropriate locations
+            - create the action/observation spaces
+        """
         default_animal_config = self.config.animal_config
         for i in range(self.env_config.num_animals):
             animal_config = MjCambrianAnimalConfig(**default_animal_config)
+            animal_config.idx = i
             if animal_config.name is None:
                 animal_config.name = f"animal_{i}"
             assert animal_config.name not in self.animals
@@ -99,7 +128,7 @@ class MjCambrianEnv(MujocoEnv, ParallelEnv):
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
-        xml = MjCambrianXML.make_empty()
+        xml = MjCambrianXML(self.env_config.scene_path)
 
         # Add the animals to the xml
         for animal in self.animals.values():
@@ -114,8 +143,7 @@ class MjCambrianEnv(MujocoEnv, ParallelEnv):
         track_cam = self.env_config.camera_name
         if track_cam is not None and xml.find(".//camera", name=track_cam) is None:
             animal = next(iter(self.animals.values()))
-            tracked_body_name = animal.config.body_name
-            tracked_body = xml.find(".//body", name=tracked_body_name)
+            tracked_body = xml.find(".//body", name=f"{animal.config.body_name}")
             assert tracked_body is not None
             xml.add(
                 tracked_body,
@@ -136,6 +164,10 @@ class MjCambrianEnv(MujocoEnv, ParallelEnv):
         for name, animal in self.animals.items():
             init_qpos = self.maze.generate_reset_pos()
             obs[name] = animal.reset(self.model, self.data, init_qpos)
+            obs[name]["goal"] = self.maze.goal.copy()
+            obs[name]["pos"] = animal.pos.copy()
+
+        self._episode_step = 0
 
         return obs
 
@@ -169,23 +201,30 @@ class MjCambrianEnv(MujocoEnv, ParallelEnv):
             Dict[str, Dict[str, Any]]: The info dict for each animal.
         """
         obs: Dict[str, Any] = {}
+        pos: Dict[str, np.ndarray] = {}  # to keep track of previous position
         for name, animal in self.animals.items():
-            obs[name] = animal.step(action[name])
+            pos[name] = animal.pos.copy()
 
-        reward = self.compute_reward()
-        terminated = self.compute_terminated()
-        truncated = self.compute_truncated()
-        info = {a: {} for a in self.animals}
+            obs[name] = animal.step(action[name])
+            obs[name]["goal"] = self.maze.goal.copy()
+            obs[name]["pos"] = animal.pos.copy()
 
         self._step_mujoco_simulation(self.frame_skip)
+
+        terminated = self.compute_terminated()
+        truncated = self.compute_truncated()
+        reward = self.compute_reward(pos, terminated, truncated)
+        info = {a: {} for a in self.animals}
 
         if self.render_mode == "human":
             self.render()
 
+        self._episode_step += 1
+
         return obs, reward, terminated, truncated, info
 
     def _step_mujoco_simulation(self, n_frames):
-        """Overwrites the MujocoEnv method to allow for directly setting the actuators
+        """Overrides the MujocoEnv method to allow for directly setting the actuators
         on an animal-by-animal basis."""
         mj.mj_step(self.model, self.data, nstep=n_frames)
 
@@ -194,16 +233,38 @@ class MjCambrianEnv(MujocoEnv, ParallelEnv):
         # See https://github.com/openai/gym/issues/1541
         mj.mj_rnePostConstraint(self.model, self.data)
 
-    def compute_reward(self) -> Dict[str, float]:
-        """Computes the reward for the environment. Currently just euclidean distance
-        to the goal.
+    def compute_reward(
+        self,
+        prev_pos: Dict[str, np.ndarray],
+        terminated: Dict[str, bool],
+        truncated: Dict[str, bool],
+    ) -> Dict[str, float]:
+        """Computes the reward for the environment.
 
-        Using dense reward in maze_env.
+        Currently calculates the change in distance to the goal from the previous step,
+        rewarding the agent for getting closer to the goal.
+
+        Args:
+            prev_pos (Dict[str, np.ndarray]): The previous position of each animal.
+            terminated (Dict[str, bool]): Whether each animal has terminated.
+            Termination indicates success (agent has reached the goal).
+            truncated (Dict[str, bool]): Whether each animal has truncated.
+            Truncation indicates failure (agent has hit the wall or something).
         """
 
         reward: Dict[str, float] = {}
         for name, animal in self.animals.items():
-            reward[name] = np.exp(-np.linalg.norm(animal.qpos[:2] - self.maze.goal))
+            if terminated[name]:
+                reward[name] = 5.0
+                continue
+            elif truncated[name]:
+                reward[name] = -5.0
+                continue
+
+            # dpos is positive if the animal is getting closer to the goal
+            curr_pos = animal.pos
+            delta_pos = np.linalg.norm(prev_pos[name]) - np.linalg.norm(curr_pos)
+            reward[name] = delta_pos if delta_pos > 0.005 else 0.0
 
         return reward
 
@@ -213,7 +274,7 @@ class MjCambrianEnv(MujocoEnv, ParallelEnv):
 
         terminated: Dict[str, bool] = {}
         for name, animal in self.animals.items():
-            terminated[name] = np.linalg.norm(animal.qpos[:2] - self.maze.goal) < 0.5
+            terminated[name] = np.linalg.norm(animal.pos[:2] - self.maze.goal) < 0.5
 
         return terminated
 
@@ -224,25 +285,18 @@ class MjCambrianEnv(MujocoEnv, ParallelEnv):
 
         truncated: Dict[str, bool] = {}
         for name, animal in self.animals.items():
-            truncated[name] = False  # TODO
+            truncated[name] = self._episode_step >= self._max_episode_steps
 
         return truncated
 
     def render(self):
-        """Override the render method only to add human rendering.
-        Doesn't work otherwise for some reason.
+        """Override the render method to fix viewer bug with custom managed viewers."""
 
-        NOTE: This is more of a patch of the non-functional "human" mode. Really should
-        figure out why it's not working first.
-        """
-
-        if self.render_mode == "human":
-            self.render_mode = "rgb_array"
-            cv2.imshow("env", self.render()[:, :, ::-1])
-            cv2.waitKey(1)
-            self.render_mode = "human"
-        else:
-            return super().render()
+        if self.mujoco_renderer.viewer is not None:
+            # MujocoEnv only will run make_context_current if it has multiple viewers
+            # We have our own managed viewers as eyes, so we need to manually call it
+            self.mujoco_renderer.viewer.make_context_current()
+        return super().render()
 
 
 if __name__ == "__main__":
@@ -255,26 +309,21 @@ if __name__ == "__main__":
         "--render-mode",
         type=str,
         choices=MjCambrianEnv.metadata["render_modes"],
-        default="rgb_array",
+        default="human",
     )
 
     args = parser.parse_args()
 
     config = MjCambrianConfig.load(args.config_path)
-    # TODO: human not working for some reason
     config.env_config.render_mode = args.render_mode
 
     env = MjCambrianEnv(config)
-    env.reset()
+    # env.reset()
 
-    import cv2
+    # for _ in range(1000):
+    #     env.step(env.action_spaces.sample())
+    #     env.render()
 
-    for _ in range(1000):
-        env.step(env.action_space.sample())
-        image = env.render()
+    import mujoco.viewer
 
-        if args.render_mode != "human":
-            image = image[:, :, ::-1] if args.render_mode == "rgb_array" else image
-            cv2.imshow("render", image)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+    mujoco.viewer.launch(env.model)

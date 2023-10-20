@@ -32,8 +32,8 @@ class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
         super().__init__(env)
 
         self.animal = next(iter(env.animals.values()))
-        self.action_space = self.animal.action_space
-        self.observation_space = self.animal.observation_space
+        self.action_space = next(iter(env.action_spaces.values()))
+        self.observation_space = next(iter(env.observation_spaces.values()))
 
     def reset(self, *args, **kwargs) -> Tuple[Any, Dict[str, Any]]:
         obs, info = self.env.reset(*args, **kwargs)

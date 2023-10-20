@@ -34,8 +34,6 @@ class MjCambrianRunner:
     def train(self):
         """Begin the training."""
 
-        verbose = self.verbose
-
         # Agent metadata
         ppodir = self.logdir / "ppo"
         ppodir.mkdir(parents=True, exist_ok=True)
@@ -45,13 +43,13 @@ class MjCambrianRunner:
 
         # Callbacks
         check_freq = self.training_config.check_freq
-        EvalCallback(
+        eval_cb = EvalCallback(
             env,
             best_model_save_path=ppodir,
             log_path=ppodir,
             eval_freq=check_freq,
             deterministic=True,
-            render=True,
+            render=False,
         )
 
         model = PPO(
@@ -59,11 +57,13 @@ class MjCambrianRunner:
             env,
             n_steps=self.training_config.n_steps,
             batch_size=self.training_config.batch_size,
-            verbose=verbose,
+            verbose=self.verbose,
         )
 
         model.learn(
-            total_timesteps=self.training_config.total_timesteps, progress_bar=True
+            total_timesteps=self.training_config.total_timesteps,
+            callback=eval_cb,
+            progress_bar=True,
         )
 
         model.save(ppodir / "best_model")
@@ -72,21 +72,23 @@ class MjCambrianRunner:
 
     def eval(self):
         """Evaluate the model."""
-        import cv2
-
         ppodir = self.logdir / "ppo"
         env = self._make_env(ppodir)
 
-        model = PPO.load(ppodir / "best_model")
+        # model = PPO.load(ppodir / "best_model")
+        model = PPO(
+            "MultiInputPolicy",
+            env,
+            n_steps=self.training_config.n_steps,
+            batch_size=self.training_config.batch_size,
+            verbose=self.verbose,
+        )
 
         obs = env.reset()
         for _ in range(1000):
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, done, info = env.step(action)
-            cv2.imshow("env", env.render()[:, :, ::-1])
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                print("break")
-                break
+            env.render()
 
         env.close()
 

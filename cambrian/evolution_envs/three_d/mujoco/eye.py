@@ -76,9 +76,7 @@ class MjCambrianEye:
 
         # Finally add the camera element at the end
         assert parent is not None
-        config = MjCambrianEyeConfig.from_dict(self.config.copy())
-        del config["filter_size"]
-        xml.add(parent, "camera", **config)
+        xml.add(parent, "camera", **self.config.to_xml_kwargs())
 
         return xml
 
@@ -91,10 +89,12 @@ class MjCambrianEye:
         fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, self.name)
         assert fixedcamid != -1, f"Camera '{self.name}' not found."
 
-        # The camera used to update the scene
         self._camera = mj.MjvCamera()
         self._camera.type = mj.mjtCamera.mjCAMERA_FIXED
         self._camera.fixedcamid = fixedcamid
+
+        # Update the resolution
+        self.resolution = [int(x) for x in self.config.resolution.split(" ")]
 
         # TODO: Set the new fov based on the additional pixels that need to be rendered 
         # for the psf. probs wanna use focal
@@ -104,6 +104,7 @@ class MjCambrianEye:
         global RENDERER
         if RENDERER is None:
             RENDERER = MjCambrianRenderer(model)
+            RENDERER._scene_option.geomgroup[1] = 0
 
         return self.step()
 
@@ -201,11 +202,11 @@ class MjCambrianEye:
 
     def _get_mj_attr(self, obj, attr):
         """Helper method for getting an attribute from the mujoco data structures."""
-        return getattr(obj, attr)[self._camera.fixedcamid]
+        return getattr(obj, attr)[self.fixedcamid]
 
     def _set_mj_attr(self, value, obj, attr):
         """Helper method for setting an attribute from the mujoco data structures."""
-        getattr(obj, attr)[self._camera.fixedcamid] = value
+        getattr(obj, attr)[self.fixedcamid] = value
 
     fovy: float = property(
         lambda self: self._get_mj_attr(self._model, "cam_fovy"),
