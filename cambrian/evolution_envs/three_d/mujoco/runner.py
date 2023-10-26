@@ -75,18 +75,21 @@ class MjCambrianRunner:
         ppodir = self.logdir / "ppo"
         env = self._make_env(ppodir)
 
-        # model = PPO.load(ppodir / "best_model")
-        model = PPO(
-            "MultiInputPolicy",
-            env,
-            n_steps=self.training_config.n_steps,
-            batch_size=self.training_config.batch_size,
-            verbose=self.verbose,
+        model = (
+            PPO.load(ppodir / "best_model")
+            if (ppodir / "best_model.zip").exists()
+            else PPO(
+                "MultiInputPolicy",
+                env,
+                n_steps=self.training_config.n_steps,
+                batch_size=self.training_config.batch_size,
+                verbose=self.verbose,
+            )
         )
 
         obs = env.reset()
         for _ in range(1000):
-            action, _ = model.predict(obs, deterministic=True)
+            action, _ = model.predict(obs, deterministic=False)
             obs, reward, done, info = env.step(action)
             env.render()
 
@@ -125,4 +128,3 @@ if __name__ == "__main__":
         runner.train()
     if args.eval:
         runner.eval()
-    

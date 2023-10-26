@@ -342,6 +342,7 @@ if __name__ == "__main__":
                 eyes.append(eye)
 
                 xml += eye.generate_xml(xml, "body")
+        print(xml)
     if args.test:
         eye1_config = MjCambrianEyeConfig(
             name="eye1", resolution="1 1", quat=" ".join(map(str, default_rot.as_quat()))

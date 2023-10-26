@@ -131,6 +131,40 @@ class MjCambrianAnimal:
 
             self._geoms.append(MjCambrianGeometry(geom_id, geom_rbound, geom_pos))
 
+    def _parse_actuators(self, model: mj.MjModel):
+        """Parse the current model/xml for the actuators.
+
+        We have to do this twice: once on the initial model load to get the ctrl limits
+        on the actuators. And then later to acquire the actual ids/adrs.
+        """
+
+        # Root body for the animal
+        body_name = self.config.body_name
+        body_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, body_name)
+        assert body_id != -1, f"Could not find body with name {body_name}."
+
+        # Get the actuator and actuated joint adrs.
+        # Mujoco doesn't have a neat way to grab the actuators associated with a
+        # specific agent, so we'll try to grab them dynamically by checking the
+        # transmission joint ids (the joint adrs associated with that actuator) and
+        # seeing if that the corresponding joint is on for this animal's body.
+        self._joints: List[MjCambrianJoint] = []
+        self._actuators: List[MjCambrianActuator] = []
+        actuator_trnid = list(model.actuator_trnid[:, 0])
+        for jntadr, jnt_bodyid in enumerate(model.jnt_bodyid):
+            jnt_rootbodyid = model.body_rootid[jnt_bodyid]
+            if jnt_rootbodyid == body_id:
+                # This joint is associated with this animal's body
+                self._joints.append(MjCambrianJoint.create(model, jntadr))
+
+                # Check if this joint is actuated
+                if (actadr := safe_index(actuator_trnid, jntadr)) != -1:
+                    ctrlrange = model.actuator_ctrlrange[actadr]
+                    self._actuators.append(MjCambrianActuator(actadr, *ctrlrange))
+
+        assert len(self._joints) > 0, f"Body {body_name} has no joints."
+        assert len(self._actuators) > 0, f"Body {body_name} has no actuators."
+
     def _place_eyes(self):
         """Place the eyes on the animal.
 
@@ -189,40 +223,6 @@ class MjCambrianAnimal:
                 eye = eyes[lat_idx * self.config.num_eyes_lon + lon_idx]
                 eye.config.pos = " ".join(map(str, pos))
                 eye.config.quat = " ".join(map(str, quat))
-
-    def _parse_actuators(self, model: mj.MjModel):
-        """Parse the current model/xml for the actuators.
-
-        We have to do this twice: once on the initial model load to get the ctrl limits
-        on the actuators. And then later to acquire the actual ids/adrs.
-        """
-
-        # Root body for the animal
-        body_name = self.config.body_name
-        body_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, body_name)
-        assert body_id != -1, f"Could not find body with name {body_name}."
-
-        # Get the actuator and actuated joint adrs.
-        # Mujoco doesn't have a neat way to grab the actuators associated with a
-        # specific agent, so we'll try to grab them dynamically by checking the
-        # transmission joint ids (the joint adrs associated with that actuator) and
-        # seeing if that the corresponding joint is on for this animal's body.
-        self._joints: List[MjCambrianJoint] = []
-        self._actuators: List[MjCambrianActuator] = []
-        actuator_trnid = list(model.actuator_trnid[:, 0])
-        for jntadr, jnt_bodyid in enumerate(model.jnt_bodyid):
-            jnt_rootbodyid = model.body_rootid[jnt_bodyid]
-            if jnt_rootbodyid == body_id:
-                # This joint is associated with this animal's body
-                self._joints.append(MjCambrianJoint.create(model, jntadr))
-
-                # Check if this joint is actuated
-                if (actadr := safe_index(actuator_trnid, jntadr)) != -1:
-                    ctrlrange = model.actuator_ctrlrange[actadr]
-                    self._actuators.append(MjCambrianActuator(actadr, *ctrlrange))
-
-        assert len(self._joints) > 0, f"Body {body_name} has no joints."
-        assert len(self._actuators) > 0, f"Body {body_name} has no actuators."
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the animal. Will generate the xml from the model file
@@ -437,8 +437,8 @@ class MjCambrianSwimmer(MjCambrianAnimal):
     CONFIG = dict(
         model_path="assets/swimmer.xml",
         body_name="torso",
-        joint_name="slider2",
-        geom_names=["head"],
+        joint_name="slider1",
+        geom_names=["frontbody"],
         eyes_lat_range=[1, 60],
         eyes_lon_range=[-120, 120],
     )

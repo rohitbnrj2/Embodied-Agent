@@ -52,6 +52,15 @@ class MjCambrianXML:
         """
         return ET.SubElement(parent, tag, *args, **kwargs)
 
+    def remove(self, parent: ET.Element, element: ET.Element):
+        """Remove an element from the xml tree.
+
+        Args:
+            parent (ET.Element): The parent element to remove the element from.
+            element (ET.Element): The element to remove.
+        """
+        parent.remove(element)
+
     def find(
         self, tag: str, *, _all: bool = False, **kwargs
     ) -> List[ET.Element] | ET.Element | None:
@@ -146,6 +155,11 @@ class MjCambrianXML:
                     # Just add it
                     root.append(el)
         return root
+
+    @property
+    def root(self) -> ET.Element:
+        """The root element of the xml tree."""
+        return self._root
 
     def __add__(self, other: "MjCambrianXML"):
         assert isinstance(other, MjCambrianXML)

@@ -26,8 +26,10 @@ def _update_config_with_overrides(original_config: Prodict, overrides: List[Tupl
         config = original_config.copy()
         for key in keys[:-1]:
             config = config.setdefault(key, {})
-        if keys[-1] not in config:
+        if keys[-1] not in config or config[keys[-1]] is None:
             config[keys[-1]] = v
+        elif isinstance(config[keys[-1]], bool):
+            config[keys[-1]] = eval(v)
         else:
             config[keys[-1]] = type(config[keys[-1]])(v)
 

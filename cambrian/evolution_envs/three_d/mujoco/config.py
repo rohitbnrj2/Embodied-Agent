@@ -25,10 +25,10 @@ class MjCambrianTrainingConfig(Prodict):
     Attributes:
         logdir (str): The directory to log training data to.
         exp_name (str): The name of the experiment. Used to name the logging
-        subdirectory.
+            subdirectory.
         total_timesteps (int): The total number of timesteps to train for.
         ppo_checkpoint_path (Path | str | None): The path to the ppo checkpoint to
-        load. If None, training will start from scratch.
+            load. If None, training will start from scratch.
         check_freq (int): The frequency at which to evaluate the model.
         batch_size (int): The batch size to use for training.
         n_steps (int): The number of steps to take per training batch.
@@ -52,20 +52,35 @@ class MjCambrianMazeConfig(Prodict):
 
     Attributes:
         name (str): The name of the map. See
-        `cambrian.evolution_envs.three_d.mujoco.maps`
+            `cambrian.evolution_envs.three_d.mujoco.maps`
         size_scaling (float): The maze scaling for the continuous coordinates in the
-        MuJoCo simulation.
+            MuJoCo simulation.
         height (float): The height of the walls in the MuJoCo simulation.
+        init_goal_pos (Tuple[float, float]): The initial position of the goal in the 
+            maze. If unset, will be randomly generated.
+        use_target_light_source (bool): Whether to use a target light source or not. If
+            False, the default target site will be used (a red sphere). Otherwise, a
+            light source will be used. The light source is simply a spot light facing 
+            down. If unset (i.e. None), this field will set to the opposite of the
+            `use_directional_light` field in `MjCambrianEnvConfig`.
+        use_headlight (bool): Whether to use a headlight or not. The headlight in 
+            mujoco is basically a first-person light that illuminates the scene directly
+            in front of the camera. If False (the default), no headlight is used. This
+            should be set to True during visualization/eval/testing.
     """
 
     name: str
     size_scaling: float
     height: float
+    init_goal_pos: Tuple[float, float]
+    use_target_light_source: bool
+    use_headlight: bool
 
     def init(self):
         self.name = "U_MAZE"
         self.size_scaling = 1.0
         self.height = 0.5
+        self.use_headlight = False
 
 
 class MjCambrianEnvConfig(Prodict):
@@ -77,6 +92,14 @@ class MjCambrianEnvConfig(Prodict):
             contains the xml for the environment. The path is either absolute, relative
             to the execution path or relative to the
             cambrian.evolution_envs.three_d.mujoco
+        use_directional_light (bool): Whether to use a directional light or not. If 
+            True, a directional light will be instantiated in the model that illuminates
+            the entire scene. Otherwise, no global illuminating light will be created. 
+            Setting to False should be used in the case that the animal is trying to 
+            navigate to a light source. Furthermore, if False, the maze xml will be 
+            updated such that the target site is a light source instead of a red sphere
+            (this behavior can be overwritten using the `target_as_light_source` field 
+            in `MjCambrianMazeConfig`).
 
         model_path (Path | str): The path to the mujoco model file.
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
@@ -90,6 +113,7 @@ class MjCambrianEnvConfig(Prodict):
 
     num_animals: int
     scene_path: Path | str
+    use_directional_light: bool
 
     # ============
     # Defined based on `MujocoEnv`
@@ -109,6 +133,7 @@ class MjCambrianEnvConfig(Prodict):
 
     def init(self):
         """Initializes the config with defaults."""
+        self.use_directional_light = True
         self.frame_skip = 10
         self.width = 480
         self.height = 480
@@ -186,6 +211,10 @@ class MjCambrianAnimalConfig(Prodict):
             the xml and eyes will be placed on the surface of the aabb based on some
             criteria.
 
+        init_pos (Tuple[float, float]): The initial position of the animal. If unset,
+            the animal's position at each reset is generated randomly using the
+            `maze.generate_reset_pos` method.
+
         num_eyes_lat (int): The number of eyes to place latitudinally/vertically.
         num_eyes_lon (int): The number of eyes to place longitudinally/horizontally.
         eyes_lat_range (Tuple[float, float]): The x range of the eye. This is used to 
@@ -207,6 +236,8 @@ class MjCambrianAnimalConfig(Prodict):
     body_name: str
     joint_name: str
     geom_names: List[str]
+
+    init_pos: Tuple[float, float]
 
     num_eyes_lat: int
     num_eyes_lon: int

@@ -2,13 +2,11 @@ from typing import Dict, Any, Tuple
 from pathlib import Path
 import tempfile
 import numpy as np
-import cv2
 
 import mujoco as mj
 from gymnasium import spaces
 from gymnasium.envs.mujoco import MujocoEnv
 from stable_baselines3.common.utils import set_random_seed
-from pettingzoo.utils.env import ParallelEnv
 
 from animal import MjCambrianAnimal
 from maze import MjCambrianMaze
@@ -130,6 +128,24 @@ class MjCambrianEnv(MujocoEnv):
         """Generates the xml for the environment."""
         xml = MjCambrianXML(self.env_config.scene_path)
 
+        # Create the directional light, if desired
+        if self.env_config.use_directional_light:
+            xml.add(
+                xml.find(".//worldbody"),
+                "light",
+                directional="true",
+                cutoff="100",
+                exponent="1",
+                diffuse="1 1 1",
+                specular=".1 .1 .1",
+                pos="0 0 1.3",
+                dir="-0 0 -1.3",
+            )
+        if self.env_config.maze_config.use_target_light_source is None:
+            self.env_config.maze_config.use_target_light_source = (
+                not self.env_config.use_directional_light
+            )
+
         # Add the animals to the xml
         for animal in self.animals.values():
             xml += animal.generate_xml()
@@ -162,7 +178,11 @@ class MjCambrianEnv(MujocoEnv):
 
         obs: Dict[str, Dict[str, Any]] = {}
         for name, animal in self.animals.items():
-            init_qpos = self.maze.generate_reset_pos()
+            init_qpos = (
+                self.maze.index_to_pos(*animal.config.init_pos)
+                if animal.config.init_pos is not None
+                else self.maze.generate_reset_pos()
+            )
             obs[name] = animal.reset(self.model, self.data, init_qpos)
             obs[name]["goal"] = self.maze.goal.copy()
             obs[name]["pos"] = animal.pos.copy()
@@ -286,7 +306,7 @@ class MjCambrianEnv(MujocoEnv):
         animal has touched the wall."""
 
         truncated: Dict[str, bool] = {}
-        for name, animal in self.animals.items():
+        for name in self.animals:
             truncated[name] = self._episode_step >= self._max_episode_steps
 
         return truncated
@@ -330,4 +350,8 @@ if __name__ == "__main__":
     env.render_mode = config.env_config.render_mode
 
     import mujoco.viewer
-    mujoco.viewer.launch(env.model, env.data)
+
+    with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
+        while viewer.is_running():
+            continue
+        print("Exiting...")
