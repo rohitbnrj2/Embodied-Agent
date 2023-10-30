@@ -13,7 +13,7 @@ training_config:
 
 env_config:
   num_animals: 1
-  scene_path: "assets/scene.xml"
+  scene_path: "models/scene.xml"
   frame_skip: 10
   render_mode: "rgb_array"
   camera_name: "track"
@@ -28,7 +28,7 @@ env_config:
 animal_config:
   type: "ant"
   init_pos: [1, 1]
-  num_eyes_lat: 1
-  num_eyes_lon: 1
+  num_eyes_lat: 0
+  num_eyes_lon: 0
   default_eye_config:
     resolution: "64 64"

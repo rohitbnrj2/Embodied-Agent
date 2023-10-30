@@ -161,6 +161,11 @@ class MjCambrianXML:
         """The root element of the xml tree."""
         return self._root
 
+    @property
+    def base_dir(self) -> Path:
+        """The directory of the base xml file."""
+        return self._base_xml_path.parent
+
     def __add__(self, other: "MjCambrianXML"):
         assert isinstance(other, MjCambrianXML)
         self += other

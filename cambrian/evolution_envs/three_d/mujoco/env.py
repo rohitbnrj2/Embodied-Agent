@@ -105,7 +105,8 @@ class MjCambrianEnv(MujocoEnv):
         )
 
         self._episode_step = 0
-        self._max_episode_steps = int(self.config.training_config.n_steps * 0.9)
+        self._max_episode_steps = int(
+            self.config.training_config.n_steps * 0.9)
 
     def _create_animals(self):
         """Helper method to create the animals.
@@ -122,7 +123,8 @@ class MjCambrianEnv(MujocoEnv):
             if animal_config.name is None:
                 animal_config.name = f"animal_{i}"
             assert animal_config.name not in self.animals
-            self.animals[animal_config.name] = MjCambrianAnimal.create(animal_config)
+            self.animals[animal_config.name] = MjCambrianAnimal.create(
+                animal_config)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
@@ -151,7 +153,8 @@ class MjCambrianEnv(MujocoEnv):
             xml += animal.generate_xml()
 
         # Create the maze and add it to the xml
-        self.maze, maze_xml = MjCambrianMaze.make_maze(self.env_config.maze_config)
+        self.maze, maze_xml = MjCambrianMaze.make_maze(
+            self.env_config.maze_config)
         xml += maze_xml
 
         # Create the track camera, if it doesn't exist. camera_name must be set
@@ -159,7 +162,8 @@ class MjCambrianEnv(MujocoEnv):
         track_cam = self.env_config.camera_name
         if track_cam is not None and xml.find(".//camera", name=track_cam) is None:
             animal = next(iter(self.animals.values()))
-            tracked_body = xml.find(".//body", name=f"{animal.config.body_name}")
+            tracked_body = xml.find(
+                ".//body", name=f"{animal.config.body_name}")
             assert tracked_body is not None
             xml.add(
                 tracked_body,
@@ -169,6 +173,19 @@ class MjCambrianEnv(MujocoEnv):
                 pos="0 -10 10",
                 xyaxes="1 0 0 0 1 1",
             )
+
+        # Update the assert path to point to the fully resolved path
+        compiler = xml.find(".//compiler")
+        assert compiler is not None
+        if (texturedir := compiler.attrib.get("texturedir")) is not None:
+            texturedir = str(get_model_path(xml.base_dir / texturedir))
+            compiler.attrib["texturedir"] = texturedir
+        if (meshdir := compiler.attrib.get("meshdir")) is not None:
+            meshdir = str(get_model_path(xml.base_dir / meshdir))
+            compiler.attrib["meshdir"] = meshdir
+        if (assetdir := compiler.attrib.get("assetdir")) is not None:
+            assetdir = str(get_model_path(xml.base_dir / assetdir))
+            compiler.attrib["assetdir"] = assetdir
 
         return xml
 
@@ -285,7 +302,8 @@ class MjCambrianEnv(MujocoEnv):
 
             # dpos is positive if the animal is getting closer to the goal
             curr_pos = animal.pos
-            delta_pos = np.linalg.norm(prev_pos[name]) - np.linalg.norm(curr_pos)
+            delta_pos = np.linalg.norm(
+                prev_pos[name]) - np.linalg.norm(curr_pos)
             reward[name] = delta_pos if delta_pos > 0.005 else 0.0
 
         return reward
@@ -296,7 +314,8 @@ class MjCambrianEnv(MujocoEnv):
 
         terminated: Dict[str, bool] = {}
         for name, animal in self.animals.items():
-            terminated[name] = np.linalg.norm(animal.pos[:2] - self.maze.goal) < 0.5
+            terminated[name] = np.linalg.norm(
+                animal.pos[:2] - self.maze.goal) < 0.5
 
         return terminated
 
@@ -327,7 +346,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("config_path", type=str, help="Path to the config file.")
+    parser.add_argument("config_path", type=str,
+                        help="Path to the config file.")
     parser.add_argument(
         "-o",
         "--override",
@@ -353,5 +373,6 @@ if __name__ == "__main__":
 
     with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
         while viewer.is_running():
-            continue
+            mj.mj_step(env.model, env.data)
+            viewer.sync()
         print("Exiting...")

@@ -13,13 +13,14 @@ def safe_index(l: List[Any], v: Any) -> int:
     except ValueError:
         return -1
 
-def get_model_path(model_path: str | Path) -> Path:
+def get_model_path(model_path: str | Path, *, throw_error: bool = True) -> Path | None:
     """Tries to find the model path. `model_path` can either be relative to the 
     execution file, absolute, or relative to cambrian.evolution_envs.three_d.mujoco. The
     latter is the typical method, where `assets/<model>.xml` specifies the model path 
     located in cambrian/evolution_envs/three_d/mujoco/assets/<model>.xml.
 
-    If the file can't be found, a FileNotFoundError is raised.
+    If the file can't be found, a FileNotFoundError is raised if throw_error is True. If
+    throw_error is False, None is returned.
     """
     model_path = Path(model_path)
     if model_path.exists():
@@ -27,7 +28,10 @@ def get_model_path(model_path: str | Path) -> Path:
     elif (rel_model_path := Path(__file__).parent / model_path).exists():
         model_path = rel_model_path
     else:
-        raise FileNotFoundError(f"Could not find model file {model_path}.")
+        if throw_error:
+            raise FileNotFoundError(f"Could not find model file {model_path}.")
+        else:
+            return None
 
     return model_path
 
@@ -83,6 +87,7 @@ class MjCambrianActuator:
     adr: int
     low: float
     high: float
+
 
 @dataclass
 class MjCambrianGeometry:

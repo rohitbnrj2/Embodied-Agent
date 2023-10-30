@@ -1,5 +1,4 @@
 from typing import Dict, Any, List
-from pathlib import Path
 import numpy as np
 from enum import Enum
 
@@ -11,7 +10,6 @@ from cambrian_xml import MjCambrianXML
 from eye import MjCambrianEye, MjCambrianEyeConfig
 from config import MjCambrianAnimalConfig
 from utils import (
-    safe_index,
     get_model_path,
     MjCambrianJoint,
     MjCambrianActuator,
@@ -22,6 +20,7 @@ from utils import (
 class MjCambrianAnimalType(Enum):
     ANT: str = "ant"
     SWIMMER: str = "swimmer"
+    SKYDIO: str = "skydio"
 
 
 class MjCambrianAnimal:
@@ -66,9 +65,8 @@ class MjCambrianAnimal:
         assert self.config.body_name is not None, "No body name specified."
         assert self.config.joint_name is not None, "No joint name specified."
         assert self.config.geom_names is not None, "No geom names specified."
-        assert len(self.config.geom_names) > 0, "Must have at least one geom name."
-        assert self.config.num_eyes_lat > 0, "Must have at least one lat eye."
-        assert self.config.num_eyes_lon > 0, "Must have at least one lon eye."
+        assert len(
+            self.config.geom_names) > 0, "Must have at least one geom name."
         assert self.config.default_eye_config is not None, "No default eye config."
 
         self.config.model_path = get_model_path(self.config.model_path)
@@ -90,7 +88,7 @@ class MjCambrianAnimal:
             - parse the geometry
             - place eyes at the appropriate locations
         """
-        model = mj.MjModel.from_xml_path(self.config.model_path.as_posix())
+        model = mj.MjModel.from_xml_path(str(self.config.model_path))
 
         self._parse_geometry(model)
         self._parse_actuators(model)
@@ -129,7 +127,8 @@ class MjCambrianAnimal:
             geom_rbound = model.geom_rbound[geom_id]
             geom_pos = model.geom_pos[geom_id]
 
-            self._geoms.append(MjCambrianGeometry(geom_id, geom_rbound, geom_pos))
+            self._geoms.append(MjCambrianGeometry(
+                geom_id, geom_rbound, geom_pos))
 
     def _parse_actuators(self, model: mj.MjModel):
         """Parse the current model/xml for the actuators.
@@ -143,24 +142,32 @@ class MjCambrianAnimal:
         body_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, body_name)
         assert body_id != -1, f"Could not find body with name {body_name}."
 
-        # Get the actuator and actuated joint adrs.
         # Mujoco doesn't have a neat way to grab the actuators associated with a
         # specific agent, so we'll try to grab them dynamically by checking the
         # transmission joint ids (the joint adrs associated with that actuator) and
         # seeing if that the corresponding joint is on for this animal's body.
-        self._joints: List[MjCambrianJoint] = []
         self._actuators: List[MjCambrianActuator] = []
-        actuator_trnid = list(model.actuator_trnid[:, 0])
+        for actadr, ((trnid, _), trntype) in enumerate(zip(model.actuator_trnid, model.actuator_trntype)):
+            if trntype == mj.mjtTrn.mjTRN_JOINT:
+                act_bodyid = model.jnt_bodyid[trnid]
+            elif trntype == mj.mjtTrn.mjTRN_SITE:
+                act_bodyid = model.site_bodyid[trnid]
+            else:
+                raise NotImplementedError(f'Unsupported trntype "{trntype}".')
+
+            act_rootbodyid = model.body_rootid[act_bodyid]
+            if act_rootbodyid == body_id:
+                ctrlrange = model.actuator_ctrlrange[actadr]
+                self._actuators.append(MjCambrianActuator(actadr, *ctrlrange))
+
+        # Get the joints
+        # We use the joints to get the qpos/qvel as observations (joint specific states)
+        self._joints: List[MjCambrianJoint] = []
         for jntadr, jnt_bodyid in enumerate(model.jnt_bodyid):
             jnt_rootbodyid = model.body_rootid[jnt_bodyid]
             if jnt_rootbodyid == body_id:
                 # This joint is associated with this animal's body
                 self._joints.append(MjCambrianJoint.create(model, jntadr))
-
-                # Check if this joint is actuated
-                if (actadr := safe_index(actuator_trnid, jntadr)) != -1:
-                    ctrlrange = model.actuator_ctrlrange[actadr]
-                    self._actuators.append(MjCambrianActuator(actadr, *ctrlrange))
 
         assert len(self._joints) > 0, f"Body {body_name} has no joints."
         assert len(self._actuators) > 0, f"Body {body_name} has no actuators."
@@ -210,7 +217,8 @@ class MjCambrianAnimal:
                 longitude = longitudes[lon_idx] + np.pi / 2
 
                 # TODO: why is this transformation so weird? Make it into one
-                pos_rot = default_rot * R.from_euler("yz", [latitude, longitude])
+                pos_rot = default_rot * \
+                    R.from_euler("yz", [latitude, longitude])
                 rot_rot = R.from_euler("z", latitude)
                 rot_rot *= R.from_euler("y", -longitude)
                 rot_rot *= default_rot
@@ -230,8 +238,19 @@ class MjCambrianAnimal:
         """
         idx = self.config.idx
 
-        # Create the xml
-        self.xml = MjCambrianXML(self.config.model_path)
+        # Update the names to have idx as a suffix
+        self.config.body_name = self.config.body_name.format(uid=idx)
+        self.config.joint_name = self.config.joint_name.format(uid=idx)
+        self.config.geom_names = [n.format(uid=idx)
+                                  for n in self.config.geom_names]
+
+        # Create the xml and update the names in the xml to be unique
+        # Each name/target/site/etc. should have a fstring-like tag that is evaluated
+        # here. It should be implemented using the python built-in .format and use the
+        # keyword 'uid'
+        # TODO Write better docs here/above
+        temp_xml = MjCambrianXML(self.config.model_path)
+        self.xml = MjCambrianXML.from_string(str(temp_xml).format(uid=idx))
 
         # Set each geom in this animal to be a certain group for rendering utils
         # The group number is the index the animal was created + 2
@@ -243,23 +262,6 @@ class MjCambrianAnimal:
         # Add eyes
         for eye in self.eyes.values():
             self.xml += eye.generate_xml(self.xml, self.config.body_name)
-
-        # Have to update _all_ names in this file to be unique from another animal
-        # Add the index of this animal as a suffix to the names
-        # We'll also reset the joint names in the actuators to point to the new names
-        for element in self.xml.findall(".//*[@name]"):
-            if element.tag == "camera":
-                continue
-            element.set("name", f"{element.get('name')}_{idx}")
-        for element in self.xml.findall("./actuator/motor[@joint]"):
-            element.set("joint", f"{element.get('joint')}_{idx}")
-
-        # Update the names to have idx as a suffix
-        self.config.body_name = f"{self.config.body_name}_{self.config.idx}"
-        self.config.joint_name = f"{self.config.joint_name}_{self.config.idx}"
-        self.config.geom_names = [
-            f"{name}_{self.config.idx}" for name in self.config.geom_names
-        ]
 
         return self.xml
 
@@ -274,8 +276,10 @@ class MjCambrianAnimal:
 
         # This joint is used for positioning the animal in the environment
         joint_name = self.config.joint_name
-        self._joint_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, joint_name)
-        assert self._joint_id != -1, f"Could not find joint with name {joint_name}."
+        self._joint_id = mj.mj_name2id(
+            model, mj.mjtObj.mjOBJ_JOINT, joint_name)
+        assert self._joint_id != - \
+            1, f"Could not find joint with name {joint_name}."
         self._joint_qposadr = model.jnt_qposadr[self._joint_id]
         self._joint_dofadr = model.jnt_dofadr[self._joint_id]
 
@@ -285,12 +289,14 @@ class MjCambrianAnimal:
         # Accumulate the qpos/qvel/act adrs
         self._qposadrs = []
         for joint in self._joints:
-            self._qposadrs.extend(range(joint.qposadr, joint.qposadr + joint.numqpos))
+            self._qposadrs.extend(
+                range(joint.qposadr, joint.qposadr + joint.numqpos))
         assert len(self._qposadrs) == self._numqpos
 
         self._qveladrs = []
         for joint in self._joints:
-            self._qveladrs.extend(range(joint.qveladr, joint.qveladr + joint.numqvel))
+            self._qveladrs.extend(
+                range(joint.qveladr, joint.qveladr + joint.numqvel))
         assert len(self._qveladrs) == self._numqvel
 
         self._actadrs = [act.adr for act in self._actuators]
@@ -298,7 +304,8 @@ class MjCambrianAnimal:
 
         # Update the animal's position using the freejoint
         self.pos = init_qpos
-        mj.mj_forward(model, data)  # step here so that the observations are updated
+        # step here so that the observations are updated
+        mj.mj_forward(model, data)
 
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
@@ -377,7 +384,7 @@ class MjCambrianAnimal:
         Use qpos to get _all_ the positions of the animal.
         """
         return np.asarray(
-            self._data.qpos[self._joint_qposadr : self._joint_qposadr + 3]
+            self._data.qpos[self._joint_qposadr: self._joint_qposadr + 3]
         )
 
     @pos.setter
@@ -388,7 +395,8 @@ class MjCambrianAnimal:
 
         Use qpos to set _all_ the positions of the animal.
         """
-        self._data.qpos[self._joint_qposadr : self._joint_qposadr + len(value)] = value
+        self._data.qpos[self._joint_qposadr: self._joint_qposadr +
+                        len(value)] = value
 
     def create(config: MjCambrianAnimalConfig) -> "MjCambrianAnimal":
         """Factory method for creating animals. This is used by the environment to
@@ -399,6 +407,8 @@ class MjCambrianAnimal:
             return MjCambrianAnt(config)
         elif type == MjCambrianAnimalType.SWIMMER:
             return MjCambrianSwimmer(config)
+        elif type == MjCambrianAnimalType.SKYDIO:
+            return MjCambrianSkydioX2(config)
         else:
             raise ValueError(f"Animal type {type} not supported.")
 
@@ -412,10 +422,10 @@ class MjCambrianAnt(MjCambrianAnimal):
     """
 
     CONFIG = dict(
-        model_path="assets/ant.xml",
-        body_name="torso",
-        joint_name="root",
-        geom_names=["torso_geom"],
+        model_path="models/ant.xml",
+        body_name="torso_{uid}",
+        joint_name="root_{uid}",
+        geom_names=["torso_geom_{uid}"],
         eyes_lat_range=[-30, 30],
         eyes_lon_range=[-120, 120],
     )
@@ -435,11 +445,32 @@ class MjCambrianSwimmer(MjCambrianAnimal):
     """
 
     CONFIG = dict(
-        model_path="assets/swimmer.xml",
-        body_name="torso",
-        joint_name="slider1",
-        geom_names=["frontbody"],
+        model_path="models/swimmer.xml",
+        body_name="torso_{uid}",
+        joint_name="slider1_{uid}",
+        geom_names=["frontbody_{uid}"],
         eyes_lat_range=[1, 60],
+        eyes_lon_range=[-120, 120],
+    )
+
+    def __init__(self, config: MjCambrianAnimalConfig):
+        config.update(self.CONFIG)
+        super().__init__(config)
+
+
+class MjCambrianSkydioX2(MjCambrianAnimal):
+    """Defines a skydio-x2 drone "animal".
+
+    See [here](https://github.com/google-deepmind/mujoco_menagerie/tree/main/skydio_x2)
+    for more info.
+    """
+
+    CONFIG = dict(
+        model_path="models/skydio-x2.xml",
+        body_name="x2_{uid}",
+        joint_name="x2-freejoint_{uid}",
+        geom_names=["mesh_{uid}"],
+        eyes_lat_range=[-30, 30],
         eyes_lon_range=[-120, 120],
     )
 
@@ -455,7 +486,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Animal Test")
 
-    parser.add_argument("config_path", type=str, help="Path to the config file.")
+    parser.add_argument("config_path", type=str,
+                        help="Path to the config file.")
     parser.add_argument("title", type=str, help="Title of the demo.")
     parser.add_argument("--plot", action="store_true", help="Plot the demo")
     parser.add_argument("--save", action="store_true", help="Save the demo")
