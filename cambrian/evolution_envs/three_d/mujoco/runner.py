@@ -88,7 +88,7 @@ class MjCambrianRunner:
         )
 
         obs = env.reset()
-        for _ in range(1000):
+        for _ in range(10000):
             action, _ = model.predict(obs, deterministic=False)
             obs, reward, done, info = env.step(action)
             env.render()

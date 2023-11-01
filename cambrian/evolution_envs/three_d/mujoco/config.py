@@ -67,6 +67,7 @@ class MjCambrianMazeConfig(Prodict):
             mujoco is basically a first-person light that illuminates the scene directly
             in front of the camera. If False (the default), no headlight is used. This
             should be set to True during visualization/eval/testing.
+            TODO: Move to EnvConfig
     """
 
     name: str
@@ -100,6 +101,8 @@ class MjCambrianEnvConfig(Prodict):
             updated such that the target site is a light source instead of a red sphere
             (this behavior can be overwritten using the `target_as_light_source` field 
             in `MjCambrianMazeConfig`).
+        use_goal_obs (bool): Whether to use the goal observation or not. Defaults to
+            False.
 
         model_path (Path | str): The path to the mujoco model file.
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
@@ -114,6 +117,7 @@ class MjCambrianEnvConfig(Prodict):
     num_animals: int
     scene_path: Path | str
     use_directional_light: bool
+    use_goal_obs: bool
 
     # ============
     # Defined based on `MujocoEnv`
@@ -134,6 +138,7 @@ class MjCambrianEnvConfig(Prodict):
     def init(self):
         """Initializes the config with defaults."""
         self.use_directional_light = True
+        self.use_goal_obs = False
         self.frame_skip = 10
         self.width = 480
         self.height = 480
@@ -197,7 +202,6 @@ class MjCambrianAnimalConfig(Prodict):
             uniquely change the animal's xml elements. Placeholder; should be set by
             the env.
 
-
         model_path (Path | str): The path to the mujoco model file for the animal.
             Either absolute, relative to execution path or relative to
             cambrian.evolution_envs.three_d.mujoco.animal.py file. This will probably
@@ -214,6 +218,11 @@ class MjCambrianAnimalConfig(Prodict):
         init_pos (Tuple[float, float]): The initial position of the animal. If unset,
             the animal's position at each reset is generated randomly using the
             `maze.generate_reset_pos` method.
+
+        use_qpos_obs (bool): Whether to use the qpos observation or not. Defaults to 
+            False.
+        use_qvel_obs (bool): Whether to use the qvel observation or not. Defaults to 
+            False.
 
         num_eyes_lat (int): The number of eyes to place latitudinally/vertically.
         num_eyes_lon (int): The number of eyes to place longitudinally/horizontally.
@@ -239,6 +248,9 @@ class MjCambrianAnimalConfig(Prodict):
 
     init_pos: Tuple[float, float]
 
+    use_qpos_obs: bool
+    use_qvel_obs: bool
+
     num_eyes_lat: int
     num_eyes_lon: int
     eyes_lat_range: Tuple[float, float]
@@ -247,6 +259,9 @@ class MjCambrianAnimalConfig(Prodict):
 
     def init(self):
         """Initializes the config with defaults."""
+        self.use_qpos_obs = False
+        self.use_qvel_obs = False
+
         self.default_eye_config = MjCambrianEyeConfig()
 
 

@@ -1,0 +1,19 @@
+<mujoco>
+  <compiler inertiafromgeom="true" angle="radian" coordinate="local"/>
+  <option timestep="0.01" gravity="0 0 0" iterations="20" integrator="Euler"/>
+  <worldbody>
+    <body name="particle_{uid}" pos="0 0 0.2">
+      <geom name="particle_geom_{uid}" type="sphere" size="0.1" rgba="0.0 0.0 1.0 0.0" contype="1" friction=".5 .1 .1" density="1000" margin="0.002" condim="1" conaffinity="1"/>
+      <site name="particle_site_{uid}" pos="0.0 0.0 0.0" size="0.2" rgba="0.3 0.6 0.3 1"/>
+      <joint name="ball_x_{uid}" type="slide" pos="0 0 0" axis="1 0 0" damping="1" limited="false"/>
+      <joint name="ball_y_{uid}" type="slide" pos="0 0 0" axis="0 1 0" damping="1" limited="false"/>
+      <joint name="ball_z_{uid}" type="hinge" pos="0 0 0" axis="0 0 1" damping="1" limited="false"/>
+    </body>
+  </worldbody>
+  <actuator>
+    <!-- These are just dummy actuators for providing ranges -->
+    <motor name="motor_x_{uid}" joint="ball_x_{uid}" ctrlrange="-1.0 1.0" ctrllimited="true" gear= "100"/>
+    <motor name="motor_y_{uid}" joint="ball_y_{uid}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="100"/>
+    <motor name="motor_z_{uid}" joint="ball_z_{uid}" ctrlrange="-1.57 1.57" ctrllimited="true" gear="100"/>
+  </actuator>
+</mujoco>

@@ -21,6 +21,7 @@ class MjCambrianAnimalType(Enum):
     ANT: str = "ant"
     SWIMMER: str = "swimmer"
     SKYDIO: str = "skydio"
+    POINT: str = "point"
 
 
 class MjCambrianAnimal:
@@ -57,6 +58,8 @@ class MjCambrianAnimal:
         self._data: mj.MjData = None
         self._initialize()
 
+        self._init_pos: np.ndarray = None
+
     def _check_config(self):
         """Run some checks/asserts on the config to make sure everything's there. Also,
         we'll update the model path to make sure it's either absolute/relative to
@@ -65,8 +68,7 @@ class MjCambrianAnimal:
         assert self.config.body_name is not None, "No body name specified."
         assert self.config.joint_name is not None, "No joint name specified."
         assert self.config.geom_names is not None, "No geom names specified."
-        assert len(
-            self.config.geom_names) > 0, "Must have at least one geom name."
+        assert len(self.config.geom_names) > 0, "Must have at least one geom name."
         assert self.config.default_eye_config is not None, "No default eye config."
 
         self.config.model_path = get_model_path(self.config.model_path)
@@ -127,8 +129,7 @@ class MjCambrianAnimal:
             geom_rbound = model.geom_rbound[geom_id]
             geom_pos = model.geom_pos[geom_id]
 
-            self._geoms.append(MjCambrianGeometry(
-                geom_id, geom_rbound, geom_pos))
+            self._geoms.append(MjCambrianGeometry(geom_id, geom_rbound, geom_pos))
 
     def _parse_actuators(self, model: mj.MjModel):
         """Parse the current model/xml for the actuators.
@@ -147,7 +148,9 @@ class MjCambrianAnimal:
         # transmission joint ids (the joint adrs associated with that actuator) and
         # seeing if that the corresponding joint is on for this animal's body.
         self._actuators: List[MjCambrianActuator] = []
-        for actadr, ((trnid, _), trntype) in enumerate(zip(model.actuator_trnid, model.actuator_trntype)):
+        for actadr, ((trnid, _), trntype) in enumerate(
+            zip(model.actuator_trnid, model.actuator_trntype)
+        ):
             if trntype == mj.mjtTrn.mjTRN_JOINT:
                 act_bodyid = model.jnt_bodyid[trnid]
             elif trntype == mj.mjtTrn.mjTRN_SITE:
@@ -217,8 +220,7 @@ class MjCambrianAnimal:
                 longitude = longitudes[lon_idx] + np.pi / 2
 
                 # TODO: why is this transformation so weird? Make it into one
-                pos_rot = default_rot * \
-                    R.from_euler("yz", [latitude, longitude])
+                pos_rot = default_rot * R.from_euler("yz", [latitude, longitude])
                 rot_rot = R.from_euler("z", latitude)
                 rot_rot *= R.from_euler("y", -longitude)
                 rot_rot *= default_rot
@@ -241,8 +243,7 @@ class MjCambrianAnimal:
         # Update the names to have idx as a suffix
         self.config.body_name = self.config.body_name.format(uid=idx)
         self.config.joint_name = self.config.joint_name.format(uid=idx)
-        self.config.geom_names = [n.format(uid=idx)
-                                  for n in self.config.geom_names]
+        self.config.geom_names = [n.format(uid=idx) for n in self.config.geom_names]
 
         # Create the xml and update the names in the xml to be unique
         # Each name/target/site/etc. should have a fstring-like tag that is evaluated
@@ -274,12 +275,15 @@ class MjCambrianAnimal:
         self._model = model
         self._data = data
 
+        # Root body for the animal
+        body_name = self.config.body_name
+        self._body_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, body_name)
+        assert self._body_id != -1, f"Could not find body with name {body_name}."
+
         # This joint is used for positioning the animal in the environment
         joint_name = self.config.joint_name
-        self._joint_id = mj.mj_name2id(
-            model, mj.mjtObj.mjOBJ_JOINT, joint_name)
-        assert self._joint_id != - \
-            1, f"Could not find joint with name {joint_name}."
+        self._joint_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, joint_name)
+        assert self._joint_id != -1, f"Could not find joint with name {joint_name}."
         self._joint_qposadr = model.jnt_qposadr[self._joint_id]
         self._joint_dofadr = model.jnt_dofadr[self._joint_id]
 
@@ -289,14 +293,12 @@ class MjCambrianAnimal:
         # Accumulate the qpos/qvel/act adrs
         self._qposadrs = []
         for joint in self._joints:
-            self._qposadrs.extend(
-                range(joint.qposadr, joint.qposadr + joint.numqpos))
+            self._qposadrs.extend(range(joint.qposadr, joint.qposadr + joint.numqpos))
         assert len(self._qposadrs) == self._numqpos
 
         self._qveladrs = []
         for joint in self._joints:
-            self._qveladrs.extend(
-                range(joint.qveladr, joint.qveladr + joint.numqvel))
+            self._qveladrs.extend(range(joint.qveladr, joint.qveladr + joint.numqvel))
         assert len(self._qveladrs) == self._numqvel
 
         self._actadrs = [act.adr for act in self._actuators]
@@ -306,6 +308,7 @@ class MjCambrianAnimal:
         self.pos = init_qpos
         # step here so that the observations are updated
         mj.mj_forward(model, data)
+        self.init_pos = self.pos.copy()
 
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
@@ -325,13 +328,54 @@ class MjCambrianAnimal:
 
     def _get_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         """Creates the entire obs dict."""
-        qpos = self._data.qpos[self._qposadrs]
-        qvel = self._data.qvel[self._qveladrs]
+        if self.config.use_qpos_obs:
+            qpos = self._data.qpos[self._qposadrs]
+            obs["qpos"] = qpos.flat.copy()
 
-        obs["qpos"] = qpos.flat.copy()
-        obs["qvel"] = qvel.flat.copy()
+        if self.config.use_qvel_obs:
+            qvel = self._data.qvel[self._qveladrs]
+            obs["qvel"] = qvel.flat.copy()
 
         return obs
+
+    @property
+    def has_contacts(self) -> bool:
+        """Returns whether or not the animal has contacts.
+        
+        Walks through all the contacts in the environment and checks if any of them
+        involve this animal.
+        """
+        for contact in self._data.contact:
+            geom1 = contact.geom1
+            body1 = self._model.geom_bodyid[geom1]
+            rootbody1 = self._model.body_rootid[body1]
+
+            geom2 = contact.geom2
+            body2 = self._model.geom_bodyid[geom2]
+            rootbody2 = self._model.body_rootid[body2]
+
+            rootbody = geom = None
+            otherrootbody = othergeom = None
+            if rootbody1 == self._body_id:
+                rootbody, geom = rootbody1, geom1
+                otherrootbody, othergeom = rootbody2, geom2
+            elif rootbody2 == self._body_id:
+                rootbody, geom = rootbody2, geom2
+                otherrootbody, othergeom = rootbody1, geom1
+            else:
+                # Not a contact with this animal
+                continue
+
+            # Verify it's not a self collision
+            if rootbody == otherrootbody:
+                continue
+
+            # Verify it's not a ground contact
+            groundbody = mj.mj_name2id(self._model, mj.mjtObj.mjOBJ_BODY, "floor")
+            if otherrootbody == groundbody:
+                continue
+
+            return True
 
     @property
     def observation_space(self) -> spaces.Space:
@@ -350,12 +394,14 @@ class MjCambrianAnimal:
         for name, eye in self.eyes.items():
             observation_space[name] = eye.observation_space
 
-        observation_space["qpos"] = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(self._numqpos,), dtype=np.float32
-        )
-        observation_space["qvel"] = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(self._numqvel,), dtype=np.float32
-        )
+        if self.config.use_qpos_obs:
+            observation_space["qpos"] = spaces.Box(
+                low=-np.inf, high=np.inf, shape=(self._numqpos,), dtype=np.float32
+            )
+        if self.config.use_qvel_obs:
+            observation_space["qvel"] = spaces.Box(
+                low=-np.inf, high=np.inf, shape=(self._numqvel,), dtype=np.float32
+            )
 
         return spaces.Dict(observation_space)
 
@@ -383,9 +429,7 @@ class MjCambrianAnimal:
 
         Use qpos to get _all_ the positions of the animal.
         """
-        return np.asarray(
-            self._data.qpos[self._joint_qposadr: self._joint_qposadr + 3]
-        )
+        return self._data.qpos[self._joint_qposadr : self._joint_qposadr + 2].copy()
 
     @pos.setter
     def pos(self, value: np.ndarray):
@@ -395,8 +439,17 @@ class MjCambrianAnimal:
 
         Use qpos to set _all_ the positions of the animal.
         """
-        self._data.qpos[self._joint_qposadr: self._joint_qposadr +
-                        len(value)] = value
+        self._data.qpos[self._joint_qposadr : self._joint_qposadr + len(value)] = value
+
+    @property
+    def init_pos(self) -> np.ndarray:
+        """Returns the initial position of the animal."""
+        return self._init_pos
+
+    @init_pos.setter
+    def init_pos(self, value: np.ndarray):
+        """Sets the initial position of the animal."""
+        self._init_pos = value
 
     def create(config: MjCambrianAnimalConfig) -> "MjCambrianAnimal":
         """Factory method for creating animals. This is used by the environment to
@@ -409,6 +462,8 @@ class MjCambrianAnimal:
             return MjCambrianSwimmer(config)
         elif type == MjCambrianAnimalType.SKYDIO:
             return MjCambrianSkydioX2(config)
+        elif type == MjCambrianAnimalType.POINT:
+            return MjCambrianPoint(config)
         else:
             raise ValueError(f"Animal type {type} not supported.")
 
@@ -479,6 +534,26 @@ class MjCambrianSkydioX2(MjCambrianAnimal):
         super().__init__(config)
 
 
+class MjCambrianPoint(MjCambrianAnimal):
+    """Defines a point animal.
+
+    See `https://robotics.farama.org/envs/maze/point_maze/`.
+    """
+
+    CONFIG = dict(
+        model_path="models/point.xml",
+        body_name="particle_{uid}",
+        joint_name="ball_x_{uid}",
+        geom_names=["particle_geom_{uid}"],
+        eyes_lat_range=[-30, 30],
+        eyes_lon_range=[-120, 120],
+    )
+
+    def __init__(self, config: MjCambrianAnimalConfig):
+        config.update(self.CONFIG)
+        super().__init__(config)
+
+
 if __name__ == "__main__":
     import argparse
     import matplotlib.pyplot as plt
@@ -486,8 +561,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Animal Test")
 
-    parser.add_argument("config_path", type=str,
-                        help="Path to the config file.")
+    parser.add_argument("config_path", type=str, help="Path to the config file.")
     parser.add_argument("title", type=str, help="Title of the demo.")
     parser.add_argument("--plot", action="store_true", help="Plot the demo")
     parser.add_argument("--save", action="store_true", help="Save the demo")

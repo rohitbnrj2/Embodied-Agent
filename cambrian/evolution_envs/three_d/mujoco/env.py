@@ -78,12 +78,10 @@ class MjCambrianEnv(MujocoEnv):
         observation_spaces: Dict[str, spaces.Space] = {}
         for name, animal in self.animals.items():
             observation_space: spaces.Dict = animal.observation_space
-            observation_space.spaces["goal"] = spaces.Box(
-                low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
-            )
-            observation_space.spaces["pos"] = spaces.Box(
-                low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32
-            )
+            if self.env_config.use_goal_obs:
+                observation_space.spaces["goal"] = spaces.Box(
+                    low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
+                )
             observation_spaces[name] = observation_space
         self.observation_spaces = spaces.Dict(observation_spaces)
 
@@ -105,8 +103,7 @@ class MjCambrianEnv(MujocoEnv):
         )
 
         self._episode_step = 0
-        self._max_episode_steps = int(
-            self.config.training_config.n_steps * 0.9)
+        self._max_episode_steps = int(self.config.training_config.n_steps * 0.9)
 
     def _create_animals(self):
         """Helper method to create the animals.
@@ -123,8 +120,7 @@ class MjCambrianEnv(MujocoEnv):
             if animal_config.name is None:
                 animal_config.name = f"animal_{i}"
             assert animal_config.name not in self.animals
-            self.animals[animal_config.name] = MjCambrianAnimal.create(
-                animal_config)
+            self.animals[animal_config.name] = MjCambrianAnimal.create(animal_config)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
@@ -153,8 +149,7 @@ class MjCambrianEnv(MujocoEnv):
             xml += animal.generate_xml()
 
         # Create the maze and add it to the xml
-        self.maze, maze_xml = MjCambrianMaze.make_maze(
-            self.env_config.maze_config)
+        self.maze, maze_xml = MjCambrianMaze.make_maze(self.env_config.maze_config)
         xml += maze_xml
 
         # Create the track camera, if it doesn't exist. camera_name must be set
@@ -162,8 +157,7 @@ class MjCambrianEnv(MujocoEnv):
         track_cam = self.env_config.camera_name
         if track_cam is not None and xml.find(".//camera", name=track_cam) is None:
             animal = next(iter(self.animals.values()))
-            tracked_body = xml.find(
-                ".//body", name=f"{animal.config.body_name}")
+            tracked_body = xml.find(".//body", name=f"{animal.config.body_name}")
             assert tracked_body is not None
             xml.add(
                 tracked_body,
@@ -201,8 +195,8 @@ class MjCambrianEnv(MujocoEnv):
                 else self.maze.generate_reset_pos()
             )
             obs[name] = animal.reset(self.model, self.data, init_qpos)
-            obs[name]["goal"] = self.maze.goal.copy()
-            obs[name]["pos"] = animal.pos.copy()
+            if self.env_config.use_goal_obs:
+                obs[name]["goal"] = self.maze.goal.copy()
 
         self._episode_step = 0
 
@@ -242,11 +236,11 @@ class MjCambrianEnv(MujocoEnv):
         obs: Dict[str, Any] = {}
         pos: Dict[str, np.ndarray] = {}  # to keep track of previous position
         for name, animal in self.animals.items():
-            pos[name] = animal.pos.copy()
+            pos[name] = animal.pos
 
             obs[name] = animal.step(action[name])
-            obs[name]["goal"] = self.maze.goal.copy()
-            obs[name]["pos"] = animal.pos.copy()
+            if self.env_config.use_goal_obs:
+                obs[name]["goal"] = self.maze.goal.copy()
 
         self._step_mujoco_simulation(self.frame_skip)
 
@@ -291,22 +285,36 @@ class MjCambrianEnv(MujocoEnv):
             Truncation indicates failure (agent has hit the wall or something).
         """
 
-        reward: Dict[str, float] = {}
+        rewards: Dict[str, float] = {}
         for name, animal in self.animals.items():
+            # Early exits
             if terminated[name]:
-                reward[name] = 5.0
+                rewards[name] = 5.0
                 continue
             elif truncated[name]:
-                reward[name] = -5.0
+                rewards[name] = -5.0
                 continue
 
-            # dpos is positive if the animal is getting closer to the goal
+            reward = 0
             curr_pos = animal.pos
-            delta_pos = np.linalg.norm(
-                prev_pos[name]) - np.linalg.norm(curr_pos)
-            reward[name] = delta_pos if delta_pos > 0.005 else 0.0
 
-        return reward
+            # Reward the agent for getting closer to the goal
+            prev_distance_to_goal = np.linalg.norm(prev_pos[name] - self.maze.goal)
+            curr_distance_to_goal = np.linalg.norm(curr_pos - self.maze.goal)
+            distance = prev_distance_to_goal - curr_distance_to_goal
+            reward += distance
+
+            # Reward the agent for moving
+            distance = np.linalg.norm(animal.init_pos - curr_pos)
+            # reward += distance
+
+            # Reward survival
+            # reward += 1
+
+            # Set the reward
+            rewards[name] = reward
+
+        return rewards
 
     def compute_terminated(self) -> Dict[str, bool]:
         """Compute whether the env has terminated. Termination indicates success,
@@ -314,8 +322,7 @@ class MjCambrianEnv(MujocoEnv):
 
         terminated: Dict[str, bool] = {}
         for name, animal in self.animals.items():
-            terminated[name] = np.linalg.norm(
-                animal.pos[:2] - self.maze.goal) < 0.5
+            terminated[name] = np.linalg.norm(animal.pos - self.maze.goal) < 0.5
 
         return terminated
 
@@ -325,8 +332,10 @@ class MjCambrianEnv(MujocoEnv):
         animal has touched the wall."""
 
         truncated: Dict[str, bool] = {}
-        for name in self.animals:
-            truncated[name] = self._episode_step >= self._max_episode_steps
+        for name, animal in self.animals.items():
+            truncated[name] = (
+                self._episode_step >= self._max_episode_steps or animal.has_contacts
+            )
 
         return truncated
 
@@ -346,8 +355,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("config_path", type=str,
-                        help="Path to the config file.")
+    parser.add_argument("config_path", type=str, help="Path to the config file.")
     parser.add_argument(
         "-o",
         "--override",

@@ -14,21 +14,21 @@ training_config:
 env_config:
   num_animals: 1
   scene_path: "models/scene.xml"
-  frame_skip: 10
+  frame_skip: 1
   render_mode: "rgb_array"
   camera_name: "track"
-  use_directional_light: True
+  use_directional_light: False
   maze_config:
     name: "U_MAZE" 
     init_goal_pos: [3, 1]
     size_scaling: 4.0
     height: 0.5
-    use_target_light_source: False
+    use_target_light_source: True
 
 animal_config:
   type: "ant"
   init_pos: [1, 1]
-  num_eyes_lat: 0
-  num_eyes_lon: 0
+  num_eyes_lat: 1
+  num_eyes_lon: 1
   default_eye_config:
     resolution: "64 64"
