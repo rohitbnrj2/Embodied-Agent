@@ -6,29 +6,29 @@ training_config:
   ppo_checkpoint_path: None
   total_timesteps: 400_000
   check_freq: 10000
-  batch_size: 1024
-  n_steps: 1024
+  n_steps: 2048
+  max_episode_steps: 100
+  n_envs: 1
   seed: 424041
   verbose: 2
 
 env_config:
   num_animals: 1
   scene_path: "models/scene.xml"
-  frame_skip: 1
   render_mode: "rgb_array"
   camera_name: "track"
   use_directional_light: False
+  reward_fn_type: "intensity_sensor"
   maze_config:
-    name: "U_MAZE" 
-    init_goal_pos: [3, 1]
+    name: "MANY_GOAL_MAZE" 
     size_scaling: 4.0
-    height: 0.5
+    height: 2.0
     use_target_light_source: True
 
 animal_config:
-  type: "ant"
-  init_pos: [1, 1]
+  type: "point"
   num_eyes_lat: 1
-  num_eyes_lon: 1
+  num_eyes_lon: 2
   default_eye_config:
-    resolution: "64 64"
+    resolution: [1, 1]
+    fov: [120, 0.001]

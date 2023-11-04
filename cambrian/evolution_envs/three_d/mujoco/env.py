@@ -1,7 +1,9 @@
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 from pathlib import Path
 import tempfile
 import numpy as np
+from enum import Enum
+import time
 
 import mujoco as mj
 from gymnasium import spaces
@@ -68,6 +70,8 @@ class MjCambrianEnv(MujocoEnv):
         self._create_animals()
 
         self.xml = self.generate_xml()
+        # print(self.xml)
+        # exit()
 
         # Write the xml to a tempfile so that MujocoEnv can read it in
         with tempfile.NamedTemporaryFile("w", delete=False) as f:
@@ -103,7 +107,14 @@ class MjCambrianEnv(MujocoEnv):
         )
 
         self._episode_step = 0
-        self._max_episode_steps = int(self.config.training_config.n_steps * 0.9)
+        self._max_episode_steps = self.config.training_config.max_episode_steps
+
+        self._reward_fn = self._get_reward_fn(self.env_config.reward_fn_type)
+
+        # Used to store the optimal path for each animal in the maze
+        # Each animal has a different start position so optimal path is different
+        # Tuple[List, List] = [path, accumulated_path_lengths]
+        self._optimal_animal_paths: Dict[str, Tuple[List, List]] = {}
 
     def _create_animals(self):
         """Helper method to create the animals.
@@ -154,19 +165,19 @@ class MjCambrianEnv(MujocoEnv):
 
         # Create the track camera, if it doesn't exist. camera_name must be set
         # NOTE: tracks the first animal only
-        track_cam = self.env_config.camera_name
-        if track_cam is not None and xml.find(".//camera", name=track_cam) is None:
-            animal = next(iter(self.animals.values()))
-            tracked_body = xml.find(".//body", name=f"{animal.config.body_name}")
-            assert tracked_body is not None
-            xml.add(
-                tracked_body,
-                "camera",
-                name=track_cam,
-                mode="trackcom",
-                pos="0 -10 10",
-                xyaxes="1 0 0 0 1 1",
-            )
+        # track_cam = self.env_config.camera_name
+        # if track_cam is not None and xml.find(".//camera", name=track_cam) is None:
+        #     animal = next(iter(self.animals.values()))
+        #     tracked_body = xml.find(".//body", name=f"{animal.config.body_name}")
+        #     assert tracked_body is not None
+        #     xml.add(
+        #         tracked_body,
+        #         "camera",
+        #         name=track_cam,
+        #         mode="trackcom",
+        #         pos="0 -10 10",
+        #         xyaxes="1 0 0 0 1 1",
+        #     )
 
         # Update the assert path to point to the fully resolved path
         compiler = xml.find(".//compiler")
@@ -198,9 +209,13 @@ class MjCambrianEnv(MujocoEnv):
             if self.env_config.use_goal_obs:
                 obs[name]["goal"] = self.maze.goal.copy()
 
+            path = self.maze.compute_optimal_path(animal.pos, self.maze.goal)
+            accum_path_len = np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))
+            self._optimal_animal_paths[name] = (path, accum_path_len)
+
         self._episode_step = 0
 
-        self._step_mujoco_simulation(self.frame_skip)
+        self._step_mujoco_simulation(1)
 
         return obs
 
@@ -234,20 +249,21 @@ class MjCambrianEnv(MujocoEnv):
             Dict[str, Dict[str, Any]]: The info dict for each animal.
         """
         obs: Dict[str, Any] = {}
-        pos: Dict[str, np.ndarray] = {}  # to keep track of previous position
+        info: Dict[str, Any] = {a: {} for a in self.animals}
         for name, animal in self.animals.items():
-            pos[name] = animal.pos
+            info[name]["prev_pos"] = animal.pos
 
             obs[name] = animal.step(action[name])
             if self.env_config.use_goal_obs:
                 obs[name]["goal"] = self.maze.goal.copy()
 
+            info[name]["intensity"] = obs[name][animal.intensity_sensor.name]
+
         self._step_mujoco_simulation(self.frame_skip)
 
         terminated = self.compute_terminated()
         truncated = self.compute_truncated()
-        reward = self.compute_reward(pos, terminated, truncated)
-        info = {a: {} for a in self.animals}
+        reward = self.compute_reward(terminated, truncated, info)
 
         if self.render_mode == "human":
             self.render()
@@ -258,8 +274,17 @@ class MjCambrianEnv(MujocoEnv):
 
     def _step_mujoco_simulation(self, n_frames):
         """Overrides the MujocoEnv method to allow for directly setting the actuators
-        on an animal-by-animal basis."""
-        mj.mj_step(self.model, self.data, nstep=n_frames)
+        on an animal-by-animal basis.
+
+        Will exit early if any animal has terminated or truncated.
+        """
+        # Check contacts at _every_ step.
+        # NOTE: Doesn't process whether hits are terminal or not
+        for _ in range(n_frames):
+            mj.mj_step(self.model, self.data)
+
+            if self.data.ncon > 0: 
+                return
 
         # As of MuJoCo 2.0, force-related quantities like cacc are not computed
         # unless there's a force sensor in the model.
@@ -268,51 +293,32 @@ class MjCambrianEnv(MujocoEnv):
 
     def compute_reward(
         self,
-        prev_pos: Dict[str, np.ndarray],
         terminated: Dict[str, bool],
         truncated: Dict[str, bool],
+        info: Dict[str, bool],
     ) -> Dict[str, float]:
         """Computes the reward for the environment.
 
-        Currently calculates the change in distance to the goal from the previous step,
-        rewarding the agent for getting closer to the goal.
-
         Args:
-            prev_pos (Dict[str, np.ndarray]): The previous position of each animal.
             terminated (Dict[str, bool]): Whether each animal has terminated.
-            Termination indicates success (agent has reached the goal).
+                Termination indicates success (agent has reached the goal).
             truncated (Dict[str, bool]): Whether each animal has truncated.
-            Truncation indicates failure (agent has hit the wall or something).
+                Truncation indicates failure (agent has hit the wall or something).
+            info (Dict[str, bool]): The info dict for each animal.
         """
 
         rewards: Dict[str, float] = {}
         for name, animal in self.animals.items():
             # Early exits
             if terminated[name]:
-                rewards[name] = 5.0
+                rewards[name] = 1
                 continue
             elif truncated[name]:
-                rewards[name] = -5.0
+                rewards[name] = -1
                 continue
 
-            reward = 0
-            curr_pos = animal.pos
-
-            # Reward the agent for getting closer to the goal
-            prev_distance_to_goal = np.linalg.norm(prev_pos[name] - self.maze.goal)
-            curr_distance_to_goal = np.linalg.norm(curr_pos - self.maze.goal)
-            distance = prev_distance_to_goal - curr_distance_to_goal
-            reward += distance
-
-            # Reward the agent for moving
-            distance = np.linalg.norm(animal.init_pos - curr_pos)
-            # reward += distance
-
-            # Reward survival
-            # reward += 1
-
-            # Set the reward
-            rewards[name] = reward
+            # Call reward_fn
+            rewards[name] = self._reward_fn(animal, info[name])
 
         return rewards
 
@@ -322,7 +328,7 @@ class MjCambrianEnv(MujocoEnv):
 
         terminated: Dict[str, bool] = {}
         for name, animal in self.animals.items():
-            terminated[name] = np.linalg.norm(animal.pos - self.maze.goal) < 0.5
+            terminated[name] = np.linalg.norm(animal.pos - self.maze.goal) < 1
 
         return terminated
 
@@ -347,6 +353,82 @@ class MjCambrianEnv(MujocoEnv):
             # We have our own managed viewers as eyes, so we need to manually call it
             self.mujoco_renderer.viewer.make_context_current()
         return super().render()
+
+    # ================
+    # Reward Functions
+
+    class _RewardType(str, Enum):
+        EUCLIDEAN = "euclidean"
+        DELTA_EUCLIDEAN = "delta_euclidean"
+        DELTA_EUCLIDEAN_W_MOVEMENT = "delta_euclidean_w_movement"
+        DISTANCE_ALONG_PATH = "distance_along_path"
+        INTENSITY_SENSOR = "intensity_sensor"
+
+    def _get_reward_fn(self, reward_fn_type: str):
+        reward_fn_type = self._RewardType(reward_fn_type)
+        if reward_fn_type == self._RewardType.EUCLIDEAN:
+            return self._reward_fn_euclidean
+        elif reward_fn_type == self._RewardType.DELTA_EUCLIDEAN:
+            return self._reward_fn_delta_euclidean
+        elif reward_fn_type == self._RewardType.DELTA_EUCLIDEAN_W_MOVEMENT:
+            return self._reward_fn_delta_euclidean_w_movement
+        elif reward_fn_type == self._RewardType.DISTANCE_ALONG_PATH:
+            return self._reward_fn_distance_along_path
+        elif reward_fn_type == self._RewardType.INTENSITY_SENSOR:
+            return self._reward_fn_intensity_sensor
+        else:
+            raise ValueError(f"Unrecognized reward_fn_type {reward_fn_type}")
+
+    def _reward_fn_euclidean(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """Rewards the euclidean distance to the goal."""
+        current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
+        initial_distance_to_goal = np.linalg.norm(animal.init_pos - self.maze.goal)
+        return 1 - current_distance_to_goal / initial_distance_to_goal
+
+    def _reward_fn_delta_euclidean(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """Rewards the change in distance to the goal from the previous step."""
+        current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
+        previous_distance_to_goal = np.linalg.norm(info["prev_pos"] - self.maze.goal)
+        return np.clip(current_distance_to_goal - previous_distance_to_goal, 0, 1)
+
+    def _reward_fn_delta_euclidean_w_movement(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """Same as delta_euclidean, but also rewards movement away from the initial
+        position"""
+        current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
+        previous_distance_to_goal = np.linalg.norm(info["prev_pos"] - self.maze.goal)
+        delta_distance_to_goal = current_distance_to_goal - previous_distance_to_goal
+        delta_distance_from_init = np.linalg.norm(animal.init_pos - animal.pos)
+        return np.clip(delta_distance_to_goal + delta_distance_from_init, 0, 1)
+
+    def _reward_fn_distance_along_path(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """Rewards the distance along the optimal path to the goal."""
+        path, accum_path_len = self._optimal_animal_paths[animal.name]
+        idx = np.argmin(np.linalg.norm(path[:-1] - animal.pos, axis=1))
+        return accum_path_len[idx] / accum_path_len[-1]
+
+    def _reward_fn_intensity_sensor(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """The reward is the grayscaled intensity of the a intensity sensor."""
+        return np.sum(info["intensity"] / 255.) / 3. / self._max_episode_steps
 
 
 if __name__ == "__main__":
@@ -379,8 +461,10 @@ if __name__ == "__main__":
 
     import mujoco.viewer
 
-    with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
-        while viewer.is_running():
-            mj.mj_step(env.model, env.data)
-            viewer.sync()
-        print("Exiting...")
+    mujoco.viewer.launch(env.model, env.data)
+    # NOTE: launch_passive currently broken when focal or focalpixel is specified
+    # with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
+    #     while viewer.is_running():
+    #         mj.mj_step(env.model, env.data)
+    #         viewer.sync()
+    #     print("Exiting...")

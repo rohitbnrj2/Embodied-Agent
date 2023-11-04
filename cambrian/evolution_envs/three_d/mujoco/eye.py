@@ -21,21 +21,39 @@ class MjCambrianEye:
         config (MjCambrianEyeConfig): The configuration for the eye.
     """
 
-    _renderer: MjCambrianRenderer = None
-    """
-    NOTE: this is a static renderer; it's shared across all eyes. First eye will
-          initialize. reset_context should be called before rendering to reset the
-          resolution
-    NOTE #2: the renderer is initialized by an outside entity with access to the 
-             mj.MjModel and mj.MjData objects.
-    """
-
     def __init__(self, config: MjCambrianEyeConfig):
-        self.config = config
+        self.config = self._check_config(config)
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
         self._camera: mj.MjvCamera = None
+
+    def _check_config(self, config: MjCambrianEyeConfig) -> MjCambrianEyeConfig:
+        assert config.name is not None, "Must specify a name for the eye."
+        assert config.mode is not None, "Must specify a mode for the eye."
+        assert config.pos is not None, "Must specify a position for the eye."
+        assert config.quat is not None, "Must specify a quaternion for the eye."
+        assert config.resolution is not None, "Must specify a resolution for the eye."
+
+        if config.fovy is not None:
+            assert 0 < config.fovy < 180, "Invalid fovy."
+            assert config.focal is None, "Cannot set both fovy and focal"
+            assert config.sensorsize is None, "Cannot set both fovy and sensorsize"
+            assert config.fov is None, "Cannot set both fovy and fov"
+
+        if config.fov is not None:
+            assert 0 < config.fov[0] < 180 and 0 < config.fov[1] < 180, "Invalid fov."
+            assert config.fovy is None, "Cannot set both fov and fovy"
+
+            config.focal = config.focal if config.focal is not None else [1, 1]
+        
+            # sensorsize = (2 * focal * tan(fov / 2)
+            config.sensorsize = [
+                2 * config.focal[0] * np.tan(np.radians(config.fov[0]) / 2),
+                2 * config.focal[1] * np.tan(np.radians(config.fov[1]) / 2),
+            ]
+
+        return config
 
     def generate_xml(
         self, parent_xml: MjCambrianXML, parent_body_name: str
@@ -93,10 +111,7 @@ class MjCambrianEye:
         self._camera.type = mj.mjtCamera.mjCAMERA_FIXED
         self._camera.fixedcamid = fixedcamid
 
-        # Update the resolution
-        self.resolution = [int(x) for x in self.config.resolution.split(" ")]
-
-        # TODO: Set the new fov based on the additional pixels that need to be rendered 
+        # TODO: Set the new fov based on the additional pixels that need to be rendered
         # for the psf. probs wanna use focal
         # self.fovy *= self.padded_resolution[1] / self.resolution[1]
 
@@ -172,10 +187,7 @@ class MjCambrianEye:
         This method might be called before `self._model` is set, so we need to parse
         the config to get the resolution
         """
-        if self._model is None:
-            return [int(x) for x in self.config.resolution.split(" ")]
-        else:
-            return self._get_mj_attr(self._model, "cam_resolution")
+        return self.config.resolution
 
     @resolution.setter
     def resolution(self, value: Tuple[int, int]):
@@ -184,10 +196,9 @@ class MjCambrianEye:
         Like the getter, this might be called before `self._model` is set, so we need to
         parse the config to get the resolution
         """
-        if self._model is None:
-            self.config.resolution = f"{value[0]} {value[1]}"
-        else:
-            self._set_mj_attr(value, self._model, "cam_resolution")
+        self.config.resolution = value
+        if self._model is not None:
+            self._set_mj_attr(self.padded_resolution, self._model, "cam_resolution")
 
     @property
     def padded_resolution(self) -> Tuple[int, int]:
@@ -314,15 +325,14 @@ if __name__ == "__main__":
     xml = MjCambrianXML.from_string(XML)
 
     from scipy.spatial.transform import Rotation as R
+
     default_rot = R.from_euler("xz", [np.pi / 2, np.pi / 2])
 
     if not args.no_demo:
-
         X_NUM = args.xnum
         Y_NUM = args.ynum
         X_RANGE = args.xrange
         Y_RANGE = args.yrange
-
 
         eyes: List[MjCambrianEye] = []
         for i in range(X_NUM):
@@ -345,13 +355,17 @@ if __name__ == "__main__":
         print(xml)
     if args.test:
         eye1_config = MjCambrianEyeConfig(
-            name="eye1", resolution="1 1", quat=" ".join(map(str, default_rot.as_quat()))
+            name="eye1",
+            resolution="1 1",
+            quat=" ".join(map(str, default_rot.as_quat())),
         )
         eye1 = MjCambrianEye(eye1_config)
         xml += eye1.generate_xml(xml, "body")
 
         eye2_config = MjCambrianEyeConfig(
-            name="eye2", resolution="10 10", quat=" ".join(map(str, default_rot.as_quat()))
+            name="eye2",
+            resolution="10 10",
+            quat=" ".join(map(str, default_rot.as_quat())),
         )
         eye2 = MjCambrianEye(eye2_config)
         xml += eye2.generate_xml(xml, "body")

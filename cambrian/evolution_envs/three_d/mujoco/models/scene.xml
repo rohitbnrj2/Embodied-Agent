@@ -1,17 +1,6 @@
 <mujoco model="scene">
     <asset>
         <texture type="skybox" builtin="gradient" width="100" height="100" rgb1="1 1 1" rgb2="0 0 0" />
-        <texture name="texgeom" type="cube" builtin="flat" mark="cross" width="127" height="1278"
-            rgb1="0.8 0.6 0.4" rgb2="0.8 0.6 0.4" markrgb="1 1 1" random="0.01" />
-        <texture name="texplane" type="2d" builtin="checker" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
-            width="100" height="100" />
-        <material name='MatPlane' texture="texplane" shininess="1" texrepeat="60 60" specular="1"
-            reflectance="0.0" />
-        <material name='geom' texture="texgeom" texuniform="true" />
     </asset>
-    <worldbody>
-        <geom name='floor' pos='0 0 0' size='40 40 40' type='plane' conaffinity='1'
-            rgba='0.8 0.9 0.8 1'
-            condim='3' material='MatPlane' />
-    </worldbody>
+    <worldbody></worldbody>
 </mujoco>

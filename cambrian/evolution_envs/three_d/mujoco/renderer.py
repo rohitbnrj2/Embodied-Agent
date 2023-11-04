@@ -1,6 +1,5 @@
 import mujoco as mj
 
-
 class MjCambrianRenderer(mj.Renderer):
     """This is an extension of the mujoco renderer helper class. It allows dynamically
     changing the width and height of the rendering window. See `mj.Renderer` for further
@@ -45,7 +44,6 @@ class MjCambrianRenderer(mj.Renderer):
     </visual>""".lstrip()
             )
 
-        # Only update if the height and width have changed
         if self._width == width and self._height == height:
             return
 
@@ -53,16 +51,5 @@ class MjCambrianRenderer(mj.Renderer):
         self._height = height
         self._rect = mj._render.MjrRect(0, 0, width, height)
 
-        # Clear the old contexts
-        del self._gl_context
-        del self._mjr_context
-
-        # Make the new ones
-        self._gl_context = mj.gl_context.GLContext(width, height)
         self._gl_context.make_current()
-        self._mjr_context = mj._render.MjrContext(
-            self._model, mj._enums.mjtFontScale.mjFONTSCALE_150.value
-        )
-        mj._render.mjr_setBuffer(
-            mj._enums.mjtFramebuffer.mjFB_OFFSCREEN.value, self._mjr_context
-        )
+        mj._render.mjr_resizeOffscreen(width, height, self._mjr_context)

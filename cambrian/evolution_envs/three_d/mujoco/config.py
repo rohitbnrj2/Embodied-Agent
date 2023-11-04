@@ -1,4 +1,4 @@
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple
 from prodict import Prodict
 from pathlib import Path
 import yaml
@@ -32,6 +32,8 @@ class MjCambrianTrainingConfig(Prodict):
         check_freq (int): The frequency at which to evaluate the model.
         batch_size (int): The batch size to use for training.
         n_steps (int): The number of steps to take per training batch.
+        n_envs (int): The number of environments to use for training.
+        max_episode_steps (int): The maximum number of steps per episode.
         seed (int): The seed to use for training.
         verbose (int): The verbosity level for the training process.
     """
@@ -43,6 +45,8 @@ class MjCambrianTrainingConfig(Prodict):
     check_freq: int
     batch_size: int
     n_steps: int
+    n_envs: int
+    max_episode_steps: int
     seed: int
     verbose: int
 
@@ -56,14 +60,14 @@ class MjCambrianMazeConfig(Prodict):
         size_scaling (float): The maze scaling for the continuous coordinates in the
             MuJoCo simulation.
         height (float): The height of the walls in the MuJoCo simulation.
-        init_goal_pos (Tuple[float, float]): The initial position of the goal in the 
+        init_goal_pos (Tuple[float, float]): The initial position of the goal in the
             maze. If unset, will be randomly generated.
         use_target_light_source (bool): Whether to use a target light source or not. If
             False, the default target site will be used (a red sphere). Otherwise, a
-            light source will be used. The light source is simply a spot light facing 
+            light source will be used. The light source is simply a spot light facing
             down. If unset (i.e. None), this field will set to the opposite of the
             `use_directional_light` field in `MjCambrianEnvConfig`.
-        use_headlight (bool): Whether to use a headlight or not. The headlight in 
+        use_headlight (bool): Whether to use a headlight or not. The headlight in
             mujoco is basically a first-person light that illuminates the scene directly
             in front of the camera. If False (the default), no headlight is used. This
             should be set to True during visualization/eval/testing.
@@ -93,16 +97,18 @@ class MjCambrianEnvConfig(Prodict):
             contains the xml for the environment. The path is either absolute, relative
             to the execution path or relative to the
             cambrian.evolution_envs.three_d.mujoco
-        use_directional_light (bool): Whether to use a directional light or not. If 
+        use_directional_light (bool): Whether to use a directional light or not. If
             True, a directional light will be instantiated in the model that illuminates
-            the entire scene. Otherwise, no global illuminating light will be created. 
-            Setting to False should be used in the case that the animal is trying to 
-            navigate to a light source. Furthermore, if False, the maze xml will be 
+            the entire scene. Otherwise, no global illuminating light will be created.
+            Setting to False should be used in the case that the animal is trying to
+            navigate to a light source. Furthermore, if False, the maze xml will be
             updated such that the target site is a light source instead of a red sphere
-            (this behavior can be overwritten using the `target_as_light_source` field 
+            (this behavior can be overwritten using the `target_as_light_source` field
             in `MjCambrianMazeConfig`).
         use_goal_obs (bool): Whether to use the goal observation or not. Defaults to
             False.
+        reward_fn_type (str): The reward function type to use. See
+            `MjCambrianEnv._RewardType` for options.
 
         model_path (Path | str): The path to the mujoco model file.
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
@@ -118,6 +124,7 @@ class MjCambrianEnvConfig(Prodict):
     scene_path: Path | str
     use_directional_light: bool
     use_goal_obs: bool
+    reward_fn_type: str
 
     # ============
     # Defined based on `MujocoEnv`
@@ -153,10 +160,22 @@ class MjCambrianEyeConfig(Prodict):
             unset, the name is set to `{animal.name}_eye_{eye_index}`.
         mode (str): The mode of the camera. Should always be "fixed". See the mujoco
             documentation for more info.
-        pos (str): The initial position of the camera. Fmt: "x y z".
-        quat (str): The initial rotation of the camera. Fmt: "w x y z".
-        resolution (str): The width and height of the rendered image.
-            Fmt: "width height". NOTE: only available in 2.3.8.
+        pos (Tuple[float, float, float]): The initial position of the camera. Fmt: xyz
+        quat (Tuple[float, float, float, float]): The initial rotation of the camera. 
+            Fmt: wxyz.
+        resolution (Tuple[int, int]): The width and height of the rendered image.
+            Fmt: width height.
+        fovy (float): The vertical field of view of the camera.
+        focal (Tuple[float, float]): The focal length of the camera. 
+            Fmt: focal_x focal_y.
+        focalpixel (Tuple[int, int]): The focal length of the camera in pixels.
+        sensorsize (Tuple[float, float]): The sensor size of the camera. 
+            Fmt: sensor_x sensor_y.
+
+        fov (Tuple[float, float]): Independent of the `fovy` field in the MJCF xml. Used
+            to calculate the sensorsize field. Specified in degrees. Mutually exclusive
+            with `fovy`. If `focal` is unset, it is set to 1, 1. Will override
+            `sensorsize`, if set.
 
         filter_size (Tuple[int, int]): The psf filter size. This is convoluted across
             the image, so the actual resolution of the image is plus filter_size / 2
@@ -164,29 +183,44 @@ class MjCambrianEyeConfig(Prodict):
 
     name: str
     mode: str
-    pos: str
-    quat: str
-    resolution: str
+    pos: Tuple[float, float, float]
+    quat: Tuple[float, float, float, float]
+    resolution: Tuple[int, int]
+    fovy: float
+    focal: Tuple[float, float]
+    sensorsize: Tuple[float, float]
+
+    fov: Tuple[float, float]
 
     filter_size: Tuple[int, int]
 
     def init(self):
         """Set defaults."""
-        self.resolution = "1 1"
         self.mode = "fixed"
-        self.pos = "0 0 0"
-        self.quat = "1 0 0 0"
+        self.pos = [0, 0, 0]
+        self.quat = [1, 0, 0, 0]
 
-        self.filter_size = [23, 23]
+        self.filter_size = [0, 0]
 
     def to_xml_kwargs(self) -> Dict:
-        return dict(
-            name=self.name,
-            mode=self.mode,
-            pos=self.pos,
-            quat=self.quat,
-            resolution=self.resolution,
-        )
+        kwargs = dict()
+
+        def set_if_not_none(key: str, val: Any):
+            if val is not None:
+                if isinstance(val, (list, tuple)):
+                    val = " ".join(map(str, val))
+                kwargs[key] = val
+
+        set_if_not_none("name", self.name)
+        set_if_not_none("mode", self.mode)
+        set_if_not_none("pos", self.pos)
+        set_if_not_none("quat", self.quat)
+        set_if_not_none("resolution", self.resolution)
+        set_if_not_none("fovy", self.fovy)
+        set_if_not_none("focal", self.focal)
+        set_if_not_none("sensorsize", self.sensorsize)
+
+        return kwargs
 
 
 class MjCambrianAnimalConfig(Prodict):
@@ -198,7 +232,7 @@ class MjCambrianAnimalConfig(Prodict):
         name (str): The name of the animal. Used to uniquely name the animal and its
             eyes. Defaults to `{type}_{i}` where i is the index at which the animal was
             created.
-        idx (int): The index of the animal as it was created in the env. Used to 
+        idx (int): The index of the animal as it was created in the env. Used to
             uniquely change the animal's xml elements. Placeholder; should be set by
             the env.
 
@@ -210,29 +244,26 @@ class MjCambrianAnimalConfig(Prodict):
             This will probably be set through a MjCambrianAnimal subclass.
         joint_name (str): The root joint name for the animal. For positioning (see qpos)
             This will probably be set through a MjCambrianAnimal subclass.
-        geom_names (List[str]): The names of the geoms that are used for eye
-            placement. If a geom is present in the list, it's aab will be parsed from
-            the xml and eyes will be placed on the surface of the aabb based on some
-            criteria.
+        geom_name (str): The name of the geom that are used for eye placement.
 
         init_pos (Tuple[float, float]): The initial position of the animal. If unset,
             the animal's position at each reset is generated randomly using the
             `maze.generate_reset_pos` method.
 
-        use_qpos_obs (bool): Whether to use the qpos observation or not. Defaults to 
+        use_qpos_obs (bool): Whether to use the qpos observation or not. Defaults to
             False.
-        use_qvel_obs (bool): Whether to use the qvel observation or not. Defaults to 
+        use_qvel_obs (bool): Whether to use the qvel observation or not. Defaults to
             False.
 
         num_eyes_lat (int): The number of eyes to place latitudinally/vertically.
         num_eyes_lon (int): The number of eyes to place longitudinally/horizontally.
-        eyes_lat_range (Tuple[float, float]): The x range of the eye. This is used to 
+        eyes_lat_range (Tuple[float, float]): The x range of the eye. This is used to
             determine the placement of the eye on the animal. Specified in radians. This
-            is the latitudinal/vertical range of the evenly placed eye about the 
+            is the latitudinal/vertical range of the evenly placed eye about the
             animal's bounding sphere.
-        eyes_lon_range (Tuple[float, float]): The y range of the eye. This is used to 
+        eyes_lon_range (Tuple[float, float]): The y range of the eye. This is used to
             determine the placement of the eye on the animal. Specified in radians. This
-            is the longitudinal/horizontal range of the evenly placed eye about the 
+            is the longitudinal/horizontal range of the evenly placed eye about the
             animal's bounding sphere.
         default_eye_config (EyeConfig): The default eye config to use for the eyes.
     """
@@ -244,7 +275,7 @@ class MjCambrianAnimalConfig(Prodict):
     model_path: Path | str
     body_name: str
     joint_name: str
-    geom_names: List[str]
+    geom_name: str
 
     init_pos: Tuple[float, float]
 

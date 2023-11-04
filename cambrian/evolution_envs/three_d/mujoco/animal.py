@@ -47,12 +47,15 @@ class MjCambrianAnimal:
         config (MjCambrianAnimalConfig): The configuration for the animal.
     """
 
+    ANIMAL_SPECIFIC_CONFIG = dict()
+
     def __init__(self, config: MjCambrianAnimalConfig):
+        config.update(self.ANIMAL_SPECIFIC_CONFIG)
         self.config = config
         self._check_config()
 
         self._eyes: Dict[str, MjCambrianEye] = {}
-        self._create_eyes()
+        self.intensity_sensor: MjCambrianEye = None
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
@@ -67,20 +70,10 @@ class MjCambrianAnimal:
 
         assert self.config.body_name is not None, "No body name specified."
         assert self.config.joint_name is not None, "No joint name specified."
-        assert self.config.geom_names is not None, "No geom names specified."
-        assert len(self.config.geom_names) > 0, "Must have at least one geom name."
+        assert self.config.geom_name is not None, "No geom name specified."
         assert self.config.default_eye_config is not None, "No default eye config."
 
         self.config.model_path = get_model_path(self.config.model_path)
-
-    def _create_eyes(self):
-        """Helper method to create the eyes that are attached to this animal."""
-
-        for i in range(self.config.num_eyes_lat * self.config.num_eyes_lon):
-            eye_config = MjCambrianEyeConfig(**self.config.default_eye_config)
-            if eye_config.name is None:
-                eye_config.name = f"{self.name}_eye_{i}"
-            self.eyes[eye_config.name] = MjCambrianEye(eye_config)
 
     def _initialize(self):
         """Initialize the animal.
@@ -122,14 +115,11 @@ class MjCambrianAnimal:
         self._numctrl = model.nu
 
         # Create the geometries we will use for eye placement
-        self._geoms: List[MjCambrianGeometry] = []
-        for name in self.config.geom_names:
-            geom_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_GEOM, name)
-            assert geom_id != -1, f"Could not find geom with name {name}."
-            geom_rbound = model.geom_rbound[geom_id]
-            geom_pos = model.geom_pos[geom_id]
-
-            self._geoms.append(MjCambrianGeometry(geom_id, geom_rbound, geom_pos))
+        geom_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_GEOM, self.config.geom_name)
+        assert geom_id != -1, f"Could not find geom with name {self.config.geom_name}."
+        geom_rbound = model.geom_rbound[geom_id]
+        geom_pos = model.geom_pos[geom_id]
+        self._geom = MjCambrianGeometry(geom_id, geom_rbound, geom_pos)
 
     def _parse_actuators(self, model: mj.MjModel):
         """Parse the current model/xml for the actuators.
@@ -209,13 +199,16 @@ class MjCambrianAnimal:
         # The default rotation to have the camera point forward
         default_rot = R.from_euler("z", np.pi / 2)
 
-        eyes = list(self.eyes.values())
-
         for lat_idx in range(self.config.num_eyes_lat):
             for lon_idx in range(self.config.num_eyes_lon):
-                # Get the geometry to place the eye on
-                geom = np.random.choice(self._geoms)
+                # Create the eye
+                eye_config = MjCambrianEyeConfig(**self.config.default_eye_config)
+                if eye_config.name is None:
+                    i = lat_idx * self.config.num_eyes_lon + lon_idx
+                    eye_config.name = f"{self.name}_eye_{i}"
+                eye = MjCambrianEye(eye_config)
 
+                # Get the geometry to place the eye on
                 latitude = latitudes[lat_idx]
                 longitude = longitudes[lon_idx] + np.pi / 2
 
@@ -226,13 +219,36 @@ class MjCambrianAnimal:
                 rot_rot *= default_rot
 
                 # Calc the pos/quat of the eye
-                pos = pos_rot.apply([-geom.rbound, 0, 0]) + geom.pos
+                pos = pos_rot.apply([-self._geom.rbound, 0, 0]) + self._geom.pos
                 quat = rot_rot.as_quat()
 
                 # Must be space separated strings for the xml
-                eye = eyes[lat_idx * self.config.num_eyes_lon + lon_idx]
-                eye.config.pos = " ".join(map(str, pos))
-                eye.config.quat = " ".join(map(str, quat))
+                eye.config.pos = pos
+                eye.config.quat = quat
+
+                self._eyes[eye.name] = eye
+
+        # Add a forward facing eye intensity sensor
+        # TODO: FIX, ugly
+        fov = [120, 10]
+        latitude = np.radians(fov[1]) / 2
+        longitude = np.pi / 2
+        pos_rot = default_rot * R.from_euler("yz", [latitude, longitude])
+        rot_rot = R.from_euler("z", latitude)
+        rot_rot *= R.from_euler("y", -longitude)
+        rot_rot *= default_rot
+        pos = pos_rot.apply([-self._geom.rbound, 0, 0]) + self._geom.pos
+        quat = rot_rot.as_quat()
+        self.intensity_sensor = MjCambrianEye(
+            MjCambrianEyeConfig(
+                name=f"intensity_sensor_{self.name}",
+                pos=pos,
+                quat=quat,
+                resolution=[1, 1],
+                fov=[120, 10],
+            )
+        )
+        self._eyes[self.intensity_sensor.name] = self.intensity_sensor
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the animal. Will generate the xml from the model file
@@ -243,7 +259,7 @@ class MjCambrianAnimal:
         # Update the names to have idx as a suffix
         self.config.body_name = self.config.body_name.format(uid=idx)
         self.config.joint_name = self.config.joint_name.format(uid=idx)
-        self.config.geom_names = [n.format(uid=idx) for n in self.config.geom_names]
+        self.config.geom_name = self.config.geom_name.format(uid=idx)
 
         # Create the xml and update the names in the xml to be unique
         # Each name/target/site/etc. should have a fstring-like tag that is evaluated
@@ -341,7 +357,7 @@ class MjCambrianAnimal:
     @property
     def has_contacts(self) -> bool:
         """Returns whether or not the animal has contacts.
-        
+
         Walks through all the contacts in the environment and checks if any of them
         involve this animal.
         """
@@ -375,7 +391,13 @@ class MjCambrianAnimal:
             if otherrootbody == groundbody:
                 continue
 
+            # body1_name = mj.mj_id2name(self._model, mj.mjtObj.mjOBJ_BODY, body1)
+            # body2_name = mj.mj_id2name(self._model, mj.mjtObj.mjOBJ_BODY, body2)
+            # print(f"Detected contact between {body1_name} and {body2_name}!")
+
             return True
+
+        return False
 
     @property
     def observation_space(self) -> spaces.Space:
@@ -476,18 +498,14 @@ class MjCambrianAnt(MjCambrianAnimal):
     This class simply defines some default config attributes that are specific for ants.
     """
 
-    CONFIG = dict(
+    ANIMAL_SPECIFIC_CONFIG = dict(
         model_path="models/ant.xml",
         body_name="torso_{uid}",
         joint_name="root_{uid}",
-        geom_names=["torso_geom_{uid}"],
+        geom_name="torso_geom_{uid}",
         eyes_lat_range=[-30, 30],
         eyes_lon_range=[-120, 120],
     )
-
-    def __init__(self, config: MjCambrianAnimalConfig):
-        config.update(self.CONFIG)
-        super().__init__(config)
 
 
 class MjCambrianSwimmer(MjCambrianAnimal):
@@ -499,18 +517,14 @@ class MjCambrianSwimmer(MjCambrianAnimal):
     swimmers.
     """
 
-    CONFIG = dict(
+    ANIMAL_SPECIFIC_CONFIG = dict(
         model_path="models/swimmer.xml",
         body_name="torso_{uid}",
         joint_name="slider1_{uid}",
-        geom_names=["frontbody_{uid}"],
+        geom_name="frontbody_{uid}",
         eyes_lat_range=[1, 60],
         eyes_lon_range=[-120, 120],
     )
-
-    def __init__(self, config: MjCambrianAnimalConfig):
-        config.update(self.CONFIG)
-        super().__init__(config)
 
 
 class MjCambrianSkydioX2(MjCambrianAnimal):
@@ -520,18 +534,14 @@ class MjCambrianSkydioX2(MjCambrianAnimal):
     for more info.
     """
 
-    CONFIG = dict(
+    ANIMAL_SPECIFIC_CONFIG = dict(
         model_path="models/skydio-x2.xml",
         body_name="x2_{uid}",
         joint_name="x2-freejoint_{uid}",
-        geom_names=["mesh_{uid}"],
+        geom_name="mesh_{uid}",
         eyes_lat_range=[-30, 30],
         eyes_lon_range=[-120, 120],
     )
-
-    def __init__(self, config: MjCambrianAnimalConfig):
-        config.update(self.CONFIG)
-        super().__init__(config)
 
 
 class MjCambrianPoint(MjCambrianAnimal):
@@ -540,18 +550,14 @@ class MjCambrianPoint(MjCambrianAnimal):
     See `https://robotics.farama.org/envs/maze/point_maze/`.
     """
 
-    CONFIG = dict(
+    ANIMAL_SPECIFIC_CONFIG = dict(
         model_path="models/point.xml",
         body_name="particle_{uid}",
         joint_name="ball_x_{uid}",
-        geom_names=["particle_geom_{uid}"],
+        geom_name="particle_geom_{uid}",
         eyes_lat_range=[-30, 30],
-        eyes_lon_range=[-120, 120],
+        eyes_lon_range=[-60, 60],
     )
-
-    def __init__(self, config: MjCambrianAnimalConfig):
-        config.update(self.CONFIG)
-        super().__init__(config)
 
 
 if __name__ == "__main__":

@@ -134,7 +134,7 @@ class Agent(OculozoicAnimal):
             # set the rest to be the mean of the current values
             fov = np.mean(init_config.fov, dtype=int)  # np.random.uniform(0, 180)
             angle = np.mean(init_config.angle, dtype=int)  # np.random.uniform(0, 180)
-            sensor_size = np.mean(init_config.sensor_size, dtype=int)  
+            sensor_size = np.mean(init_config.sensor_size, dtype=int)
             closed_pinhole_percentage = np.mean(init_config.closed_pinhole_percentage)
 
             init_config.num_pixels += 2
