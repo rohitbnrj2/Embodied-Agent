@@ -263,6 +263,8 @@ class MjCambrianEnv(MujocoEnv):
         truncated = self.compute_truncated()
         reward = self.compute_reward(terminated, truncated, info)
 
+        print(terminated, truncated, reward)
+
         if self.render_mode == "human":
             self.render()
 
@@ -426,9 +428,7 @@ class MjCambrianEnv(MujocoEnv):
         info: bool,
     ) -> float:
         """The reward is the grayscaled intensity of the a intensity sensor."""
-        return np.sum(info["intensity"] / 255.0) / 3.0 - (
-            self._episode_step / self._max_episode_steps
-        )
+        return np.sum(info["intensity"] / 255.0) / 3.0 / self._episode_step
 
 
 if __name__ == "__main__":
