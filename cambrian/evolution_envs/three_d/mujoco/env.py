@@ -263,8 +263,6 @@ class MjCambrianEnv(MujocoEnv):
         truncated = self.compute_truncated()
         reward = self.compute_reward(terminated, truncated, info)
 
-        print(terminated, truncated, reward)
-
         if self.render_mode == "human":
             self.render()
 
