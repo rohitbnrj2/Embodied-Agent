@@ -177,19 +177,16 @@ class MjCambrianMaze(Maze):
             if self._config.init_goal_pos is None
             else self.index_to_pos(*self._config.init_goal_pos)
         )
-        self.goal_z = self.maze_height / 2 * self.maze_size_scaling
 
         if self._config.use_target_light_source:
             for light_id in range(model.nlight):
                 light_name = mj.mj_id2name(model, mj.mjtObj.mjOBJ_LIGHT, light_id)
                 if light_name is not None and "target_light_" not in light_name:
                     continue
-                self._model.light_pos[light_id] = [*self.goal, self.goal_z]
-        else:
-            self.goal_z = 2
+                self._model.light_pos[light_id][:2] = self.goal
 
         self._goal_site_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "target")
-        self._model.site_pos[self._goal_site_id] = [*self.goal, self.goal_z]
+        self._model.site_pos[self._goal_site_id][:2] = self.goal
 
     def generate_target_goal(self) -> np.ndarray:
         """Taken from `MazeEnv`. Generates a random goal position for an env."""
@@ -254,7 +251,6 @@ class MjCambrianMaze(Maze):
             assets,
             "texture",
             name="block_tex",
-            mark="random",
             builtin="checker",
             rgb1="0.1 0.1 0.1",
             rgb2="0.9 0.9 0.9",
@@ -374,7 +370,7 @@ class MjCambrianMaze(Maze):
             worldbody,
             "site",
             name="target",
-            pos=f"0 0 {config.height / 4 * config.size_scaling}",
+            pos=f"0 0 {config.height / 2 * config.size_scaling}",
             size=f"{0.2 * config.size_scaling}",
             type="sphere",
             rgba="1 1 1 1",

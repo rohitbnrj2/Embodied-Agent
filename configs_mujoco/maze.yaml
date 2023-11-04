@@ -22,7 +22,7 @@ env_config:
   maze_config:
     name: "MANY_GOAL_MAZE" 
     size_scaling: 4.0
-    height: 2.0
+    height: 0.5
     use_target_light_source: True
 
 animal_config:

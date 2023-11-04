@@ -70,8 +70,6 @@ class MjCambrianEnv(MujocoEnv):
         self._create_animals()
 
         self.xml = self.generate_xml()
-        # print(self.xml)
-        # exit()
 
         # Write the xml to a tempfile so that MujocoEnv can read it in
         with tempfile.NamedTemporaryFile("w", delete=False) as f:
@@ -283,7 +281,7 @@ class MjCambrianEnv(MujocoEnv):
         for _ in range(n_frames):
             mj.mj_step(self.model, self.data)
 
-            if self.data.ncon > 0: 
+            if self.data.ncon > 0:
                 return
 
         # As of MuJoCo 2.0, force-related quantities like cacc are not computed
@@ -428,7 +426,9 @@ class MjCambrianEnv(MujocoEnv):
         info: bool,
     ) -> float:
         """The reward is the grayscaled intensity of the a intensity sensor."""
-        return np.sum(info["intensity"] / 255.) / 3. / self._max_episode_steps
+        return np.sum(info["intensity"] / 255.0) / 3.0 - (
+            self._episode_step / self._max_episode_steps
+        )
 
 
 if __name__ == "__main__":
