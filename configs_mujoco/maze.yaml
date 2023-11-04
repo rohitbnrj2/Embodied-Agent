@@ -18,7 +18,7 @@ env_config:
   render_mode: "rgb_array"
   camera_name: "track"
   use_directional_light: False
-  reward_fn_type: "intensity_sensor"
+  reward_fn_type: "intensity_sensor_and_euclidean"
   maze_config:
     name: "MANY_GOAL_MAZE" 
     size_scaling: 4.0

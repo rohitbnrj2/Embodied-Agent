@@ -361,6 +361,7 @@ class MjCambrianEnv(MujocoEnv):
         DELTA_EUCLIDEAN_W_MOVEMENT = "delta_euclidean_w_movement"
         DISTANCE_ALONG_PATH = "distance_along_path"
         INTENSITY_SENSOR = "intensity_sensor"
+        INTENSITY_SENSOR_AND_EUCLIDEAN = "intensity_sensor_and_euclidean"
 
     def _get_reward_fn(self, reward_fn_type: str):
         reward_fn_type = self._RewardType(reward_fn_type)
@@ -374,6 +375,8 @@ class MjCambrianEnv(MujocoEnv):
             return self._reward_fn_distance_along_path
         elif reward_fn_type == self._RewardType.INTENSITY_SENSOR:
             return self._reward_fn_intensity_sensor
+        elif reward_fn_type == self._RewardType.INTENSITY_SENSOR_AND_EUCLIDEAN:
+            return self._reward_fn_intensity_and_euclidean
         else:
             raise ValueError(f"Unrecognized reward_fn_type {reward_fn_type}")
 
@@ -426,7 +429,18 @@ class MjCambrianEnv(MujocoEnv):
         info: bool,
     ) -> float:
         """The reward is the grayscaled intensity of the a intensity sensor."""
-        return np.sum(info["intensity"] / 255.0) / 3.0 / self._episode_step
+        return np.sum(info["intensity"] / 255.0) / 3.0 / self._max_episode_steps
+
+    def _reward_fn_intensity_and_euclidean(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """This reward combines `reward_fn_intensity_sensor` and and 
+        `reward_fn_euclidean`."""
+        intensity_reward = self._reward_fn_intensity_sensor(animal, info)
+        euclidean_reward = self._reward_fn_euclidean(animal, info)
+        return (intensity_reward + euclidean_reward) / 2
 
 
 if __name__ == "__main__":
