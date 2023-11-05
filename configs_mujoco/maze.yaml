@@ -18,7 +18,6 @@ env_config:
   render_mode: "rgb_array"
   camera_name: "track"
   use_directional_light: False
-  reward_fn_type: "intensity_sensor_and_euclidean"
   maze_config:
     name: "MANY_GOAL_MAZE" 
     size_scaling: 4.0
@@ -30,5 +29,5 @@ animal_config:
   num_eyes_lat: 1
   num_eyes_lon: 2
   default_eye_config:
-    resolution: [1, 1]
-    fov: [120, 0.001]
+    resolution: [10, 10]
+    fov: [45, 30]

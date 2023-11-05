@@ -436,7 +436,7 @@ class MjCambrianEnv(MujocoEnv):
         animal: MjCambrianAnimal,
         info: bool,
     ) -> float:
-        """This reward combines `reward_fn_intensity_sensor` and and 
+        """This reward combines `reward_fn_intensity_sensor` and 
         `reward_fn_euclidean`."""
         intensity_reward = self._reward_fn_intensity_sensor(animal, info)
         euclidean_reward = self._reward_fn_euclidean(animal, info)
