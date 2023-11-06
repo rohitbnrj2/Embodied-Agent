@@ -30,8 +30,4 @@ animal_config:
   num_eyes_lon: 0
   default_eye_config:
     resolution: [10, 10]
-<<<<<<< Updated upstream
     fov: [45, 30]
-=======
-    fov: [45, 30]
->>>>>>> Stashed changes
