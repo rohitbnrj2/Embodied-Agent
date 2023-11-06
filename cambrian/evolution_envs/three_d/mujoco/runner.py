@@ -85,18 +85,9 @@ class MjCambrianRunner:
         env = self._make_env(ppodir)
 
         if not random_actions:
-            model = (
-                PPO.load(ppodir / "best_model", env=env)
-                if (ppodir / "best_model.zip").exists()
-                else PPO(
-                    "MultiInputPolicy",
-                    env,
-                    verbose=self.verbose,
-                    policy_kwargs=dict(
-                        features_extractor_class=MjCambrianCombinedExtractor
-                    ),
-                )
-            )
+            print(f"Loading {ppodir / 'best_model.zip'}...")
+            assert (ppodir / "best_model.zip").exists()
+            model = PPO.load(ppodir / "best_model", env=env)
 
         obs = env.reset()
 
@@ -124,7 +115,7 @@ class MjCambrianRunner:
             )
             glfw.focus_window(window)
 
-        cv2.namedWindow("image", cv2.WINDOW_NORMAL)
+        # cv2.namedWindow("image", cv2.WINDOW_NORMAL)
 
         for i in range(10000):
             if random_actions:
@@ -146,14 +137,14 @@ class MjCambrianRunner:
                         eye_name = f"{animal_name}_eye_{i * num_eyes_lat + j}"
                         eye_obs = obs[eye_name]
                         images[i].append(eye_obs.squeeze(0).transpose(1, 0, 2))
-            # Concat the image
-            image = cv2.vconcat(
-                [cv2.hconcat(image_row) for image_row in reversed(images)]
-            )
+            # # Concat the image
+            # image = cv2.vconcat(
+            #     [cv2.hconcat(image_row) for image_row in reversed(images)]
+            # )
 
-            cv2.imshow("image", image)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+            # cv2.imshow("image", image)
+            # if cv2.waitKey(1) & 0xFF == ord("q"):
+            #     break
 
         env.close()
 
@@ -200,4 +191,4 @@ if __name__ == "__main__":
     if args.train:
         runner.train()
     if args.eval:
-        runner.eval(args.random)
+        runner.eval(args.random, args.fullscreen)

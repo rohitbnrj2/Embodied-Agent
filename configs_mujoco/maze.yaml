@@ -7,7 +7,7 @@ training_config:
   total_timesteps: 400_000
   check_freq: 10000
   n_steps: 2048
-  max_episode_steps: 100
+  max_episode_steps: 128
   n_envs: 1
   seed: 424041
   verbose: 2
@@ -26,8 +26,12 @@ env_config:
 
 animal_config:
   type: "point"
-  num_eyes_lat: 1
-  num_eyes_lon: 2
+  num_eyes_lat: 0
+  num_eyes_lon: 0
   default_eye_config:
     resolution: [10, 10]
+<<<<<<< Updated upstream
     fov: [45, 30]
+=======
+    fov: [45, 30]
+>>>>>>> Stashed changes

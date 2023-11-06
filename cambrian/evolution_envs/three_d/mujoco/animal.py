@@ -244,7 +244,11 @@ class MjCambrianAnimal:
                 name=f"intensity_sensor_{self.name}",
                 pos=pos,
                 quat=quat,
+<<<<<<< Updated upstream
                 resolution=[4, 4], # if other eyes are > 3x3, this needs to be because of bug in sb3 (see is_image_space_channels_first)
+=======
+                resolution=[4, 4],
+>>>>>>> Stashed changes
                 fov=[120, 10],
             )
         )
