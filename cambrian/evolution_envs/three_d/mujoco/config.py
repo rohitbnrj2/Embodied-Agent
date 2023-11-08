@@ -110,6 +110,11 @@ class MjCambrianEnvConfig(Prodict):
         reward_fn_type (str): The reward function type to use. See
             `MjCambrianEnv._RewardType` for options.
 
+        terminate_at_goal (bool): Whether to terminate the episode when the animal
+            reaches the goal or not. Defaults to False.
+        distance_to_goal_threshold (float): The distance to the goal at which the
+            animal is assumed to be "at the goal". Defaults to 2.
+
         model_path (Path | str): The path to the mujoco model file.
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
         render_mode (str): The render mode to use.
@@ -125,6 +130,9 @@ class MjCambrianEnvConfig(Prodict):
     use_directional_light: bool
     use_goal_obs: bool
     reward_fn_type: str
+
+    terminate_at_goal: bool
+    distance_to_goal_threshold: float
 
     # ============
     # Defined based on `MujocoEnv`
@@ -146,6 +154,10 @@ class MjCambrianEnvConfig(Prodict):
         """Initializes the config with defaults."""
         self.use_directional_light = True
         self.use_goal_obs = False
+
+        self.terminate_at_goal = False
+        self.distance_to_goal_threshold = 2.0
+
         self.frame_skip = 10
         self.width = 480
         self.height = 480
@@ -254,6 +266,8 @@ class MjCambrianAnimalConfig(Prodict):
             False.
         use_qvel_obs (bool): Whether to use the qvel observation or not. Defaults to
             False.
+        use_intensity_obs (bool): Whether to use the intensity sensor 
+            observation. Defaults to False.
 
         num_eyes_lat (int): The number of eyes to place latitudinally/vertically.
         num_eyes_lon (int): The number of eyes to place longitudinally/horizontally.
@@ -265,7 +279,10 @@ class MjCambrianAnimalConfig(Prodict):
             determine the placement of the eye on the animal. Specified in radians. This
             is the longitudinal/horizontal range of the evenly placed eye about the
             animal's bounding sphere.
-        default_eye_config (EyeConfig): The default eye config to use for the eyes.
+        default_eye_config (MjCambrianEyeConfig): The default eye config to use for the 
+            eyes.
+        intensity_sensor_config (MjCambrianEyeConfig): The eye config to use for the
+            intensity sensor.
     """
 
     type: str
@@ -281,19 +298,23 @@ class MjCambrianAnimalConfig(Prodict):
 
     use_qpos_obs: bool
     use_qvel_obs: bool
+    use_intensity_obs: bool
 
     num_eyes_lat: int
     num_eyes_lon: int
     eyes_lat_range: Tuple[float, float]
     eyes_lon_range: Tuple[float, float]
     default_eye_config: MjCambrianEyeConfig
+    intensity_sensor_config: MjCambrianEyeConfig
 
     def init(self):
         """Initializes the config with defaults."""
         self.use_qpos_obs = False
         self.use_qvel_obs = False
+        self.use_intensity_obs = False
 
         self.default_eye_config = MjCambrianEyeConfig()
+        self.intensity_sensor_config = MjCambrianEyeConfig()
 
 
 class MjCambrianConfig(Prodict):

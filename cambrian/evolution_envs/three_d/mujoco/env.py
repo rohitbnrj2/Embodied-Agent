@@ -94,6 +94,7 @@ class MjCambrianEnv(MujocoEnv):
             observation_space=self.observation_spaces,
             render_mode=self.env_config.render_mode,
         )
+        self.metadata["render_fps"] = int(np.round(1.0 / self.dt))
 
         # Set the class variables associated with the ParallelEnv
         # observation_spaces is already set
@@ -255,16 +256,13 @@ class MjCambrianEnv(MujocoEnv):
             if self.env_config.use_goal_obs:
                 obs[name]["goal"] = self.maze.goal.copy()
 
-            info[name]["intensity"] = obs[name][animal.intensity_sensor.name]
+            info[name]["intensity"] = animal.intensity_sensor.last_obs
 
         self._step_mujoco_simulation(self.frame_skip)
 
         terminated = self.compute_terminated()
         truncated = self.compute_truncated()
         reward = self.compute_reward(terminated, truncated, info)
-
-        if self.render_mode == "human":
-            self.render()
 
         self._episode_step += 1
 
@@ -326,7 +324,10 @@ class MjCambrianEnv(MujocoEnv):
 
         terminated: Dict[str, bool] = {}
         for name, animal in self.animals.items():
-            terminated[name] = np.linalg.norm(animal.pos - self.maze.goal) < 1
+            if self.env_config.terminate_at_goal:
+                terminated[name] = self._is_at_goal(animal)
+            else:
+                terminated[name] = False
 
         return terminated
 
@@ -352,6 +353,13 @@ class MjCambrianEnv(MujocoEnv):
             self.mujoco_renderer.viewer.make_context_current()
         return super().render()
 
+    def _is_at_goal(self, animal: MjCambrianAnimal) -> bool:
+        """Returns whether the animal is at the goal."""
+        return (
+            np.linalg.norm(animal.pos - self.maze.goal)
+            < self.env_config.distance_to_goal_threshold
+        )
+
     # ================
     # Reward Functions
 
@@ -361,9 +369,12 @@ class MjCambrianEnv(MujocoEnv):
         DELTA_EUCLIDEAN_W_MOVEMENT = "delta_euclidean_w_movement"
         DISTANCE_ALONG_PATH = "distance_along_path"
         INTENSITY_SENSOR = "intensity_sensor"
+        INTENSITY_AND_AT_GOAL = "intensity_and_at_goal"
         INTENSITY_SENSOR_AND_EUCLIDEAN = "intensity_sensor_and_euclidean"
+        SPARSE = "sparse"
 
     def _get_reward_fn(self, reward_fn_type: str):
+        assert reward_fn_type is not None, "reward_fn_type must be set"
         reward_fn_type = self._RewardType(reward_fn_type)
         if reward_fn_type == self._RewardType.EUCLIDEAN:
             return self._reward_fn_euclidean
@@ -375,8 +386,12 @@ class MjCambrianEnv(MujocoEnv):
             return self._reward_fn_distance_along_path
         elif reward_fn_type == self._RewardType.INTENSITY_SENSOR:
             return self._reward_fn_intensity_sensor
+        elif reward_fn_type == self._RewardType.INTENSITY_AND_AT_GOAL:
+            return self._reward_fn_intensity_and_at_goal
         elif reward_fn_type == self._RewardType.INTENSITY_SENSOR_AND_EUCLIDEAN:
             return self._reward_fn_intensity_and_euclidean
+        elif reward_fn_type == self._RewardType.SPARSE:
+            return self._reward_fn_sparse
         else:
             raise ValueError(f"Unrecognized reward_fn_type {reward_fn_type}")
 
@@ -429,18 +444,40 @@ class MjCambrianEnv(MujocoEnv):
         info: bool,
     ) -> float:
         """The reward is the grayscaled intensity of the a intensity sensor."""
-        return np.sum(info["intensity"] / 255.0) / 3.0 / self._max_episode_steps
+        assert "intensity" in info
+        num_pixels = info["intensity"].shape[0] * info["intensity"].shape[1]
+        scaling_factor = 1 / num_pixels / self._max_episode_steps
+        return np.sum(info["intensity"]) / 3.0 / 255.0 * scaling_factor
+
+    def _reward_fn_intensity_and_at_goal(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """The reward is the intensity whenever the animal is outside some threshold
+        in terms of euclidean distance to the goal. But if it's within this threshold,
+        then the reward is 1."""
+        intensity_reward = self._reward_fn_intensity_sensor(animal, info)
+        return intensity_reward if not self._is_at_goal(animal) else 1
 
     def _reward_fn_intensity_and_euclidean(
         self,
         animal: MjCambrianAnimal,
         info: bool,
     ) -> float:
-        """This reward combines `reward_fn_intensity_sensor` and 
+        """This reward combines `reward_fn_intensity_sensor` and
         `reward_fn_euclidean`."""
         intensity_reward = self._reward_fn_intensity_sensor(animal, info)
         euclidean_reward = self._reward_fn_euclidean(animal, info)
         return (intensity_reward + euclidean_reward) / 2
+
+    def _reward_fn_sparse(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """This reward is 1 if the animal is at the goal, 0 otherwise."""
+        return 1 if self._is_at_goal(animal) else 0
 
 
 if __name__ == "__main__":

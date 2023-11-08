@@ -1,5 +1,7 @@
 from typing import List, Tuple, Any
 from pathlib import Path
+import cv2
+import glfw
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import (
@@ -10,9 +12,13 @@ from stable_baselines3.common.vec_env import (
 )
 from stable_baselines3.common.callbacks import EvalCallback
 
+from env import MjCambrianEnv
 from config import MjCambrianConfig, write_yaml
 from wrappers import make_single_env
-from callbacks import PlotEvaluationCallback
+from callbacks import (
+    PlotEvaluationCallback,
+    SaveVideoCallback,
+)
 from feature_extractors import MjCambrianCombinedExtractor
 from cambrian.reinforce.evo.runner import _update_config_with_overrides
 
@@ -40,19 +46,26 @@ class MjCambrianRunner:
         # Agent metadata
         ppodir = self.logdir / "ppo"
         ppodir.mkdir(parents=True, exist_ok=True)
-        write_yaml(self.config, ppodir / "config.yaml")
 
-        env = self._make_env(ppodir)
+        env = self._make_env(ppodir, n_envs=self.training_config.n_envs)
+        eval_env = self._make_env(ppodir, n_envs=1)
+
+        # Call reset and write the yaml
+        env.reset()
+        write_yaml(self.config.to_dict(is_recursive=True), ppodir / "config.yaml")
 
         # Callbacks
         check_freq = self.training_config.check_freq
         eval_cb = EvalCallback(
-            env,
+            eval_env,
             best_model_save_path=ppodir,
             log_path=ppodir,
             eval_freq=check_freq,
             deterministic=True,
             render=False,
+            callback_on_new_best=SaveVideoCallback(
+                ppodir, self.training_config.max_episode_steps, verbose=1
+            ),
             callback_after_eval=PlotEvaluationCallback(ppodir),
         )
 
@@ -81,8 +94,11 @@ class MjCambrianRunner:
 
     def eval(self, random_actions: bool = False, fullscreen: bool = False):
         """Evaluate the model."""
+        assert self.training_config.n_envs == 1, "Must have 1 env for evaluation."
+
         ppodir = self.logdir / "ppo"
-        env = self._make_env(ppodir)
+        env = self._make_env(ppodir, n_envs=1)
+        cambrian_env: MjCambrianEnv = env.envs[0]
 
         if not random_actions:
             print(f"Loading {ppodir / 'best_model.zip'}...")
@@ -91,16 +107,7 @@ class MjCambrianRunner:
 
         obs = env.reset()
 
-        import cv2, glfw
-
-        window = env.envs[0].mujoco_renderer.viewer.window
-        # old_callback = glfw.get_key_callback(window)
-        # def _key_callback(w, k, s, a, m):
-        #     if k == glfw.KEY_Q and a == glfw.PRESS:
-        #         glfw.set_window_should_close(w, True)
-        #     else:
-        #         old_callback(w, k, s, a, m)
-        # glfw.set_key_callback(window, _key_callback)
+        window = cambrian_env.mujoco_renderer.viewer.window
         if fullscreen:
             monitor = glfw.get_primary_monitor()
             mode = glfw.get_video_mode(monitor)
@@ -115,9 +122,16 @@ class MjCambrianRunner:
             )
             glfw.focus_window(window)
 
-        # cv2.namedWindow("image", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("image", cv2.WINDOW_NORMAL)
 
+        done = True
         for i in range(10000):
+            if done:
+                viewer = cambrian_env.mujoco_renderer.viewer
+                viewer.cam.distance = 30
+                viewer.cam.azimuth = 90
+                viewer.cam.elevation = -90
+
             if random_actions:
                 action = env.action_space.sample()
             else:
@@ -125,39 +139,28 @@ class MjCambrianRunner:
             obs, reward, done, info = env.step(action)
             env.render()
 
-            images = []
-            for animal_name, animal in env.envs[0].animals.items():
-                num_eyes_lat, num_eyes_lon = (
-                    animal.config.num_eyes_lat,
-                    animal.config.num_eyes_lon,
-                )
-                for i in range(num_eyes_lat):
-                    images.append([])
-                    for j in range(num_eyes_lon):
-                        eye_name = f"{animal_name}_eye_{i * num_eyes_lat + j}"
-                        eye_obs = obs[eye_name]
-                        images[i].append(eye_obs.squeeze(0).transpose(1, 0, 2))
-            # # Concat the image
-            # image = cv2.vconcat(
-            #     [cv2.hconcat(image_row) for image_row in reversed(images)]
-            # )
+            composite_images = []
+            for animal in cambrian_env.animals.values():
+                if (composite_image := animal.create_composite_image()) is not None:
+                    composite_images.append(composite_image)
 
-            # cv2.imshow("image", image)
-            # if cv2.waitKey(1) & 0xFF == ord("q"):
-            #     break
+            if len(composite_images) > 0:
+                cv2.imshow("image", composite_images)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
 
         env.close()
 
-    def _make_env(self, ppodir: Path) -> VecEnv:
+    def _make_env(self, ppodir: Path, n_envs: int) -> VecEnv:
         """Create the environment."""
-        assert self.training_config.n_envs > 0, "Must have at least one environment."
-        if self.training_config.n_envs == 1:
+        assert n_envs > 0, "Must have at least one environment."
+        if n_envs == 1:
             env = DummyVecEnv([make_single_env(0, 0, self.config)])
         else:
             env = SubprocVecEnv(
                 [
                     make_single_env(i, i, self.config)
-                    for i in range(self.training_config.n_envs)
+                    for i in range(n_envs)
                 ]
             )
         env = VecMonitor(env, ppodir.as_posix())

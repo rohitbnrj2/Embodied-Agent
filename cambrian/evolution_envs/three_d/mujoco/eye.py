@@ -1,5 +1,6 @@
 from typing import List, Tuple
 import numpy as np
+import time
 
 import mujoco as mj
 from gymnasium import spaces
@@ -27,6 +28,7 @@ class MjCambrianEye:
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
         self._camera: mj.MjvCamera = None
+        self._last_obs: np.ndarray = None
 
     def _check_config(self, config: MjCambrianEyeConfig) -> MjCambrianEyeConfig:
         assert config.name is not None, "Must specify a name for the eye."
@@ -126,7 +128,9 @@ class MjCambrianEye:
     def step(self) -> np.ndarray:
         """Simply calls `render(return_depth=False)`.
         See `render()` for more information."""
-        return self.render(return_depth=False)
+        obs = self.render(return_depth=False)
+        self._last_obs = obs.copy()
+        return obs
 
     def render(
         self, return_depth: bool = True
@@ -210,6 +214,16 @@ class MjCambrianEye:
             self.resolution[0] + filter_size[0],
             self.resolution[1] + filter_size[1],
         )
+
+    @property
+    def last_obs(self) -> np.ndarray:
+        """The last observation returned by `self.render()`."""
+        return self._last_obs
+
+    @property
+    def fov(self) -> Tuple[float, float]:
+        """The field of view of the camera in degrees."""
+        return self.config.fov
 
     def _get_mj_attr(self, obj, attr):
         """Helper method for getting an attribute from the mujoco data structures."""

@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 import numpy as np
 from enum import Enum
 
@@ -11,6 +11,7 @@ from eye import MjCambrianEye, MjCambrianEyeConfig
 from config import MjCambrianAnimalConfig
 from utils import (
     get_model_path,
+    generate_sequence_from_range,
     MjCambrianJoint,
     MjCambrianActuator,
     MjCambrianGeometry,
@@ -50,12 +51,10 @@ class MjCambrianAnimal:
     ANIMAL_SPECIFIC_CONFIG = dict()
 
     def __init__(self, config: MjCambrianAnimalConfig):
-        config.update(self.ANIMAL_SPECIFIC_CONFIG)
-        self.config = config
-        self._check_config()
+        self.config = self._check_config(config, self.ANIMAL_SPECIFIC_CONFIG)
 
         self._eyes: Dict[str, MjCambrianEye] = {}
-        self.intensity_sensor: MjCambrianEye = None
+        self._intensity_sensor: MjCambrianEye = None
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
@@ -63,17 +62,23 @@ class MjCambrianAnimal:
 
         self._init_pos: np.ndarray = None
 
-    def _check_config(self):
+    def _check_config(
+        self, config: MjCambrianAnimalConfig, update_config: Dict
+    ) -> MjCambrianAnimalConfig:
         """Run some checks/asserts on the config to make sure everything's there. Also,
         we'll update the model path to make sure it's either absolute/relative to
         the execution path or relative to this file."""
 
-        assert self.config.body_name is not None, "No body name specified."
-        assert self.config.joint_name is not None, "No joint name specified."
-        assert self.config.geom_name is not None, "No geom name specified."
-        assert self.config.default_eye_config is not None, "No default eye config."
+        config.update(update_config)
 
-        self.config.model_path = get_model_path(self.config.model_path)
+        assert config.body_name is not None, "No body name specified."
+        assert config.joint_name is not None, "No joint name specified."
+        assert config.geom_name is not None, "No geom name specified."
+        assert config.default_eye_config is not None, "No default eye config."
+
+        config.model_path = get_model_path(config.model_path)
+
+        return config
 
     def _initialize(self):
         """Initialize the animal.
@@ -168,87 +173,66 @@ class MjCambrianAnimal:
     def _place_eyes(self):
         """Place the eyes on the animal.
 
-        The current algorithm for eye placement is as follows. We first choose a random
-        geometry of the user specified geoms. The eyes are then placed randomly
+        The current algorithm for eye placement is as follows. We first grab the geom
+        defined in the config. The eyes are then placed randomly
         on that geometry's bounding sphere (`rbound`). The limits are specified
         by the animal's config. The eye's are restricted along the latitudes
-        to be placed within `eye.config.latrange` (probably 60 degrees or something) and
-        along the longitudes to be placed within `eye.config.longrange`.
+        to be placed within `config.eyes_lat_range` (probably 60 degrees or
+        something) and along the longitudes to be placed within `config.eyes_lon_range`.
 
         NOTE:
         - For animal-specific eye placement, you should override this method.
-        - `eye.[lat|long]range` are in degrees.
+        - `config.[lat|lon]_range` are in degrees.
 
         TODO: Why are the transformations so weird?
         TODO: Have a way to change the placement method, like rectangular or custom
             shape
         """
 
+        num_eyes_lat = self.config.num_eyes_lat
         eyes_lat_range = np.radians(self.config.eyes_lat_range)
-        if self.config.num_eyes_lat == 1:
-            latitudes = [np.sum(eyes_lat_range) / 2]
-        else:
-            latitudes = np.linspace(*eyes_lat_range, self.config.num_eyes_lat)
+        latitudes = generate_sequence_from_range(eyes_lat_range, num_eyes_lat)
 
-        eyes_lon_range = np.radians(self.config.eyes_lon_range)
-        if self.config.num_eyes_lon == 1:
-            longitudes = [np.sum(eyes_lon_range) / 2]
-        else:
-            longitudes = np.linspace(*eyes_lon_range, self.config.num_eyes_lon)
+        num_eyes_lon = self.config.num_eyes_lon
+        eyes_lon_range = np.radians(self.config.eyes_lon_range) + np.pi / 2
+        longitudes = generate_sequence_from_range(eyes_lon_range, num_eyes_lon)
 
-        # The default rotation to have the camera point forward
-        default_rot = R.from_euler("z", np.pi / 2)
-
-        for lat_idx in range(self.config.num_eyes_lat):
-            for lon_idx in range(self.config.num_eyes_lon):
-                # Create the eye
-                eye_config = MjCambrianEyeConfig(**self.config.default_eye_config)
-                if eye_config.name is None:
-                    i = lat_idx * self.config.num_eyes_lon + lon_idx
-                    eye_config.name = f"{self.name}_eye_{i}"
-                eye = MjCambrianEye(eye_config)
-
-                # Get the geometry to place the eye on
-                latitude = latitudes[lat_idx]
-                longitude = longitudes[lon_idx] + np.pi / 2
-
-                # TODO: why is this transformation so weird? Make it into one
-                pos_rot = default_rot * R.from_euler("yz", [latitude, longitude])
-                rot_rot = R.from_euler("z", latitude)
-                rot_rot *= R.from_euler("y", -longitude)
-                rot_rot *= default_rot
-
-                # Calc the pos/quat of the eye
-                pos = pos_rot.apply([-self._geom.rbound, 0, 0]) + self._geom.pos
-                quat = rot_rot.as_quat()
-
-                # Must be space separated strings for the xml
-                eye.config.pos = pos
-                eye.config.quat = quat
-
-                self._eyes[eye.name] = eye
+        for lat_idx, latitude in enumerate(latitudes):
+            for lon_idx, longitude in enumerate(longitudes):
+                name = f"{self.name}_eye_{lat_idx}_{lon_idx}"
+                eye = self._create_eye(
+                    MjCambrianEyeConfig(**self.config.default_eye_config),
+                    name,
+                    latitude,
+                    longitude,
+                )
+                self._eyes[name] = eye
 
         # Add a forward facing eye intensity sensor
-        # TODO: FIX, ugly
-        fov = [120, 10]
-        latitude = np.radians(fov[1]) / 2
-        longitude = np.pi / 2
-        pos_rot = default_rot * R.from_euler("yz", [latitude, longitude])
-        rot_rot = R.from_euler("z", latitude)
-        rot_rot *= R.from_euler("y", -longitude)
-        rot_rot *= default_rot
-        pos = pos_rot.apply([-self._geom.rbound, 0, 0]) + self._geom.pos
-        quat = rot_rot.as_quat()
-        self.intensity_sensor = MjCambrianEye(
-            MjCambrianEyeConfig(
-                name=f"intensity_sensor_{self.name}",
-                pos=pos,
-                quat=quat,
-                resolution=[4, 4], # if other eyes are > 3x3, this needs to be because of bug in sb3 (see is_image_space_channels_first)
-                fov=[120, 10],
-            )
+        self._intensity_sensor = self._create_eye(
+            MjCambrianEyeConfig(**self.config.intensity_sensor_config),
+            f"{self.name}_intensity_sensor",
+            np.radians(self.config.intensity_sensor_config.fov[1]) / 2,
+            np.pi / 2,
         )
-        self._eyes[self.intensity_sensor.name] = self.intensity_sensor
+        if self.config.use_intensity_obs:
+            self._eyes[self._intensity_sensor.name] = self._intensity_sensor
+
+    def _create_eye(
+        self, config: MjCambrianEyeConfig, name: str, lat: float, lon: float
+    ) -> MjCambrianEye:
+        """Creates an eye with the given config.
+
+        TODO: Rotations are weird. Fix this.
+        """
+        default_rot = R.from_euler("z", np.pi / 2)
+        pos_rot = default_rot * R.from_euler("yz", [lat, lon])
+        rot_rot = R.from_euler("z", lat) * R.from_euler("y", -lon) * default_rot
+
+        config.name = name
+        config.pos = pos_rot.apply([-self._geom.rbound, 0, 0]) + self._geom.pos
+        config.quat = rot_rot.as_quat()
+        return MjCambrianEye(config)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the animal. Will generate the xml from the model file
@@ -279,6 +263,11 @@ class MjCambrianAnimal:
         # Add eyes
         for eye in self.eyes.values():
             self.xml += eye.generate_xml(self.xml, self.config.body_name)
+
+        if not self.config.use_intensity_obs:
+            self.xml += self._intensity_sensor.generate_xml(
+                self.xml, self.config.body_name
+            )
 
         return self.xml
 
@@ -330,6 +319,9 @@ class MjCambrianAnimal:
         for name, eye in self.eyes.items():
             obs[name] = eye.reset(model, data)
 
+        if not self.config.use_intensity_obs:
+            self._intensity_sensor.reset(model, data)
+
         return self._get_obs(obs)
 
     def step(self, action: List[float]) -> Dict[str, Any]:
@@ -337,6 +329,9 @@ class MjCambrianAnimal:
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
             obs[name] = eye.step()
+
+        if not self.config.use_intensity_obs:
+            self._intensity_sensor.step()
 
         self._data.ctrl[self._actadrs] = action
 
@@ -353,6 +348,32 @@ class MjCambrianAnimal:
             obs["qvel"] = qvel.flat.copy()
 
         return obs
+
+    def create_composite_image(self) -> np.ndarray | None:
+        """Creates a composite image from the eyes. If there are no eyes, then this
+        returns None.
+
+        Will appear as a compound eye. For example, if we have a 3x3 grid of eyes:
+            TL T TR
+            ML M MR
+            BL B BR
+        """
+        if self.config.num_eyes_lat == 0 or self.config.num_eyes_lon == 0:
+            return None
+
+        images = []
+        for i in range(self.config.num_eyes_lat):
+            images.append([])
+            for j in range(self.config.num_eyes_lon):
+                name = f"{self.name}_eye_{i}_{j}"
+                obs = self._eyes[name].last_obs
+                images[i].append(obs.transpose(1, 0, 2))
+        images = np.array(images)
+
+        return np.concatenate(
+            [np.concatenate(image_row, axis=1) for image_row in reversed(images)],
+            axis=0,
+        )
 
     @property
     def has_contacts(self) -> bool:
@@ -437,6 +458,10 @@ class MjCambrianAnimal:
     @property
     def eyes(self) -> Dict[str, MjCambrianEye]:
         return self._eyes
+
+    @property
+    def intensity_sensor(self) -> MjCambrianEye:
+        return self._intensity_sensor
 
     @property
     def name(self) -> str:

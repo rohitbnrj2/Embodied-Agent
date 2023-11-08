@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, List, Tuple
 from pathlib import Path
 from dataclasses import dataclass
 import numpy as np
@@ -34,6 +34,12 @@ def get_model_path(model_path: str | Path, *, throw_error: bool = True) -> Path 
             return None
 
     return model_path
+
+# =============
+
+def generate_sequence_from_range(range: Tuple[float, float], num: int) -> List[float]:
+    """"""
+    return [np.average(range)] if num == 1 else np.linspace(*range, num)
 
 # =============
 # Mujoco utils

@@ -1,10 +1,13 @@
 <mujoco>
   <compiler inertiafromgeom="true" angle="radian" coordinate="local"/>
   <option timestep="0.01" gravity="0 0 0" iterations="20" integrator="Euler"/>
+  <asset>
+    <material name="particle_mat" emission="1" rgba="0.3 0.6 0.3 1"/>
+  </asset>
   <worldbody>
     <body name="particle_{uid}" pos="0 0 0.2">
       <geom name="particle_geom_{uid}" type="sphere" size="0.2" rgba="0.0 0.0 1.0 0.0" contype="1" friction=".5 .1 .1" density="1000" margin="0.002" condim="1" conaffinity="1"/>
-      <site name="particle_site_{uid}" pos="0.0 0.0 0.0" size="0.2" rgba="0.3 0.6 0.3 1"/>
+      <site name="particle_site_{uid}" pos="0.0 0.0 0.0" material="particle_mat" size="0.2"/>
       <joint name="ball_x_{uid}" type="slide" pos="0 0 0" axis="1 0 0" damping="1" limited="false"/>
       <joint name="ball_y_{uid}" type="slide" pos="0 0 0" axis="0 1 0" damping="1" limited="false"/>
       <joint name="ball_z_{uid}" type="hinge" pos="0 0 0" axis="0 0 1" damping="1" limited="false"/>
