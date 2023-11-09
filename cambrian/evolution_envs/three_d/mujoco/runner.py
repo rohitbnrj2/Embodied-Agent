@@ -1,4 +1,4 @@
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Dict
 from pathlib import Path
 import cv2
 import glfw
@@ -20,22 +20,40 @@ from callbacks import (
     SaveVideoCallback,
 )
 from feature_extractors import MjCambrianCombinedExtractor
-from cambrian.reinforce.evo.runner import _update_config_with_overrides
+
+
+def _convert_overrides_to_dict(overrides: List[Tuple[str, Any]]):
+    import yaml
+
+    overrides_dict: Dict[str, Any] = {}
+    for k, v in overrides:
+        d = overrides_dict
+
+        keys = k.split(".")
+        for key in keys[:-1]:
+            d = d.setdefault(key, {})
+        d[keys[-1]] = yaml.safe_load(v)
+        print(v, d[keys[-1]])
+
+    return overrides_dict
 
 
 class MjCambrianRunner:
     def __init__(
         self,
         config: Path | str | MjCambrianConfig,
-        overrides: List[Tuple[str, Any]],
+        *,
+        overrides: Dict[str, Any] = {},
     ):
-        self.config = MjCambrianConfig.load(config)
-        # _update_config_with_overrides(self.config, overrides)
+        config = Path(config)
+        self.config = MjCambrianConfig.load(config, overrides=overrides)
 
         self.training_config = self.config.training_config
         self.env_config = self.config.env_config
 
-        self.logdir = Path(self.training_config.logdir) / self.training_config.exp_name
+        if (exp_name := self.training_config.exp_name) is None:
+            exp_name = config.stem
+        self.logdir = Path(self.training_config.logdir) / exp_name
         self.logdir.mkdir(parents=True, exist_ok=True)
 
         self.verbose = self.training_config.verbose
@@ -159,10 +177,7 @@ class MjCambrianRunner:
             env = DummyVecEnv([make_single_env(0, 0, self.config)])
         else:
             env = SubprocVecEnv(
-                [
-                    make_single_env(i, i, self.config)
-                    for i in range(n_envs)
-                ]
+                [make_single_env(i, i, self.config) for i in range(n_envs)]
             )
         env = VecMonitor(env, ppodir.as_posix())
         return env
@@ -191,7 +206,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    runner = MjCambrianRunner(args.config, args.overrides)
+    overrides = _convert_overrides_to_dict(args.overrides)
+    runner = MjCambrianRunner(args.config, overrides=overrides)
+
     if args.train:
         runner.train()
     if args.eval:

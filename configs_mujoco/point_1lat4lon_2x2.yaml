@@ -2,9 +2,6 @@ includes:
   - configs_mujoco/base.yaml
   - configs_mujoco/animals/point.yaml
 
-training_config:
-  exp_name: "point_1lat4lon_2x2"
-
 animal_config:
   num_eyes_lat: 1
   num_eyes_lon: 4

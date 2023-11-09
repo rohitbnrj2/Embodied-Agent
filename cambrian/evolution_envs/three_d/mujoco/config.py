@@ -44,20 +44,23 @@ class MjCambrianBaseConfig(Generic[T]):
     includes: Optional[List[Path | str]] = None
 
     @classmethod
-    def load(cls, config: Path | str | T) -> T:
+    def load(cls, config: Path | str | T, *, overrides: Dict[str, Any] = {}) -> T:
         if isinstance(config, (Path, str)):
-            config = cls.from_yaml(config)
+            config = cls.from_yaml(config, overrides=overrides)
         else:
             assert isinstance(config, cls)
+            config.merge(overrides)
         return config
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> T:
+    def from_yaml(cls, path: Path | str, *, overrides: Dict[str, Any] = {}) -> T:
         """Load the config from a yaml file. Will call `from_dict` with the output form
         `yaml.safe_load`."""
         path = Path(path)
         with open(path, "r") as f:
             data = yaml.safe_load(f)
+
+        data = mergedeep.merge(data, overrides)
 
         return cls.from_dict(data)
 
@@ -178,6 +181,9 @@ class MjCambrianBaseConfig(Generic[T]):
             elif not isinstance(value, field_type):
                 _throw_error(name, value, field_type)
 
+    def __str__(self):
+        return yaml.dump(self.to_dict())
+
 
 @dataclass
 class MjCambrianTrainingConfig(MjCambrianBaseConfig[T]):
@@ -185,8 +191,8 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig[T]):
 
     Attributes:
         logdir (str): The directory to log training data to.
-        exp_name (str): The name of the experiment. Used to name the logging
-            subdirectory.
+        exp_name (Optional[str]): The name of the experiment. Used to name the logging
+            subdirectory. If unset, will set to the name of the config file.
         ppo_checkpoint_path (Optional[Path | str]): The path to the ppo checkpoint to
             load. If None, training will start from scratch.
         total_timesteps (int): The total number of timesteps to train for.
@@ -201,7 +207,7 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig[T]):
     """
 
     logdir: Path | str
-    exp_name: str
+    exp_name: Optional[str] = None
     ppo_checkpoint_path: Optional[Path | str] = None
     total_timesteps: int
     check_freq: int

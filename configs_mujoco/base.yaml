@@ -1,10 +1,11 @@
 training_config:
   logdir: "logs-mujoco"
-  # ppo_checkpoint_path: None # Will train from scratch if unset
+  exp_name: null # if unset, will be set to the name of the config file
+  ppo_checkpoint_path: null # Will train from scratch if unset
   total_timesteps: 5_000_000
   check_freq: 10000
   n_steps: 2048
-  # batch_size: None # Automatically set to `n_steps * n_envs // n_epochs`
+  batch_size: null # Automatically set to `n_steps * n_envs // n_epochs`
   max_episode_steps: 128
   n_envs: 10
   seed: 424041
