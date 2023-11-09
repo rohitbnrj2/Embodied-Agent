@@ -1,16 +1,10 @@
-# This is a config for the baseline experiment. It is simple and should be
-# the worst performing experiment. It is used to compare against the configs with more
-# eyes.
-#
-# This config has 0 eyes, but uses the intensity sensor as the obs.
-
 training_config:
   logdir: "logs-mujoco"
-  exp_name: "baseline"
-  ppo_checkpoint_path: None
+  # ppo_checkpoint_path: None # Will train from scratch if unset
   total_timesteps: 5_000_000
   check_freq: 10000
   n_steps: 2048
+  # batch_size: None # Automatically set to `n_steps * n_envs // n_epochs`
   max_episode_steps: 128
   n_envs: 10
   seed: 424041
@@ -19,11 +13,22 @@ training_config:
 env_config:
   num_animals: 1
   scene_path: "models/scene.xml"
-  render_mode: "rgb_array"
-  camera_name: "track"
   use_directional_light: False
+  use_headlight: False
+
   reward_fn_type: "intensity_and_at_goal"
+
+  use_goal_obs: False
   terminate_at_goal: False
+  distance_to_goal_threshold: 2.0
+
+  model_path: None # Set to the generated xml file at runtime
+  frame_skip: 10
+  render_mode: "rgb_array"
+  width: 480
+  height: 480
+  camera_name: "track"
+
   maze_config:
     name: "MANY_GOAL_MAZE" 
     size_scaling: 4.0
@@ -31,13 +36,14 @@ env_config:
     use_target_light_source: True
 
 animal_config:
-  type: "point"
-  num_eyes_lat: 0
-  num_eyes_lon: 0
-  use_intensity_obs: True
+  use_qpos_obs: True
+  use_qvel_obs: True
+  use_intensity_obs: False
   default_eye_config:
-    resolution: [1, 1]
-    fov: [45, 30]
+    mode: "fixed"
+    filter_size: [0, 0]
   intensity_sensor_config:
     resolution: [1, 1]
     fov: [120, 10]
+    mode: "fixed"
+    filter_size: [0, 0]

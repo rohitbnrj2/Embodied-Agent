@@ -125,12 +125,12 @@ class MjCambrianEnv(MujocoEnv):
         """
         default_animal_config = self.config.animal_config
         for i in range(self.env_config.num_animals):
-            animal_config = MjCambrianAnimalConfig(**default_animal_config)
+            animal_config = default_animal_config.copy()
             animal_config.idx = i
             if animal_config.name is None:
                 animal_config.name = f"animal_{i}"
             assert animal_config.name not in self.animals
-            self.animals[animal_config.name] = MjCambrianAnimal.create(animal_config)
+            self.animals[animal_config.name] = MjCambrianAnimal(animal_config)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
@@ -177,6 +177,10 @@ class MjCambrianEnv(MujocoEnv):
         #         pos="0 -10 10",
         #         xyaxes="1 0 0 0 1 1",
         #     )
+
+        # Disable the headlight
+        if not self.env_config.use_headlight:
+            xml.add(xml.add(xml.root, "visual"), "headlight", active="0")
 
         # Update the assert path to point to the fully resolved path
         compiler = xml.find(".//compiler")
@@ -279,8 +283,11 @@ class MjCambrianEnv(MujocoEnv):
         for _ in range(n_frames):
             mj.mj_step(self.model, self.data)
 
+            # TODO: don't break here since it will effect the other animals. Instead,
+            # have a `should_terminate` flag or something.
             if self.data.ncon > 0:
-                return
+                if any(animal.has_contacts for animal in self.animals.values()):
+                    break
 
         # As of MuJoCo 2.0, force-related quantities like cacc are not computed
         # unless there's a force sensor in the model.
@@ -443,11 +450,15 @@ class MjCambrianEnv(MujocoEnv):
         animal: MjCambrianAnimal,
         info: bool,
     ) -> float:
-        """The reward is the grayscaled intensity of the a intensity sensor."""
+        """The reward is the grayscaled intensity of the a intensity sensor taken to 
+        the power of some gamma value multiplied by a 
+        scale factor (1 / max_episode_steps)."""
         assert "intensity" in info
         num_pixels = info["intensity"].shape[0] * info["intensity"].shape[1]
         scaling_factor = 1 / num_pixels / self._max_episode_steps
-        return np.sum(info["intensity"]) / 3.0 / 255.0 * scaling_factor
+        intensity = np.sum(info["intensity"]) / 3.0 / 255.0
+        gamma = 2.2
+        return (intensity ** gamma) * scaling_factor
 
     def _reward_fn_intensity_and_at_goal(
         self,
@@ -458,7 +469,7 @@ class MjCambrianEnv(MujocoEnv):
         in terms of euclidean distance to the goal. But if it's within this threshold,
         then the reward is 1."""
         intensity_reward = self._reward_fn_intensity_sensor(animal, info)
-        return intensity_reward if not self._is_at_goal(animal) else 1
+        return 1 if self._is_at_goal(animal) else intensity_reward
 
     def _reward_fn_intensity_and_euclidean(
         self,
@@ -501,7 +512,7 @@ if __name__ == "__main__":
     args.overrides.insert(0, ("env_config.render_mode", "human"))
 
     config = MjCambrianConfig.load(args.config_path)
-    _update_config_with_overrides(config, args.overrides)
+    # _update_config_with_overrides(config, args.overrides)
 
     env = MjCambrianEnv(config)
     env.render_mode = "rgb_array"
@@ -510,10 +521,12 @@ if __name__ == "__main__":
 
     import mujoco.viewer
 
-    mujoco.viewer.launch(env.model, env.data)
+    # mujoco.viewer.launch(env.model, env.data)
     # NOTE: launch_passive currently broken when focal or focalpixel is specified
-    # with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
-    #     while viewer.is_running():
-    #         mj.mj_step(env.model, env.data)
-    #         viewer.sync()
-    #     print("Exiting...")
+    with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
+        while viewer.is_running():
+            mj.mj_step(env.model, env.data)
+            for animal in env.animals.values():
+                animal.has_contacts
+            viewer.sync()
+        print("Exiting...")

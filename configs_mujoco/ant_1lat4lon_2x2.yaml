@@ -1,0 +1,15 @@
+includes:
+  - configs_mujoco/base.yaml
+  - configs_mujoco/animals/ant.yaml
+
+training_config:
+  exp_name: "ant_1lat4lon_2x2"
+  total_timesteps: 15_000_000
+
+animal_config:
+  num_eyes_lat: 1
+  num_eyes_lon: 4
+  use_intensity_obs: True
+  default_eye_config:
+    resolution: [2, 2]
+    fov: [45, 30]

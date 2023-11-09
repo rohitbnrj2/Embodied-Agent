@@ -1,0 +1,14 @@
+includes:
+  - configs_mujoco/base.yaml
+  - configs_mujoco/animals/point.yaml
+
+training_config:
+  exp_name: "point_1x1_intensity_only"
+
+animal_config:
+  num_eyes_lat: 0
+  num_eyes_lon: 0
+  use_intensity_obs: True
+  default_eye_config:
+    resolution: [1, 1]
+    fov: [45, 30]

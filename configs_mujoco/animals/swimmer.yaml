@@ -1,0 +1,7 @@
+animal_config:
+  model_path: "models/swimmer.xml"
+  body_name: "torso_{uid}"
+  joint_name: "slider1_{uid}"
+  geom_name: "frontbody_{uid}"
+  eyes_lat_range: [1, 25]
+  eyes_lon_range: [-120, 120]

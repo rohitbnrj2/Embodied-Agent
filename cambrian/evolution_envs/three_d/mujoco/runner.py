@@ -13,7 +13,7 @@ from stable_baselines3.common.vec_env import (
 from stable_baselines3.common.callbacks import EvalCallback
 
 from env import MjCambrianEnv
-from config import MjCambrianConfig, write_yaml
+from config import MjCambrianConfig
 from wrappers import make_single_env
 from callbacks import (
     PlotEvaluationCallback,
@@ -30,7 +30,7 @@ class MjCambrianRunner:
         overrides: List[Tuple[str, Any]],
     ):
         self.config = MjCambrianConfig.load(config)
-        _update_config_with_overrides(self.config, overrides)
+        # _update_config_with_overrides(self.config, overrides)
 
         self.training_config = self.config.training_config
         self.env_config = self.config.env_config
@@ -52,19 +52,19 @@ class MjCambrianRunner:
 
         # Call reset and write the yaml
         env.reset()
-        write_yaml(self.config.to_dict(is_recursive=True), ppodir / "config.yaml")
+        self.config.write_to_yaml(ppodir / "config.yaml")
 
         # Callbacks
         check_freq = self.training_config.check_freq
         eval_cb = EvalCallback(
-            eval_env,
+            env,
             best_model_save_path=ppodir,
             log_path=ppodir,
             eval_freq=check_freq,
             deterministic=True,
             render=False,
             callback_on_new_best=SaveVideoCallback(
-                ppodir, self.training_config.max_episode_steps, verbose=1
+                eval_env, ppodir, self.training_config.max_episode_steps, verbose=1
             ),
             callback_after_eval=PlotEvaluationCallback(ppodir),
         )
@@ -122,10 +122,14 @@ class MjCambrianRunner:
             )
             glfw.focus_window(window)
 
-        cv2.namedWindow("image", cv2.WINDOW_NORMAL)
+        for animal_name in cambrian_env.animals:
+            cv2.namedWindow(animal_name, cv2.WINDOW_NORMAL)
 
         done = True
+        terminate = False
         for i in range(10000):
+            if terminate:
+                break
             if done:
                 viewer = cambrian_env.mujoco_renderer.viewer
                 viewer.cam.distance = 30
@@ -139,15 +143,12 @@ class MjCambrianRunner:
             obs, reward, done, info = env.step(action)
             env.render()
 
-            composite_images = []
-            for animal in cambrian_env.animals.values():
+            for name, animal in cambrian_env.animals.items():
                 if (composite_image := animal.create_composite_image()) is not None:
-                    composite_images.append(composite_image)
-
-            if len(composite_images) > 0:
-                cv2.imshow("image", composite_images)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
+                    cv2.imshow(name, composite_image)
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        terminate = True
+                        break
 
         env.close()
 
@@ -194,4 +195,6 @@ if __name__ == "__main__":
     if args.train:
         runner.train()
     if args.eval:
+        runner.config.training_config.n_envs = 1
+        runner.config.env_config.render_mode = "human"
         runner.eval(args.random, args.fullscreen)

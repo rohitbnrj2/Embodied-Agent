@@ -320,9 +320,9 @@ class MjCambrianMaze(Maze):
             specular="0.0",
         )
         xml.add(
-            worldbody,
+            xml.add(worldbody, "body", name="floor"),
             "geom",
-            name="floor",
+            name="floor_geom",
             pos="0 0 -0.05",
             size=f"{maze.x_map_center * 2} {maze.y_map_center * 2} 0.1",
             type="plane",
@@ -353,10 +353,6 @@ class MjCambrianMaze(Maze):
                     specular="1 1 1",
                     castshadow="false",
                 )
-
-            # Disable the headlight
-            if not config.use_headlight:
-                xml.add(xml.add(xml.root, "visual"), "headlight", active="0")
 
         # Visualize the target either way
         # If using light source, the target is emissive

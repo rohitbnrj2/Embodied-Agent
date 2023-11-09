@@ -48,10 +48,8 @@ class MjCambrianAnimal:
         config (MjCambrianAnimalConfig): The configuration for the animal.
     """
 
-    ANIMAL_SPECIFIC_CONFIG = dict()
-
     def __init__(self, config: MjCambrianAnimalConfig):
-        self.config = self._check_config(config, self.ANIMAL_SPECIFIC_CONFIG)
+        self.config = self._check_config(config)
 
         self._eyes: Dict[str, MjCambrianEye] = {}
         self._intensity_sensor: MjCambrianEye = None
@@ -62,14 +60,10 @@ class MjCambrianAnimal:
 
         self._init_pos: np.ndarray = None
 
-    def _check_config(
-        self, config: MjCambrianAnimalConfig, update_config: Dict
-    ) -> MjCambrianAnimalConfig:
+    def _check_config(self, config: MjCambrianAnimalConfig) -> MjCambrianAnimalConfig:
         """Run some checks/asserts on the config to make sure everything's there. Also,
         we'll update the model path to make sure it's either absolute/relative to
         the execution path or relative to this file."""
-
-        config.update(update_config)
 
         assert config.body_name is not None, "No body name specified."
         assert config.joint_name is not None, "No joint name specified."
@@ -201,7 +195,7 @@ class MjCambrianAnimal:
             for lon_idx, longitude in enumerate(longitudes):
                 name = f"{self.name}_eye_{lat_idx}_{lon_idx}"
                 eye = self._create_eye(
-                    MjCambrianEyeConfig(**self.config.default_eye_config),
+                    self.config.default_eye_config.copy(),
                     name,
                     latitude,
                     longitude,
@@ -210,7 +204,7 @@ class MjCambrianAnimal:
 
         # Add a forward facing eye intensity sensor
         self._intensity_sensor = self._create_eye(
-            MjCambrianEyeConfig(**self.config.intensity_sensor_config),
+            self.config.default_eye_config.copy(),
             f"{self.name}_intensity_sensor",
             np.radians(self.config.intensity_sensor_config.fov[1]) / 2,
             np.pi / 2,
@@ -403,10 +397,6 @@ class MjCambrianAnimal:
                 # Not a contact with this animal
                 continue
 
-            # Verify it's not a self collision
-            if rootbody == otherrootbody:
-                continue
-
             # Verify it's not a ground contact
             groundbody = mj.mj_name2id(self._model, mj.mjtObj.mjOBJ_BODY, "floor")
             if otherrootbody == groundbody:
@@ -414,6 +404,7 @@ class MjCambrianAnimal:
 
             # body1_name = mj.mj_id2name(self._model, mj.mjtObj.mjOBJ_BODY, body1)
             # body2_name = mj.mj_id2name(self._model, mj.mjtObj.mjOBJ_BODY, body2)
+            # print(body1, body2)
             # print(f"Detected contact between {body1_name} and {body2_name}!")
 
             return True
@@ -497,92 +488,6 @@ class MjCambrianAnimal:
     def init_pos(self, value: np.ndarray):
         """Sets the initial position of the animal."""
         self._init_pos = value
-
-    def create(config: MjCambrianAnimalConfig) -> "MjCambrianAnimal":
-        """Factory method for creating animals. This is used by the environment to
-        create animals."""
-        type = MjCambrianAnimalType(config.type)
-
-        if type == MjCambrianAnimalType.ANT:
-            return MjCambrianAnt(config)
-        elif type == MjCambrianAnimalType.SWIMMER:
-            return MjCambrianSwimmer(config)
-        elif type == MjCambrianAnimalType.SKYDIO:
-            return MjCambrianSkydioX2(config)
-        elif type == MjCambrianAnimalType.POINT:
-            return MjCambrianPoint(config)
-        else:
-            raise ValueError(f"Animal type {type} not supported.")
-
-
-class MjCambrianAnt(MjCambrianAnimal):
-    """Defines an ant animal.
-
-    See `https://gymnasium.farama.org/environments/mujoco/ant/` for more info.
-
-    This class simply defines some default config attributes that are specific for ants.
-    """
-
-    ANIMAL_SPECIFIC_CONFIG = dict(
-        model_path="models/ant.xml",
-        body_name="torso_{uid}",
-        joint_name="root_{uid}",
-        geom_name="torso_geom_{uid}",
-        eyes_lat_range=[-30, 30],
-        eyes_lon_range=[-120, 120],
-    )
-
-
-class MjCambrianSwimmer(MjCambrianAnimal):
-    """Defines an swimmer animal.
-
-    See `https://gymnasium.farama.org/environments/mujoco/swimmer/` for more info.
-
-    This class simply defines some default config attributes that are specific for
-    swimmers.
-    """
-
-    ANIMAL_SPECIFIC_CONFIG = dict(
-        model_path="models/swimmer.xml",
-        body_name="torso_{uid}",
-        joint_name="slider1_{uid}",
-        geom_name="frontbody_{uid}",
-        eyes_lat_range=[1, 60],
-        eyes_lon_range=[-120, 120],
-    )
-
-
-class MjCambrianSkydioX2(MjCambrianAnimal):
-    """Defines a skydio-x2 drone "animal".
-
-    See [here](https://github.com/google-deepmind/mujoco_menagerie/tree/main/skydio_x2)
-    for more info.
-    """
-
-    ANIMAL_SPECIFIC_CONFIG = dict(
-        model_path="models/skydio-x2.xml",
-        body_name="x2_{uid}",
-        joint_name="x2-freejoint_{uid}",
-        geom_name="mesh_{uid}",
-        eyes_lat_range=[-30, 30],
-        eyes_lon_range=[-120, 120],
-    )
-
-
-class MjCambrianPoint(MjCambrianAnimal):
-    """Defines a point animal.
-
-    See `https://robotics.farama.org/envs/maze/point_maze/`.
-    """
-
-    ANIMAL_SPECIFIC_CONFIG = dict(
-        model_path="models/point.xml",
-        body_name="particle_{uid}",
-        joint_name="ball_x_{uid}",
-        geom_name="particle_geom_{uid}",
-        eyes_lat_range=[-30, 30],
-        eyes_lon_range=[-60, 60],
-    )
 
 
 if __name__ == "__main__":
