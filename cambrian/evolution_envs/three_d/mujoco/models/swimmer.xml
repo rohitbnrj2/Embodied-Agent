@@ -1,22 +1,16 @@
 <mujoco model="swimmer">
-  <compiler angle="degree" coordinate="local" inertiafromgeom="true"/>
-  <option density="4000" integrator="RK4" timestep="0.01" viscosity="0.1"/>
-  <default>
-    <geom conaffinity="0" condim="1" contype="0" rgba="0.8 0.6 .4 1"/>
-    <joint armature='0.1'  />
-  </default>
   <worldbody>
     <body name="torso_{uid}" pos="0 0 0.1">
-      <geom name="frontbody_{uid}" density="1000" fromto="1.5 0 0 0.5 0 0" size="0.1" type="capsule"/>
+      <geom name="frontbody_{uid}" conaffinity="0" condim="1" contype="0" rgba="0.8 0.6 0.4 1" density="1000" fromto="1.5 0 0 0.5 0 0" size="0.1" type="capsule"/>
       <joint axis="1 0 0" name="slider1_{uid}" pos="0 0 0" type="slide"/>
       <joint axis="0 1 0" name="slider2_{uid}" pos="0 0 0" type="slide"/>
       <joint axis="0 0 1" name="free_body_rot_{uid}" pos="0 0 0" type="hinge"/>
       <body name="mid_{uid}" pos="0.5 0 0">
-        <geom density="1000" fromto="0 0 0 -1 0 0" size="0.1" type="capsule"/>
+        <geom conaffinity="0" condim="1" contype="0" rgba="0.8 0.6 0.4 1" density="1000" fromto="0 0 0 -1 0 0" size="0.1" type="capsule"/>
         <joint axis="0 0 1" limited="true" name="motor1_rot_{uid}" pos="0 0 0" range="-100 100" type="hinge"/>
         <body name="back_{uid}" pos="-1 0 0">
-          <geom density="1000" fromto="0 0 0 -1 0 0" size="0.1" type="capsule"/>
-          <joint axis="0 0 1" limited="true" name="motor2_rot_{uid}" pos="0 0 0" range="-100 100" type="hinge"/>
+          <geom conaffinity="0" condim="1" contype="0" rgba="0.8 0.6 0.4 1" density="1000" fromto="0 0 0 -1 0 0" size="0.1" type="capsule"/>
+          <joint armature="0.1" axis="0 0 1" limited="true" name="motor2_rot_{uid}" pos="0 0 0" range="-100 100" type="hinge"/>
         </body>
       </body>
     </body>

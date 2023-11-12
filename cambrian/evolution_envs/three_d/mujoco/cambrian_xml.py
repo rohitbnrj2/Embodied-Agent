@@ -166,19 +166,22 @@ class MjCambrianXML:
         """The directory of the base xml file."""
         return self._base_xml_path.parent
 
-    def __add__(self, other: "MjCambrianXML"):
+    def __add__(self, other: "MjCambrianXML") -> "MjCambrianXML":
         assert isinstance(other, MjCambrianXML)
         self += other
         return self
 
-    def __iadd__(self, other: "MjCambrianXML"):
+    def __iadd__(self, other: "MjCambrianXML") -> "MjCambrianXML":
         assert isinstance(other, MjCambrianXML)
         self._tree = ET.ElementTree(self.combine(self._root, other._root))
         return self
 
-    def __str__(self):
+    def to_string(self) -> str:
         str = ET.tostring(self._root, encoding="unicode").replace("\n", "")
         return minidom.parseString(str).toprettyxml(indent=" ")
+
+    def __str__(self) -> str:
+        return self.to_string()
 
 
 if __name__ == "__main__":

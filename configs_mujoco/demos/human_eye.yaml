@@ -1,10 +1,11 @@
 includes:
+  - configs_mujoco/demos/demo.yaml
   - configs_mujoco/base.yaml
   - configs_mujoco/animals/point.yaml
 
 animal_config:
   num_eyes_lat: 1
-  num_eyes_lon: 4
-  use_intensity_obs: True
+  num_eyes_lon: 1
   default_eye_config:
-    resolution: [2, 2]
+    resolution: [240, 180]
+    fov: [45, 30]

@@ -2,12 +2,19 @@ training_config:
   logdir: "logs-mujoco"
   exp_name: null # if unset, will be set to the name of the config file
   ppo_checkpoint_path: null # Will train from scratch if unset
-  total_timesteps: 5_000_000
-  check_freq: 10000
-  n_steps: 2048
-  batch_size: null # Automatically set to `n_steps * n_envs // n_epochs`
+
+  total_timesteps: 1_000_000
   max_episode_steps: 128
+  n_steps: 2048
+
+  batch_size: null # Automatically set to `n_steps * n_envs // n_epochs`
   n_envs: 10
+
+  eval_freq: 10000
+  reward_threshold: 90.0
+  max_no_improvement_evals: 10 # check_freq * max_no_improvement_evals steps
+  min_no_improvement_evals: 20 # check_freq * min_no_improvement_evals steps
+
   seed: 424041
   verbose: 2
 
@@ -21,30 +28,50 @@ env_config:
 
   use_goal_obs: False
   terminate_at_goal: False
-  distance_to_goal_threshold: 2.0
+  truncate_on_contact: True
+  distance_to_goal_threshold: 1.0
 
-  model_path: None # Set to the generated xml file at runtime
   frame_skip: 10
-  render_mode: "rgb_array"
-  width: 480
-  height: 480
-  camera_name: "track"
+
+  overlay_width: 0.5
+  overlay_height: 0.35
+
+  renderer_config:
+    camera_config:
+      lookat: [5.5, 0, 0]
+      azimuth: 180.0
+      elevation: -90.0
+      distance_factor: 1.25
+
+    render_modes: ["rgb_array"]
+
+    use_shared_context: False
 
   maze_config:
     name: "MANY_GOAL_MAZE" 
+    maze_path: "models/maze.xml"
+
     size_scaling: 4.0
     height: 0.5
+
     use_target_light_source: True
 
 animal_config:
   use_qpos_obs: True
   use_qvel_obs: True
   use_intensity_obs: False
+
   default_eye_config:
     mode: "fixed"
     filter_size: [0, 0]
+    fov: [45, 20]
+    renderer_config:
+      render_modes: ["rgb_array"]
   intensity_sensor_config:
+    mode: "fixed"
     resolution: [1, 1]
     fov: [120, 10]
-    mode: "fixed"
     filter_size: [0, 0]
+    renderer_config:
+      render_modes: ["rgb_array"]
+      use_shared_context: False

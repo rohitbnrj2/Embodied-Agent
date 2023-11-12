@@ -1,8 +1,8 @@
 from typing import List, Tuple, Any, Dict
 from pathlib import Path
-import cv2
-import glfw
+import tqdm.rich as tqdm
 
+import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import (
     VecEnv,
@@ -10,7 +10,11 @@ from stable_baselines3.common.vec_env import (
     SubprocVecEnv,
     VecMonitor,
 )
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import (
+    BaseCallback,
+    EvalCallback,
+    StopTrainingOnNoModelImprovement,
+)
 
 from env import MjCambrianEnv
 from config import MjCambrianConfig
@@ -18,8 +22,10 @@ from wrappers import make_single_env
 from callbacks import (
     PlotEvaluationCallback,
     SaveVideoCallback,
+    CallbackListWithSharedParent,
 )
 from feature_extractors import MjCambrianCombinedExtractor
+from renderer import MjCambrianRenderer
 
 
 def _convert_overrides_to_dict(overrides: List[Tuple[str, Any]]):
@@ -33,12 +39,18 @@ def _convert_overrides_to_dict(overrides: List[Tuple[str, Any]]):
         for key in keys[:-1]:
             d = d.setdefault(key, {})
         d[keys[-1]] = yaml.safe_load(v)
-        print(v, d[keys[-1]])
 
     return overrides_dict
 
 
 class MjCambrianRunner:
+    """This is the runner class for instantiating environments and running them.
+
+    There are three main methods:
+        - train: train the model from scratch or from an existing checkpoint
+        - eval: evaluate the model using an existing checkpoint or a randomized model
+    """
+
     def __init__(
         self,
         config: Path | str | MjCambrianConfig,
@@ -48,129 +60,155 @@ class MjCambrianRunner:
         config = Path(config)
         self.config = MjCambrianConfig.load(config, overrides=overrides)
 
-        self.training_config = self.config.training_config
         self.env_config = self.config.env_config
+        self.training_config = self.config.training_config
+        self.verbose = self.training_config.verbose
 
         if (exp_name := self.training_config.exp_name) is None:
             exp_name = config.stem
         self.logdir = Path(self.training_config.logdir) / exp_name
         self.logdir.mkdir(parents=True, exist_ok=True)
 
-        self.verbose = self.training_config.verbose
+        self.ppodir = self.logdir / "ppo"
+        self.ppodir.mkdir(parents=True, exist_ok=True)
 
-    def train(self):
-        """Begin the training."""
+    def train(self, args):
+        """Train the model."""
 
-        # Agent metadata
-        ppodir = self.logdir / "ppo"
-        ppodir.mkdir(parents=True, exist_ok=True)
-
-        env = self._make_env(ppodir, n_envs=self.training_config.n_envs)
-        eval_env = self._make_env(ppodir, n_envs=1)
+        # Create a regular training environment and an evaluation environment
+        # The eval env only has one environment, so that we can save videos
+        env = self._make_env(self.training_config.n_envs)
+        eval_env = self._make_env(1)
 
         # Call reset and write the yaml
         env.reset()
-        self.config.write_to_yaml(ppodir / "config.yaml")
+        self.config.write_to_yaml(self.ppodir / "config.yaml")
 
-        # Callbacks
-        check_freq = self.training_config.check_freq
-        eval_cb = EvalCallback(
-            env,
-            best_model_save_path=ppodir,
-            log_path=ppodir,
-            eval_freq=check_freq,
-            deterministic=True,
-            render=False,
-            callback_on_new_best=SaveVideoCallback(
-                eval_env, ppodir, self.training_config.max_episode_steps, verbose=1
-            ),
-            callback_after_eval=PlotEvaluationCallback(ppodir),
-        )
-
-        n_epochs = 10  # Default for PPO
-        self.training_config.batch_size = (
-            self.training_config.n_steps * self.training_config.n_envs
-        ) // n_epochs
-        model = PPO(
-            "MultiInputPolicy",
-            env,
-            n_steps=self.training_config.n_steps,
-            batch_size=self.training_config.batch_size,
-            verbose=self.verbose,
-            policy_kwargs=dict(features_extractor_class=MjCambrianCombinedExtractor),
-        )
-
+        # Create the model and train it
+        model = self._create_model(env)
         model.learn(
             total_timesteps=self.training_config.total_timesteps,
-            callback=eval_cb,
+            callback=self._create_callbacks(env, eval_env),
             progress_bar=True,
         )
 
-        model.save(ppodir / "best_model")
+        # Save the final model
+        model.save(self.ppodir / "best_model")
 
+        # Cleanup
         env.close()
+        eval_env.close()
 
-    def eval(self, random_actions: bool = False, fullscreen: bool = False):
+    def eval(self, args):
         """Evaluate the model."""
-        assert self.training_config.n_envs == 1, "Must have 1 env for evaluation."
+        assert not (args.record and args.forever), "Cannot record forever."
 
-        ppodir = self.logdir / "ppo"
-        env = self._make_env(ppodir, n_envs=1)
-        cambrian_env: MjCambrianEnv = env.envs[0]
+        self.env_config.renderer_config.fullscreen = args.fullscreen
+        self.env_config.renderer_config.render_modes = ["human", "rgb_array"]
+        if self.training_config.n_envs != 1:
+            print("WARNING: n_envs is not set to 1!")
+            self.training_config.n_envs = 1
 
-        if not random_actions:
-            print(f"Loading {ppodir / 'best_model.zip'}...")
-            assert (ppodir / "best_model.zip").exists()
-            model = PPO.load(ppodir / "best_model", env=env)
+        env = self._make_env(self.training_config.n_envs)
+        cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
+        renderer: MjCambrianRenderer = cambrian_env.renderer
+
+        model = self._create_model(env, force=args.random_actions)
 
         obs = env.reset()
+        renderer.record = args.record
 
-        window = cambrian_env.mujoco_renderer.viewer.window
-        if fullscreen:
-            monitor = glfw.get_primary_monitor()
-            mode = glfw.get_video_mode(monitor)
-            glfw.set_window_monitor(
-                window,
-                monitor,
-                0,
-                0,
-                mode.size.width,
-                mode.size.height,
-                mode.refresh_rate,
-            )
-            glfw.focus_window(window)
-
-        for animal_name in cambrian_env.animals:
-            cv2.namedWindow(animal_name, cv2.WINDOW_NORMAL)
-
-        done = True
-        terminate = False
-        for i in range(10000):
-            if terminate:
-                break
-            if done:
-                viewer = cambrian_env.mujoco_renderer.viewer
-                viewer.cam.distance = 30
-                viewer.cam.azimuth = 90
-                viewer.cam.elevation = -90
-
-            if random_actions:
-                action = env.action_space.sample()
-            else:
-                action, _ = model.predict(obs, deterministic=True)
+        cumulative_reward = 0
+        steps = 100_000 if args.forever else self.training_config.max_episode_steps 
+        for _ in range(steps):
+            action, _ = model.predict(obs, deterministic=True)
             obs, reward, done, info = env.step(action)
+            cumulative_reward += reward[0]
+
+            if done and not args.forever or not renderer.is_running:
+                break
+
+            cambrian_env.rollout["Cumulative Reward"] = f"{cumulative_reward:.2f}"
             env.render()
 
-            for name, animal in cambrian_env.animals.items():
-                if (composite_image := animal.create_composite_image()) is not None:
-                    cv2.imshow(name, composite_image)
-                    if cv2.waitKey(1) & 0xFF == ord("q"):
-                        terminate = True
-                        break
+        if args.record:
+            renderer.record = False
+            renderer.save_gif(self.ppodir / "eval.gif")
 
         env.close()
 
-    def _make_env(self, ppodir: Path, n_envs: int) -> VecEnv:
+    def _create_model(self, env: VecEnv, *, force: bool = False) -> PPO:
+        """Try to create the model. If loading is requested, do that. Otherwise, create
+        a new model.
+
+        Keyword Args:
+            force (bool): If True, create a new model even if a checkpoint is found.
+        """
+        if not force and (path := self._get_ppo_checkpoint_path()) is not None:
+            print(f"Loading {path}...")
+            model = PPO.load(path, env=env)
+        else:
+            print("Creating new model...")
+            policy_kwargs = dict(features_extractor_class=MjCambrianCombinedExtractor)
+            model = PPO(
+                "MultiInputPolicy",
+                env,
+                n_steps=self.training_config.n_steps,
+                batch_size=self._calc_batch_size(),
+                verbose=self.verbose,
+                policy_kwargs=policy_kwargs,
+            )
+        return model
+
+    def _create_callbacks(self, env: VecEnv, eval_env: gym.Env) -> BaseCallback:
+        save_video_callback = SaveVideoCallback(
+            eval_env,
+            self.ppodir,
+            self.training_config.max_episode_steps,
+            verbose=self.verbose,
+        )
+        stop_training_on_no_model_improvement = StopTrainingOnNoModelImprovement(
+            self.training_config.max_no_improvement_evals,
+            self.training_config.min_no_improvement_evals,
+            verbose=self.verbose,
+        )
+        callbacks_on_new_best = CallbackListWithSharedParent(
+            [
+                save_video_callback,
+                stop_training_on_no_model_improvement,
+            ]
+        )
+
+        eval_cb = EvalCallback(
+            env,
+            best_model_save_path=self.ppodir,
+            log_path=self.ppodir,
+            eval_freq=self.training_config.eval_freq,
+            deterministic=True,
+            render=False,
+            callback_on_new_best=callbacks_on_new_best,
+            callback_after_eval=PlotEvaluationCallback(self.ppodir),
+        )
+
+        return eval_cb
+
+    def _calc_batch_size(self, n_epochs: int = 8) -> int:
+        """Calculates the batch size as n_steps * n_envs / n_epochs.
+
+        n_epochs is set to 8 as a default since stable_baselines3 uses 10 and 8 is 
+        the closest factor of 2. Stable baselines recommends to use a batch size that is
+        a factor of `n_steps * n_envs` which _should_ be a factor of 2 (and it's
+        powers), but not of 10.
+
+        NOTE: if `training_config.batch_size` is set, that will be returned.
+        """
+        if self.training_config.batch_size is None:
+            self.training_config.batch_size = (
+                self.training_config.n_steps * self.training_config.n_envs
+            ) // n_epochs
+        return self.training_config.batch_size
+
+    def _make_env(self, n_envs: int) -> VecEnv:
         """Create the environment."""
         assert n_envs > 0, "Must have at least one environment."
         if n_envs == 1:
@@ -179,8 +217,26 @@ class MjCambrianRunner:
             env = SubprocVecEnv(
                 [make_single_env(i, i, self.config) for i in range(n_envs)]
             )
-        env = VecMonitor(env, ppodir.as_posix())
+        env = VecMonitor(env, str(self.ppodir))
         return env
+
+    def _get_ppo_checkpoint_path(self) -> Path | None:
+        if self.training_config.ppo_checkpoint_path is None:
+            return None
+
+        ppo_checkpoint_path = Path(self.training_config.ppo_checkpoint_path)
+
+        possible_paths = [
+            ppo_checkpoint_path,
+            self.logdir / ppo_checkpoint_path,
+            self.logdir / "ppo" / ppo_checkpoint_path,
+            Path(self.training_config.logdir) / ppo_checkpoint_path,
+        ]
+        for possible_path in possible_paths:
+            if possible_path.exists():
+                return possible_path
+
+        raise FileNotFoundError(f"Could not find {ppo_checkpoint_path}.")
 
 
 if __name__ == "__main__":
@@ -199,19 +255,21 @@ if __name__ == "__main__":
         default=[],
     )
 
-    parser.add_argument("--train", action="store_true", help="Train the model.")
-    parser.add_argument("--eval", action="store_true", help="Evaluate the model.")
-    parser.add_argument("--random", action="store_true", help="Use random actions.")
-    parser.add_argument("--fullscreen", action="store_true", help="Use fullscreen.")
+    actions = parser.add_subparsers(help="Actions to take.", required=True)
+
+    train = actions.add_parser("train", help="Train the model.")
+    train.set_defaults(cmd=MjCambrianRunner.train)
+
+    eval = actions.add_parser("eval", help="Evaluate the model.")
+    eval.add_argument("--random-actions", action="store_true", help="Use random actions.")
+    eval.add_argument("--fullscreen", action="store_true", help="Use fullscreen.")
+    eval.add_argument("--record", action="store_true", help="Record a gif.")
+    eval.add_argument("--forever", action="store_true", help="Run eval without stop.")
+    eval.set_defaults(cmd=MjCambrianRunner.eval)
 
     args = parser.parse_args()
 
     overrides = _convert_overrides_to_dict(args.overrides)
     runner = MjCambrianRunner(args.config, overrides=overrides)
 
-    if args.train:
-        runner.train()
-    if args.eval:
-        runner.config.training_config.n_envs = 1
-        runner.config.env_config.render_mode = "human"
-        runner.eval(args.random, args.fullscreen)
+    args.cmd(runner, args)

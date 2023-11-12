@@ -18,13 +18,6 @@ from utils import (
 )
 
 
-class MjCambrianAnimalType(Enum):
-    ANT: str = "ant"
-    SWIMMER: str = "swimmer"
-    SKYDIO: str = "skydio"
-    POINT: str = "point"
-
-
 class MjCambrianAnimal:
     """The animal class is defined as a physics object with eyes.
 
@@ -202,9 +195,23 @@ class MjCambrianAnimal:
                 )
                 self._eyes[name] = eye
 
+        # NOTE: Stable baselines3 requires the images to to have the channel be the last
+        # dimension. If any other eyes have a shape > (3, 3, C), we'll get an error from
+        # sb3 if the intensity sensor is < (3, 3, C) because it seems to think the
+        # channel isn't the last dimension. In this case, let's just increase the
+        # resolution of the intensity sensor.
+        if (
+            self.config.use_intensity_obs
+            and min(self.config.default_eye_config.resolution[:2]) > 3
+        ):
+            self.config.intensity_sensor_config.resolution = [
+                max(self.config.intensity_sensor_config.resolution[0], 4),
+                max(self.config.intensity_sensor_config.resolution[1], 4),
+            ]
+
         # Add a forward facing eye intensity sensor
         self._intensity_sensor = self._create_eye(
-            self.config.default_eye_config.copy(),
+            self.config.intensity_sensor_config.copy(),
             f"{self.name}_intensity_sensor",
             np.radians(self.config.intensity_sensor_config.fov[1]) / 2,
             np.pi / 2,
@@ -250,9 +257,9 @@ class MjCambrianAnimal:
         # Set each geom in this animal to be a certain group for rendering utils
         # The group number is the index the animal was created + 2
         # + 2 because the default group used in mujoco is 0 and our animal indexes start
-        # at 0
+        # at 0 and we'll put our scene stuff on group 1
         for geom in self.xml.findall(f".//*[@name='{self.config.body_name}']//geom"):
-            geom.set("group", str(idx + 1))
+            geom.set("group", str(idx + 2))
 
         # Add eyes
         for eye in self.eyes.values():
@@ -319,7 +326,8 @@ class MjCambrianAnimal:
         return self._get_obs(obs)
 
     def step(self, action: List[float]) -> Dict[str, Any]:
-        """Simply steps the eyes and returns the observation."""
+        """Steps the eyes, updates the ctrl inputs, and returns the observation."""
+
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
             obs[name] = eye.step()
@@ -358,16 +366,13 @@ class MjCambrianAnimal:
         images = []
         for i in range(self.config.num_eyes_lat):
             images.append([])
-            for j in range(self.config.num_eyes_lon):
+            for j in reversed(range(self.config.num_eyes_lon)):
                 name = f"{self.name}_eye_{i}_{j}"
                 obs = self._eyes[name].last_obs
                 images[i].append(obs.transpose(1, 0, 2))
         images = np.array(images)
 
-        return np.concatenate(
-            [np.concatenate(image_row, axis=1) for image_row in reversed(images)],
-            axis=0,
-        )
+        return np.vstack([np.hstack(image_row) for image_row in reversed(images)])
 
     @property
     def has_contacts(self) -> bool:

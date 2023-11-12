@@ -5,10 +5,14 @@ includes:
 training_config:
   total_timesteps: 15_000_000
 
+env_config:
+  reward_fn_type: "intensity_sensor"
+
+  truncate_on_contact: False
+
 animal_config:
   num_eyes_lat: 1
   num_eyes_lon: 4
   use_intensity_obs: True
   default_eye_config:
-    resolution: [2, 2]
-    fov: [45, 30]
+    resolution: [4, 4]

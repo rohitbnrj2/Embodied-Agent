@@ -1,0 +1,20 @@
+<mujoco name="maze">
+    <asset>
+        <texture name="checker_tex_cube" file="checker_texture.png" type="cube" />
+        <texture name="checker_tex_2d" file="checker_texture.png" type="2d" />
+
+        <!-- <material name="floor_mat" texture="checker_tex_2d" texuniform="true"/> -->
+        <material name="floor_mat" rgba="0.1 0.1 0.1 1.0" shininess="0.0" specular="0.0" />
+        <material name="target_mat" emission="5" />
+        <material name="block_mat" texture="checker_tex_cube" />
+    </asset>
+    <worldbody>
+        <body name="floor">
+            <geom name="floor" type="plane" pos="0 0 -0.05" size="1 1 1" material="floor_mat" condim="1" group="1" />
+        </body>
+        <site name="target" type="sphere" pos="0 0 1" rgba="1 1 1 1" material="target_mat" group="1" />
+
+        <light name="target_light" pos="0 0 1" dir="0 0 -1" cutoff="180" exponent="0.1"
+            ambient="1 1 1" diffuse="1 1 1" specular="1 1 1" castshadow="false" />
+    </worldbody>
+</mujoco>

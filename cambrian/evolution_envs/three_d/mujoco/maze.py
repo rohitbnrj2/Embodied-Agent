@@ -1,7 +1,7 @@
 """Augmented from `gymnasium_robotics.envs.maze.maze.Maze` to utilize MjCambrianXML."""
 
 from collections import deque
-from typing import Tuple
+from typing import Tuple, Dict
 import numpy as np
 
 import mujoco as mj
@@ -9,6 +9,7 @@ from gymnasium_robotics.envs.maze.maze import Maze
 
 from cambrian_xml import MjCambrianXML
 from config import MjCambrianMazeConfig
+from utils import get_model_path
 
 RESET = R = "r"  # Initial Reset position of the agent
 GOAL = G = "g"
@@ -152,6 +153,33 @@ MANY_GOAL_MAZE = [
 
 # ================
 
+# from https://learnopengl.com/Lighting/Light-casters
+ATTENUATION_LOOKUP_TABLE: Dict[int, Tuple[float, float, float]] = {
+    0: (1.0, 0.0, 0.0),  # no attenuation
+    7: (1.0, 0.7, 1.8),
+    13: (1.0, 0.35, 0.44),
+    20: (1.0, 0.22, 0.20),
+    32: (1.0, 0.14, 0.07),
+    50: (1.0, 0.09, 0.032),
+    65: (1.0, 0.07, 0.017),
+    100: (1.0, 0.045, 0.0075),
+    160: (1.0, 0.027, 0.0028),
+    200: (1.0, 0.022, 0.0019),
+    325: (1.0, 0.014, 0.0007),
+    600: (1.0, 0.007, 0.0002),
+    3250: (1.0, 0.0014, 0.000007),
+}
+
+
+def get_attenuation(max_distance: float) -> Tuple[float, float, float]:
+    """Returns the attenuation for a light source given the max distance."""
+    return ATTENUATION_LOOKUP_TABLE[
+        max(k for k in ATTENUATION_LOOKUP_TABLE if k <= max_distance)
+    ]
+
+
+# ================
+
 
 def make_map(name: str) -> np.ndarray:
     """Returns a map from a name."""
@@ -175,18 +203,29 @@ class MjCambrianMaze(Maze):
         self.goal = (
             self.generate_target_goal()
             if self._config.init_goal_pos is None
-            else self.index_to_pos(*self._config.init_goal_pos)
+            else self.cell_rowcol_to_xy(self._config.init_goal_pos)
         )
 
-        if self._config.use_target_light_source:
-            for light_id in range(model.nlight):
-                light_name = mj.mj_id2name(model, mj.mjtObj.mjOBJ_LIGHT, light_id)
-                if light_name is not None and "target_light_" not in light_name:
-                    continue
-                self._model.light_pos[light_id][:2] = self.goal
-
+        # Update target site position and size
         self._goal_site_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, "target")
+        assert self._goal_site_id is not None, "`target` site not found"
         self._model.site_pos[self._goal_site_id][:2] = self.goal
+        self._model.site_size[self._goal_site_id] = np.array(
+            [0.2 * self.maze_size_scaling] * 3
+        )
+
+        # Update target light position and attenuation
+        if self._config.use_target_light_source:
+            light_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_LIGHT, "target_light")
+            self._model.light_pos[light_id][:2] = self.goal
+            self._model.light_attenuation = get_attenuation(max(self.xy_size) * 1.75)
+
+        # Update floor size
+        floor_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_GEOM, "floor_geom")
+        assert floor_id is not None, "`floor_geom` not found"
+        self._model.geom_size[floor_id] = np.array(
+            [self.x_map_center * 2, self.y_map_center * 2, 0.1]
+        )
 
     def generate_target_goal(self) -> np.ndarray:
         """Taken from `MazeEnv`. Generates a random goal position for an env."""
@@ -210,18 +249,13 @@ class MjCambrianMaze(Maze):
 
         return reset_pos
 
-    def index_to_pos(self, i, j) -> np.ndarray:
-        """Converts an index in the map to a position."""
-        x = (j + 0.5) * self.maze_size_scaling - self.x_map_center
-        y = self.y_map_center - (i + 0.5) * self.maze_size_scaling
-        return np.array([x, y])
-
-    def pos_to_index(self, pos: np.ndarray) -> Tuple[int, int]:
-        """Converts a position to an index in the map."""
-        x, y = pos
-        i = int((self.y_map_center - y) / self.maze_size_scaling - 0.5)
-        j = int((x + self.x_map_center) / self.maze_size_scaling - 0.5)
-        return i, j
+    @property
+    def xy_size(self) -> Tuple[float, float]:
+        """Calculate the size in xy coordinates."""
+        return (
+            self.map_width * self.maze_size_scaling,
+            self.map_length * self.maze_size_scaling,
+        )
 
     @classmethod
     def make_maze(
@@ -238,32 +272,21 @@ class MjCambrianMaze(Maze):
             This causes issue because when we're doing parallel environments, one env
             could be writing to the file while another is reading from it. This means it
             might be empty; hence the need to override this method.
+
+        NOTE #2: The block has a gap and margin of 0.025 and 0.05 respectively. This
+            means that if the animal get's within 0.05 of the block, it will be recorded
+            as a contact, but there is no actual contact force applied by mujoco. This
+            is helpful so that we can terminate the simulation before the animal 
+            actually comes in conatct with the block and the camera/eye starts seeing
+            inside of the block.
         """
+        config.maze_path = get_model_path(config.maze_path)
+
         maze_map = make_map(config.name)
 
-        xml = MjCambrianXML.make_empty()
+        xml = MjCambrianXML(config.maze_path)
         worldbody = xml.find(".//worldbody")
         assert worldbody is not None
-
-        # Add the material first
-        assets = xml.add(xml.root, "asset")
-        block_tex = xml.add(
-            assets,
-            "texture",
-            name="block_tex",
-            builtin="checker",
-            rgb1="0.1 0.1 0.1",
-            rgb2="0.9 0.9 0.9",
-            width="100",
-            height="100",
-        )
-        xml.add(
-            assets,
-            "material",
-            name="block_mat",
-            texture=block_tex.attrib["name"],
-            texuniform="true"
-        )
 
         maze = cls(maze_map, config.size_scaling, config.height)
         empty_locations = []
@@ -284,9 +307,12 @@ class MjCambrianMaze(Maze):
                         pos=f"{x} {y} {config.height / 2 * config.size_scaling}",
                         size=f"{size / 2} {size / 2} {config.height / 2 * size}",
                         type="box",
+                        gap="0.05",
+                        margin="0.1",
                         material="block_mat",
                         contype="1",
                         conaffinity="1",
+                        group="1",
                     )
 
                 elif struct == RESET:
@@ -310,68 +336,21 @@ class MjCambrianMaze(Maze):
         maze._unique_goal_locations += maze._combined_locations
         maze._unique_reset_locations += maze._combined_locations
 
-        # Add a floor geometry
-        # Going to just be black/grey
-        xml.add(
-            assets,
-            "material",
-            name="floor_mat",
-            shininess="0.0",
-            specular="0.0",
-        )
-        xml.add(
-            xml.add(worldbody, "body", name="floor"),
-            "geom",
-            name="floor_geom",
-            pos="0 0 -0.05",
-            size=f"{maze.x_map_center * 2} {maze.y_map_center * 2} 0.1",
-            type="plane",
-            material="floor_mat",
-            rgba="0.1 0.1 0.1 1.0",
-            contype="1",
-            conaffinity="1",
-            condim="1",
-        )
+        # If target_light_source is not requested, remove it from the xml and update
+        # the target site to not be emissive
+        if not config.use_target_light_source:
+            target_light = xml.find(".//light[@name='target_light']")
+            assert target_light is not None, "`target_light` not found"
+            xml.remove(worldbody, target_light)
 
-        # Change the target site to be a light, if desired. By default, it's a red
-        # sphere
-        assert config.use_target_light_source is not None
-        if config.use_target_light_source:
-            # Add the light sources
-            for i, dir in enumerate(["0 0 -1"]):
-                xml.add(
-                    worldbody,
-                    "light",
-                    name=f"target_light_{i}",
-                    pos="0 0 1",
-                    dir=dir,
-                    cutoff="91", # idk
-                    exponent="0.1",
-                    attenuation="1 0.14 0.070", # from https://learnopengl.com/Lighting/Light-casters
-                    ambient="1 1 1",
-                    diffuse="1 1 1",
-                    specular="1 1 1",
-                    castshadow="false",
-                )
+            target_mat = xml.find(".//material[@name='target_mat']")
+            assert target_mat is not None, "`target_mat` not found"
+            target_mat.attrib["emission"] = "0"
 
-        # Visualize the target either way
-        # If using light source, the target is emissive
-        xml.add(
-            assets,
-            "material",
-            name="site_mat",
-            emission="5" if config.use_target_light_source else "0",
-        )
-        xml.add(
-            worldbody,
-            "site",
-            name="target",
-            pos=f"0 0 {config.height / 2 * config.size_scaling}",
-            size=f"{0.2 * config.size_scaling}",
-            type="sphere",
-            rgba="1 1 1 1",
-            material="site_mat",
-        )
+        # Update the floor texture to repeat in a way that matches the blocks
+        floor_mat = xml.find(".//material[@name='floor_mat']")
+        assert floor_mat is not None, "`floor_mat` not found"
+        floor_mat.attrib["texrepeat"] = " ".join(map(str, [2 / config.size_scaling] * 2))
 
         maze._config = config
         return maze, xml
@@ -383,8 +362,8 @@ class MjCambrianMaze(Maze):
 
         Uses a BFS to find the shortest path.
         """
-        start = self.pos_to_index(start)
-        target = self.pos_to_index(target)
+        start = self.cell_xy_to_rowcol(start)
+        target = self.cell_xy_to_rowcol(target)
 
         rows = len(self.maze_map)
         cols = len(self.maze_map[0])
@@ -399,8 +378,8 @@ class MjCambrianMaze(Maze):
             current = path[-1]
             if np.all(current == target):
                 # Convert path from indices to positions
-                path = [self.index_to_pos(*pos) for pos in path]
-                path.append(self.index_to_pos(*target))
+                path = [self.cell_rowcol_to_xy(pos) for pos in path]
+                path.append(self.cell_rowcol_to_xy(target))
                 return np.array(path)
 
             # Check all moves (left, right, up, down, and all diagonals)
@@ -412,7 +391,7 @@ class MjCambrianMaze(Maze):
                     and not visited[r][c]
                     and self.maze_map[r][c] != WALL
                 ):
-                    # If the movement is diagonal, check that the adjacent cells are 
+                    # If the movement is diagonal, check that the adjacent cells are
                     # free as well so the path doesn't clip through walls
                     pr, pc = current[0], current[0]
                     if (dr, dc) in moves[4:]:

@@ -1,0 +1,18 @@
+includes:
+  - configs_mujoco/base.yaml
+  - configs_mujoco/animals/point.yaml
+
+training_config:
+  ppo_checkpoint_path: # "best_model.zip"
+  total_timesteps: 5_000_000
+
+env_config:
+  reward_fn_type: "intensity_sensor"
+
+  truncate_on_contact: False
+
+animal_config:
+  num_eyes_lat: 1
+  num_eyes_lon: 2
+  default_eye_config:
+    resolution: [4, 4]

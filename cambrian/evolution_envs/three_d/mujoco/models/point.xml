@@ -1,6 +1,4 @@
 <mujoco>
-  <compiler inertiafromgeom="true" angle="radian" coordinate="local"/>
-  <option timestep="0.01" gravity="0 0 0" iterations="20" integrator="Euler"/>
   <asset>
     <material name="particle_mat" emission="1" rgba="0.3 0.6 0.3 1"/>
   </asset>
@@ -18,6 +16,6 @@
     <motor name="motor_x_{uid}" joint="ball_x_{uid}" ctrlrange="-1.0 1.0" ctrllimited="true" gear= "100"/>
     <motor name="motor_y_{uid}" joint="ball_y_{uid}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="100"/>
 
-    <motor name="motor_z_{uid}" joint="ball_z_{uid}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="1"/>
+    <motor name="motor_z_{uid}" joint="ball_z_{uid}" ctrlrange="-60.0 60.0" ctrllimited="true" gear="1"/>
   </actuator>
 </mujoco>
