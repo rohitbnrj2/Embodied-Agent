@@ -47,6 +47,14 @@ def _is_iterable(field_type: type) -> bool:
     return is_iterable
 
 
+def _list_representer(dumper, data):
+    return dumper.represent_sequence("tag:yaml.org,2002:seq", data, flow_style=True)
+
+
+yaml.add_representer(list, _list_representer)
+yaml.add_representer(tuple, _list_representer)
+
+
 T = TypeVar("T")
 
 
@@ -58,7 +66,7 @@ class MjCambrianBaseConfig(Generic[T]):
     def load(cls, config: Path | str | T, *, overrides: Dict[str, Any] = {}) -> T:
         """Load the config from a yaml file or another config. If overrides are passed,
         they are merged into the config.
-        
+
         Args:
             config (Path | str | MjCambrianBaseConfig): The config to load. If a path or
                 string is passed, it is assumed to be a path to a yaml file. If a config
@@ -76,7 +84,7 @@ class MjCambrianBaseConfig(Generic[T]):
     def from_yaml(cls, path: Path | str, *, overrides: Dict[str, Any] = {}) -> T:
         """Load the config from a yaml file. Will call `from_dict` with the output form
         `yaml.safe_load`.
-        
+
         Args:
             path (Path | str): The path to the yaml file.
             overrides (Dict[str, Any]): The overrides to merge into the config.
@@ -140,11 +148,11 @@ class MjCambrianBaseConfig(Generic[T]):
             ) from e
 
     def merge(self, other: Dict[str, Any] | T):
-        """Merge this config with a passed dictionary or config. This will recursively 
+        """Merge this config with a passed dictionary or config. This will recursively
         merge nested dictionaries/configs, as well.
-        
+
         Args:
-            other (Dict[str, Any] | MjCambrianBaseConfig): The dictionary to merge with. 
+            other (Dict[str, Any] | MjCambrianBaseConfig): The dictionary to merge with.
                 If a dataclass is passed, it will be converted to a dictionary first.
         """
         if issubclass(type(other), MjCambrianBaseConfig):
@@ -196,7 +204,7 @@ class MjCambrianBaseConfig(Generic[T]):
 
     def setdefault(self, field: str, default: Any) -> T:
         """Assign the default value to the field if it is not already set. Like
-        `dict.setdefault`.""" 
+        `dict.setdefault`."""
         if not hasattr(self, field) or getattr(self, field) is None:
             setattr(self, field, default)
         return self
@@ -251,6 +259,12 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig[T]):
         max_episode_steps (int): The maximum number of steps per episode.
         n_steps (int): The number of steps to take per training batch.
 
+        learning_rate (float): The learning rate to use for training. NOTE: sb3 default
+            is 3e-4.
+        n_epochs (int): The number of epochs to use for training. NOTE: sb3 default is
+            10.
+        gae_lambda (float): The lambda value to use for the generalized advantage
+            estimation. NOTE: sb3 default is 0.95.
         batch_size (Optional[int)): The batch size to use for training. If None,
             calculated as `n_steps * n_envs // n_epochs`.
         n_envs (int): The number of environments to use for training.
@@ -274,6 +288,9 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig[T]):
     max_episode_steps: int
     n_steps: int
 
+    learning_rate: float
+    n_epochs: int
+    gae_lambda: float
     batch_size: Optional[int] = None
     n_envs: int
 
@@ -320,6 +337,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig[T]):
     init_goal_pos: Optional[Tuple[float, float]] = None
     use_target_light_source: bool
 
+
 @dataclass
 class MjCambrianCameraConfig(MjCambrianBaseConfig[T]):
     """Defines a camera config. Used for type hinting. This is a wrapper of
@@ -339,6 +357,7 @@ class MjCambrianCameraConfig(MjCambrianBaseConfig[T]):
             calculate the distance from the camera to the lookat point. If unset, no
             scaling will be applied.
     """
+
     type: Optional[int] = None
     fixedcamid: Optional[int] = None
     trackbodyid: Optional[int] = None
@@ -350,13 +369,14 @@ class MjCambrianCameraConfig(MjCambrianBaseConfig[T]):
 
     distance_factor: Optional[float] = None
 
+
 @dataclass
 class MjCambrianRendererConfig(MjCambrianBaseConfig[T]):
     """The config for the renderer. Used for type hinting.
 
     A renderer corresponds to a single camera. The renderer can then view the scene in
     different ways, like offscreen (rgb_array) or onscreen (human).
-    
+
     Attributes:
         render_modes (List[str]): The render modes to use for the renderer. See
             `MjCambrianRenderer.metadata["render.modes"]` for options.
@@ -374,13 +394,14 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig[T]):
 
         camera_config (Optional[MjCambrianCameraConfig]): The camera config to use for
             the renderer.
-        
+
         use_shared_context (Optional[bool]): Whether to use a shared context or not.
             If True, the renderer will share a context with other renderers. This is
             useful for rendering multiple renderers at the same time. If False, the
             renderer will create its own context. This is computationally expensive if
             there are many renderers.
     """
+
     render_modes: List[str]
 
     max_geom: Optional[int] = None
@@ -393,6 +414,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig[T]):
     camera_config: Optional[MjCambrianCameraConfig] = None
 
     use_shared_context: Optional[bool] = None
+
 
 @dataclass
 class MjCambrianEnvConfig(MjCambrianBaseConfig[T]):
@@ -431,7 +453,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig[T]):
 
         renderer_config (MjCambrianViewerConfig): The default viewer config to
             use for the mujoco viewer.
-        overlay_width (Optional[float]): The width of _each_ rendered overlay that's 
+        overlay_width (Optional[float]): The width of _each_ rendered overlay that's
             placed on the render output. This is primarily for debugging. If unset,
             no overlay will be added. This is a percentage!! It's the percentage of
             the total width of the render output.

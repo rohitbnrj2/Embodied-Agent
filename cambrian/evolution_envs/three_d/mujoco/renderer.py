@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple, List, Any
+from typing import Dict, Optional, Tuple, List, Any, Type
 import numpy as np
 from pathlib import Path
 
@@ -9,6 +9,8 @@ import cv2
 
 from config import MjCambrianRendererConfig
 
+TEXT_HEIGHT = 20
+TEXT_MARGIN = 5
 
 def resize_with_aspect_fill(image, width, height):
     original_height, original_width = image.shape[:2]
@@ -35,6 +37,64 @@ def resize_with_aspect_fill(image, width, height):
     return result
 
 
+class MjCambrianCursor:
+    def __init__(self, *, x: int = 0, y: int = 0):
+        self.x: int = x
+        self.y: int = y
+
+    def add_x(self, dx: int) -> "MjCambrianCursor":
+        self.x += dx
+        return self
+
+    def add_y(self, dy: int) -> "MjCambrianCursor":
+        self.y += dy
+        return self
+
+    def add_xy(self, dx: int, dy: int) -> "MjCambrianCursor":
+        self.x += dx
+        self.y += dy
+        return self
+
+    def __sub__(self, other: Type["MjCambrianCursor"] | int) -> "MjCambrianCursor":
+        if isinstance(other, int):
+            return MjCambrianCursor(x=self.x - other, y=self.y - other)
+        else:
+            return MjCambrianCursor(x=self.x - other.x, y=self.y - other.y)
+
+    def __add__(self, other: Type["MjCambrianCursor"] | int) -> "MjCambrianCursor":
+        if isinstance(other, int):
+            return MjCambrianCursor(x=self.x + other, y=self.y + other)
+        else:
+            return MjCambrianCursor(x=self.x + other.x, y=self.y + other.y)
+
+    def __iadd__(self, other: Type["MjCambrianCursor"] | int) -> "MjCambrianCursor":
+        if isinstance(other, int):
+            return self.add_xy(other, other)
+        else:
+            return self.add_xy(other.x, other.y)
+
+    def __isub__(self, other: Type["MjCambrianCursor"] | int) -> "MjCambrianCursor":
+        if isinstance(other, int):
+            return self.add_xy(-other, -other)
+        else:
+            return self.add_xy(-other.x, -other.y)
+
+    def to_tuple(self) -> Tuple[int, int]:
+        return (self.x, self.y)
+
+    def __iter__(self):
+        return iter(self.to_tuple())
+
+    def __repr__(self):
+        return f"MjCambrianCursor(x={self.x}, y={self.y})"
+    
+    def __str__(self):
+        return self.__repr__()
+
+    def copy(self):
+        return MjCambrianCursor(x=self.x, y=self.y)
+    
+
 class MjCambrianViewer:
     """This is the base viewer class. It is an abstract class.
 
@@ -59,7 +119,6 @@ class MjCambrianViewer:
         camera: mj.MjvCamera,
     ):
         self.config = config
-        self.config.setdefault("max_geom", 1000)
 
         self.model: mj.MjModel = model
         self.data: mj.MjData = data
@@ -68,21 +127,14 @@ class MjCambrianViewer:
         self.camera: mj.MjvCamera = camera
         self.viewport: mj.MjrRect = None
 
-        if self.width is None:
-            self.width = self.model.vis.global_.offwidth
-        elif self.width > self.model.vis.global_.offwidth:
+        if self.width > self.model.vis.global_.offwidth:
             self.model.vis.global_.offwidth = self.width
-
-        if self.height is None:
-            self.height = self.model.vis.global_.offheight
-        elif self.height > self.model.vis.global_.offheight:
+        if self.height > self.model.vis.global_.offheight:
             self.model.vis.global_.offheight = self.height
 
-        self.setup_camera()
-
         self._is_closed: bool = False
-        self._image_overlays: List[Tuple[np.ndarray, Tuple[int, int]]] = []
-        self._text_overlays: List[Tuple[str, Tuple[int, int]]] = []
+        self._image_overlays: List[Tuple[np.ndarray, MjCambrianCursor]] = []
+        self._text_overlays: List[Tuple[str, MjCambrianCursor]] = []
 
     def setup_context(self):
         self.viewport = mj.MjrRect(0, 0, self.width, self.height)
@@ -90,29 +142,7 @@ class MjCambrianViewer:
         self.make_context_current()
         self._mjr_context = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
 
-    def setup_camera(self):
-        """Setup the camera."""
-        if self.config.camera_config is None:
-            return
-
-        if self.config.camera_config.type is not None:
-            self.camera.type = self.config.camera_config.type
-        if self.config.camera_config.fixedcamid is not None:
-            self.camera.fixedcamid = self.config.camera_config.fixedcamid
-        if self.config.camera_config.trackbodyid is not None:
-            self.camera.trackbodyid = self.config.camera_config.trackbodyid
-        if self.config.camera_config.distance is not None:
-            self.camera.distance = self.config.camera_config.distance
-            if self.config.camera_config.distance_factor is not None:
-                self.camera.distance *= self.config.camera_config.distance_factor
-        if self.config.camera_config.azimuth is not None:
-            self.camera.azimuth = self.config.camera_config.azimuth
-        if self.config.camera_config.elevation is not None:
-            self.camera.elevation = self.config.camera_config.elevation
-        if self.config.camera_config.lookat is not None:
-            self.camera.lookat[:] = self.config.camera_config.lookat
-
-    def update(self, width: Optional[int] = None, height: Optional[int] = None):
+    def update(self, width: Optional[int] = None, height: Optional[int] = None, camera: Optional[mj.MjvCamera] = None):
         """Update the underlying scene and camera.
 
         Derived classes should implement additional functionality, such as resizing the
@@ -120,6 +150,7 @@ class MjCambrianViewer:
         """
         self.width = self.width if width is None else width
         self.height = self.height if height is None else height
+        self.camera = self.camera if camera is None else camera
 
         mj.mjv_updateScene(
             self.model,
@@ -141,15 +172,13 @@ class MjCambrianViewer:
             return
 
         self.make_context_current()
-        self.update(self.width, self.height)
-
         mj.mjr_render(self.viewport, self.scene, self._mjr_context)
         self._draw_overlays()
 
     def add_overlay(
         self,
         overlay: np.ndarray | str,
-        pos: Optional[Tuple[int, int] | np.ndarray] = None,
+        pos: Optional[MjCambrianCursor] = None,
     ):
         """Alias to add_image_overlay and add_text_overlay."""
         if isinstance(overlay, np.ndarray):
@@ -159,7 +188,7 @@ class MjCambrianViewer:
         else:
             raise ValueError(f"Invalid overlay type `{type(overlay)}`.")
 
-    def add_image_overlay(self, overlay: np.ndarray, pos: Tuple[int, int] | np.ndarray):
+    def add_image_overlay(self, overlay: np.ndarray, pos: MjCambrianCursor):
         """This method implements drawing the overlay on top of the image. This is
         useful for drawing agent camera views, etc.
 
@@ -169,16 +198,16 @@ class MjCambrianViewer:
         Args:
             overlay (np.ndarray): The overlay. Will be placed at the given pos on
                 top of the image.
-            pos (Tuple[int, int] | np.ndarray): The position of the overlay. This is
+            pos (MjCambrianCursor): The position of the overlay. This is
                 relative to the bottom-left corner of the image. The height and width
-                is assumed from the image. Fmt: (left, top)
+                is assumed from the image.
         """
-        self._image_overlays.append((overlay, tuple(pos)))
+        self._image_overlays.append((overlay, pos.copy()))
 
     def add_text_overlay(
         self,
         overlay: Any,
-        pos: Optional[Tuple[int, int] | np.ndarray] = None,
+        pos: Optional[MjCambrianCursor] = None,
     ):
         """This method implements drawing the overlay on top of the image. This is
         for text specifically.
@@ -188,11 +217,11 @@ class MjCambrianViewer:
 
         Args:
             overlay (Any): The overlay text. Assumes str(overlay) is valid.
-            pos (Optional[Tuple[int, int] | np.ndarray]): The position of the overlay.
+            pos (Optional[MjCambrianCursor]): The position of the overlay.
                 If None, the text is placed in the bottom left of the image. If not
-                None, the text bottom left is placed at the given pos. Fmt: (left, top)
+                None, the text bottom left is placed at the given pos.
         """
-        self._text_overlays.append((str(overlay), tuple(pos)))
+        self._text_overlays.append((str(overlay), pos.copy()))
 
     def _draw_overlays(self):
         """Draw the overlays on top of the image."""
@@ -225,7 +254,16 @@ class MjCambrianViewer:
 
     def close(self):
         """Closes the viewer and frees the OpenGL context."""
-        self._gl_context.free()
+        glfw.terminate()
+        if self._gl_context is not None:
+            try:
+                self.make_context_current()
+                self._gl_context.free()
+                del self._gl_context
+            except Exception:
+                pass
+
+        self._gl_context = None
         self._is_closed = True
 
     # ====================
@@ -275,16 +313,12 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
         config: MjCambrianRendererConfig,
         camera: mj.MjvCamera,
     ):
-        assert (
-            config.width is not None and config.height is not None
-        ), "Width and height must be specified for offscreen rendering."
-
         super().__init__(model, data, config, camera)
         self.setup_context()
 
         mj.mjr_setBuffer(mj.mjtFramebuffer.mjFB_OFFSCREEN, self._mjr_context)
 
-    def update(self, width: Optional[int] = None, height: Optional[int] = None):
+    def update(self, width: Optional[int] = None, height: Optional[int] = None, camera: Optional[mj.MjvCamera] = None):
         """Update the underlying scene and camera.
 
         If the width and height are different from the current width and height, then
@@ -299,9 +333,10 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
 
         if self.width != width or self.height != height:
             self.make_context_current()
+            self.viewport = mj.MjrRect(0, 0, width, height)
             mj._render.mjr_resizeOffscreen(width, height, self._mjr_context)
 
-        super().update(width, height)
+        super().update(width, height, camera)
 
     def render(self) -> np.ndarray:
         """Render the scene to an offscreen buffer and read the pixels from the buffer."""
@@ -387,14 +422,13 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
             self.render()
 
     def close(self):
-        super().close()
-
         if self.window is not None:
             if glfw.get_current_context() == self.window:
                 glfw.make_context_current(None)
             glfw.destroy_window(self.window)
             self.window = None
-        glfw.terminate()
+
+        super().close()
 
     # ====================
 
@@ -503,11 +537,14 @@ class MjCambrianRenderer:
 
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
+        self.config.setdefault("max_geom", 1000)
         self.config.setdefault("use_shared_context", True)
 
         self.model: mj.MjModel = None
         self.data: mj.MjData = None
-        self.camera: mj.MjvCamera = mj.MjvCamera()  # shared camera
+        self.camera: mj.MjvCamera = mj.MjvCamera()
+
+        self.setup_camera()
 
         # Maps render_mode to viewer.
         self._viewers: Dict[str, MjCambrianViewer] = {}
@@ -515,14 +552,34 @@ class MjCambrianRenderer:
         self._record = False
         self._image_buffer: List[np.ndarray] = []
 
+    def setup_camera(self):
+        """Setup the camera."""
+        if self.config.camera_config is None:
+            return
+
+        if self.config.camera_config.type is not None:
+            self.camera.type = self.config.camera_config.type
+        if self.config.camera_config.fixedcamid is not None:
+            self.camera.fixedcamid = self.config.camera_config.fixedcamid
+        if self.config.camera_config.trackbodyid is not None:
+            self.camera.trackbodyid = self.config.camera_config.trackbodyid
+        if self.config.camera_config.distance is not None:
+            self.camera.distance = self.config.camera_config.distance
+            if self.config.camera_config.distance_factor is not None:
+                self.camera.distance *= self.config.camera_config.distance_factor
+        if self.config.camera_config.azimuth is not None:
+            self.camera.azimuth = self.config.camera_config.azimuth
+        if self.config.camera_config.elevation is not None:
+            self.camera.elevation = self.config.camera_config.elevation
+        if self.config.camera_config.lookat is not None:
+            self.camera.lookat[:] = self.config.camera_config.lookat
+
     def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, np.ndarray]:
         self.model = model
         self.data = data
 
-        self.config.setdefault("width", self.model.vis.global_.offwidth)
-        self.config.setdefault("height", self.model.vis.global_.offheight)
-
-        self._image_buffer.clear()
+        self.config.setdefault("width", model.vis.global_.offwidth)
+        self.config.setdefault("height", model.vis.global_.offheight)
 
         for render_mode in self.config.render_modes:
             if render_mode in self._viewers:
@@ -538,14 +595,14 @@ class MjCambrianRenderer:
         self.config.height = height
 
         for viewer in self._viewers.values():
-            viewer.update(width, height)
+            viewer.update(width, height, self.camera)
 
     def render(self) -> np.ndarray | None:
         image: np.ndarray | None = None
         for viewer in self._viewers.values():
             # Since the viewers may be shared between renderers, we need to call update
             # to update the underlying buffers, if needed.
-            viewer.update(self.config.width, self.config.height)
+            viewer.update(self.config.width, self.config.height, self.camera)
 
             if isinstance(viewer, MjCambrianOffscreenViewer):
                 image = viewer.render()
@@ -565,12 +622,12 @@ class MjCambrianRenderer:
     def add_overlay(
         self,
         overlay: np.ndarray | str,
-        pos: Tuple[int, int] | np.ndarray,
+        pos: MjCambrianCursor,
         *,
         render_mode: Optional[str] = None,
     ):
-        """Add an overlay to the image. Alias to add_image_overlay and add_text_overlay."""
-        assert len(pos) == 2, "pos must be a tuple of length 2."
+        """Add an overlay to the image. Alias to add_image_overlay and 
+        add_text_overlay."""
 
         for mode, viewer in self._viewers.items():
             if render_mode is not None and mode != render_mode:
@@ -580,7 +637,7 @@ class MjCambrianRenderer:
     def add_image_overlay(
         self,
         overlay: np.ndarray,
-        pos: Tuple[int, int] | np.ndarray,
+        pos: MjCambrianCursor,
         *,
         render_mode: Optional[str] = None,
     ):
@@ -589,16 +646,14 @@ class MjCambrianRenderer:
         Args:
             overlay (np.ndarray): The overlay. Will be placed at the given pos on
                 top of the image.
-            pos (Tuple[int, int] | np.ndarray): The position of the overlay. This is
+            pos (MjCambrianCursor): The position of the overlay. This is
                 relative to the bottom-left corner of the image. The height and width is
-                assumed from the image. Fmt: (left, top)
+                assumed from the image.
 
         Keyword Args:
             render_mode (Optional[str]): The render mode to add the overlay to. If
                 None, the overlay is added to all render modes.
         """
-        assert len(pos) == 2, "pos must be a tuple of length 2."
-
         for mode, viewer in self._viewers.items():
             if render_mode is not None and mode != render_mode:
                 continue
@@ -607,7 +662,7 @@ class MjCambrianRenderer:
     def add_text_overlay(
         self,
         overlay: Any,
-        pos: Optional[Tuple[int, int] | np.ndarray] = None,
+        pos: Optional[MjCambrianCursor] = None,
         *,
         render_mode: Optional[str] = None,
     ):
@@ -615,9 +670,9 @@ class MjCambrianRenderer:
 
         Args:
             overlay (Any): The overlay. Assumes str(overlay) is valid.
-            pos (Optional[Tuple[int, int] | np.ndarray]): The position of the overlay.
+            pos (Optional[MjCambrianCursor]): The position of the overlay.
                 This is relative to the bottom-left corner of the image. The height and
-                width is assumed from the image. Fmt: (left, top)
+                width is assumed from the image.
 
         Keyword Args:
             render_mode (Optional[str]): The render mode to add the overlay to. If
@@ -631,8 +686,6 @@ class MjCambrianRenderer:
     def close(self):
         for viewer in self._viewers.values():
             viewer.close()
-
-        glfw.terminate()
 
     def __del__(self):
         self.close()
@@ -648,9 +701,15 @@ class MjCambrianRenderer:
         assert (
             "rgb_array" in self.config.render_modes
         ), "Must be in rgb_array mode to record."
+        if not value:
+            self._image_buffer.clear()
         self._record = value
 
     def save_gif(self, path: Path | str):
+        if len(self._image_buffer) == 0:
+            print("WARNING: Image buffer is empty. Nothing to save.")
+            return
+
         import imageio
 
         duration = 1000 * 1 / 50

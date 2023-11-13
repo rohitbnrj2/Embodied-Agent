@@ -1,6 +1,5 @@
 from typing import List, Tuple, Any, Dict
 from pathlib import Path
-import tqdm.rich as tqdm
 
 import gymnasium as gym
 from stable_baselines3 import PPO
@@ -15,6 +14,7 @@ from stable_baselines3.common.callbacks import (
     EvalCallback,
     StopTrainingOnNoModelImprovement,
 )
+from stable_baselines3.common.utils import set_random_seed
 
 from env import MjCambrianEnv
 from config import MjCambrianConfig
@@ -53,19 +53,21 @@ class MjCambrianRunner:
 
     def __init__(
         self,
-        config: Path | str | MjCambrianConfig,
+        config_path: Path | str,
         *,
         overrides: Dict[str, Any] = {},
     ):
-        config = Path(config)
-        self.config = MjCambrianConfig.load(config, overrides=overrides)
+        config_path = Path(config_path)
+        self.config = MjCambrianConfig.load(config_path, overrides=overrides)
+
+        set_random_seed(self.config.training_config.seed)
 
         self.env_config = self.config.env_config
         self.training_config = self.config.training_config
         self.verbose = self.training_config.verbose
 
         if (exp_name := self.training_config.exp_name) is None:
-            exp_name = config.stem
+            exp_name = config_path.stem
         self.logdir = Path(self.training_config.logdir) / exp_name
         self.logdir.mkdir(parents=True, exist_ok=True)
 
@@ -101,8 +103,6 @@ class MjCambrianRunner:
 
     def eval(self, args):
         """Evaluate the model."""
-        assert not (args.record and args.forever), "Cannot record forever."
-
         self.env_config.renderer_config.fullscreen = args.fullscreen
         self.env_config.renderer_config.render_modes = ["human", "rgb_array"]
         if self.training_config.n_envs != 1:
@@ -118,22 +118,31 @@ class MjCambrianRunner:
         obs = env.reset()
         renderer.record = args.record
 
+        run = 0
+        done = True
         cumulative_reward = 0
-        steps = 100_000 if args.forever else self.training_config.max_episode_steps 
-        for _ in range(steps):
+        print("Starting evaluation...")
+        while run < args.total_runs + 1:
+            if not renderer.is_running:
+                print("Renderer closed. Exiting...")
+                break
+
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, done, info = env.step(action)
             cumulative_reward += reward[0]
 
-            if done and not args.forever or not renderer.is_running:
-                break
+            if done:
+                print(f"Episode done. Cumulative reward: {cumulative_reward:.2f}")
+                run += 1
+                if run < args.total_runs + 1:
+                    print(f"Starting run {run}...")
 
             cambrian_env.rollout["Cumulative Reward"] = f"{cumulative_reward:.2f}"
             env.render()
 
         if args.record:
-            renderer.record = False
             renderer.save_gif(self.ppodir / "eval.gif")
+            renderer.record = False
 
         env.close()
 
@@ -155,6 +164,7 @@ class MjCambrianRunner:
                 env,
                 n_steps=self.training_config.n_steps,
                 batch_size=self._calc_batch_size(),
+                learning_rate=self.training_config.learning_rate,
                 verbose=self.verbose,
                 policy_kwargs=policy_kwargs,
             )
@@ -192,10 +202,10 @@ class MjCambrianRunner:
 
         return eval_cb
 
-    def _calc_batch_size(self, n_epochs: int = 8) -> int:
+    def _calc_batch_size(self) -> int:
         """Calculates the batch size as n_steps * n_envs / n_epochs.
 
-        n_epochs is set to 8 as a default since stable_baselines3 uses 10 and 8 is 
+        n_epochs is set to 8 as a default since stable_baselines3 uses 10 and 8 is
         the closest factor of 2. Stable baselines recommends to use a batch size that is
         a factor of `n_steps * n_envs` which _should_ be a factor of 2 (and it's
         powers), but not of 10.
@@ -205,17 +215,24 @@ class MjCambrianRunner:
         if self.training_config.batch_size is None:
             self.training_config.batch_size = (
                 self.training_config.n_steps * self.training_config.n_envs
-            ) // n_epochs
+            ) // self.training_config.n_epochs
         return self.training_config.batch_size
 
     def _make_env(self, n_envs: int) -> VecEnv:
-        """Create the environment."""
+        """Create the environment.
+        
+        NOTE: `use_renderer` for the first environment is set to True, and False for
+        all others.
+        """
         assert n_envs > 0, "Must have at least one environment."
         if n_envs == 1:
             env = DummyVecEnv([make_single_env(0, 0, self.config)])
         else:
             env = SubprocVecEnv(
-                [make_single_env(i, i, self.config) for i in range(n_envs)]
+                [
+                    make_single_env(i, i, self.config, use_renderer=i == 0)
+                    for i in range(n_envs)
+                ]
             )
         env = VecMonitor(env, str(self.ppodir))
         return env
@@ -261,10 +278,12 @@ if __name__ == "__main__":
     train.set_defaults(cmd=MjCambrianRunner.train)
 
     eval = actions.add_parser("eval", help="Evaluate the model.")
-    eval.add_argument("--random-actions", action="store_true", help="Use random actions.")
+    eval.add_argument(
+        "--random-actions", action="store_true", help="Use random actions."
+    )
     eval.add_argument("--fullscreen", action="store_true", help="Use fullscreen.")
     eval.add_argument("--record", action="store_true", help="Record a gif.")
-    eval.add_argument("--forever", action="store_true", help="Run eval without stop.")
+    eval.add_argument("--total-runs", type=int, default=1, help="Number of runs.")
     eval.set_defaults(cmd=MjCambrianRunner.eval)
 
     args = parser.parse_args()

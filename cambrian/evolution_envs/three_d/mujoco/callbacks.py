@@ -126,10 +126,10 @@ class SaveVideoCallback(BaseCallback):
             self.cambrian_env.rollout["Total Timesteps"] = f"{self.num_timesteps}"
             self.env.render()
 
-        self.renderer.record = False
-
         filename = f"vis_{self.n_calls}.gif"
         self.renderer.save_gif(self.evaldir / filename)
+
+        self.renderer.record = False
 
         return True
 

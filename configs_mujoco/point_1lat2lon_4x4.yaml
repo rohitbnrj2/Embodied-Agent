@@ -3,11 +3,11 @@ includes:
   - configs_mujoco/animals/point.yaml
 
 training_config:
-  ppo_checkpoint_path: # "best_model.zip"
+  ppo_checkpoint_path: null # "best_model.zip"
   total_timesteps: 5_000_000
 
 env_config:
-  reward_fn_type: "intensity_sensor"
+  reward_fn_type: "intensity_and_at_goal"
 
   truncate_on_contact: False
 

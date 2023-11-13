@@ -8,12 +8,12 @@ from env import MjCambrianEnv
 
 
 def make_single_env(
-    rank: int, seed: float, config_path: str | Path
+    rank: int, seed: float, config_path: str | Path, **kwargs
 ) -> "MjCambrianSingleAnimalEnvWrapper":
     """Utility function for multiprocessed MjCambrianSingleAnimalEnvWrapper."""
 
     def _init():
-        env = MjCambrianEnv(config_path)
+        env = MjCambrianEnv(config_path, **kwargs)
         env = MjCambrianSingleAnimalEnvWrapper(env)
         env.reset(seed=seed + rank)
         return env

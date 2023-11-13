@@ -280,11 +280,9 @@ class MjCambrianMaze(Maze):
             actually comes in conatct with the block and the camera/eye starts seeing
             inside of the block.
         """
-        config.maze_path = get_model_path(config.maze_path)
-
         maze_map = make_map(config.name)
 
-        xml = MjCambrianXML(config.maze_path)
+        xml = MjCambrianXML(get_model_path(config.maze_path))
         worldbody = xml.find(".//worldbody")
         assert worldbody is not None
 

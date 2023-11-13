@@ -13,7 +13,7 @@ from maze import MjCambrianMaze
 from cambrian_xml import MjCambrianXML
 from config import MjCambrianConfig
 from utils import get_model_path
-from renderer import MjCambrianRenderer, resize_with_aspect_fill
+from renderer import MjCambrianRenderer, resize_with_aspect_fill, MjCambrianCursor, TEXT_HEIGHT, TEXT_MARGIN
 
 
 def make_env(rank: int, seed: float, config_path: str | Path) -> "MjCambrianEnv":
@@ -52,11 +52,18 @@ class MjCambrianEnv(gym.Env):
     Args:
         config_path (str | Path | MjCambrianConfig): The path to the config file or the
             config object itself.
+
+    Keyword Args:
+        use_renderer (bool): Whether to use the renderer. Should set to False if
+            `render` will never be called. Defaults to True. This is useful to reduce
+            the amount of vram consumed by non-rendering environments.
     """
 
     metadata = {"render_modes": ["human", "rgb_array", "depth_array"]}
 
-    def __init__(self, config: str | Path | MjCambrianConfig):
+    def __init__(
+        self, config: str | Path | MjCambrianConfig, *, use_renderer: bool = True
+    ):
         self._setup_config(config)
 
         self.animals: Dict[str, MjCambrianAnimal] = {}
@@ -67,10 +74,12 @@ class MjCambrianEnv(gym.Env):
         self.model = mj.MjModel.from_xml_string(self.xml.to_string())
         self.data = mj.MjData(self.model)
 
-        self.renderer = MjCambrianRenderer(self.renderer_config)
+        self.renderer: MjCambrianRenderer = None
         self.render_mode = (
             "human" if "human" in self.renderer_config.render_modes else "rgb_array"
         )
+        if use_renderer:
+            self.renderer = MjCambrianRenderer(self.renderer_config)
 
         self._episode_step = 0
         self._max_episode_steps = self.config.training_config.max_episode_steps
@@ -86,10 +95,7 @@ class MjCambrianEnv(gym.Env):
     def _setup_config(self, config: str | Path | MjCambrianConfig):
         """Helper method to setup the config. This is called by the constructor."""
         self.config = MjCambrianConfig.load(config)
-
         self.env_config = self.config.env_config
-        self.env_config.scene_path = get_model_path(self.env_config.scene_path)
-
         self.renderer_config = self.env_config.renderer_config
 
     def _create_animals(self):
@@ -111,7 +117,7 @@ class MjCambrianEnv(gym.Env):
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
-        xml = MjCambrianXML(self.env_config.scene_path)
+        xml = MjCambrianXML(get_model_path(self.env_config.scene_path))
 
         # Create the directional light, if desired
         if self.env_config.use_directional_light:
@@ -210,8 +216,9 @@ class MjCambrianEnv(gym.Env):
 
         self._step_mujoco_simulation(1)
 
-        self.renderer.config.camera_config.distance = self.model.stat.extent
-        self.renderer.reset(self.model, self.data)
+        if self.renderer is not None:
+            self.renderer.config.camera_config.distance = self.model.stat.extent
+            self.renderer.reset(self.model, self.data)
 
         self._episode_step = 0
         self._rollout.clear()
@@ -357,7 +364,15 @@ class MjCambrianEnv(gym.Env):
         Returns:
             Dict[str, np.ndarray]: The rendered image for each render mode mapped to
                 its str.
+
+        TODO:
+            - Make the cursor stuff clearer
         """
+
+        assert (
+            self.renderer is not None
+        ), "Renderer has not been initialized! Ensure `use_renderer` is set to True in the constructor."
+
         renderer = self.renderer
         renderer_height = renderer.config.height
         renderer_width = renderer.config.width
@@ -365,17 +380,17 @@ class MjCambrianEnv(gym.Env):
         overlay_width = int(renderer_width * self.env_config.overlay_width)
         overlay_height = int(renderer_height * self.env_config.overlay_height)
         overlay_size = (overlay_width, overlay_height)
-        overlay_top_text = (3 * overlay_height) // 4
 
-        cursor = np.array((0, renderer_height - 15))
+        cursor = MjCambrianCursor(y=renderer_height - TEXT_MARGIN * 2)
         for key, value in self._rollout.items():
-            cursor[1] -= 20
+            cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
             renderer.add_overlay(f"{key}: {value}", cursor)
 
-        cursor = np.array((0, 0))
+        cursor = MjCambrianCursor()
         for i, (name, animal) in enumerate(self.animals.items()):
-            cursor[0] = 2 * i * overlay_width
-            if cursor[0] + overlay_width * 2 > renderer_width:
+            cursor.x += 2 * i * overlay_width
+            cursor.y = 0
+            if cursor.x + overlay_width * 2 > renderer_width:
                 print("WARNING: Renderer width is too small!!")
                 continue
 
@@ -386,22 +401,33 @@ class MjCambrianEnv(gym.Env):
 
             new_composite = resize_with_aspect_fill(composite, *overlay_size)
             renderer.add_overlay(new_composite, cursor)
-            renderer.add_text_overlay(composite.shape[:2], cursor - 5)
-            renderer.add_overlay(name, (cursor[0] - 5, overlay_top_text))
 
-            cursor[0] += overlay_width
+            cursor -= TEXT_MARGIN
+            lon_eyes = animal.config.num_eyes_lon
+            lat_eyes = animal.config.num_eyes_lat
+            renderer.add_overlay(f"LatxLon: {lat_eyes}x{lon_eyes}", cursor)
+            cursor.y += TEXT_HEIGHT
+            eye0 = next(iter(animal.eyes.values()))
+            renderer.add_overlay(f"Res: {tuple(eye0.resolution)}", cursor)
+            cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
+            renderer.add_overlay(f"Animal: {name}", cursor)
+
+            cursor.x += overlay_width
+            cursor.y = 0
 
             intensity_name = animal.intensity_sensor.name
             new_intensity = resize_with_aspect_fill(intensity, *overlay_size)
             renderer.add_overlay(new_intensity, cursor)
-            renderer.add_text_overlay(intensity.shape[:2], cursor - 5)
-            renderer.add_overlay(intensity_name, (cursor[0] - 5, overlay_top_text))
+            renderer.add_text_overlay(intensity.shape[:2], cursor)
+            cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
+            renderer.add_overlay(intensity_name, cursor)
 
-        return self.renderer.render()
+        return renderer.render()
 
     def close(self):
         """Closes the environment."""
-        self.renderer.close()
+        if self.renderer is not None:
+            self.renderer.close()
 
     @property
     def rollout(self) -> Dict[str, Any]:
@@ -488,6 +514,7 @@ class MjCambrianEnv(gym.Env):
         DISTANCE_ALONG_PATH = "distance_along_path"
         INTENSITY_SENSOR = "intensity_sensor"
         INTENSITY_AND_VELOCITY = "intensity_and_velocity"
+        INTENSITY_EUCLIDEAN_AND_AT_GOAL = "intensity_euclidean_and_at_goal"
         INTENSITY_AND_AT_GOAL = "intensity_and_at_goal"
         INTENSITY_SENSOR_AND_EUCLIDEAN = "intensity_sensor_and_euclidean"
         SPARSE = "sparse"
@@ -507,6 +534,8 @@ class MjCambrianEnv(gym.Env):
             return self._reward_fn_intensity_sensor
         elif reward_fn_type == self._RewardType.INTENSITY_AND_VELOCITY:
             return self._reward_fn_intensity_and_velocity
+        elif reward_fn_type == self._RewardType.INTENSITY_EUCLIDEAN_AND_AT_GOAL:
+            return self._reward_fn_intensity_euclidean_and_at_goal
         elif reward_fn_type == self._RewardType.INTENSITY_AND_AT_GOAL:
             return self._reward_fn_intensity_and_at_goal
         elif reward_fn_type == self._RewardType.INTENSITY_SENSOR_AND_EUCLIDEAN:
@@ -586,6 +615,18 @@ class MjCambrianEnv(gym.Env):
         velocity_reward = self._reward_fn_delta_euclidean(animal, info)
         return (intensity_reward + velocity_reward) / 2
 
+    def _reward_fn_intensity_euclidean_and_at_goal(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """This reward combines `reward_fn_intensity_sensor`,
+        `reward_fn_euclidean`, and `reward_fn_sparse`."""
+        intensity_reward = self._reward_fn_intensity_sensor(animal, info)
+        euclidean_reward = self._reward_fn_delta_euclidean(animal, info)
+        reward = (intensity_reward + euclidean_reward) / 2
+        return 1 if self._is_at_goal(animal) else reward
+
     def _reward_fn_intensity_and_at_goal(
         self,
         animal: MjCambrianAnimal,
@@ -639,6 +680,12 @@ if __name__ == "__main__":
         help="Seed to use for the environment.",
         default=None,
     )
+    parser.add_argument(
+        "--mj-viewer",
+        action="store_true",
+        help="Whether to use the mujoco viewer.",
+        default=False,
+    )
 
     args = parser.parse_args()
 
@@ -648,23 +695,24 @@ if __name__ == "__main__":
     overrides = _convert_overrides_to_dict(args.overrides)
     config = MjCambrianConfig.load(args.config_path, overrides=overrides)
 
-    env = MjCambrianEnv(config)
+    env = MjCambrianEnv(config, use_renderer=not args.mj_viewer)
     env.reset()
 
-    while env.renderer.is_running:
-        env.render()
-    env.close()
+    if args.mj_viewer:
+        import mujoco.viewer
 
-    # import mujoco.viewer
+        mujoco.viewer.launch(env.model, env.data)
 
-    # mujoco.viewer.launch(env.model, env.data)
+        # NOTE: launch_passive currently broken when focal or focalpixel is specified
+        # with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
+        #     while viewer.is_running():
+        #         mj.mj_step(env.model, env.data)
+        #         for animal in env.animals.values():
+        #             animal.has_contacts
+        #         viewer.sync()
+    else:
+        while env.renderer.is_running:
+            env.render()
+        env.close()
 
-    # NOTE: launch_passive currently broken when focal or focalpixel is specified
-    # with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
-    #     while viewer.is_running():
-    #         mj.mj_step(env.model, env.data)
-    #         for animal in env.animals.values():
-    #             animal.has_contacts
-    #         viewer.sync()
-
-    #     print("Exiting...")
+    print("Exiting...")

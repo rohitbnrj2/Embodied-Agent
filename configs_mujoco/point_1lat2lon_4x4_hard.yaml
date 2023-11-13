@@ -2,10 +2,9 @@ includes:
   - configs_mujoco/point_1lat2lon_4x4.yaml
 
 training_config:
-  ppo_checkpoint_path: "best_model.zip"
+  ppo_checkpoint_path: null # "best_model.zip"
   max_episode_steps: 256
 
 env_config:
-  reward_fn_type: "intensity_and_at_goal"
   maze_config:
     name: "MEDIUM_MAZE_DIVERSE_G"

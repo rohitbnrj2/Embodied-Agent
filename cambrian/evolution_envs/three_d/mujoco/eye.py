@@ -144,14 +144,14 @@ class MjCambrianEye:
         self._renderer.reset(model, data)
 
         # All animal geomgroups start at 2, and so we'll hide all them
+        # We'll also hide all the sites after 2
         self._renderer.set_option("geomgroup", False, slice(2, None))
+        self._renderer.set_option("sitegroup", False, slice(2, None))
 
         fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, self.name)
         assert fixedcamid != -1, f"Camera '{self.name}' not found."
-
-        for viewer in self._renderer.viewers.values():
-            viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
-            viewer.camera.fixedcamid = fixedcamid
+        self._renderer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
+        self._renderer.camera.fixedcamid = fixedcamid
 
         return self.step()
 

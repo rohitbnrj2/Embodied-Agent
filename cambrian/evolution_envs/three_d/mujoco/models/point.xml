@@ -1,6 +1,7 @@
 <mujoco>
   <asset>
     <material name="particle_mat" emission="1" rgba="0.3 0.6 0.3 1"/>
+    <material name="particle_direction_mat" emission="1" rgba="0.6 0.3 0.3 1"/>
   </asset>
   <worldbody>
     <body name="particle_{uid}" pos="0 0 0.2">
@@ -9,6 +10,7 @@
       <joint name="ball_x_{uid}" type="slide" pos="0 0 0" axis="1 0 0" damping="1" limited="false"/>
       <joint name="ball_y_{uid}" type="slide" pos="0 0 0" axis="0 1 0" damping="1" limited="false"/>
       <joint name="ball_z_{uid}" type="hinge" pos="0 0 0" axis="0 0 1" damping="1" limited="false"/>
+      <site name="particle_direction_site_{uid}" group="2" pos="0.3 0.0 0.0" quat="0.5 0.5 0.5 0.5" type="cylinder" material="particle_direction_mat" rgba="1.0 0.0 0.0 1.0" size="0.05 0.15" />
     </body>
   </worldbody>
   <actuator>
@@ -16,6 +18,6 @@
     <motor name="motor_x_{uid}" joint="ball_x_{uid}" ctrlrange="-1.0 1.0" ctrllimited="true" gear= "100"/>
     <motor name="motor_y_{uid}" joint="ball_y_{uid}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="100"/>
 
-    <motor name="motor_z_{uid}" joint="ball_z_{uid}" ctrlrange="-60.0 60.0" ctrllimited="true" gear="1"/>
+    <motor name="motor_z_{uid}" joint="ball_z_{uid}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="10"/>
   </actuator>
 </mujoco>
