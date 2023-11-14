@@ -84,6 +84,8 @@ evo_config:
   population_size: 10
   num_top_performers: 2
 
+  num_generations: 1
+
   animal_pool_type: "shared_file"
   shared_file_config:
     filename: "shared_agent_pool.pkl"

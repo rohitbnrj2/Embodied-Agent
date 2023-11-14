@@ -10,6 +10,12 @@ from eye import MjCambrianEye, MjCambrianEyeConfig
 from config import MjCambrianAnimalConfig
 from utils import (
     get_model_path,
+    get_body_id,
+    get_body_name,
+    get_geom_id,
+    get_joint_id,
+    get_joint_name,
+    get_geom_name,
     generate_sequence_from_range,
     MjCambrianJoint,
     MjCambrianActuator,
@@ -38,10 +44,14 @@ class MjCambrianAnimal:
 
     Args:
         config (MjCambrianAnimalConfig): The configuration for the animal.
+
+    Keyword Args:
+        verbose (int): The verbosity level. Defaults to 0.
     """
 
-    def __init__(self, config: MjCambrianAnimalConfig):
+    def __init__(self, config: MjCambrianAnimalConfig, *, verbose: int = 0):
         self.config = self._check_config(config)
+        self.verbose = verbose
 
         self._eyes: Dict[str, MjCambrianEye] = {}
         self._intensity_sensor: MjCambrianEye = None
@@ -106,7 +116,7 @@ class MjCambrianAnimal:
         self._numctrl = model.nu
 
         # Create the geometries we will use for eye placement
-        geom_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_GEOM, self.config.geom_name)
+        geom_id = get_geom_id(model, self.config.geom_name)
         assert geom_id != -1, f"Could not find geom with name {self.config.geom_name}."
         geom_rbound = model.geom_rbound[geom_id]
         geom_pos = model.geom_pos[geom_id]
@@ -121,7 +131,7 @@ class MjCambrianAnimal:
 
         # Root body for the animal
         body_name = self.config.body_name
-        body_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, body_name)
+        body_id = get_body_id(model, body_name)
         assert body_id != -1, f"Could not find body with name {body_name}."
 
         # Mujoco doesn't have a neat way to grab the actuators associated with a
@@ -282,12 +292,12 @@ class MjCambrianAnimal:
 
         # Root body for the animal
         body_name = self.config.body_name
-        self._body_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, body_name)
+        self._body_id = get_body_id(model, body_name)
         assert self._body_id != -1, f"Could not find body with name {body_name}."
 
         # This joint is used for positioning the animal in the environment
         joint_name = self.config.joint_name
-        self._joint_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, joint_name)
+        self._joint_id = get_joint_id(model, joint_name)
         assert self._joint_id != -1, f"Could not find joint with name {joint_name}."
         self._joint_qposadr = model.jnt_qposadr[self._joint_id]
         self._joint_dofadr = model.jnt_dofadr[self._joint_id]
@@ -338,7 +348,9 @@ class MjCambrianAnimal:
 
         return self._get_obs(obs, action)
 
-    def _get_obs(self, obs: Dict[str, Any], action: Optional[List[float]] = None) -> Dict[str, Any]:
+    def _get_obs(
+        self, obs: Dict[str, Any], action: Optional[List[float]] = None
+    ) -> Dict[str, Any]:
         """Creates the entire obs dict."""
         if self.config.use_qpos_obs:
             qpos = self._data.qpos[self._qposadrs]
@@ -393,27 +405,41 @@ class MjCambrianAnimal:
             body2 = self._model.geom_bodyid[geom2]
             rootbody2 = self._model.body_rootid[body2]
 
-            rootbody = geom = None
-            otherrootbody = othergeom = None
+            body = rootbody = geom = None
+            otherbody = otherrootbody = othergeom = None
             if rootbody1 == self._body_id:
-                rootbody, geom = rootbody1, geom1
-                otherrootbody, othergeom = rootbody2, geom2
+                body, rootbody, geom = body1, rootbody1, geom1
+                otherbody, otherrootbody, othergeom = body2, rootbody2, geom2
             elif rootbody2 == self._body_id:
-                rootbody, geom = rootbody2, geom2
-                otherrootbody, othergeom = rootbody1, geom1
+                body, rootbody, geom = body2, rootbody2, geom2
+                otherbody, otherrootbody, othergeom = body1, rootbody1, geom1
             else:
                 # Not a contact with this animal
                 continue
 
             # Verify it's not a ground contact
-            groundbody = mj.mj_name2id(self._model, mj.mjtObj.mjOBJ_BODY, "floor")
+            groundbody = get_body_id(self._model, "floor")
             if otherrootbody == groundbody:
                 continue
 
-            # body1_name = mj.mj_id2name(self._model, mj.mjtObj.mjOBJ_BODY, body1)
-            # body2_name = mj.mj_id2name(self._model, mj.mjtObj.mjOBJ_BODY, body2)
-            # print(body1, body2)
-            # print(f"Detected contact between {body1_name} and {body2_name}!")
+            if self.verbose > 1:
+                body_name = get_body_name(self._model, body)
+                rootbody_name = get_body_name(self._model, rootbody)
+                geom_name = get_geom_name(self._model, geom)
+
+                otherbody_name = get_body_name(self._model, otherbody)
+                otherrootbody_name = get_body_name(self._model, otherrootbody)
+                othergeom_name = get_geom_name(self._model, othergeom)
+
+                print("Detected contact:")
+                print(
+                    f"\t1 (body :: rootbody :: geom): "
+                    f"{body_name} :: {rootbody_name} :: {geom_name}"
+                )
+                print(
+                    f"\t2 (body :: rootbody :: geom): "
+                    f"{otherbody_name} :: {otherrootbody_name} :: {othergeom_name}"
+                )
 
             return True
 

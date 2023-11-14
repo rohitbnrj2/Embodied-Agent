@@ -1,3 +1,3 @@
 env_config:
   maze_config:
-    name: "LARGE_MAZE_DIVERSE_G"
+    name: "MANY_GOAL_MAZE"
