@@ -26,6 +26,7 @@ from callbacks import (
 )
 from feature_extractors import MjCambrianCombinedExtractor
 from renderer import MjCambrianRenderer
+from animal_pool import MjCambrianAnimalPool
 
 
 def _convert_overrides_to_dict(overrides: List[Tuple[str, Any]]):
@@ -58,21 +59,44 @@ class MjCambrianRunner:
         overrides: Dict[str, Any] = {},
     ):
         config_path = Path(config_path)
-        self.config = MjCambrianConfig.load(config_path, overrides=overrides)
+        self.config: MjCambrianConfig = MjCambrianConfig.load(
+            config_path, overrides=overrides
+        )
 
         set_random_seed(self.config.training_config.seed)
 
         self.env_config = self.config.env_config
         self.training_config = self.config.training_config
+        self.evo_config = self.config.evo_config
         self.verbose = self.training_config.verbose
 
-        if (exp_name := self.training_config.exp_name) is None:
-            exp_name = config_path.stem
-        self.logdir = Path(self.training_config.logdir) / exp_name
+        self.training_config.setdefault("exp_name", config_path.stem)
+        self.logdir: Path = Path(self.training_config.logdir) / self.training_config.exp_name
         self.logdir.mkdir(parents=True, exist_ok=True)
 
         self.ppodir = self.logdir / "ppo"
         self.ppodir.mkdir(parents=True, exist_ok=True)
+
+    def evo(self, args):
+        """Run the evolution.
+
+        This does 4 things:
+            1. Mutate the current animal
+            2. Train the animal
+            3. Select one of the best performing animals to train
+            4. Repeat
+        """
+        animal_pool = MjCambrianAnimalPool(self.config, args.rank, verbose=self.verbose)
+        animal_config = animal_pool.get_new_animal_config()
+
+        generation = 0
+        while generation < self.evo_config.num_generations:
+            print(f"Starting generation {generation}...")
+
+            # Mutate the current animal
+            config = self.config.copy(animal_config=animal_config)
+
+            generation += 1
 
     def train(self, args):
         """Train the model."""
@@ -104,25 +128,28 @@ class MjCambrianRunner:
     def eval(self, args):
         """Evaluate the model."""
         self.env_config.renderer_config.fullscreen = args.fullscreen
-        self.env_config.renderer_config.render_modes = ["human", "rgb_array"]
+        self.env_config.renderer_config.render_modes = ["rgb_array"] + (
+            [] if args.no_human else ["human"]
+        )
         if self.training_config.n_envs != 1:
             print("WARNING: n_envs is not set to 1!")
             self.training_config.n_envs = 1
 
         env = self._make_env(self.training_config.n_envs)
         cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
-        renderer: MjCambrianRenderer = cambrian_env.renderer
 
         model = self._create_model(env, force=args.random_actions)
 
         obs = env.reset()
+
+        renderer: MjCambrianRenderer = cambrian_env.renderer
         renderer.record = args.record
 
         run = 0
         done = True
         cumulative_reward = 0
         print("Starting evaluation...")
-        while run < args.total_runs + 1:
+        while True:
             if not renderer.is_running:
                 print("Renderer closed. Exiting...")
                 break
@@ -134,14 +161,15 @@ class MjCambrianRunner:
             if done:
                 print(f"Episode done. Cumulative reward: {cumulative_reward:.2f}")
                 run += 1
-                if run < args.total_runs + 1:
-                    print(f"Starting run {run}...")
+                if run >= args.total_runs:
+                    break
+                print(f"Starting run {run}...")
 
             cambrian_env.rollout["Cumulative Reward"] = f"{cumulative_reward:.2f}"
             env.render()
 
         if args.record:
-            renderer.save_gif(self.ppodir / "eval.gif")
+            renderer.save(self.ppodir / "eval")
             renderer.record = False
 
         env.close()
@@ -220,7 +248,7 @@ class MjCambrianRunner:
 
     def _make_env(self, n_envs: int) -> VecEnv:
         """Create the environment.
-        
+
         NOTE: `use_renderer` for the first environment is set to True, and False for
         all others.
         """
@@ -283,7 +311,16 @@ if __name__ == "__main__":
     )
     eval.add_argument("--fullscreen", action="store_true", help="Use fullscreen.")
     eval.add_argument("--record", action="store_true", help="Record a gif.")
-    eval.add_argument("--total-runs", type=int, default=1, help="Number of runs.")
+    eval.add_argument(
+        "--total-runs",
+        "--num-runs",
+        type=int,
+        help="Number of runs. Default is 1.",
+        default=1,
+    )
+    eval.add_argument(
+        "--no-human", action="store_true", help="Don't render the human view."
+    )
     eval.set_defaults(cmd=MjCambrianRunner.eval)
 
     args = parser.parse_args()

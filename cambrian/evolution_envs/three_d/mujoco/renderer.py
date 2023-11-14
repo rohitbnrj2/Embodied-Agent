@@ -6,11 +6,13 @@ import glfw
 import mujoco as mj
 import OpenGL.GL as GL
 import cv2
+import imageio
 
 from config import MjCambrianRendererConfig
 
 TEXT_HEIGHT = 20
 TEXT_MARGIN = 5
+
 
 def resize_with_aspect_fill(image, width, height):
     original_height, original_width = image.shape[:2]
@@ -87,13 +89,13 @@ class MjCambrianCursor:
 
     def __repr__(self):
         return f"MjCambrianCursor(x={self.x}, y={self.y})"
-    
+
     def __str__(self):
         return self.__repr__()
 
     def copy(self):
         return MjCambrianCursor(x=self.x, y=self.y)
-    
+
 
 class MjCambrianViewer:
     """This is the base viewer class. It is an abstract class.
@@ -142,7 +144,12 @@ class MjCambrianViewer:
         self.make_context_current()
         self._mjr_context = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
 
-    def update(self, width: Optional[int] = None, height: Optional[int] = None, camera: Optional[mj.MjvCamera] = None):
+    def update(
+        self,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        camera: Optional[mj.MjvCamera] = None,
+    ):
         """Update the underlying scene and camera.
 
         Derived classes should implement additional functionality, such as resizing the
@@ -318,7 +325,12 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
 
         mj.mjr_setBuffer(mj.mjtFramebuffer.mjFB_OFFSCREEN, self._mjr_context)
 
-    def update(self, width: Optional[int] = None, height: Optional[int] = None, camera: Optional[mj.MjvCamera] = None):
+    def update(
+        self,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        camera: Optional[mj.MjvCamera] = None,
+    ):
         """Update the underlying scene and camera.
 
         If the width and height are different from the current width and height, then
@@ -544,15 +556,35 @@ class MjCambrianRenderer:
         self.data: mj.MjData = None
         self.camera: mj.MjvCamera = mj.MjvCamera()
 
-        self.setup_camera()
-
         # Maps render_mode to viewer.
         self._viewers: Dict[str, MjCambrianViewer] = {}
 
         self._record = False
         self._image_buffer: List[np.ndarray] = []
 
-    def setup_camera(self):
+    def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, np.ndarray]:
+        self.model = model
+        self.data = data
+
+        self.reset_camera()
+
+        self.config.setdefault("width", model.vis.global_.offwidth)
+        self.config.setdefault("height", model.vis.global_.offheight)
+
+        for render_mode in self.config.render_modes:
+            if render_mode in self._viewers:
+                continue
+            self._viewers[render_mode] = self._create_viewer(model, data, render_mode)
+
+        image = self.render()
+
+        # If recording, delete the previous image since we're just resetting.
+        if self.record:
+            self._image_buffer.pop()
+
+        return image
+
+    def reset_camera(self):
         """Setup the camera."""
         if self.config.camera_config is None:
             return
@@ -573,20 +605,6 @@ class MjCambrianRenderer:
             self.camera.elevation = self.config.camera_config.elevation
         if self.config.camera_config.lookat is not None:
             self.camera.lookat[:] = self.config.camera_config.lookat
-
-    def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, np.ndarray]:
-        self.model = model
-        self.data = data
-
-        self.config.setdefault("width", model.vis.global_.offwidth)
-        self.config.setdefault("height", model.vis.global_.offheight)
-
-        for render_mode in self.config.render_modes:
-            if render_mode in self._viewers:
-                continue
-            self._viewers[render_mode] = self._create_viewer(model, data, render_mode)
-
-        return self.render()
 
     def update(self, width: int, height: int):
         assert width is not None and height is not None, "Width and height must be set."
@@ -626,7 +644,7 @@ class MjCambrianRenderer:
         *,
         render_mode: Optional[str] = None,
     ):
-        """Add an overlay to the image. Alias to add_image_overlay and 
+        """Add an overlay to the image. Alias to add_image_overlay and
         add_text_overlay."""
 
         for mode, viewer in self._viewers.items():
@@ -698,23 +716,38 @@ class MjCambrianRenderer:
 
     @record.setter
     def record(self, value: bool):
-        assert (
-            "rgb_array" in self.config.render_modes
-        ), "Must be in rgb_array mode to record."
-        if not value:
+        assert not (value and self._record), "Already recording!!"
+        assert "rgb_array" in self.config.render_modes, "`rgb_array` not a render_mode."
+
+        if self._record and not value:
             self._image_buffer.clear()
         self._record = value
 
-    def save_gif(self, path: Path | str):
+    def save(self, path: Path | str):
+        """Save the recorded visualizations.
+
+        Args:
+            path (Path | str): The path to save the visualization to. Do _not_ include
+                the file extension. The file extension is automatically added.
+        """
         if len(self._image_buffer) == 0:
             print("WARNING: Image buffer is empty. Nothing to save.")
             return
 
-        import imageio
-
+        fps = 50
         duration = 1000 * 1 / 50
-        print(f"Saving visualization at {path}...")
-        imageio.mimsave(path, self._image_buffer, loop=0, duration=duration)
+
+        print(f"Saving visualizations at {path}...")
+        # gif
+        imageio.mimsave(
+            path.with_suffix(".gif"), self._image_buffer, loop=0, duration=duration
+        )
+
+        # mp4
+        writer = imageio.get_writer(path.with_suffix(".mp4"), fps=fps)
+        for image in self._image_buffer:
+            writer.append_data(image)
+        writer.close()
         print(f"Saved visualization at {path}")
 
     # ====================
@@ -753,9 +786,13 @@ class MjCambrianRenderer:
         if self.config.use_shared_context and render_mode in VIEWERS:
             viewer = VIEWERS[render_mode]
         elif render_mode == "rgb_array":
-            viewer = MjCambrianOffscreenViewer(model, data, self.config.copy(), self.camera)
+            viewer = MjCambrianOffscreenViewer(
+                model, data, self.config.copy(), self.camera
+            )
         elif render_mode == "human":
-            viewer = MjCambrianOnscreenViewer(model, data, self.config.copy(), self.camera)
+            viewer = MjCambrianOnscreenViewer(
+                model, data, self.config.copy(), self.camera
+            )
         else:
             raise ValueError(f"Invalid render mode `{render_mode}`.")
 

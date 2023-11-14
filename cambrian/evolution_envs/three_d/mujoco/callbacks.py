@@ -9,6 +9,8 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from env import MjCambrianEnv
 from renderer import MjCambrianRenderer
+from cambrian.evolution_envs.three_d.mujoco.animal_pool import MjCambrianAnimalPool
+from animal import MjCambrianAnimal
 
 
 class PlotEvaluationCallback(BaseCallback):
@@ -99,7 +101,7 @@ class SaveVideoCallback(BaseCallback):
         self.evaldir.mkdir(parents=True, exist_ok=True)
 
         # Delete all the existing gifs
-        for f in glob.glob(str(self.evaldir / "vis_*.gif")):
+        for f in glob.glob(str(self.evaldir / "vis_*")):
             if self.verbose > 0:
                 print(f"Deleting {f}")
             Path(f).unlink()
@@ -107,7 +109,6 @@ class SaveVideoCallback(BaseCallback):
         self.max_episode_steps = max_episode_steps
 
     def _on_step(self) -> bool:
-
         obs, _ = self.env.reset()
         self.renderer.record = True
 
@@ -126,12 +127,33 @@ class SaveVideoCallback(BaseCallback):
             self.cambrian_env.rollout["Total Timesteps"] = f"{self.num_timesteps}"
             self.env.render()
 
-        filename = f"vis_{self.n_calls}.gif"
-        self.renderer.save_gif(self.evaldir / filename)
-
+        filename = f"vis_{self.n_calls}"
+        self.renderer.save(self.evaldir / filename)
         self.renderer.record = False
 
         return True
+
+
+class MjCambrianAnimalPoolCallback(BaseCallback):
+    parent: EvalCallback
+
+    def __init__(
+        self,
+        animal: MjCambrianAnimal,
+        animal_pool: MjCambrianAnimalPool,
+        *,
+        verbose: int = 0,
+    ):
+        super().__init__(verbose)
+
+        self.animal = animal
+        self.animal_pool = animal_pool
+
+    def _on_step(self) -> bool:
+        if self.parent is not None:
+            self.animal_pool.write_to_pool(
+                self.parent.best_mean_reward, self.animal.config
+            )
 
 
 class CallbackListWithSharedParent(CallbackList):

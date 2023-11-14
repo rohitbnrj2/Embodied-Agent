@@ -1,6 +1,5 @@
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Optional
 import numpy as np
-from enum import Enum
 
 import mujoco as mj
 from gymnasium import spaces
@@ -323,7 +322,7 @@ class MjCambrianAnimal:
         if not self.config.use_intensity_obs:
             self._intensity_sensor.reset(model, data)
 
-        return self._get_obs(obs)
+        return self._get_obs(obs, np.zeros(self._numctrl))
 
     def step(self, action: List[float]) -> Dict[str, Any]:
         """Steps the eyes, updates the ctrl inputs, and returns the observation."""
@@ -337,9 +336,9 @@ class MjCambrianAnimal:
 
         self._data.ctrl[self._actadrs] = action
 
-        return self._get_obs(obs)
+        return self._get_obs(obs, action)
 
-    def _get_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
+    def _get_obs(self, obs: Dict[str, Any], action: Optional[List[float]] = None) -> Dict[str, Any]:
         """Creates the entire obs dict."""
         if self.config.use_qpos_obs:
             qpos = self._data.qpos[self._qposadrs]
@@ -348,6 +347,10 @@ class MjCambrianAnimal:
         if self.config.use_qvel_obs:
             qvel = self._data.qvel[self._qveladrs]
             obs["qvel"] = qvel.flat.copy()
+
+        if self.config.use_action_obs:
+            assert action is not None, "Action expected."
+            obs["action"] = action
 
         return obs
 
@@ -440,6 +443,11 @@ class MjCambrianAnimal:
         if self.config.use_qvel_obs:
             observation_space["qvel"] = spaces.Box(
                 low=-np.inf, high=np.inf, shape=(self._numqvel,), dtype=np.float32
+            )
+
+        if self.config.use_action_obs:
+            observation_space["action"] = spaces.Box(
+                low=-np.inf, high=np.inf, shape=(self._numctrl,), dtype=np.float32
             )
 
         return spaces.Dict(observation_space)

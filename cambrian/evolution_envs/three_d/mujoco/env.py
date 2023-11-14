@@ -13,7 +13,13 @@ from maze import MjCambrianMaze
 from cambrian_xml import MjCambrianXML
 from config import MjCambrianConfig
 from utils import get_model_path
-from renderer import MjCambrianRenderer, resize_with_aspect_fill, MjCambrianCursor, TEXT_HEIGHT, TEXT_MARGIN
+from renderer import (
+    MjCambrianRenderer,
+    resize_with_aspect_fill,
+    MjCambrianCursor,
+    TEXT_HEIGHT,
+    TEXT_MARGIN,
+)
 
 
 def make_env(rank: int, seed: float, config_path: str | Path) -> "MjCambrianEnv":
@@ -395,11 +401,13 @@ class MjCambrianEnv(gym.Env):
                 continue
 
             composite = animal.create_composite_image()
-            intensity = animal.intensity_sensor.last_obs
+            intensity = np.rot90(animal.intensity_sensor.last_obs, 1)
             if composite is None:
                 continue
 
             new_composite = resize_with_aspect_fill(composite, *overlay_size)
+            new_intensity = resize_with_aspect_fill(intensity, *overlay_size)
+
             renderer.add_overlay(new_composite, cursor)
 
             cursor -= TEXT_MARGIN
@@ -415,12 +423,10 @@ class MjCambrianEnv(gym.Env):
             cursor.x += overlay_width
             cursor.y = 0
 
-            intensity_name = animal.intensity_sensor.name
-            new_intensity = resize_with_aspect_fill(intensity, *overlay_size)
             renderer.add_overlay(new_intensity, cursor)
             renderer.add_text_overlay(intensity.shape[:2], cursor)
             cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
-            renderer.add_overlay(intensity_name, cursor)
+            renderer.add_overlay(animal.intensity_sensor.name, cursor)
 
         return renderer.render()
 
@@ -593,7 +599,7 @@ class MjCambrianEnv(gym.Env):
         animal: MjCambrianAnimal,
         info: bool,
         *,
-        gamma: float = 1.5,
+        gamma: float = 4.0,
     ) -> float:
         """The reward is the grayscaled intensity of the a intensity sensor taken to
         the power of some gamma value multiplied by a

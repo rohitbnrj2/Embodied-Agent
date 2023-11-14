@@ -193,9 +193,9 @@ class MjCambrianBaseConfig(Generic[T]):
 
         return asdict(self) if not remove_nones else remove_nones_fn(asdict(self))
 
-    def copy(self) -> T:
+    def copy(self, **kwargs) -> T:
         """Copy the config such that it is a new instance."""
-        return self.update()
+        return self.update(**kwargs)
 
     def update(self, **kwargs) -> T:
         """Update the config with the given kwargs. This is a shallow update, meaning it
@@ -218,7 +218,8 @@ class MjCambrianBaseConfig(Generic[T]):
 
         def _throw_error(name: str, value: Any, expected_type: type):
             raise TypeError(
-                f"The field `{name}` was assigned to type `{type(value).__name__}` instead of `{expected_type}`"
+                f"The field `{name}` was assigned to type `{type(value).__name__}` "
+                f"instead of `{expected_type}`"
             )
 
         for name, field_type in self.__annotations__.items():
@@ -588,6 +589,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig[T]):
         use_qvel_obs (bool): Whether to use the qvel observation or not.
         use_intensity_obs (bool): Whether to use the intensity sensor
             observation.
+        use_action_obs (bool): Whether to use the action observation or not.
 
         num_eyes_lat (int): The number of eyes to place latitudinally/vertically.
         num_eyes_lon (int): The number of eyes to place longitudinally/horizontally.
@@ -618,6 +620,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig[T]):
     use_qpos_obs: bool
     use_qvel_obs: bool
     use_intensity_obs: bool
+    use_action_obs: bool
 
     num_eyes_lat: int
     num_eyes_lon: int
@@ -628,15 +631,64 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig[T]):
 
 
 @dataclass
-class MjCambrianConfig(MjCambrianBaseConfig["MjCambrianConfig"]):
+class MjCambrianSharedFileAnimalPoolConfig(MjCambrianBaseConfig[T]):
+    """Config for the shared file agent pool. Used for type hinting.
+
+    Attributes:
+        filename (str): The filename of the shared file.
+
+        use_flcok (bool): Whether to use a lock or not. If True, a lock will be used
+            when reading/writing to the file. This is useful for distributed training
+            where multiple processes may be reading/writing to the file at the same
+            time. NOTE: some distributed computing systems don't support file locking.
+    """
+
+    filename: Path | str
+
+    use_flock: bool
+
+
+@dataclass
+class MjCambrianEvoConfig(MjCambrianBaseConfig[T]):
+    """Config for evolutions. Used for type hinting.
+
+    Attributes:
+        population_size (int): The number of animals in the population. A single agent
+            in a population is defined as a unique configuration. With this definition,
+            an agent could be a unique rank being trained distributed, or a unique
+            process in a SubProcEnv, or even both. TODO: currently only distributed
+        num_top_performers (int): The number of top performers to keep in the population
+            after each generation. The rest of the population will be replaced with
+            mutated copies of the top performers.
+
+        agent_pool_type (str): The type of agent pool to use. See
+            `agent_pool.MjCambrianAnimalPoolType` for options.
+
+        shared_file_config (Optional[MjCambrianSharedFileAnimalPoolConfig]): The config
+            for the shared file agent pool. Only used if `agent_pool_type` is set to
+            `MjCambrianAnimalPoolType.SHARED_FILE`.
+    """
+
+    population_size: int
+    num_top_performers: int
+
+    num_generations: int
+
+    animal_pool_type: str
+    shared_file_config: Optional[MjCambrianSharedFileAnimalPoolConfig] = None
+
+
+@dataclass
+class MjCambrianConfig(MjCambrianBaseConfig[T]):
     includes: Optional[List[Path | str]] = None
 
     training_config: MjCambrianTrainingConfig
     env_config: MjCambrianEnvConfig
     animal_config: MjCambrianAnimalConfig
+    evo_config: MjCambrianEvoConfig
 
     @classmethod
-    def from_dict(cls: "MjCambrianConfig", dict: Dict[str, Any]):
+    def from_dict(cls: T, dict: Dict[str, Any]):
         """Overrides the base class method to handle includes."""
         if "includes" in dict and dict["includes"] is not None:
             includes = dict.pop("includes")

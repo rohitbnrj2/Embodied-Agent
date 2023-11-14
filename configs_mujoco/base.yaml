@@ -7,11 +7,11 @@ training_config:
   max_episode_steps: 128
   n_steps: 2048
 
-  learning_rate: 0.0003
+  learning_rate: 0.001
   n_epochs: 8
   gae_lambda: 0.95
   batch_size: null # Automatically set to `n_steps * n_envs // n_epochs`
-  n_envs: 1
+  n_envs: 10
 
   eval_freq: 10000
   reward_threshold: 90.0
@@ -60,9 +60,10 @@ env_config:
     use_target_light_source: True
 
 animal_config:
-  use_qpos_obs: True
-  use_qvel_obs: True
+  use_qpos_obs: False
+  use_qvel_obs: False
   use_intensity_obs: False
+  use_action_obs: True
 
   default_eye_config:
     mode: "fixed"
@@ -78,3 +79,12 @@ animal_config:
     renderer_config:
       render_modes: ["rgb_array"]
       use_shared_context: False
+
+evo_config:
+  population_size: 10
+  num_top_performers: 2
+
+  animal_pool_type: "shared_file"
+  shared_file_config:
+    filename: "shared_agent_pool.pkl"
+    use_flock: False # disabled bc supercloud doesn't support flock
