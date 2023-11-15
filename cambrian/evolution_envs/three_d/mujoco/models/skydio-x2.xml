@@ -1,0 +1,67 @@
+<mujoco model="Skydio X2">
+  <default>
+    <default class="x2_{uid}">
+      <geom mass="0"/>
+      <motor ctrlrange="0 13"/>
+      <mesh scale="0.01 0.01 0.01"/>
+      <default class="visual_{uid}">
+        <geom group="2" type="mesh" contype="0" conaffinity="0"/>
+      </default>
+      <default class="collision_{uid}">
+        <geom group="3" type="box"/>
+        <default class="rotor_{uid}">
+          <geom type="ellipsoid" size=".13 .13 .01"/>
+        </default>
+      </default>
+      <site group="5"/>
+    </default>
+  </default>
+
+  <asset>
+    <texture type="2d" name="X2_lowpoly_texture_{uid}" file="X2_lowpoly_texture_SpinningProps_1024.png"/>
+    <material name="phong3SG_{uid}" texture="X2_lowpoly_texture_{uid}"/>
+    <material name="invisible_{uid}" rgba="0 0 0 0"/>
+    <mesh class="x2_{uid}" name="X2_lowpoly_{uid}" file="X2_lowpoly.obj"/>
+  </asset>
+
+  <worldbody>
+    <body name="x2_{uid}" pos="0 0 0.1" childclass="x2_{uid}">
+      <freejoint name="x2-freejoint_{uid}"/>
+      <site name="imu_{uid}" pos="0 0 .02"/>
+
+      <camera name="eye_{uid}" pos="-0.15 0 0.1" quat="0.5 0.5 0.5 0.5" mode="fixed"/>
+
+      <geom name="mesh_{uid}" material="phong3SG_{uid}" mesh="X2_lowpoly_{uid}" class="visual_{uid}" quat="0 0 1 1"/>
+      <geom class="collision_{uid}" size=".06 .027 .02" pos=".04 0 .02"/>
+      <geom class="collision_{uid}" size=".06 .027 .02" pos=".04 0 .06"/>
+      <geom class="collision_{uid}" size=".05 .027 .02" pos="-.07 0 .065"/>
+      <geom class="collision_{uid}" size=".023 .017 .01" pos="-.137 .008 .065" quat="1 0 0 1"/>
+      <geom name="rotor1_{uid}" class="rotor_{uid}" pos="-.14 -.18 .05" mass=".25"/>
+      <geom name="rotor2_{uid}" class="rotor_{uid}" pos="-.14 .18 .05" mass=".25"/>
+      <geom name="rotor3_{uid}" class="rotor_{uid}" pos=".14 .18 .08" mass=".25"/>
+      <geom name="rotor4_{uid}" class="rotor_{uid}" pos=".14 -.18 .08" mass=".25"/>
+      <geom size=".16 .04 .02" pos="0 0 0.02" type="ellipsoid" mass=".325" class="visual_{uid}" material="invisible_{uid}"/>
+      <site name="thrust1_{uid}" pos="-.14 -.18 .05"/>
+      <site name="thrust2_{uid}" pos="-.14 .18 .05"/>
+      <site name="thrust3_{uid}" pos=".14 .18 .08"/>
+      <site name="thrust4_{uid}" pos=".14 -.18 .08"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <motor class="x2_{uid}" name="thrust1_{uid}" site="thrust1_{uid}" gear="0 0 1 0 0 -.0201"/>
+    <motor class="x2_{uid}" name="thrust2_{uid}" site="thrust2_{uid}" gear="0 0 1 0 0  .0201"/>
+    <motor class="x2_{uid}" name="thrust3_{uid}" site="thrust3_{uid}" gear="0 0 1 0 0  .0201"/>
+    <motor class="x2_{uid}" name="thrust4_{uid}" site="thrust4_{uid}" gear="0 0 1 0 0 -.0201"/>
+  </actuator>
+
+  <keyframe>
+    <key name="hover" qpos="0 0 .3 1 0 0 0" ctrl="3.2495625 3.2495625 3.2495625 3.2495625"/>
+  </keyframe>
+
+  <sensor>
+    <gyro name="body_gyro_{uid}" site="imu_{uid}"/>
+    <accelerometer name="body_linacc_{uid}" site="imu_{uid}"/>
+    <framequat name="body_quat_{uid}" objtype="site" objname="imu_{uid}"/>
+  </sensor>
+</mujoco>

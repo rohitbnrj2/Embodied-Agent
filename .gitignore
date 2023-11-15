@@ -6,3 +6,4 @@ log*/
 *.egg-info*/
 .*.swp
 *.sh.*
+*.ipynb_checkpoints/

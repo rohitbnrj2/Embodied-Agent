@@ -1,0 +1,6 @@
+includes:
+  base: configs_mujoco/base.yaml
+
+env_config:
+  maze_config:
+    name: "MANY_GOAL_MAZE"

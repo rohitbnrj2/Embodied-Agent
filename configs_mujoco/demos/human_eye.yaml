@@ -1,0 +1,10 @@
+includes:
+  demo: configs_mujoco/demos/demo.yaml
+  animal: configs_mujoco/animals/ant.yaml
+
+animal_config:
+  num_eyes_lat: 1
+  num_eyes_lon: 1
+  default_eye_config:
+    resolution: [380, 320]
+    fov: [75, 50]
