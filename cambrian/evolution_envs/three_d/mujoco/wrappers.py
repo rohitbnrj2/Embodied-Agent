@@ -2,24 +2,9 @@ from typing import Dict, Any, Tuple
 from pathlib import Path
 
 import gymnasium as gym
-from stable_baselines3.common.utils import set_random_seed
 
 from env import MjCambrianEnv
-
-
-def make_single_env(
-    rank: int, seed: float, config_path: str | Path, **kwargs
-) -> "MjCambrianSingleAnimalEnvWrapper":
-    """Utility function for multiprocessed MjCambrianSingleAnimalEnvWrapper."""
-
-    def _init():
-        env = MjCambrianEnv(config_path, **kwargs)
-        env = MjCambrianSingleAnimalEnvWrapper(env)
-        env.reset(seed=seed + rank)
-        return env
-
-    set_random_seed(seed + rank)
-    return _init
+from config import MjCambrianConfig
 
 
 class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
@@ -40,9 +25,7 @@ class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
 
         return obs[self.animal.name], info[self.animal.name]
 
-    def step(
-        self, action: Any
-    ) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
+    def step(self, action: Any) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
         action = {self.animal.name: action}
         obs, reward, terminated, truncated, info = self.env.step(action)
 
@@ -53,3 +36,17 @@ class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
             truncated[self.animal.name],
             info[self.animal.name],
         )
+
+
+def make_single_env(
+    config: Path | str | MjCambrianConfig, seed: int, **kwargs
+) -> MjCambrianSingleAnimalEnvWrapper:
+    """Utility function for multiprocessed MjCambrianSingleAnimalEnvWrapper."""
+
+    def _init():
+        env = MjCambrianEnv(config, **kwargs)
+        env = MjCambrianSingleAnimalEnvWrapper(env)
+        env.reset(seed=seed)
+        return env
+
+    return _init

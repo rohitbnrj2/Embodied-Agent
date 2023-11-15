@@ -5,7 +5,9 @@ from collections import deque
 import bisect
 import random
 import fcntl
+import math
 import pickle
+import time
 from enum import Enum
 
 from config import MjCambrianConfig
@@ -26,7 +28,7 @@ class MjCambrianAnimalPool(ABC, Generic[T]):
     runners will query the animal pool to select the best performing animal(s) and 
     mutate from them."""
 
-    def __init__(self, config: MjCambrianConfig, rank: int, *, verbose: int = 0):
+    def __init__(self, config: MjCambrianConfig, rank: int):
         self.config = config
         self.evo_config = config.evo_config
         self.training_config = config.training_config
@@ -35,11 +37,12 @@ class MjCambrianAnimalPool(ABC, Generic[T]):
         self.num_top_performers = self.evo_config.num_top_performers
 
         self.rank = rank
-        self.verbose = verbose
+        self.verbose = config.training_config.verbose
 
         self.pool = deque(maxlen=self.population_size + 1)
+        self.write_to_pool(-math.inf, self.config)
 
-    def get_new_animal_config(self) -> MjCambrianConfig:
+    def get_new_config(self) -> MjCambrianConfig:
         pool = self.get_pool()
         top_performer_pool = pool[: min(len(pool), self.num_top_performers)]
         return random.choice(top_performer_pool)[1].copy()
@@ -65,10 +68,10 @@ class MjCambrianAnimalPool(ABC, Generic[T]):
         self.close()
 
     @staticmethod
-    def create(config: MjCambrianConfig, *args, **kwargs) -> T:
-        animal_pool_type = config.evo_config.animal_pool_type
+    def create(config: MjCambrianConfig, rank: int) -> T:
+        animal_pool_type = MjCambrianAnimalPoolType(config.evo_config.animal_pool_type)
         if animal_pool_type == MjCambrianAnimalPoolType.SHARED_FILE:
-            return MjCambrianSharedFileAnimalPool(config, *args, **kwargs)
+            return MjCambrianSharedFileAnimalPool(config, rank=rank)
         else:
             raise ValueError(f"Unknown animal pool type `{animal_pool_type}`")
 
@@ -89,20 +92,26 @@ class MjCambrianAnimalPool(ABC, Generic[T]):
 
 
 class MjCambrianSharedFileAnimalPool(MjCambrianAnimalPool[T]):
-    """This AnimalPool implements the storage mechanism as a shared file."""
+    """This AnimalPool implements the storage mechanism as a shared file.
+    
+    If `use_flock` is set to True, then the file will be locked using `fcntl` to ensure
+    that only one process can write to the file at a time. If `use_flock` is set to
+    False, then a lock file will be created and the process will busy wait until the
+    lock file is removed. This is only recommended for systems that don't support file 
+    locking.
+    """
 
-    def __init__(self, config: MjCambrianConfig, rank: int, *, verbose: int = 0):
-        super().__init__(config, rank, verbose=verbose)
-        self.shared_file_config = self.evo_config.shared_file_config
+    def __init__(self, config: MjCambrianConfig, rank: int):
+        self.shared_file_config = config.evo_config.shared_file_config
 
         self.filename: Path = (
-            Path(self.training_config.logdir)
-            / self.training_config.exp_name
+            Path(config.training_config.logdir)
+            / config.training_config.exp_name
             / self.shared_file_config.filename
         )
 
+        self.lock_file = self.filename.with_suffix(".lock")
         if self.shared_file_config.use_flock:
-            self.lock_file = self.filename.with_suffix(".lock")
             self.lock_file.touch()
             try:
                 fcntl.flock(open(self.lock_file, "w"), fcntl.LOCK_EX)
@@ -117,10 +126,13 @@ class MjCambrianSharedFileAnimalPool(MjCambrianAnimalPool[T]):
         with self:
             self.filename.touch()
 
+        super().__init__(config, rank)
+
     def get_pool(self) -> List[Tuple[Performance, MjCambrianConfig]]:
         with self:
-            with open(self.filename, "rb") as f:
-                self.pool = pickle.load(f)
+            if self.filename.stat().st_size > 0:
+                with open(self.filename, "rb") as f:
+                    self.pool = pickle.load(f)
         return super().get_pool()
 
     def write_to_pool(self, performance: Performance, config: MjCambrianConfig):
@@ -137,10 +149,21 @@ class MjCambrianSharedFileAnimalPool(MjCambrianAnimalPool[T]):
     def _acquire_lock(self):
         if self.shared_file_config.use_flock:
             fcntl.flock(open(self.lock_file, "w"), fcntl.LOCK_EX)
+        else:
+            timeout = self.shared_file_config.lock_timeout
+            while timeout > 0:
+                try:
+                    self.lock_file.touch(exist_ok=False)
+                    break
+                except FileExistsError:
+                    timeout -= 0.1
+                    time.sleep(0.1)
 
     def _release_lock(self):
         if self.shared_file_config.use_flock:
             fcntl.flock(open(self.lock_file, "w"), fcntl.LOCK_UN)
+        else:
+            self.lock_file.unlink()
 
     def __enter__(self) -> "MjCambrianSharedFileAnimalPool":
         self._acquire_lock()

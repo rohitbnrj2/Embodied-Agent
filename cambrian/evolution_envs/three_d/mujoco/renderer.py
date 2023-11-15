@@ -274,6 +274,9 @@ class MjCambrianViewer:
         self._gl_context = None
         self._is_closed = True
 
+    def __del__(self):
+        self.close()
+
     # ====================
 
     @property
@@ -726,7 +729,8 @@ class MjCambrianRenderer:
 
     def close(self):
         for viewer in self._viewers.values():
-            viewer.close()
+            if not self.config.use_shared_context:
+                viewer.close()
 
     def __del__(self):
         self.close()

@@ -4,9 +4,9 @@ includes:
 training_config:
   logdir: "logs-mujoco"
   exp_name: null # if unset, will be set to the name of the config file
-  ppo_checkpoint_path: null # Will train from scratch if unset
+  checkpoint_path: null # Will train from scratch if unset
 
-  total_timesteps: 1_000_000
+  total_timesteps: 200_000
   max_episode_steps: 128
   n_steps: 2048
 
@@ -84,9 +84,10 @@ evo_config:
   population_size: 10
   num_top_performers: 2
 
-  num_generations: 1
+  num_generations: 10
 
   animal_pool_type: "shared_file"
   shared_file_config:
     filename: "shared_agent_pool.pkl"
     use_flock: False # disabled bc supercloud doesn't support flock
+    lock_timeout: 2000

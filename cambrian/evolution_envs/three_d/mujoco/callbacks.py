@@ -133,26 +133,31 @@ class SaveVideoCallback(BaseCallback):
 
         return True
 
+    def _on_training_end(self) -> None:
+        self.env.close()
+        return super()._on_training_end()
+
 
 class MjCambrianAnimalPoolCallback(BaseCallback):
     parent: EvalCallback
 
     def __init__(
         self,
-        animal: MjCambrianAnimal,
+        env: DummyVecEnv,
         animal_pool: MjCambrianAnimalPool,
         *,
         verbose: int = 0,
     ):
         super().__init__(verbose)
 
-        self.animal = animal
+        self.env = env.envs[0]
+        self.cambrian_env: MjCambrianEnv = self.env.unwrapped
         self.animal_pool = animal_pool
 
     def _on_step(self) -> bool:
         if self.parent is not None:
             self.animal_pool.write_to_pool(
-                self.parent.best_mean_reward, self.animal.config
+                self.parent.best_mean_reward, self.cambrian_env.config
             )
 
 class MjCambrianProgressBarCallback(ProgressBarCallback):

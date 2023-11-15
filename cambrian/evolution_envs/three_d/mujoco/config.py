@@ -229,6 +229,9 @@ class MjCambrianBaseConfig(Generic[T]):
         """Check if the dataclass contains a field with the given name."""
         return key in self.__annotations__
 
+    def __str__(self):
+        return yaml.dump(self.to_dict())
+
     def __post_init__(self):
         """Check that the types of the fields match the types of the dataclass."""
 
@@ -257,9 +260,6 @@ class MjCambrianBaseConfig(Generic[T]):
             elif not isinstance(value, field_type):
                 _throw_error(name, value, field_type)
 
-    def __str__(self):
-        return yaml.dump(self.to_dict())
-
 
 @dataclass
 class MjCambrianTrainingConfig(MjCambrianBaseConfig[T]):
@@ -269,7 +269,7 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig[T]):
         logdir (str): The directory to log training data to.
         exp_name (Optional[str]): The name of the experiment. Used to name the logging
             subdirectory. If unset, will set to the name of the config file.
-        ppo_checkpoint_path (Optional[Path | str]): The path to the ppo checkpoint to
+        checkpoint_path (Optional[Path | str]): The path to the model checkpoint to
             load. If None, training will start from scratch.
 
         total_timesteps (int): The total number of timesteps to train for.
@@ -299,7 +299,7 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig[T]):
 
     logdir: Path | str
     exp_name: Optional[str] = None
-    ppo_checkpoint_path: Optional[Path | str] = None
+    checkpoint_path: Optional[Path | str] = None
 
     total_timesteps: int
     max_episode_steps: int
@@ -319,6 +319,10 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig[T]):
     seed: int
     verbose: int
 
+    def __post_init__(self):
+        self.setdefault("batch_size", self.n_steps * self.n_envs // self.n_epochs)
+
+        super().__post_init__()
 
 @dataclass
 class MjCambrianMazeConfig(MjCambrianBaseConfig[T]):
@@ -671,11 +675,22 @@ class MjCambrianSharedFileAnimalPoolConfig(MjCambrianBaseConfig[T]):
             when reading/writing to the file. This is useful for distributed training
             where multiple processes may be reading/writing to the file at the same
             time. NOTE: some distributed computing systems don't support file locking.
+        lock_timeout (Optional[int]): The timeout to use for the lock if flock isn't 
+            used. Specified in ms. If `use_flock` is True, this is ignored, otherwise
+            it's required.
     """
 
     filename: Path | str
 
     use_flock: bool
+    lock_timeout: Optional[int] = None
+
+    def __post_init__(self):
+        assert self.use_flock or self.lock_timeout is not None, (
+            "Must set `lock_timeout` if `use_flock` is False. "
+        )
+
+        return super().__post_init__()
 
 
 @dataclass

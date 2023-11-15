@@ -22,18 +22,6 @@ from renderer import (
 )
 
 
-def make_env(rank: int, seed: float, config_path: str | Path) -> "MjCambrianEnv":
-    """Utility function for multiprocessed MjCambrianEnv."""
-
-    def _init():
-        env = MjCambrianEnv(config_path)
-        env.reset(seed=seed + rank)
-        return env
-
-    set_random_seed(seed + rank)
-    return _init
-
-
 class MjCambrianEnv(gym.Env):
     """A MjCambrianEnv defines a gymnasium environment that's based off mujoco.
 
@@ -184,6 +172,8 @@ class MjCambrianEnv(gym.Env):
                 animal and the info dict for each animal.
         """
         super().reset(seed=seed, options=options)
+        if seed is not None:
+            set_random_seed(seed)
 
         mj.mj_resetData(self.model, self.data)
 
@@ -647,6 +637,19 @@ class MjCambrianEnv(gym.Env):
     ) -> float:
         """This reward is 1 if the animal is at the goal, 0 otherwise."""
         return 1 if self._is_at_goal(animal) else 0
+
+
+def make_single_env(
+    config: Path | str | MjCambrianConfig, seed: int, **kwargs
+) -> MjCambrianEnv:
+    """Utility function for multiprocessed MjCambrianEnv."""
+
+    def _init():
+        env = MjCambrianEnv(config, **kwargs)
+        env.reset(seed=seed)
+        return env
+
+    return _init
 
 
 if __name__ == "__main__":

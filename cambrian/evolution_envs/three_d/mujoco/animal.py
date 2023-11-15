@@ -1,4 +1,6 @@
 from typing import Dict, Any, List, Optional
+from enum import Flag, auto
+from functools import reduce
 import numpy as np
 
 import mujoco as mj
@@ -537,6 +539,91 @@ class MjCambrianAnimal:
     def init_pos(self, value: np.ndarray):
         """Sets the initial position of the animal."""
         self._init_pos = value
+
+    # ==========================
+
+    class MutationType(Flag):
+        """Use as bitmask to specify which type of mutation to perform on the animal.
+
+        Example:
+        >>> # Only adding a photoreceptor
+        >>> type = MutationType.ADD_LAT_EYE
+        >>> # Both adding a photoreceptor and changing a simple eye to lens
+        >>> type = MutationType.REMOVE_LAT_EYE | MutationType.ADD_LON_EYE
+        """
+
+        ADD_LAT_EYE = auto()
+        REMOVE_LAT_EYE = auto()
+        ADD_LON_EYE = auto()
+        REMOVE_LON_EYE = auto()
+        EDIT_EYE = auto()
+
+    @staticmethod
+    def mutate(config: MjCambrianAnimalConfig, *, verbose: int = 0) -> MjCambrianAnimalConfig:
+        if verbose > 1:
+            print("Mutating animal...")
+
+        # Randomly select the number of mutations to perform with a skewed dist
+        # This will lean towards less total mutations generally
+        p = np.exp(-np.arange(len(MjCambrianAnimal.MutationType)))
+        num_of_mutations = np.random.choice(np.arange(1, len(p) + 1), p=p / p.sum())
+        mutations = np.random.choice(MjCambrianAnimal.MutationType, num_of_mutations, False)
+        mutations = reduce(lambda x, y: x | y, mutations)
+
+        if mutations & MjCambrianAnimal.MutationType.ADD_LAT_EYE:
+            if verbose > 1:
+                print("Adding a latitudinal eye.")
+
+            config.num_eyes_lat += 1
+
+        if mutations & MjCambrianAnimal.MutationType.REMOVE_LAT_EYE:
+            if verbose > 1:
+                print("Removing a latitudinal eye.")
+
+            # We'll allow the animal to go down to no eyes to try all configs
+            # Obviously it won't work (and if it does, something's wrong)
+            if config.num_eyes_lat <= 0:
+                print("Tried to remove a latitudinal eye when there were none.")
+            else:
+                config.num_eyes_lat -= 1
+
+        if mutations & MjCambrianAnimal.MutationType.ADD_LON_EYE:
+            if verbose > 1:
+                print("Adding a longitudinal eye.")
+
+            config.num_eyes_lon += 1
+        
+        if mutations & MjCambrianAnimal.MutationType.REMOVE_LON_EYE:
+            if verbose > 1:
+                print("Removing a longitudinal eye.")
+
+            # We'll allow the animal to go down to no eyes to try all configs
+            # Obviously it won't work (and if it does, something's wrong)
+            if config.num_eyes_lon <= 0:
+                print("Tried to remove a longitudinal eye when there were none.")
+            else:
+                config.num_eyes_lon -= 1
+
+        if mutations & MjCambrianAnimal.MutationType.EDIT_EYE:
+            if verbose > 1:
+                print("Editing an eye.")
+
+            # Edits the default config
+            default_eye_config = config.default_eye_config
+
+            def edit(attrs, low=0.8, high=1.2):
+                randn = np.random.uniform(low, high)
+                return [np.ceil(attr * randn).astype(int) for attr in attrs]
+
+            # Each edit (for now) is just taking the current state and multiplying by
+            # some random number between 0.8 and 1.2
+            default_eye_config.resolution = edit(default_eye_config.resolution)
+            default_eye_config.fov = edit(default_eye_config.fov)
+
+        if verbose > 2:
+            print(f"Mutated animal: \n{config}")
+
+        return config
 
 
 if __name__ == "__main__":
