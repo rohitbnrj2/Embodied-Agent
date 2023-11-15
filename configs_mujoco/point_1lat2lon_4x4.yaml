@@ -1,15 +1,6 @@
 includes:
-  - configs_mujoco/base.yaml
-  - configs_mujoco/animals/point.yaml
-
-training_config:
-  ppo_checkpoint_path: null # "best_model.zip"
-  total_timesteps: 5_000_000
-
-env_config:
-  reward_fn_type: "intensity_and_at_goal"
-
-  truncate_on_contact: False
+  base: configs_mujoco/base.yaml
+  point: configs_mujoco/animals/point.yaml
 
 animal_config:
   num_eyes_lat: 1

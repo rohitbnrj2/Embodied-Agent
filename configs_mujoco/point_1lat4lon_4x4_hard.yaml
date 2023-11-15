@@ -1,6 +1,0 @@
-includes:
-  - configs_mujoco/point_1lat2lon_4x4_hard.yaml
-
-animal_config:
-  num_eyes_lat: 1
-  num_eyes_lon: 4

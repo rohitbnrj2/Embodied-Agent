@@ -79,7 +79,7 @@ class MjCambrianNatureCNN(BaseFeaturesExtractor):
         )
 
         n_input_channels = observation_space.shape[0]
-        if min(observation_space.shape) > 36:
+        if min(observation_space.shape[1:]) > 36:
             self.cnn = torch.nn.Sequential(
                 torch.nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4),
                 torch.nn.ReLU(),

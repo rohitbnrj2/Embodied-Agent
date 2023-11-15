@@ -54,6 +54,22 @@ def _list_representer(dumper, data):
 yaml.add_representer(list, _list_representer)
 yaml.add_representer(tuple, _list_representer)
 
+def convert_overrides_to_dict(overrides: List[Tuple[str, Any]]) -> Dict[str, Any]:
+    """Convert an override list (probably passed through the command line) that
+    is in the form (key, dot.separated.nested.value) to a dictionary that `from_dict`
+    expects."""
+
+    overrides_dict: Dict[str, Any] = {}
+    for k, v in overrides:
+        d = overrides_dict
+
+        keys = k.split(".")
+        for key in keys[:-1]:
+            d = d.setdefault(key, {})
+        d[keys[-1]] = yaml.safe_load(v)
+
+    return overrides_dict
+
 
 T = TypeVar("T")
 
@@ -202,12 +218,12 @@ class MjCambrianBaseConfig(Generic[T]):
         will only replace attributes at this class level, not nested."""
         return replace(deepcopy(self), **kwargs)
 
-    def setdefault(self, field: str, default: Any) -> T:
+    def setdefault(self, field: str, default: Any) -> Any:
         """Assign the default value to the field if it is not already set. Like
         `dict.setdefault`."""
         if not hasattr(self, field) or getattr(self, field) is None:
             setattr(self, field, default)
-        return self
+        return getattr(self, field)
 
     def __contains__(self, key: str) -> bool:
         """Check if the dataclass contains a field with the given name."""
@@ -354,6 +370,14 @@ class MjCambrianCameraConfig(MjCambrianBaseConfig[T]):
         azimuth (Optional[float]): The azimuth angle.
         elevation (Optional[float]): The elevation angle.
 
+        type_str (Optional[str]): The type of camera as a string. Mutually exclusive
+            with type. Converted to mjtCamera with
+            getattr(..., f"mjCAMERA_{type_str.upper()}")
+        fixedcamname (Optional[str]): The name of the camera. Mutually exclusive with
+            fixedcamid. Used to determine the fixedcamid using mj.mj_name2id.
+        trackbodyname (Optional[str]): The name of the body to track. Mutually exclusive
+            with trackbodyid. Used to determine the trackbodyid using mj.mj_name2id.
+
         distance_factor (Optional[float]): The distance factor. This is used to
             calculate the distance from the camera to the lookat point. If unset, no
             scaling will be applied.
@@ -367,6 +391,10 @@ class MjCambrianCameraConfig(MjCambrianBaseConfig[T]):
     distance: Optional[float] = None
     azimuth: Optional[float] = None
     elevation: Optional[float] = None
+
+    type_str: Optional[str] = None
+    fixedcamname: Optional[str] = None
+    trackbodyname: Optional[str] = None
 
     distance_factor: Optional[float] = None
 
@@ -392,6 +420,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig[T]):
         fullscreen (Optional[bool]): Whether to render in fullscreen or not. If True,
             the width and height are ignored and the window is rendered in fullscreen.
             This is only valid for onscreen renderers.
+        fps (Optional[int]): The fps to render videos at.
 
         camera_config (Optional[MjCambrianCameraConfig]): The camera config to use for
             the renderer.
@@ -411,6 +440,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig[T]):
     height: Optional[int] = None
 
     fullscreen: Optional[bool] = None
+    fps: Optional[int] = None
 
     camera_config: Optional[MjCambrianCameraConfig] = None
 
@@ -680,7 +710,7 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig[T]):
 
 @dataclass
 class MjCambrianConfig(MjCambrianBaseConfig[T]):
-    includes: Optional[List[Path | str]] = None
+    includes: Optional[Dict[str, Path | str]] = None
 
     training_config: MjCambrianTrainingConfig
     env_config: MjCambrianEnvConfig
@@ -690,9 +720,9 @@ class MjCambrianConfig(MjCambrianBaseConfig[T]):
     @classmethod
     def from_dict(cls: T, dict: Dict[str, Any]):
         """Overrides the base class method to handle includes."""
-        if "includes" in dict and dict["includes"] is not None:
-            includes = dict.pop("includes")
-            for include in includes:
+        includes = dict.pop("includes", None)
+        if includes is not None:
+            for include in reversed(includes.values()):
                 with open(include, "r") as f:
                     dict = mergedeep.merge(yaml.safe_load(f), dict)
             dict = cls.from_dict(dict).to_dict()
@@ -705,11 +735,21 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Dataclass/YAML Tester")
 
-    parser.add_argument("base", type=str, help="Path to base config file")
+    parser.add_argument("config", type=str, help="Path to config file")
+    parser.add_argument(
+        "-o",
+        "--override",
+        dest="overrides",
+        action="append",
+        type=lambda v: v.split("="),
+        help="Override config values. Do <dot separated yaml config>=<value>",
+        default=[],
+    )
 
     args = parser.parse_args()
 
-    config = MjCambrianConfig.from_yaml(args.base)
+    overrides = convert_overrides_to_dict(args.overrides)
+    config = MjCambrianConfig.from_yaml(args.config, overrides=overrides)
 
     print(config)
     print(config.to_dict())

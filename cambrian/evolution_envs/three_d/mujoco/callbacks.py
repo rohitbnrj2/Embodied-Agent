@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import glob
 
 from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3.common.callbacks import BaseCallback, EvalCallback, CallbackList
+from stable_baselines3.common.callbacks import BaseCallback, EvalCallback, CallbackList, ProgressBarCallback
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from env import MjCambrianEnv
@@ -154,6 +154,13 @@ class MjCambrianAnimalPoolCallback(BaseCallback):
             self.animal_pool.write_to_pool(
                 self.parent.best_mean_reward, self.animal.config
             )
+
+class MjCambrianProgressBarCallback(ProgressBarCallback):
+    """Overwrite the default progress bar callback to flush the pbar on deconstruct."""
+
+    def __del__(self):
+        """This string will restore the terminal back to its original state."""
+        print("\x1b[?25h")
 
 
 class CallbackListWithSharedParent(CallbackList):

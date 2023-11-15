@@ -51,8 +51,7 @@ class MjCambrianEye:
             "Must specify 'rgb_array' in the render modes for the renderer config."
         )
 
-        if config.filter_size is None:
-            config.filter_size = [0, 0]
+        config.setdefault("filter_size", [0, 0])
 
         if config.fovy is not None:
             assert 0 < config.fovy < 180, "Invalid fovy."
@@ -65,7 +64,7 @@ class MjCambrianEye:
             assert config.fovy is None, "Cannot set both fov and fovy"
             assert config.sensorsize is None, "Cannot set both fov and sensorsize"
 
-            config.focal = config.focal if config.focal is not None else [0.1, 0.1]
+            config.setdefault("focal", [0.1, 0.1])
 
             # Adjust the FOV based on the padded resolution
             original_width, original_height = config.resolution

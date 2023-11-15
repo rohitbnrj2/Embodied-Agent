@@ -151,22 +151,6 @@ class MjCambrianEnv(gym.Env):
         self.maze, maze_xml = MjCambrianMaze.make_maze(self.env_config.maze_config)
         xml += maze_xml
 
-        # Create the track camera, if it doesn't exist. camera_name must be set
-        # NOTE: tracks the first animal only
-        # track_cam = self.env_config.camera_name
-        # if track_cam is not None and xml.find(".//camera", name=track_cam) is None:
-        #     animal = next(iter(self.animals.values()))
-        #     tracked_body = xml.find(".//body", name=f"{animal.config.body_name}")
-        #     assert tracked_body is not None
-        #     xml.add(
-        #         tracked_body,
-        #         "camera",
-        #         name=track_cam,
-        #         mode="trackcom",
-        #         pos="0 -10 10",
-        #         xyaxes="1 0 0 0 1 1",
-        #     )
-
         # Disable the headlight
         if not self.env_config.use_headlight:
             xml.add(xml.add(xml.root, "visual"), "headlight", active="0")
@@ -223,7 +207,8 @@ class MjCambrianEnv(gym.Env):
         self._step_mujoco_simulation(1)
 
         if self.renderer is not None:
-            self.renderer.config.camera_config.distance = self.model.stat.extent
+            extent = self.model.stat.extent
+            self.renderer.config.camera_config.setdefault("distance", extent)
             self.renderer.reset(self.model, self.data)
 
         self._episode_step = 0

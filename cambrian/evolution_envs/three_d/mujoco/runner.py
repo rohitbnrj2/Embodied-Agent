@@ -13,6 +13,7 @@ from stable_baselines3.common.callbacks import (
     BaseCallback,
     EvalCallback,
     StopTrainingOnNoModelImprovement,
+    CallbackList
 )
 from stable_baselines3.common.utils import set_random_seed
 
@@ -23,6 +24,7 @@ from callbacks import (
     PlotEvaluationCallback,
     SaveVideoCallback,
     CallbackListWithSharedParent,
+    MjCambrianProgressBarCallback
 )
 from feature_extractors import MjCambrianCombinedExtractor
 from renderer import MjCambrianRenderer
@@ -70,8 +72,8 @@ class MjCambrianRunner:
         self.evo_config = self.config.evo_config
         self.verbose = self.training_config.verbose
 
-        self.training_config.setdefault("exp_name", config_path.stem)
-        self.logdir: Path = Path(self.training_config.logdir) / self.training_config.exp_name
+        exp_name = self.training_config.setdefault("exp_name", config_path.stem)
+        self.logdir: Path = Path(self.training_config.logdir) / exp_name
         self.logdir.mkdir(parents=True, exist_ok=True)
 
         self.ppodir = self.logdir / "ppo"
@@ -115,7 +117,6 @@ class MjCambrianRunner:
         model.learn(
             total_timesteps=self.training_config.total_timesteps,
             callback=self._create_callbacks(env, eval_env),
-            progress_bar=True,
         )
 
         # Save the final model
@@ -154,7 +155,10 @@ class MjCambrianRunner:
                 print("Renderer closed. Exiting...")
                 break
 
-            action, _ = model.predict(obs, deterministic=True)
+            if args.random_actions:
+                action = env.action_space.sample()
+            else:
+                action, _ = model.predict(obs, deterministic=True)
             obs, reward, done, info = env.step(action)
             cumulative_reward += reward[0]
 
@@ -228,7 +232,7 @@ class MjCambrianRunner:
             callback_after_eval=PlotEvaluationCallback(self.ppodir),
         )
 
-        return eval_cb
+        return CallbackList([eval_cb, MjCambrianProgressBarCallback()])
 
     def _calc_batch_size(self) -> int:
         """Calculates the batch size as n_steps * n_envs / n_epochs.

@@ -4,7 +4,7 @@
       data="0.0 0.0 0.55 1.0 0.0 0.0 0.0 0.0 1.0 0.0 -1.0 0.0 -1.0 0.0 1.0" />
   </custom>
   <asset>
-    <material name="torso_mat" emission="1" rgba="0.8 0.6 0.4 1" />
+    <material name="torso_mat" emission="0.1" rgba="0.8 0.6 0.4 1" />
   </asset>
   <default>
     <default class="ant">

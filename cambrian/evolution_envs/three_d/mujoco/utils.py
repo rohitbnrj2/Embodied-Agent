@@ -80,6 +80,16 @@ def get_joint_name(model: mj.MjModel, jointadr: int) -> str:
     return mj.mj_id2name(model, mj.mjtObj.mjOBJ_JOINT, jointadr)
 
 
+def get_camera_id(model: mj.MjModel, camera_name: str) -> int:
+    """Get the ID of a Mujoco camera."""
+    return mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, camera_name)
+
+def get_camera_name(model: mj.MjModel, cameraadr: int) -> str:
+    """Get the name of a Mujoco camera."""
+    return mj.mj_id2name(model, mj.mjtObj.mjOBJ_CAMERA, cameraadr)
+
+
+
 @dataclass
 class MjCambrianJoint:
     """Helper class which stores information about a Mujoco joint.

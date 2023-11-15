@@ -1,5 +1,5 @@
 includes:
-  - configs_mujoco/point_1lat2lon_4x4.yaml
+  point_1lat2lon_4x4: configs_mujoco/point_1lat2lon_4x4.yaml
 
 training_config:
   # ppo_checkpoint_path: "point_1lat2lon_4x4/ppo/best_model.zip"
@@ -9,3 +9,9 @@ training_config:
 env_config:
   maze_config:
     name: "MEDIUM_MAZE_DIVERSE_G"
+
+animal_config:
+  num_eyes_lat: 1
+  num_eyes_lon: 2
+  default_eye_config:
+    resolution: [4, 4]

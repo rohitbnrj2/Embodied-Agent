@@ -384,8 +384,18 @@ class MjCambrianAnimal:
             for j in reversed(range(self.config.num_eyes_lon)):
                 name = f"{self.name}_eye_{i}_{j}"
                 obs = self._eyes[name].last_obs
+                if obs is None:
+                    print(f"WARNING: Eye `{name}` has no observation.")
+                    continue
                 images[i].append(obs.transpose(1, 0, 2))
         images = np.array(images)
+
+        if images.size == 0:
+            print(
+                f"WARNING: Animal `{self.name}` observations. "
+                "Maybe you forgot to call `render`?."
+            )
+            return None
 
         return np.vstack([np.hstack(image_row) for image_row in reversed(images)])
 
@@ -533,56 +543,101 @@ if __name__ == "__main__":
     import argparse
     import matplotlib.pyplot as plt
     from config import MjCambrianConfig
+    from runner import _convert_overrides_to_dict
 
     parser = argparse.ArgumentParser(description="Animal Test")
 
     parser.add_argument("config_path", type=str, help="Path to the config file.")
     parser.add_argument("title", type=str, help="Title of the demo.")
-    parser.add_argument("--plot", action="store_true", help="Plot the demo")
+
     parser.add_argument("--save", action="store_true", help="Save the demo")
+    action = parser.add_mutually_exclusive_group(required=True)
+    action.add_argument("--plot", action="store_true", help="Plot the demo")
+    action.add_argument("--viewer", action="store_true", help="Launch the viewer")
+
+    parser.add_argument(
+        "-o",
+        "--override",
+        dest="overrides",
+        action="append",
+        type=lambda v: v.split("="),
+        help="Override config values. Do <dot separated yaml config>=<value>",
+        default=[],
+    )
+    parser.add_argument(
+        "--include",
+        action="append",
+        type=str,
+        help="Additional includes to add to the config. Added to the end to override existing overrides, if desired.",
+        default=[],
+    )
 
     args = parser.parse_args()
 
-    config = MjCambrianConfig.load(args.config_path)
+    overrides = _convert_overrides_to_dict(args.overrides)
+    config: MjCambrianConfig = MjCambrianConfig.load(args.config_path, overrides=overrides)
     config.animal_config.name = "animal"
     config.animal_config.idx = 0
-    animal = MjCambrianAnimal.create(config.animal_config)
+    animal = MjCambrianAnimal(config.animal_config)
 
     env_xml = MjCambrianXML(get_model_path(config.env_config.scene_path))
     model = mj.MjModel.from_xml_string(str(env_xml + animal.generate_xml()))
     data = mj.MjData(model)
 
-    X_NUM, Y_NUM = config.animal_config.num_eyes_lat, config.animal_config.num_eyes_lon
+    animal.reset(model, data, [-3, 0])
+
+    if args.viewer:
+        from renderer import MjCambrianRenderer, MjCambrianRendererConfig
+
+        renderer_config: MjCambrianRendererConfig = config.env_config.renderer_config
+        renderer_config.render_modes = ["human", "rgb_array"]
+        renderer_config.camera_config.lookat = [-2, 0, 0.25]
+        renderer_config.camera_config.elevation = -20
+        renderer_config.camera_config.azimuth = 110
+        renderer_config.camera_config.distance = 2.5
+
+        renderer = MjCambrianRenderer(renderer_config)
+        renderer.reset(model, data)
+        
+        for viewer in renderer.viewers.values():
+            viewer.scene_option.flags[mj.mjtVisFlag.mjVIS_CAMERA] = True
+            viewer.model.vis.scale.camera = 1.0
+
+        i = 0
+        while renderer.is_running:
+            print(f"Step {i}")
+            renderer.render()
+            mj.mj_step(model, data)
+            i += 1
+
+            if i == 600 and args.save:
+                filename = args.title.lower().replace(' ', '_')
+                renderer.record = True
+                renderer.render()
+                print(f"Saving to {filename}...")
+                renderer.save_last_image(filename)
+                renderer.record = False
+                break
+
+        exit()
+
+    plt.imshow(animal.create_composite_image())
+    plt.xticks([])
+    plt.yticks([])
+    plt.gca().set_xticklabels([])
+    plt.gca().set_yticklabels([])
+
     if args.plot or args.save:
-        fig, ax = plt.subplots(Y_NUM, X_NUM, figsize=(Y_NUM, X_NUM))
-        if X_NUM == 1 and Y_NUM == 1:
-            ax = np.array([[ax]])
-        ax = np.flipud(ax)
-        assert X_NUM == Y_NUM
-
-    eyes = list(animal.eyes.values())
-    obs = animal.reset(model, data, [0, 0, 0.5])
-    for i in range(X_NUM):
-        for j in range(Y_NUM):
-            eye = eyes[i * X_NUM + j]
-            image = obs[eye.name]
-
-            if args.plot or args.save:
-                ax[i, j].imshow(image.transpose(1, 0, 2))
-
-                ax[i, j].set_xticks([])
-                ax[i, j].set_yticks([])
-                ax[i, j].set_xticklabels([])
-                ax[i, j].set_yticklabels([])
-
-    if args.plot or args.save:
-        fig.suptitle(args.title)
+        plt.title(args.title)
         plt.subplots_adjust(wspace=0, hspace=0)
 
     if args.save:
+        filename = f"{args.title.lower().replace(' ', '_')}.png"
+        print(f"Saving to {filename}...")
+
         # save the figure without the frame
         plt.axis("off")
-        plt.savefig(f"{args.title}.png", bbox_inches="tight", dpi=300)
+        plt.savefig(filename, bbox_inches="tight", dpi=300)
 
     if args.plot:
         fig_manager = plt.get_current_fig_manager()

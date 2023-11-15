@@ -9,6 +9,7 @@ import cv2
 import imageio
 
 from config import MjCambrianRendererConfig
+from utils import get_camera_id, get_body_id
 
 TEXT_HEIGHT = 20
 TEXT_MARGIN = 5
@@ -346,7 +347,7 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
         if self.width != width or self.height != height:
             self.make_context_current()
             self.viewport = mj.MjrRect(0, 0, width, height)
-            mj._render.mjr_resizeOffscreen(width, height, self._mjr_context)
+            mj.mjr_resizeOffscreen(width, height, self._mjr_context)
 
         super().update(width, height, camera)
 
@@ -451,6 +452,8 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
         if fullscreen:
             size = glfw.get_video_mode(glfw.get_primary_monitor()).size
+            self.width = size.width
+            self.height = size.height
             glfw.set_window_monitor(
                 self.window,
                 glfw.get_primary_monitor(),
@@ -586,25 +589,45 @@ class MjCambrianRenderer:
 
     def reset_camera(self):
         """Setup the camera."""
-        if self.config.camera_config is None:
+        camera_config = self.config.camera_config
+        if camera_config is None:
             return
 
-        if self.config.camera_config.type is not None:
-            self.camera.type = self.config.camera_config.type
-        if self.config.camera_config.fixedcamid is not None:
-            self.camera.fixedcamid = self.config.camera_config.fixedcamid
-        if self.config.camera_config.trackbodyid is not None:
-            self.camera.trackbodyid = self.config.camera_config.trackbodyid
-        if self.config.camera_config.distance is not None:
-            self.camera.distance = self.config.camera_config.distance
-            if self.config.camera_config.distance_factor is not None:
-                self.camera.distance *= self.config.camera_config.distance_factor
-        if self.config.camera_config.azimuth is not None:
-            self.camera.azimuth = self.config.camera_config.azimuth
-        if self.config.camera_config.elevation is not None:
-            self.camera.elevation = self.config.camera_config.elevation
-        if self.config.camera_config.lookat is not None:
-            self.camera.lookat[:] = self.config.camera_config.lookat
+        assert not (camera_config.type and camera_config.type_str), (
+            "Camera type and type_str are mutually exclusive."
+        )
+        assert not (camera_config.fixedcamid and camera_config.fixedcamname), (
+            "Camera fixedcamid and fixedcamname are mutually exclusive."
+        )
+        assert not (camera_config.trackbodyid and camera_config.trackbodyname), (
+            "Camera trackbodyid and trackbodyname are mutually exclusive."
+        )
+
+        if camera_config.type is not None:
+            self.camera.type = camera_config.type
+        if camera_config.type_str is not None:
+            type_str = f"mjCAMERA_{camera_config.type_str.upper()}"
+            self.camera.type = getattr(mj.mjtCamera, type_str)
+        if camera_config.fixedcamid is not None:
+            self.camera.fixedcamid = camera_config.fixedcamid
+        if camera_config.fixedcamname is not None:
+            fixedcamname = camera_config.fixedcamname
+            self.camera.fixedcamid = get_camera_id(self.model, fixedcamname)
+        if camera_config.trackbodyid is not None:
+            self.camera.trackbodyid = camera_config.trackbodyid
+        if camera_config.trackbodyname is not None:
+            trackbodyname = camera_config.trackbodyname
+            self.camera.trackbodyid = get_body_id(self.model, trackbodyname)
+        if camera_config.distance is not None:
+            self.camera.distance = camera_config.distance
+            if camera_config.distance_factor is not None:
+                self.camera.distance *= camera_config.distance_factor
+        if camera_config.azimuth is not None:
+            self.camera.azimuth = camera_config.azimuth
+        if camera_config.elevation is not None:
+            self.camera.elevation = camera_config.elevation
+        if camera_config.lookat is not None:
+            self.camera.lookat[:] = camera_config.lookat
 
     def update(self, width: int, height: int):
         assert width is not None and height is not None, "Width and height must be set."
@@ -633,7 +656,7 @@ class MjCambrianRenderer:
 
         if self.record:
             assert image is not None, "Image must not be None when recording."
-            self._image_buffer.append(image)
+            self._image_buffer.append(image.copy())
 
         return image
 
@@ -730,12 +753,15 @@ class MjCambrianRenderer:
             path (Path | str): The path to save the visualization to. Do _not_ include
                 the file extension. The file extension is automatically added.
         """
+
         if len(self._image_buffer) == 0:
             print("WARNING: Image buffer is empty. Nothing to save.")
             return
 
-        fps = 50
-        duration = 1000 * 1 / 50
+        assert self.config.fps is not None, "FPS must be set to save."
+        fps = self.config.fps
+        duration = 1000 * 1 / fps
+        path = Path(path)
 
         print(f"Saving visualizations at {path}...")
         # gif
@@ -749,6 +775,22 @@ class MjCambrianRenderer:
             writer.append_data(image)
         writer.close()
         print(f"Saved visualization at {path}")
+
+    def save_last_image(self, path: Path | str):
+        """Save the current image.
+
+        Args:
+            path (Path | str): The path to save the visualization to. Do _not_ include
+                the file extension. The file extension is automatically added.
+        """
+        if len(self._image_buffer) == 0:
+            print("WARNING: Image buffer is empty. Nothing to save.")
+            return
+
+        path = Path(path)
+        print(f"Saving image at {path}...")
+        imageio.imwrite(path.with_suffix(".png"), self._image_buffer[-1])
+        print(f"Saved image at {path}")
 
     # ====================
 
@@ -787,11 +829,11 @@ class MjCambrianRenderer:
             viewer = VIEWERS[render_mode]
         elif render_mode == "rgb_array":
             viewer = MjCambrianOffscreenViewer(
-                model, data, self.config.copy(), self.camera
+                model, data, self.config, self.camera
             )
         elif render_mode == "human":
             viewer = MjCambrianOnscreenViewer(
-                model, data, self.config.copy(), self.camera
+                model, data, self.config, self.camera
             )
         else:
             raise ValueError(f"Invalid render mode `{render_mode}`.")
