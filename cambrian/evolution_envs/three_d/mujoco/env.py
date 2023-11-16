@@ -11,7 +11,7 @@ from stable_baselines3.common.utils import set_random_seed
 from animal import MjCambrianAnimal
 from maze import MjCambrianMaze
 from cambrian_xml import MjCambrianXML
-from config import MjCambrianConfig, convert_overrides_to_dict
+from config import MjCambrianConfig
 from utils import get_model_path
 from renderer import (
     MjCambrianRenderer,
@@ -653,26 +653,10 @@ def make_single_env(
 
 
 if __name__ == "__main__":
-    import argparse
+    from utils import MjCambrianArgumentParser
 
-    parser = argparse.ArgumentParser()
+    parser = MjCambrianArgumentParser()
 
-    parser.add_argument("config_path", type=str, help="Path to the config file.")
-    parser.add_argument(
-        "-o",
-        "--override",
-        dest="overrides",
-        action="append",
-        nargs=2,
-        help="Override config values. Do <dot separated yaml config> <value>",
-        default=[],
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="Seed to use for the environment.",
-        default=None,
-    )
     parser.add_argument(
         "--mj-viewer",
         action="store_true",
@@ -682,28 +666,18 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.seed is not None:
-        np.random.seed(args.seed)
-
-    overrides = convert_overrides_to_dict(args.overrides)
-    config = MjCambrianConfig.load(args.config_path, overrides=overrides)
-
+    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
     env = MjCambrianEnv(config, use_renderer=not args.mj_viewer)
     env.reset()
 
+    print("Running...")
     if args.mj_viewer:
         import mujoco.viewer
 
-        mujoco.viewer.launch(env.model, env.data)
-
-        # NOTE: launch_passive currently broken when focal or focalpixel is specified
-        # fixed in 3.0.1 (not available on pypi yet)
-        # with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
-        #     while viewer.is_running():
-        #         mj.mj_step(env.model, env.data)
-        #         for animal in env.animals.values():
-        #             animal.has_contacts
-        #         viewer.sync()
+        with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
+            while viewer.is_running():
+                mj.mj_step(env.model, env.data)
+                viewer.sync()
     else:
         while env.renderer.is_running:
             env.render()

@@ -12,10 +12,9 @@ from stable_baselines3.common.callbacks import (
     StopTrainingOnNoModelImprovement,
     CallbackList,
 )
-from stable_baselines3.common.utils import set_random_seed
 
 from feature_extractors import MjCambrianCombinedExtractor
-from config import convert_overrides_to_dict, MjCambrianConfig
+from config import MjCambrianConfig
 from animal import MjCambrianAnimal
 from animal_pool import MjCambrianAnimalPool
 from wrappers import make_single_env
@@ -30,6 +29,13 @@ from ppo import MjCambrianPPO
 
 
 class MjCambrianEvoRunner:
+    """This is the runner class for running evolutionary training and evaluation.
+
+    Args:
+        config (MjCambrianConfig): The config to use for training and evaluation.
+        rank (int): The rank of this process.    
+    """
+
     def __init__(self, config: MjCambrianConfig, rank: int):
         self.config = config
         self.rank = rank
@@ -203,21 +209,10 @@ class MjCambrianEvoRunner:
 
 
 if __name__ == "__main__":
-    import argparse
+    from utils import MjCambrianArgumentParser
 
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("config", type=str, help="Path to config file")
+    parser = MjCambrianArgumentParser()
     parser.add_argument("-r", "--rank", type=int, help="Rank of this process", default=0)
-    parser.add_argument(
-        "-o",
-        "--override",
-        dest="overrides",
-        action="append",
-        nargs=2,
-        help="Override config values. Do <dot separated yaml config> <value>",
-        default=[],
-    )
 
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--evo", action="store_true", help="Run evolution")
@@ -225,10 +220,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    overrides = convert_overrides_to_dict(args.overrides)
-    config: MjCambrianConfig = MjCambrianConfig.load(args.config, overrides=overrides)
+    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
     config.training_config.setdefault("exp_name", Path(args.config).stem)
-    set_random_seed(config.training_config.seed)
 
     runner = MjCambrianEvoRunner(config, args.rank)
 

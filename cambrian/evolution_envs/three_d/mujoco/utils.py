@@ -1,3 +1,4 @@
+import argparse
 from typing import Any, List, Tuple
 from pathlib import Path
 from dataclasses import dataclass
@@ -6,11 +7,11 @@ import numpy as np
 import mujoco as mj
 
 
-def safe_index(l: List[Any], v: Any) -> int:
+def safe_index(list_to_index: List[Any], value: Any) -> int:
     """Safely get the index of a value in a list, or -1 if not found. Normally,
     list.index() throws an exception if the value is not found."""
     try:
-        return l.index(v)
+        return list_to_index.index(value)
     except ValueError:
         return -1
 
@@ -36,6 +37,44 @@ def get_model_path(model_path: str | Path, *, throw_error: bool = True) -> Path 
             return None
 
     return model_path
+
+
+# =============
+
+
+class MjCambrianArgumentParser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.add_argument("config", type=str, help="Path to config file")
+        self.add_argument(
+            "-o",
+            "--override",
+            dest="overrides",
+            action="append",
+            nargs=2,
+            help="Override config values. Do <dot separated yaml config> <value>",
+            default=[],
+        )
+        self.add_argument(
+            "--seed",
+            type=int,
+            help="Seed to use for the environment.",
+            default=None,
+        )
+
+    def parse_args(self, *args, **kwargs):
+        # to avoid circular imports
+        from config import convert_overrides_to_dict
+        from stable_baselines3.common.utils import set_random_seed
+
+        args = super().parse_args(*args, **kwargs)
+
+        args.overrides = convert_overrides_to_dict(args.overrides)
+        if args.seed is not None:
+            set_random_seed(args.seed)
+
+        return args
 
 
 # =============
@@ -84,10 +123,10 @@ def get_camera_id(model: mj.MjModel, camera_name: str) -> int:
     """Get the ID of a Mujoco camera."""
     return mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, camera_name)
 
+
 def get_camera_name(model: mj.MjModel, cameraadr: int) -> str:
     """Get the name of a Mujoco camera."""
     return mj.mj_id2name(model, mj.mjtObj.mjOBJ_CAMERA, cameraadr)
-
 
 
 @dataclass
