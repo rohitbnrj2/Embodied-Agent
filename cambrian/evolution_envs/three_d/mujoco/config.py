@@ -14,12 +14,12 @@ from typing import (
 import yaml
 from dataclasses import dataclass, asdict, fields, is_dataclass, replace
 from pathlib import Path
-from functools import reduce
+from functools import reduce, partial
 from copy import deepcopy
 import mergedeep
 import numpy as np
 
-dataclass = dataclass(kw_only=True)
+dataclass = partial(dataclass, kw_only=True, repr=False)
 
 
 def _get_underlying_type(field_type: type) -> type:
@@ -53,6 +53,7 @@ def _list_representer(dumper, data):
 
 yaml.add_representer(list, _list_representer)
 yaml.add_representer(tuple, _list_representer)
+
 
 def convert_overrides_to_dict(overrides: List[Tuple[str, Any]]) -> Dict[str, Any]:
     """Convert an override list (probably passed through the command line) that
@@ -262,7 +263,7 @@ class MjCambrianBaseConfig(Generic[T]):
 
 
 @dataclass
-class MjCambrianTrainingConfig(MjCambrianBaseConfig[T]):
+class MjCambrianTrainingConfig(MjCambrianBaseConfig["MjCambrianTrainingConfig"]):
     """Settings for the training process. Used for type hinting.
 
     Attributes:
@@ -324,8 +325,9 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig[T]):
 
         super().__post_init__()
 
+
 @dataclass
-class MjCambrianMazeConfig(MjCambrianBaseConfig[T]):
+class MjCambrianMazeConfig(MjCambrianBaseConfig["MjCambrianMazeConfig"]):
     """Defines a map config. Used for type hinting.
 
     Attributes:
@@ -360,7 +362,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig[T]):
 
 
 @dataclass
-class MjCambrianCameraConfig(MjCambrianBaseConfig[T]):
+class MjCambrianCameraConfig(MjCambrianBaseConfig["MjCambrianCameraConfig"]):
     """Defines a camera config. Used for type hinting. This is a wrapper of
     mj.mjvCamera that is used to configure the camera in the viewer.
 
@@ -404,7 +406,7 @@ class MjCambrianCameraConfig(MjCambrianBaseConfig[T]):
 
 
 @dataclass
-class MjCambrianRendererConfig(MjCambrianBaseConfig[T]):
+class MjCambrianRendererConfig(MjCambrianBaseConfig["MjCambrianRendererConfig"]):
     """The config for the renderer. Used for type hinting.
 
     A renderer corresponds to a single camera. The renderer can then view the scene in
@@ -452,7 +454,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig[T]):
 
 
 @dataclass
-class MjCambrianEnvConfig(MjCambrianBaseConfig[T]):
+class MjCambrianEnvConfig(MjCambrianBaseConfig["MjCambrianEnvConfig"]):
     """Defines a config for the cambrian environment.
 
     Attributes:
@@ -522,7 +524,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig[T]):
 
 
 @dataclass
-class MjCambrianEyeConfig(MjCambrianBaseConfig[T]):
+class MjCambrianEyeConfig(MjCambrianBaseConfig["MjCambrianEyeConfig"]):
     """Defines the config for an eye. Used for type hinting.
 
     Attributes:
@@ -595,7 +597,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig[T]):
 
 
 @dataclass
-class MjCambrianAnimalConfig(MjCambrianBaseConfig[T]):
+class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
     """Defines the config for an animal. Used for type hinting.
 
     Attributes:
@@ -665,7 +667,9 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig[T]):
 
 
 @dataclass
-class MjCambrianSharedFileAnimalPoolConfig(MjCambrianBaseConfig[T]):
+class MjCambrianSharedFileAnimalPoolConfig(
+    MjCambrianBaseConfig["MjCambrianSharedFileAnimalPoolConfig"]
+):
     """Config for the shared file agent pool. Used for type hinting.
 
     Attributes:
@@ -675,7 +679,7 @@ class MjCambrianSharedFileAnimalPoolConfig(MjCambrianBaseConfig[T]):
             when reading/writing to the file. This is useful for distributed training
             where multiple processes may be reading/writing to the file at the same
             time. NOTE: some distributed computing systems don't support file locking.
-        lock_timeout (Optional[int]): The timeout to use for the lock if flock isn't 
+        lock_timeout (Optional[int]): The timeout to use for the lock if flock isn't
             used. Specified in ms. If `use_flock` is True, this is ignored, otherwise
             it's required.
     """
@@ -686,15 +690,47 @@ class MjCambrianSharedFileAnimalPoolConfig(MjCambrianBaseConfig[T]):
     lock_timeout: Optional[int] = None
 
     def __post_init__(self):
-        assert self.use_flock or self.lock_timeout is not None, (
-            "Must set `lock_timeout` if `use_flock` is False. "
-        )
+        assert (
+            self.use_flock or self.lock_timeout is not None
+        ), "Must set `lock_timeout` if `use_flock` is False. "
 
         return super().__post_init__()
 
 
 @dataclass
-class MjCambrianEvoConfig(MjCambrianBaseConfig[T]):
+class MjCambrianGenerationConfig(MjCambrianBaseConfig["MjCambrianGenerationConfig"]):
+    """Config for a generation. Used for type hinting.
+
+    Attributes:
+        rank (int): The rank of the generation. This is used to uniquely identify the
+            animal in a specific generation.
+        generation (int): The generation number. This is used to uniquely identify the
+            generation.
+    """
+
+    rank: int
+    generation: int
+
+    def __add__(self, new_generation: int) -> int:
+        """NOTE: returns an int, not a new generation config."""
+        return self.generation + new_generation
+
+    def __iadd__(self, new_generation: int) -> "MjCambrianGenerationConfig":
+        self.generation += new_generation
+        return self
+
+    def __lt__(self, other: int) -> bool:
+        return self.generation < other
+
+    def __str__(self) -> str:
+        return str(self.generation)
+
+    def to_path(self) -> Path:
+        return Path(f"generation_{self.generation}") / f"rank_{self.rank}"
+
+
+@dataclass
+class MjCambrianEvoConfig(MjCambrianBaseConfig["MjCambrianEvoConfig"]):
     """Config for evolutions. Used for type hinting.
 
     Attributes:
@@ -712,6 +748,12 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig[T]):
         shared_file_config (Optional[MjCambrianSharedFileAnimalPoolConfig]): The config
             for the shared file agent pool. Only used if `agent_pool_type` is set to
             `MjCambrianAnimalPoolType.SHARED_FILE`.
+
+        generation (Optional[MjCambrianGenerationConfig]): The config for the current
+            generation. Will be set by the evolution runner.
+        parent_generation (Optional[MjCambrianGenerationConfig]): The config for the
+            parent generation. Will be set by the evolution runner. If None, that means
+            that the current generation is the first generation (i.e. no parent).
     """
 
     population_size: int
@@ -722,9 +764,12 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig[T]):
     animal_pool_type: str
     shared_file_config: Optional[MjCambrianSharedFileAnimalPoolConfig] = None
 
+    generation: Optional[MjCambrianGenerationConfig] = None
+    parent_generation: Optional[MjCambrianGenerationConfig] = None
+
 
 @dataclass
-class MjCambrianConfig(MjCambrianBaseConfig[T]):
+class MjCambrianConfig(MjCambrianBaseConfig["MjCambrianConfig"]):
     includes: Optional[Dict[str, Path | str]] = None
 
     training_config: MjCambrianTrainingConfig

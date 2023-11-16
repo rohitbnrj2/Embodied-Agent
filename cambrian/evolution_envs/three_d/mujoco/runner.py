@@ -14,7 +14,7 @@ from stable_baselines3.common.callbacks import (
 )
 
 from feature_extractors import MjCambrianCombinedExtractor
-from config import MjCambrianConfig
+from config import MjCambrianConfig, MjCambrianGenerationConfig
 from animal import MjCambrianAnimal
 from animal_pool import MjCambrianAnimalPool
 from wrappers import make_single_env
@@ -33,7 +33,10 @@ class MjCambrianEvoRunner:
 
     Args:
         config (MjCambrianConfig): The config to use for training and evaluation.
-        rank (int): The rank of this process.    
+        rank (int): The rank of this process. A rank is a unique identifier assigned to
+            each process, where a processes is an individual evo runner running on a
+            separate computer. In the context of a cluster, each node that is running
+            an evo job is considered one rank, where the rank number is a unique int.
     """
 
     def __init__(self, config: MjCambrianConfig, rank: int):
@@ -48,7 +51,7 @@ class MjCambrianEvoRunner:
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
 
-        self.generation = 0
+        self.generation = MjCambrianGenerationConfig(rank=rank, generation=0)
         self.animal_pool = MjCambrianAnimalPool.create(self.config, rank)
 
     # ========
@@ -78,9 +81,7 @@ class MjCambrianEvoRunner:
             self.generation += 1
 
     def update_logdir(self):
-        generation = f"generation_{self.generation}"
-        rank = f"rank_{self.rank}"
-        self.generation_logdir = self.logdir / generation / rank
+        self.generation_logdir = self.logdir / self.generation.to_path()
         self.generation_logdir.mkdir(parents=True, exist_ok=True)
 
     def select_animal(self) -> MjCambrianConfig:
@@ -89,7 +90,13 @@ class MjCambrianEvoRunner:
     def mutate_animal(self, config: MjCambrianConfig) -> MjCambrianConfig:
         animal_config = config.animal_config.copy()
         animal_config = MjCambrianAnimal.mutate(animal_config, verbose=self.verbose)
-        return config.copy(animal_config=animal_config)
+
+        evo_config = config.evo_config.copy()
+        if evo_config.generation is not None:
+            evo_config.parent_generation = evo_config.generation.copy()
+        evo_config.generation = self.generation
+
+        return config.copy(animal_config=animal_config, evo_config=evo_config)
 
     def train_animal(self, config: MjCambrianConfig):
         self.config = config
@@ -100,6 +107,7 @@ class MjCambrianEvoRunner:
     # ========
 
     def train(self):
+        """Train the animal for a single generation."""
         env = self._make_env(self.config.training_config.n_envs)
         eval_env = self._make_env(1)
         callback = self._make_callback(env, eval_env)
@@ -131,11 +139,11 @@ class MjCambrianEvoRunner:
                 i * population_size * num_generations + seed + generation
             """
             return (
-                i
+                self.generation
+                + self.config.training_config.seed
+                + i
                 * self.config.evo_config.population_size
                 * self.config.evo_config.num_generations
-                + self.config.training_config.seed
-                + self.generation
             )
 
         envs = [make_single_env(self.config, calc_seed(i)) for i in range(n_envs)]
@@ -147,6 +155,23 @@ class MjCambrianEvoRunner:
         return VecMonitor(vec_env, str(self.generation_logdir / "monitor.csv"))
 
     def _make_callback(self, env: VecEnv, eval_env: VecEnv) -> BaseCallback:
+        """Makes the callbacks.
+
+        Current callbacks:
+            - SaveVideoCallback: Saves a video of an evaluation episode when a new best
+                model is found.
+            - StopTrainingOnNoModelImprovement: Stops training when no new best model
+                has been found for a certain number of evaluations. See config for
+                settings.
+            - MjCambrianAnimalPoolCallback: Writes the best model to the animal pool
+                when a new best model is found.
+            - PlotEvaluationCallback: Plots the evaluation performance over time to a
+                `monitor.png` file.
+            - MjCambrianProgressBarCallback: Prints a progress bar to the console for
+                the training progress of this generation.
+            - EvalCallback: Evaluates the model every `eval_freq` steps. See config for
+                settings. This is provided by Stable Baselines.
+        """
         callbacks_on_new_best = []
         callbacks_on_new_best.append(
             SaveVideoCallback(
@@ -187,6 +212,13 @@ class MjCambrianEvoRunner:
         return CallbackList([eval_cb, MjCambrianProgressBarCallback()])
 
     def _make_model(self, env: VecEnv) -> MjCambrianPPO:
+        """This method creates the PPO model.
+
+        If available, the weights of the previous generation are loaded into the new
+        model. See `MjCambrianPPO` for more details, but because the shape of the
+        output may be different between generations, the weights with different shapes
+        are ignored.
+        """
         policy_kwargs = dict(
             features_extractor_class=MjCambrianCombinedExtractor,
         )
@@ -212,7 +244,9 @@ if __name__ == "__main__":
     from utils import MjCambrianArgumentParser
 
     parser = MjCambrianArgumentParser()
-    parser.add_argument("-r", "--rank", type=int, help="Rank of this process", default=0)
+    parser.add_argument(
+        "-r", "--rank", type=int, help="Rank of this process", default=0
+    )
 
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--evo", action="store_true", help="Run evolution")

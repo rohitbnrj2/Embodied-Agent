@@ -1,4 +1,4 @@
-from typing import Tuple, List, Generic, TypeVar
+from typing import Tuple, List
 from abc import ABC, abstractmethod
 from pathlib import Path
 from collections import deque
@@ -19,10 +19,7 @@ class MjCambrianAnimalPoolType(Enum):
     SHARED_FILE = "shared_file"
 
 
-T = TypeVar("T")
-
-
-class MjCambrianAnimalPool(ABC, Generic[T]):
+class MjCambrianAnimalPool(ABC):
     """This is the base class for an animal pool. It should be seen as a database of
     animal configs and their performance scores. As animals are trained over generations,
     runners will query the animal pool to select the best performing animal(s) and
@@ -68,7 +65,7 @@ class MjCambrianAnimalPool(ABC, Generic[T]):
         self.close()
 
     @staticmethod
-    def create(config: MjCambrianConfig, rank: int) -> T:
+    def create(config: MjCambrianConfig, rank: int) -> "MjCambrianAnimalPool":
         animal_pool_type = MjCambrianAnimalPoolType(config.evo_config.animal_pool_type)
         if animal_pool_type == MjCambrianAnimalPoolType.SHARED_FILE:
             return MjCambrianSharedFileAnimalPool(config, rank=rank)
@@ -91,7 +88,7 @@ class MjCambrianAnimalPool(ABC, Generic[T]):
             self.pool.popleft()
 
 
-class MjCambrianSharedFileAnimalPool(MjCambrianAnimalPool[T]):
+class MjCambrianSharedFileAnimalPool(MjCambrianAnimalPool):
     """This AnimalPool implements the storage mechanism as a shared file.
 
     If `use_flock` is set to True, then the file will be locked using `fcntl` to ensure

@@ -12,7 +12,7 @@ By default, it will use the builtin BEV viewer I made for the visualizations. If
 
 ### Mujoco Viewer
 
-> ![NOTE]
+> [!NOTE]
 > There was a bug in the visualizer in 3.0.0, but was fixed in 3.0.1, so run `pip install mujoco --upgrade` to get the latest package.
 
 Hover over an option on the left side and right click to show all the shortcuts. `Q` will visualize the cameras and their frustums. You can also just click it under **Rendering**.
