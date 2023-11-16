@@ -685,7 +685,6 @@ if __name__ == "__main__":
     if args.seed is not None:
         np.random.seed(args.seed)
 
-    print(args.overrides)
     overrides = convert_overrides_to_dict(args.overrides)
     config = MjCambrianConfig.load(args.config_path, overrides=overrides)
 
