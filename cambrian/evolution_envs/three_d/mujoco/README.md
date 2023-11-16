@@ -5,7 +5,7 @@
 There is a runner in `env.py` that will visualize the world. To run, run the following:
 
 ```bash
-python python cambrian/evolution_envs/three_d/mujoco/env.py CONFIG_PATH
+python cambrian/evolution_envs/three_d/mujoco/env.py CONFIG_PATH
 ```
 
 By default, it will use the builtin BEV viewer I made for the visualizations. If you want to visualize cameras or do more complicated stuff, pass `--mj-viewer`. You can pass `-h` for all options.
