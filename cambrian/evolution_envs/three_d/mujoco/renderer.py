@@ -344,8 +344,8 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
         viewers running on the system. It may be performant (though memory inefficient
         from a RAM perspective) to set config.use_shared_context to False.
         """
-        width = self.config.width if width is None else width
-        height = self.config.height if height is None else height
+        width = self.width if width is None else width
+        height = self.height if height is None else height
 
         if self.width != width or self.height != height:
             self.make_context_current()
@@ -635,11 +635,11 @@ class MjCambrianRenderer:
     def update(self, width: int, height: int):
         assert width is not None and height is not None, "Width and height must be set."
 
-        self.config.width = width
-        self.config.height = height
-
         for viewer in self._viewers.values():
             viewer.update(width, height, self.camera)
+
+        self.config.width = width
+        self.config.height = height
 
     def render(self) -> np.ndarray | None:
         image: np.ndarray | None = None

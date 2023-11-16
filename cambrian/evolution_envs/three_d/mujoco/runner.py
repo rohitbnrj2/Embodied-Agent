@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import (
     VecEnv,
     DummyVecEnv,
@@ -13,6 +12,7 @@ from stable_baselines3.common.callbacks import (
     StopTrainingOnNoModelImprovement,
     CallbackList,
 )
+from stable_baselines3.common.utils import set_random_seed
 
 from feature_extractors import MjCambrianCombinedExtractor
 from config import convert_overrides_to_dict, MjCambrianConfig
@@ -228,6 +228,7 @@ if __name__ == "__main__":
     overrides = convert_overrides_to_dict(args.overrides)
     config: MjCambrianConfig = MjCambrianConfig.load(args.config, overrides=overrides)
     config.training_config.setdefault("exp_name", Path(args.config).stem)
+    set_random_seed(config.training_config.seed)
 
     runner = MjCambrianEvoRunner(config, args.rank)
 

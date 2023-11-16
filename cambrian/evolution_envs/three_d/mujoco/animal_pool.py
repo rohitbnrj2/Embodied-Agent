@@ -25,7 +25,7 @@ T = TypeVar("T")
 class MjCambrianAnimalPool(ABC, Generic[T]):
     """This is the base class for an animal pool. It should be seen as a database of
     animal configs and their performance scores. As animals are trained over generations,
-    runners will query the animal pool to select the best performing animal(s) and 
+    runners will query the animal pool to select the best performing animal(s) and
     mutate from them."""
 
     def __init__(self, config: MjCambrianConfig, rank: int):
@@ -48,7 +48,7 @@ class MjCambrianAnimalPool(ABC, Generic[T]):
         return random.choice(top_performer_pool)[1].copy()
 
     def get_pool(self) -> List[Tuple[Performance, MjCambrianConfig]]:
-        """Get the animal pool. This may be overridden based on the different storage 
+        """Get the animal pool. This may be overridden based on the different storage
         mechanism.
 
         Returns:
@@ -93,11 +93,11 @@ class MjCambrianAnimalPool(ABC, Generic[T]):
 
 class MjCambrianSharedFileAnimalPool(MjCambrianAnimalPool[T]):
     """This AnimalPool implements the storage mechanism as a shared file.
-    
+
     If `use_flock` is set to True, then the file will be locked using `fcntl` to ensure
     that only one process can write to the file at a time. If `use_flock` is set to
     False, then a lock file will be created and the process will busy wait until the
-    lock file is removed. This is only recommended for systems that don't support file 
+    lock file is removed. This is only recommended for systems that don't support file
     locking.
     """
 
@@ -117,11 +117,10 @@ class MjCambrianSharedFileAnimalPool(MjCambrianAnimalPool[T]):
                 fcntl.flock(open(self.lock_file, "w"), fcntl.LOCK_EX)
                 fcntl.flock(open(self.lock_file, "w"), fcntl.LOCK_UN)
             except OSError:
-                print(
+                raise OSError(
                     "ERROR: This OS doesn't support fcntl. Set `use_flock` to False or "
                     "pick another animal pool type."
                 )
-                exit(1)
 
         with self:
             self.filename.touch()

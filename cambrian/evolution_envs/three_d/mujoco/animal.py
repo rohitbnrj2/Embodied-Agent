@@ -570,39 +570,37 @@ class MjCambrianAnimal:
         mutations = np.random.choice(MjCambrianAnimal.MutationType, num_of_mutations, False)
         mutations = reduce(lambda x, y: x | y, mutations)
 
+        if mutations & MjCambrianAnimal.MutationType.REMOVE_LAT_EYE:
+            if verbose > 1:
+                print("Removing a latitudinal eye.")
+
+            if config.num_eyes_lat <= 1:
+                print("Cannot remove the last latitudinal eye. Adding one instead.")
+                mutations |= MjCambrianAnimal.MutationType.ADD_LAT_EYE
+            else:
+                config.num_eyes_lat -= 1
+
         if mutations & MjCambrianAnimal.MutationType.ADD_LAT_EYE:
             if verbose > 1:
                 print("Adding a latitudinal eye.")
 
             config.num_eyes_lat += 1
-
-        if mutations & MjCambrianAnimal.MutationType.REMOVE_LAT_EYE:
+        
+        if mutations & MjCambrianAnimal.MutationType.REMOVE_LON_EYE:
             if verbose > 1:
-                print("Removing a latitudinal eye.")
+                print("Removing a longitudinal eye.")
 
-            # We'll allow the animal to go down to no eyes to try all configs
-            # Obviously it won't work (and if it does, something's wrong)
-            if config.num_eyes_lat <= 0:
-                print("Tried to remove a latitudinal eye when there were none.")
+            if config.num_eyes_lon <= 1:
+                print("Cannot remove the last longitudinal eye. Adding one instead.")
+                mutations |= MjCambrianAnimal.MutationType.ADD_LON_EYE
             else:
-                config.num_eyes_lat -= 1
+                config.num_eyes_lon -= 1
 
         if mutations & MjCambrianAnimal.MutationType.ADD_LON_EYE:
             if verbose > 1:
                 print("Adding a longitudinal eye.")
 
             config.num_eyes_lon += 1
-        
-        if mutations & MjCambrianAnimal.MutationType.REMOVE_LON_EYE:
-            if verbose > 1:
-                print("Removing a longitudinal eye.")
-
-            # We'll allow the animal to go down to no eyes to try all configs
-            # Obviously it won't work (and if it does, something's wrong)
-            if config.num_eyes_lon <= 0:
-                print("Tried to remove a longitudinal eye when there were none.")
-            else:
-                config.num_eyes_lon -= 1
 
         if mutations & MjCambrianAnimal.MutationType.EDIT_EYE:
             if verbose > 1:
@@ -613,7 +611,7 @@ class MjCambrianAnimal:
 
             def edit(attrs, low=0.8, high=1.2):
                 randn = np.random.uniform(low, high)
-                return [np.ceil(attr * randn).astype(int) for attr in attrs]
+                return [int(np.ceil(attr * randn)) for attr in attrs]
 
             # Each edit (for now) is just taking the current state and multiplying by
             # some random number between 0.8 and 1.2

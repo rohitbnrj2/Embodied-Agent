@@ -11,7 +11,7 @@ from stable_baselines3.common.utils import set_random_seed
 from animal import MjCambrianAnimal
 from maze import MjCambrianMaze
 from cambrian_xml import MjCambrianXML
-from config import MjCambrianConfig
+from config import MjCambrianConfig, convert_overrides_to_dict
 from utils import get_model_path
 from renderer import (
     MjCambrianRenderer,
@@ -654,7 +654,6 @@ def make_single_env(
 
 if __name__ == "__main__":
     import argparse
-    from runner import _convert_overrides_to_dict
 
     parser = argparse.ArgumentParser()
 
@@ -664,8 +663,8 @@ if __name__ == "__main__":
         "--override",
         dest="overrides",
         action="append",
-        type=lambda v: v.split("="),
-        help="Override config values. Do <dot separated yaml config>=<value>",
+        nargs=2,
+        help="Override config values. Do <dot separated yaml config> <value>",
         default=[],
     )
     parser.add_argument(
@@ -686,7 +685,8 @@ if __name__ == "__main__":
     if args.seed is not None:
         np.random.seed(args.seed)
 
-    overrides = _convert_overrides_to_dict(args.overrides)
+    print(args.overrides)
+    overrides = convert_overrides_to_dict(args.overrides)
     config = MjCambrianConfig.load(args.config_path, overrides=overrides)
 
     env = MjCambrianEnv(config, use_renderer=not args.mj_viewer)
@@ -698,6 +698,7 @@ if __name__ == "__main__":
         mujoco.viewer.launch(env.model, env.data)
 
         # NOTE: launch_passive currently broken when focal or focalpixel is specified
+        # fixed in 3.0.1 (not available on pypi yet)
         # with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
         #     while viewer.is_running():
         #         mj.mj_step(env.model, env.data)

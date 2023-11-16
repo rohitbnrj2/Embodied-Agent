@@ -6,7 +6,7 @@ training_config:
   exp_name: null # if unset, will be set to the name of the config file
   checkpoint_path: null # Will train from scratch if unset
 
-  total_timesteps: 200_000
+  total_timesteps: 1_000_000
   max_episode_steps: 128
   n_steps: 2048
 
@@ -21,7 +21,7 @@ training_config:
   max_no_improvement_evals: 10 # check_freq * max_no_improvement_evals steps
   min_no_improvement_evals: 10 # check_freq * min_no_improvement_evals steps
 
-  seed: 424041
+  seed: 242424
   verbose: 2
 
 env_config:
@@ -71,6 +71,7 @@ animal_config:
     fov: [45, 20]
     renderer_config:
       render_modes: ["rgb_array"]
+      use_shared_context: True
   intensity_sensor_config:
     mode: "fixed"
     resolution: [1, 1]
@@ -81,7 +82,7 @@ animal_config:
       use_shared_context: False
 
 evo_config:
-  population_size: 10
+  population_size: 4
   num_top_performers: 2
 
   num_generations: 10
