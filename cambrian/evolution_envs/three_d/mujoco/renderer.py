@@ -262,7 +262,6 @@ class MjCambrianViewer:
 
     def close(self):
         """Closes the viewer and frees the OpenGL context."""
-        glfw.terminate()
         if self._gl_context is not None:
             try:
                 self.make_context_current()
@@ -270,8 +269,9 @@ class MjCambrianViewer:
                 del self._gl_context
             except Exception:
                 pass
+            finally:
+                self._gl_context = None
 
-        self._gl_context = None
         self._is_closed = True
 
     def __del__(self):
@@ -444,6 +444,8 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
             glfw.destroy_window(self.window)
             self.window = None
 
+            glfw.terminate()
+
         super().close()
 
     # ====================
@@ -596,15 +598,15 @@ class MjCambrianRenderer:
         if camera_config is None:
             return
 
-        assert not (camera_config.type and camera_config.type_str), (
-            "Camera type and type_str are mutually exclusive."
-        )
-        assert not (camera_config.fixedcamid and camera_config.fixedcamname), (
-            "Camera fixedcamid and fixedcamname are mutually exclusive."
-        )
-        assert not (camera_config.trackbodyid and camera_config.trackbodyname), (
-            "Camera trackbodyid and trackbodyname are mutually exclusive."
-        )
+        assert not (
+            camera_config.type and camera_config.type_str
+        ), "Camera type and type_str are mutually exclusive."
+        assert not (
+            camera_config.fixedcamid and camera_config.fixedcamname
+        ), "Camera fixedcamid and fixedcamname are mutually exclusive."
+        assert not (
+            camera_config.trackbodyid and camera_config.trackbodyname
+        ), "Camera trackbodyid and trackbodyname are mutually exclusive."
 
         if camera_config.type is not None:
             self.camera.type = camera_config.type
@@ -727,14 +729,6 @@ class MjCambrianRenderer:
                 continue
             viewer.add_text_overlay(overlay, pos)
 
-    def close(self):
-        for viewer in self._viewers.values():
-            if not self.config.use_shared_context:
-                viewer.close()
-
-    def __del__(self):
-        self.close()
-
     # ====================
 
     @property
@@ -769,9 +763,8 @@ class MjCambrianRenderer:
 
         print(f"Saving visualizations at {path}...")
         # gif
-        imageio.mimsave(
-            path.with_suffix(".gif"), self._image_buffer, loop=0, duration=duration
-        )
+        gif = path.with_suffix(".gif")
+        imageio.mimsave(gif, self._image_buffer, loop=0, duration=duration)
 
         # mp4
         writer = imageio.get_writer(path.with_suffix(".mp4"), fps=fps)
@@ -832,13 +825,9 @@ class MjCambrianRenderer:
         if self.config.use_shared_context and render_mode in VIEWERS:
             viewer = VIEWERS[render_mode]
         elif render_mode == "rgb_array":
-            viewer = MjCambrianOffscreenViewer(
-                model, data, self.config, self.camera
-            )
+            viewer = MjCambrianOffscreenViewer(model, data, self.config, self.camera)
         elif render_mode == "human":
-            viewer = MjCambrianOnscreenViewer(
-                model, data, self.config, self.camera
-            )
+            viewer = MjCambrianOnscreenViewer(model, data, self.config, self.camera)
         else:
             raise ValueError(f"Invalid render mode `{render_mode}`.")
 

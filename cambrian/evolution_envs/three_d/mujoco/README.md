@@ -19,7 +19,12 @@ Hover over an option on the left side and right click to show all the shortcuts.
 
 ## Running training
 
-Will update here, currently broken.
+```bash
+python cambrian/evolution_envs/three_d/mujoco/env.py CONFIG_PATH --train -r 0
+```
+
+> [!TIP]
+> Training should always be done with `MUJOCO_GL=egl` cause that runs in headless mode and is significantly faster.
 
 ## Running on Supercloud
 

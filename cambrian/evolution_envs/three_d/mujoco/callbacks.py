@@ -10,7 +10,6 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy
 from env import MjCambrianEnv
 from renderer import MjCambrianRenderer
 from cambrian.evolution_envs.three_d.mujoco.animal_pool import MjCambrianAnimalPool
-from animal import MjCambrianAnimal
 
 
 class PlotEvaluationCallback(BaseCallback):
@@ -133,10 +132,6 @@ class SaveVideoCallback(BaseCallback):
 
         return True
 
-    def _on_training_end(self) -> None:
-        self.env.close()
-        return super()._on_training_end()
-
 
 class MjCambrianAnimalPoolCallback(BaseCallback):
     parent: EvalCallback
@@ -157,7 +152,7 @@ class MjCambrianAnimalPoolCallback(BaseCallback):
     def _on_step(self) -> bool:
         if self.parent is not None:
             self.animal_pool.write_to_pool(
-                self.parent.best_mean_reward, self.cambrian_env.config
+                self.parent.best_mean_reward, self.cambrian_env.config.copy()
             )
 
 class MjCambrianProgressBarCallback(ProgressBarCallback):

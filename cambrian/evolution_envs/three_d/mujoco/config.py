@@ -722,6 +722,9 @@ class MjCambrianGenerationConfig(MjCambrianBaseConfig["MjCambrianGenerationConfi
     def __lt__(self, other: int) -> bool:
         return self.generation < other
 
+    def __eq__(self, other: "MjCambrianGenerationConfig") -> bool:
+        return self.generation == other.generation and self.rank == other.rank
+
     def __str__(self) -> str:
         return str(self.generation)
 

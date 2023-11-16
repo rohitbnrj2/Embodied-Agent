@@ -71,7 +71,6 @@ animal_config:
     fov: [45, 20]
     renderer_config:
       render_modes: ["rgb_array"]
-      use_shared_context: True
   intensity_sensor_config:
     mode: "fixed"
     resolution: [1, 1]
@@ -85,7 +84,7 @@ evo_config:
   population_size: 4
   num_top_performers: 2
 
-  num_generations: 10
+  num_generations: 20
 
   animal_pool_type: "shared_file"
   shared_file_config:

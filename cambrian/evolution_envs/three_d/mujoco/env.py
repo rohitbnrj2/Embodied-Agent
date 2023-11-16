@@ -405,11 +405,6 @@ class MjCambrianEnv(gym.Env):
 
         return renderer.render()
 
-    def close(self):
-        """Closes the environment."""
-        if self.renderer is not None:
-            self.renderer.close()
-
     @property
     def rollout(self) -> Dict[str, Any]:
         """Returns the rollout."""

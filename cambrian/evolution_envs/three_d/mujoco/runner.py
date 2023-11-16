@@ -1,4 +1,5 @@
 from pathlib import Path
+import torch
 
 from stable_baselines3.common.vec_env import (
     VecEnv,
@@ -113,16 +114,25 @@ class MjCambrianEvoRunner:
         callback = self._make_callback(env, eval_env)
         model = self._make_model(env)
 
-        print(f"Beginning training for generation {self.generation}...")
+        if self.verbose > 1:
+            print(f"Beginning training for generation {self.generation}...")
         total_timesteps = self.config.training_config.total_timesteps
         model.learn(total_timesteps=total_timesteps, callback=callback)
-        print(f"Finished training for generation {self.generation}...")
+        if self.verbose > 1:
+            print(f"Finished training for generation {self.generation}...")
 
-        print(f"Saving model to {self.generation_logdir}...")
+        if self.verbose > 1:
+            print(f"Saving model to {self.generation_logdir}...")
         model.save_policy(self.generation_logdir)
+        if self.verbose > 1:
+            print(f"Saved model to {self.generation_logdir}...")
 
-        env.close()
-        eval_env.close()
+        if torch.cuda.is_available():
+            if self.verbose > 1:
+                print("Cleaning torch...")
+            print(torch.cuda.memory_summary())
+            torch.cuda.empty_cache()
+            print(torch.cuda.memory_summary())
 
     def eval(self):
         pass
@@ -239,14 +249,22 @@ class MjCambrianEvoRunner:
             model = model.load_policy(path)
         return model
 
+    # ========
+
+    @property
+    def generation(self) -> MjCambrianGenerationConfig:
+        return self.config.evo_config.generation
+
+    @generation.setter
+    def generation(self, generation: MjCambrianGenerationConfig):
+        self.config.evo_config.generation = generation
+
 
 if __name__ == "__main__":
     from utils import MjCambrianArgumentParser
 
     parser = MjCambrianArgumentParser()
-    parser.add_argument(
-        "-r", "--rank", type=int, help="Rank of this process", default=0
-    )
+    parser.add_argument("-r", "--rank", type=int, help="Rank of this process", requird=True)
 
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--evo", action="store_true", help="Run evolution")

@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Tuple, List, Deque
 from abc import ABC, abstractmethod
 from pathlib import Path
 from collections import deque
@@ -36,7 +36,9 @@ class MjCambrianAnimalPool(ABC):
         self.rank = rank
         self.verbose = config.training_config.verbose
 
-        self.pool = deque(maxlen=self.population_size + 1)
+        self.pool: Deque[Tuple[Performance, MjCambrianConfig]] = deque(
+            maxlen=self.population_size + 1
+        )
         self.write_to_pool(-math.inf, self.config)
 
     def get_new_config(self) -> MjCambrianConfig:
@@ -76,13 +78,34 @@ class MjCambrianAnimalPool(ABC):
         """Insert a new performance score and animal config into the pool. This may be
         overridden based on the different storage mechanism. This method guarantees
         that the pool is always sorted from worst to best."""
-        position = bisect.bisect_left([perf for perf, _ in self.pool], performance)
+        assert config is not None, "config cannot be None."
+        assert config.evo_config is not None, "evo_config cannot be None."
+        assert config.evo_config.generation is not None, "generation cannot be None."
+
         if self.verbose > 1:
             print(
                 f"{self.rank}: Performance {performance:0.2f} received. "
-                f"Current pool: {[p for p,_ in self.pool]}. Inserting into pool at "
-                f"position {position}."
+                f"Current pool: {[p for p,_ in self.pool]}"
             )
+
+        # First, check if a config from this generation is already in the pool. If so,
+        # remove it and insert the new config (assumes the new performance is better)
+        for i, (_, c) in enumerate(self.pool):
+            if c.evo_config.generation == config.evo_config.generation:
+                if self.verbose > 1:
+                    print(
+                        f"{self.rank}: Found config from generation "
+                        f"{config.evo_config.generation} in pool. Removing."
+                    )
+                del self.pool[i]
+                break
+
+        position = bisect.bisect_left([perf for perf, _ in self.pool], performance)
+        if self.verbose > 1:
+            if position == 0:
+                print("Not inserting into pool.")
+            else:
+                print(f"Inserting into pool at position {position}.")
         self.pool.insert(position, (performance, config))
         if len(self.pool) == self.population_size + 1:
             self.pool.popleft()
