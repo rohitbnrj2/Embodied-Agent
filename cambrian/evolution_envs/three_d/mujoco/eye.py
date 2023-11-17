@@ -149,8 +149,8 @@ class MjCambrianEye:
 
         fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, self.name)
         assert fixedcamid != -1, f"Camera '{self.name}' not found."
-        self._renderer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
-        self._renderer.camera.fixedcamid = fixedcamid
+        self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
+        self._renderer.viewer.camera.fixedcamid = fixedcamid
 
         return self.step()
 

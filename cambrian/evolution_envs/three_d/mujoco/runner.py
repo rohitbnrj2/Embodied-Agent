@@ -19,6 +19,7 @@ from feature_extractors import MjCambrianCombinedExtractor
 from config import MjCambrianConfig, MjCambrianGenerationConfig
 from animal import MjCambrianAnimal
 from animal_pool import MjCambrianAnimalPool
+from env import MjCambrianEnv
 from wrappers import make_single_env
 from callbacks import (
     PlotEvaluationCallback,
@@ -55,6 +56,7 @@ class MjCambrianEvoRunner:
 
         self.generation = MjCambrianGenerationConfig(rank=rank, generation=generation)
         self.animal_pool = MjCambrianAnimalPool.create(self.config, rank)
+        self.update_logdir()
 
     # ========
 
@@ -158,8 +160,33 @@ class MjCambrianEvoRunner:
                 print("Cleaned torch.")
                 print(torch.cuda.memory_summary(abbreviated=True))
 
-    def eval(self):
-        pass
+    def eval(self, num_runs: int, record: bool = False):
+        env = self._make_env(1)
+        model = self._make_model(env)
+
+        cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
+        cambrian_env.renderer.record = record
+
+        run = 0
+        cumulative_reward = 0
+
+        print("Starting evaluation...")
+        obs = env.reset()
+        while run < num_runs:
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, done, _ = env.step(action)
+            cumulative_reward += reward[0]
+
+            if done:
+                print(f"Run {run} done. Cumulative reward: {cumulative_reward}")
+                run += 1
+
+            cambrian_env.rollout["Cumulative Reward"] = f"{cumulative_reward:.2f}"
+            env.render()
+
+        if record:
+            cambrian_env.renderer.save(self.logdir / "eval")
+            cambrian_env.renderer.record = False
 
     # ========
 
@@ -266,10 +293,11 @@ class MjCambrianEvoRunner:
             verbose=self.verbose,
         )
 
-        parent_logdir = self.logdir / self.config.evo_config.parent_generation.to_path()
-        if (policy_path := parent_logdir / "policy.pt").exists():
-            print(f"Loading model weights from {policy_path}...")
-            model.load_policy(policy_path.parent)
+        if self.config.evo_config.parent_generation is not None:
+            parent_logdir = self.logdir / self.config.evo_config.parent_generation.to_path()
+            if (policy_path := parent_logdir / "policy.pt").exists():
+                print(f"Loading model weights from {policy_path}...")
+                model.load_policy(policy_path.parent)
         return model
 
     # ========
@@ -294,6 +322,9 @@ if __name__ == "__main__":
     action.add_argument("--evo", action="store_true", help="Run evolution")
     action.add_argument("--eval", action="store_true", help="Evaluate the model")
 
+    parser.add_argument("--record", action="store_true", help="Record the evaluation. Only used if `--eval` is passed.")
+    parser.add_argument("-n", "--num-runs", type=int, help="Number of runs to evaluate. Only used if `--eval` is passed.", default=1)
+
     args = parser.parse_args()
 
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
@@ -304,4 +335,4 @@ if __name__ == "__main__":
     if args.evo:
         runner.evo()
     elif args.eval:
-        runner.eval()
+        runner.eval(args.num_runs, args.record)

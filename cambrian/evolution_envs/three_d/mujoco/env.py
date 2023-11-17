@@ -15,8 +15,11 @@ from config import MjCambrianConfig
 from utils import get_model_path
 from renderer import (
     MjCambrianRenderer,
-    resize_with_aspect_fill,
+    MjCambrianViewerOverlay,
+    MjCambrianTextViewerOverlay,
+    MjCambrianImageViewerOverlay,
     MjCambrianCursor,
+    resize_with_aspect_fill,
     TEXT_HEIGHT,
     TEXT_MARGIN,
 )
@@ -53,7 +56,7 @@ class MjCambrianEnv(gym.Env):
             the amount of vram consumed by non-rendering environments.
     """
 
-    metadata = {"render_modes": ["human", "rgb_array", "depth_array"]}
+    metadata = {"render_modes": ["human", "rgb_array"]}
 
     def __init__(
         self, config: str | Path | MjCambrianConfig, *, use_renderer: bool = True
@@ -350,24 +353,24 @@ class MjCambrianEnv(gym.Env):
             - Make the cursor stuff clearer
         """
 
-        assert (
-            self.renderer is not None
-        ), "Renderer has not been initialized! Ensure `use_renderer` is set to True in the constructor."
+        assert self.renderer is not None, "Renderer has not been initialized! "
+        "Ensure `use_renderer` is set to True in the constructor."
 
         renderer = self.renderer
-        renderer_height = renderer.config.height
-        renderer_width = renderer.config.width
+        renderer_height = renderer.height
+        renderer_width = renderer.width
 
+        overlays: List[MjCambrianViewerOverlay] = []
         overlay_width = int(renderer_width * self.env_config.overlay_width)
         overlay_height = int(renderer_height * self.env_config.overlay_height)
         overlay_size = (overlay_width, overlay_height)
 
-        cursor = MjCambrianCursor(y=renderer_height - TEXT_MARGIN * 2)
+        cursor = MjCambrianCursor(x=0, y=renderer_height - TEXT_MARGIN * 2)
         for key, value in self._rollout.items():
             cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
-            renderer.add_overlay(f"{key}: {value}", cursor)
+            overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
 
-        cursor = MjCambrianCursor()
+        cursor = MjCambrianCursor(0, 0)
         for i, (name, animal) in enumerate(self.animals.items()):
             cursor.x += 2 * i * overlay_width
             cursor.y = 0
@@ -383,27 +386,35 @@ class MjCambrianEnv(gym.Env):
             new_composite = resize_with_aspect_fill(composite, *overlay_size)
             new_intensity = resize_with_aspect_fill(intensity, *overlay_size)
 
-            renderer.add_overlay(new_composite, cursor)
+            overlays.append(MjCambrianImageViewerOverlay(new_composite, cursor))
 
-            cursor -= TEXT_MARGIN
+            cursor.x -= TEXT_MARGIN
+            cursor.y -= TEXT_MARGIN
             lon_eyes = animal.config.num_eyes_lon
             lat_eyes = animal.config.num_eyes_lat
-            renderer.add_overlay(f"LatxLon: {lat_eyes}x{lon_eyes}", cursor)
+            overlay_text = f"LonxLat: {lon_eyes}x{lat_eyes}"
+            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
             cursor.y += TEXT_HEIGHT
             eye0 = next(iter(animal.eyes.values()))
-            renderer.add_overlay(f"Res: {tuple(eye0.resolution)}", cursor)
+            overlay_text = f"Res: {tuple(eye0.resolution)}"
+            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
+            overlay_text = f"FOV: {tuple(eye0.fov)}"
+            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
             cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
-            renderer.add_overlay(f"Animal: {name}", cursor)
+            overlay_text = f"Animal: {name}"
+            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
 
             cursor.x += overlay_width
             cursor.y = 0
 
-            renderer.add_overlay(new_intensity, cursor)
-            renderer.add_text_overlay(intensity.shape[:2], cursor)
+            overlays.append(MjCambrianImageViewerOverlay(new_intensity, cursor))
+            overlay_text = str(intensity.shape[:2])
+            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
             cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
-            renderer.add_overlay(animal.intensity_sensor.name, cursor)
+            overlay_text = animal.intensity_sensor.name
+            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
 
-        return renderer.render()
+        return renderer.render(overlays=overlays)
 
     @property
     def rollout(self) -> Dict[str, Any]:
@@ -664,6 +675,20 @@ if __name__ == "__main__":
         help="Whether to run it on supercloud.",
     )
 
+    parser.add_argument(
+        "-t",
+        "--total-timesteps",
+        type=int,
+        help="The number of timesteps to run the environment for.",
+        default=np.inf,
+    )
+    parser.add_argument(
+        "--record-path",
+        type=str,
+        help="The path to save the video to. It will save a gif and mp4. Don't specify an extension. If not specified, will not record.",
+        default=None,
+    )
+
     args = parser.parse_args()
 
     if args.supercloud:
@@ -683,8 +708,19 @@ if __name__ == "__main__":
                 mj.mj_step(env.model, env.data)
                 viewer.sync()
     else:
-        while env.renderer.is_running:
+        if args.record_path is not None:
+            assert (
+                args.total_timesteps < np.inf
+            ), "Must specify `-t\--total-timesteps` if recording."
+            env.renderer.record = True
+
+        while env.renderer.is_running() and env._episode_step < args.total_timesteps:
+            env.step(env.action_spaces.sample())
             env.render()
         env.close()
+
+        if args.record_path is not None:
+            env.renderer.save(args.record_path)
+            print(f"Saved video to {args.record_path}")
 
     print("Exiting...")

@@ -423,6 +423,8 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig["MjCambrianRendererConfig"])
         height (int): The height of the rendered image. For onscreen renderers, if this
             is set, the window cannot be resized. Must be set for offscreen renderers.
 
+        resizeable (Optional[bool]): Whether the window is resizeable or not. This only
+            applies to onscreen renderers.
         fullscreen (Optional[bool]): Whether to render in fullscreen or not. If True,
             the width and height are ignored and the window is rendered in fullscreen.
             This is only valid for onscreen renderers.
@@ -445,6 +447,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig["MjCambrianRendererConfig"])
     width: Optional[int] = None
     height: Optional[int] = None
 
+    resizeable: Optional[bool] = None
     fullscreen: Optional[bool] = None
     fps: Optional[int] = None
 
