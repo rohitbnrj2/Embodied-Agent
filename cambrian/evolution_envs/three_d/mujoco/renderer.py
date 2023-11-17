@@ -456,16 +456,16 @@ class MjCambrianRenderer:
 
         self.viewer.reset(model, data, self.config.width, self.config.height)
 
-        return self.render()
+        return self.render(resetting=True)
 
     def render(
-        self, *, overlays: List[MjCambrianViewerOverlay] = []
+        self, *, overlays: List[MjCambrianViewerOverlay] = [], resetting: bool = False 
     ) -> np.ndarray | None:
         self.viewer.render(overlays=overlays)
 
         if "rgb_array" in self.render_modes:
             pixels = self.viewer.read_pixels()
-            if self._record:
+            if self._record and not resetting:
                 self._image_buffer.append(pixels)
             return pixels
 
