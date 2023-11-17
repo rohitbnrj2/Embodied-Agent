@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Union
 import torch
 
 from stable_baselines3 import PPO
@@ -9,22 +8,18 @@ class MjCambrianPPO(PPO):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def save(self, path: Union[str, Path], *args, **kwargs):
-        super().save(path, *args, **kwargs)
-        self.save_policy(path)
-
-    def save_policy(self, path: Union[str, Path]):
+    def save_policy(self, path: Path | str):
         """Overwrite the save method. Instead of saving the entire state, we'll
         just save the policy weights."""
 
-        Path(path).mkdir(parents=True, exist_ok=True)
-        torch.save(self.policy.state_dict(), Path(path) / "policy.pt")
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        torch.save(self.policy.state_dict(), path / "policy.pt")
 
-    def load_policy(self, path: Union[str, Path]):
+    def load_policy(self, path: Path | str):
         """Overwrite the load method. Instead of loading the entire state, we'll just
         load the policy weights."""
 
-        Path(path).mkdir(parents=True, exist_ok=True)
         policy_path = Path(path) / "policy.pt"
         if not policy_path.exists():
             raise FileNotFoundError(f"Could not find policy.pt file at {policy_path}.")

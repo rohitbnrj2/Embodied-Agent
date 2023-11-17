@@ -1,6 +1,7 @@
 from pathlib import Path
 import torch
 
+from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import (
     VecEnv,
     DummyVecEnv,
@@ -40,7 +41,7 @@ class MjCambrianEvoRunner:
             an evo job is considered one rank, where the rank number is a unique int.
     """
 
-    def __init__(self, config: MjCambrianConfig, rank: int):
+    def __init__(self, config: MjCambrianConfig, rank: int, generation: int = 0):
         self.config = config
         self.rank = rank
 
@@ -52,7 +53,7 @@ class MjCambrianEvoRunner:
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
 
-        self.generation = MjCambrianGenerationConfig(rank=rank, generation=0)
+        self.generation = MjCambrianGenerationConfig(rank=rank, generation=generation)
         self.animal_pool = MjCambrianAnimalPool.create(self.config, rank)
 
     # ========
@@ -72,6 +73,7 @@ class MjCambrianEvoRunner:
 
         while self.generation < self.config.evo_config.num_generations:
             print(f"Starting generation {self.generation}...")
+            set_random_seed(self._calc_seed(0))
 
             self.update_logdir()
 
@@ -82,13 +84,19 @@ class MjCambrianEvoRunner:
             self.generation += 1
 
     def update_logdir(self):
+        if self.verbose > 2:
+            print(f"Updating logdir for generation {self.generation}...")
         self.generation_logdir = self.logdir / self.generation.to_path()
         self.generation_logdir.mkdir(parents=True, exist_ok=True)
 
     def select_animal(self) -> MjCambrianConfig:
+        if self.verbose > 1:
+            print(f"Selecting animal for generation {self.generation}...")
         return self.animal_pool.get_new_config()
 
     def mutate_animal(self, config: MjCambrianConfig) -> MjCambrianConfig:
+        if self.verbose > 1:
+            print(f"Mutating animal for generation {self.generation}...")
         animal_config = config.animal_config.copy()
         animal_config = MjCambrianAnimal.mutate(animal_config, verbose=self.verbose)
 
@@ -100,6 +108,9 @@ class MjCambrianEvoRunner:
         return config.copy(animal_config=animal_config, evo_config=evo_config)
 
     def train_animal(self, config: MjCambrianConfig):
+        if self.verbose > 1:
+            print(f"Training animal for generation {self.generation}...")
+
         self.config = config
         self.config.write_to_yaml(self.generation_logdir / "config.yaml")
 
@@ -130,33 +141,37 @@ class MjCambrianEvoRunner:
         if torch.cuda.is_available():
             if self.verbose > 1:
                 print("Cleaning torch...")
-            print(torch.cuda.memory_summary())
+                print(torch.cuda.memory_summary(abbreviated=True))
+            del model
             torch.cuda.empty_cache()
-            print(torch.cuda.memory_summary())
+
+            if self.verbose > 1:
+                print("Cleaned torch.")
+                print(torch.cuda.memory_summary(abbreviated=True))
 
     def eval(self):
         pass
 
     # ========
 
+    def _calc_seed(self, i: int) -> int:
+        """Calculates a unique seed for each environment.
+
+        Equation is as follows:
+            i * population_size * num_generations + seed + generation
+        """
+        return (
+            self.generation
+            + self.config.training_config.seed
+            + i
+            * self.config.evo_config.population_size
+            * self.config.evo_config.num_generations
+        )
+
     def _make_env(self, n_envs: int) -> VecEnv:
         assert n_envs > 0, f"n_envs must be > 0, got {n_envs}."
 
-        def calc_seed(i: int) -> int:
-            """Calculates a unique seed for each environment.
-
-            Equation is as follows:
-                i * population_size * num_generations + seed + generation
-            """
-            return (
-                self.generation
-                + self.config.training_config.seed
-                + i
-                * self.config.evo_config.population_size
-                * self.config.evo_config.num_generations
-            )
-
-        envs = [make_single_env(self.config, calc_seed(i)) for i in range(n_envs)]
+        envs = [make_single_env(self.config, self._calc_seed(i)) for i in range(n_envs)]
 
         if n_envs == 1:
             vec_env = DummyVecEnv(envs)
@@ -241,12 +256,11 @@ class MjCambrianEvoRunner:
             policy_kwargs=policy_kwargs,
             verbose=self.verbose,
         )
-        if self.config.training_config.checkpoint_path is not None:
-            path = self.logdir / self.config.training_config.checkpoint_path
-            assert path.exists(), f"Checkpoint `{path}` doesn't exist."
 
-            print(f"Loading model from {path}...")
-            model = model.load_policy(path)
+        parent_logdir = self.logdir / self.config.evo_config.parent_generation.to_path()
+        if (policy_path := parent_logdir / "policy.pt").exists():
+            print(f"Loading model weights from {policy_path}...")
+            model.load_policy(policy_path.parent)
         return model
 
     # ========
@@ -264,7 +278,8 @@ if __name__ == "__main__":
     from utils import MjCambrianArgumentParser
 
     parser = MjCambrianArgumentParser()
-    parser.add_argument("-r", "--rank", type=int, help="Rank of this process", requird=True)
+    parser.add_argument("-r", "--rank", type=int, help="Rank of this process", required=True)
+    parser.add_argument("-g", "--generation", type=int, help="Generation to start at", default=0)
 
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--evo", action="store_true", help="Run evolution")
@@ -275,7 +290,7 @@ if __name__ == "__main__":
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
     config.training_config.setdefault("exp_name", Path(args.config).stem)
 
-    runner = MjCambrianEvoRunner(config, args.rank)
+    runner = MjCambrianEvoRunner(config, args.rank, args.generation)
 
     if args.evo:
         runner.evo()

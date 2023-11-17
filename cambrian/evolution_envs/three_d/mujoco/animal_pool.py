@@ -102,7 +102,7 @@ class MjCambrianAnimalPool(ABC):
 
         position = bisect.bisect_left([perf for perf, _ in self.pool], performance)
         if self.verbose > 1:
-            if position == 0:
+            if position == 0 and len(self.pool) == self.population_size + 1:
                 print("Not inserting into pool.")
             else:
                 print(f"Inserting into pool at position {position}.")

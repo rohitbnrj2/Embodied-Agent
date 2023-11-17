@@ -160,6 +160,9 @@ class MjCambrianViewer:
         self.height = self.height if height is None else height
         self.camera = self.camera if camera is None else camera
 
+        if self.camera.type == mj.mjtCamera.mjCAMERA_FIXED:
+            assert self.camera.fixedcamid >= 0, f"Invalid fixedcamid `{self.camera}`."
+
         mj.mjv_updateScene(
             self.model,
             self.data,
