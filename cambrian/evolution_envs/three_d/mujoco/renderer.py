@@ -564,12 +564,21 @@ class MjCambrianRenderer:
 
 
 if __name__ == "__main__":
+    import argparse
     import yaml
+    import time
     from pathlib import Path
     from cambrian_xml import MjCambrianXML
 
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--speed-test", action="store_true", help="Run speed test.")
+
+    args = parser.parse_args()
+
+
     YAML = """
-    render_modes: ['rgb_array', 'depth_array']
+    render_modes: ['rgb_array']
 
     max_geom: 1000
 
@@ -577,7 +586,7 @@ if __name__ == "__main__":
     height: 480
 
     resizeable: true
-    fullscreen: True
+    fullscreen: true
 
     use_shared_context: true
 
@@ -592,7 +601,7 @@ if __name__ == "__main__":
         "camera",
         pos="0 0 0.5",
         quat="0.5 0.5 0.5 0.5",
-        resolution="640 480",
+        resolution="10 10",
     )
 
     model = mj.MjModel.from_xml_string(xml.to_string())
@@ -602,6 +611,17 @@ if __name__ == "__main__":
     config = MjCambrianRendererConfig.from_dict(yaml.safe_load(YAML))
     renderer = MjCambrianRenderer(config)
     renderer.reset(model, data)
+
+    if args.speed_test:
+        print("Starting speed test...")
+        num_frames = 100
+        t0 = time.time()
+        for _ in range(num_frames):
+            renderer.render()
+        t1 = time.time()
+        print(f"Rendered {num_frames} frames in {t1 - t0} seconds.")
+        print(f"Average FPS: {num_frames / (t1 - t0)}")
+        exit()
 
     while renderer.is_running():
         out = renderer.render()
