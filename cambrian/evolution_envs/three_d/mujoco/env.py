@@ -685,7 +685,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--record-path",
         type=str,
-        help="The path to save the video to. It will save a gif and mp4. Don't specify an extension. If not specified, will not record.",
+        help="The path to save the video to. It will save a gif and mp4. "
+        "Don't specify an extension. If not specified, will not record.",
         default=None,
     )
 
@@ -693,6 +694,7 @@ if __name__ == "__main__":
 
     if args.supercloud:
         import os
+
         os.environ["MUJOCO_GL"] = "egl"
 
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)

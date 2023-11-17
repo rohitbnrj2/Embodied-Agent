@@ -5,4 +5,4 @@ env_config:
       elevation: -45.0
       distance_factor: 0.5
 
-      type_str: "tracking"
+      typename: "tracking"

@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Tuple
 from abc import ABC, abstractmethod
 from pathlib import Path
 from dataclasses import dataclass, replace
@@ -41,6 +41,40 @@ def resize_with_aspect_fill(image: np.ndarray, width: int, height: int):
 
     return result
 
+def convert_depth_to_rgb(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
+    """https://github.com/google-deepmind/mujoco/blob/main/python/mujoco/renderer.py"""
+    # Get the distances to the near and far clipping planes.
+    extent = model.stat.extent
+    near = model.vis.map.znear * extent
+    far = model.vis.map.zfar * extent
+
+    # Calculate OpenGL perspective matrix values in float32 precision
+    # so they are close to what glFrustum returns
+    # https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glFrustum.xml
+    zfar = np.float32(far)
+    znear = np.float32(near)
+    c_coef = -(zfar + znear) / (zfar - znear)
+    d_coef = -(np.float32(2) * zfar * znear) / (zfar - znear)
+
+    # In reverse Z mode the perspective matrix is transformed by the following
+    c_coef = np.float32(-0.5) * c_coef - np.float32(0.5)
+    d_coef = np.float32(-0.5) * d_coef
+
+    # We need 64 bits to convert Z from ndc to metric depth without noticeable
+    # losses in precision
+    out_64 = depth.astype(np.float64)
+
+    # Undo OpenGL projection
+    # Note: We do not need to take action to convert from window coordinates
+    # to normalized device coordinates because in reversed Z mode the mapping
+    # is identity
+    out_64 = d_coef / (out_64 + c_coef)
+
+    # Cast result back to float32 for backwards compatibility
+    # This has a small accuracy cost
+    depth[:] = out_64.astype(np.float32)
+
+    return depth
 
 @dataclass
 class MjCambrianCursor:
@@ -86,8 +120,6 @@ class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
 
 
 class MjCambrianViewer(ABC):
-    _gl_context: mj.gl_context.GLContext = None
-
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
 
@@ -98,7 +130,7 @@ class MjCambrianViewer(ABC):
         self.camera: mj.MjvCamera = mj.MjvCamera()
         self.viewport: mj.MjrRect = None
 
-        # self._gl_context: mj.gl_context.GLContext = None
+        self._gl_context: mj.gl_context.GLContext = None
         self._mjr_context: mj.MjrContext = None
 
     def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
@@ -110,16 +142,15 @@ class MjCambrianViewer(ABC):
         self.scene = mj.MjvScene(model=model, maxgeom=self.config.max_geom)
         self.viewport = mj.MjrRect(0, 0, width, height)
 
-        self.setup_contexts()
+        if self._gl_context is not None:
+            del self._gl_context
+        if self._mjr_context is not None:
+            del self._mjr_context
 
-    @abstractmethod
-    def setup_contexts(self):
-        if MjCambrianViewer._gl_context is None:
-            MjCambrianViewer._gl_context = mj.gl_context.GLContext(
-                self.viewport.width, self.viewport.height
-            )
-        self._gl_context = MjCambrianViewer._gl_context
+        self._gl_context = mj.gl_context.GLContext(width, height)
         self.make_context_current()
+        self._mjr_context = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
+        self._mjr_context.readDepthMap = mj.mjtDepthMap.mjDEPTH_ZEROFAR
 
     def reset_camera(self):
         """Setup the camera."""
@@ -128,8 +159,8 @@ class MjCambrianViewer(ABC):
             return
 
         assert not (
-            camera_config.type and camera_config.type_str
-        ), "Camera type and type_str are mutually exclusive."
+            camera_config.type and camera_config.typename
+        ), "Camera type and typename are mutually exclusive."
         assert not (
             camera_config.fixedcamid and camera_config.fixedcamname
         ), "Camera fixedcamid and fixedcamname are mutually exclusive."
@@ -139,9 +170,9 @@ class MjCambrianViewer(ABC):
 
         if camera_config.type is not None:
             self.camera.type = camera_config.type
-        if camera_config.type_str is not None:
-            type_str = f"mjCAMERA_{camera_config.type_str.upper()}"
-            self.camera.type = getattr(mj.mjtCamera, type_str)
+        if camera_config.typename is not None:
+            typename = f"mjCAMERA_{camera_config.typename.upper()}"
+            self.camera.type = getattr(mj.mjtCamera, typename)
         if camera_config.fixedcamid is not None:
             self.camera.fixedcamid = camera_config.fixedcamid
         if camera_config.fixedcamname is not None:
@@ -185,11 +216,12 @@ class MjCambrianViewer(ABC):
         mj.mjr_render(self.viewport, self.scene, self._mjr_context)
         self.draw_overlays(overlays)
 
-    def read_pixels(self) -> np.ndarray:
+    def read_pixels(self) -> Tuple[np.ndarray, np.ndarray]:
         width, height = self.viewport.width, self.viewport.height
-        pixels = np.zeros((height, width, 3), dtype=np.uint8)
-        mj.mjr_readPixels(pixels.ravel(), None, self.viewport, self._mjr_context)
-        return np.flipud(pixels)
+        rgb = np.zeros((height, width, 3), dtype=np.uint8)
+        depth = np.zeros((height, width), dtype=np.float32)
+        mj.mjr_readPixels(rgb.ravel(), depth.ravel(), self.viewport, self._mjr_context)
+        return np.flipud(rgb), np.flipud(depth)
 
     def draw_overlays(self, overlays: List[MjCambrianViewerOverlay]):
         for overlay in overlays:
@@ -218,21 +250,10 @@ class MjCambrianViewer(ABC):
 
 
 class MjCambrianOffscreenViewer(MjCambrianViewer):
-    _mjr_context: mj.MjrContext = None
-
     def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
         super().reset(model, data, width, height)
 
         mj.mjr_setBuffer(mj.mjtFramebuffer.mjFB_OFFSCREEN, self._mjr_context)
-
-    def setup_contexts(self):
-        super().setup_contexts()
-
-        if MjCambrianOffscreenViewer._mjr_context is None:
-            MjCambrianOffscreenViewer._mjr_context = mj.MjrContext(
-                self.model, mj.mjtFontScale.mjFONTSCALE_50
-            )
-        self._mjr_context = MjCambrianOffscreenViewer._mjr_context
 
     def update(self, width: int, height: int):
         if self.viewport.width != width or self.viewport.height != height:
@@ -250,8 +271,6 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
 
 
 class MjCambrianOnscreenViewer(MjCambrianViewer):
-    _mjr_context: mj.MjrContext = None
-
     def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
         self.config.setdefault("resizeable", False)
         self.config.setdefault("fullscreen", False)
@@ -280,15 +299,6 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
         mj.mjr_setBuffer(mj.mjtFramebuffer.mjFB_WINDOW, self._mjr_context)
         glfw.swap_interval(1)
-
-    def setup_contexts(self):
-        super().setup_contexts()
-
-        if MjCambrianOnscreenViewer._mjr_context is None:
-            MjCambrianOnscreenViewer._mjr_context = mj.MjrContext(
-                self.model, mj.mjtFontScale.mjFONTSCALE_50
-            )
-        self._mjr_context = MjCambrianOnscreenViewer._mjr_context
 
     def make_context_current(self):
         super().make_context_current()
@@ -424,7 +434,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
 
 class MjCambrianRenderer:
-    metadata = {"render.modes": ["human", "rgb_array"]}
+    metadata = {"render.modes": ["human", "rgb_array", "depth_array"]}
 
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
@@ -434,6 +444,9 @@ class MjCambrianRenderer:
         assert all(
             mode in self.metadata["render.modes"] for mode in self.render_modes
         ), f"Invalid render mode found. Valid modes are {self.metadata['render.modes']}"
+        assert (
+            not "depth_array" in self.render_modes or "rgb_array" in self.render_modes
+        ), "Cannot render depth_array without rgb_array."
 
         self.viewer: MjCambrianViewer = None
         if "human" in self.render_modes:
@@ -441,7 +454,7 @@ class MjCambrianRenderer:
         else:
             self.viewer = MjCambrianOffscreenViewer(self.config)
 
-        self._image_buffer: List[np.ndarray] = []
+        self._rgb_buffer: List[np.ndarray] = []
 
         self._record: bool = False
 
@@ -459,21 +472,24 @@ class MjCambrianRenderer:
         return self.render(resetting=True)
 
     def render(
-        self, *, overlays: List[MjCambrianViewerOverlay] = [], resetting: bool = False 
-    ) -> np.ndarray | None:
+        self, *, overlays: List[MjCambrianViewerOverlay] = [], resetting: bool = False
+    ) -> np.ndarray | Tuple[np.ndarray, np.ndarray] | None:
         self.viewer.render(overlays=overlays)
 
-        if "rgb_array" in self.render_modes:
-            pixels = self.viewer.read_pixels()
-            if self._record and not resetting:
-                self._image_buffer.append(pixels)
-            return pixels
+        if not any(mode in self.render_modes for mode in ["rgb_array", "depth_array"]):
+            return
+
+        rgb, depth = self.viewer.read_pixels()
+        if self._record and not resetting:
+            self._rgb_buffer.append(rgb)
+
+        return (rgb, depth) if "depth_array" in self.render_modes else rgb
 
     def is_running(self):
         return self.viewer.is_running()
 
     def close(self):
-        if self.viewer is not None:
+        if hasattr(self, "viewer") and self.viewer is not None:
             self.viewer.close()
 
     def __del__(self):
@@ -497,7 +513,7 @@ class MjCambrianRenderer:
         ), f"Invalid save type found. Valid types are {AVAILABLE_SAVE_TYPES}."
 
         assert self._record, "Cannot save without recording."
-        assert len(self._image_buffer) > 0, "Cannot save empty buffer."
+        assert len(self._rgb_buffer) > 0, "Cannot save empty buffer."
 
         print(f"Saving visualizations at {path}...")
 
@@ -505,16 +521,16 @@ class MjCambrianRenderer:
         if "gif" in save_types:
             duration = 1000 / self.config.fps
             gif = path.with_suffix(".gif")
-            imageio.mimwrite(gif, self._image_buffer, loop=0, duration=duration)
+            imageio.mimwrite(gif, self._rgb_buffer, loop=0, duration=duration)
         if "mp4" in save_types:
             mp4 = path.with_suffix(".mp4")
             writer = imageio.get_writer(mp4, fps=self.config.fps)
-            for image in self._image_buffer:
+            for image in self._rgb_buffer:
                 writer.append_data(image)
             writer.close()
         if "png" in save_types:
             png = path.with_suffix(".png")
-            imageio.imwrite(png, self._image_buffer[-1])
+            imageio.imwrite(png, self._rgb_buffer[-1])
 
         print(f"Saved visualization at {path}")
 
@@ -528,7 +544,7 @@ class MjCambrianRenderer:
         assert "rgb_array" in self.render_modes, "Cannot record without rgb_array mode."
 
         if not record:
-            self._image_buffer.clear()
+            self._rgb_buffer.clear()
 
         self._record = record
 
@@ -551,10 +567,9 @@ if __name__ == "__main__":
     import yaml
     from pathlib import Path
     from cambrian_xml import MjCambrianXML
-    import cv2
 
     YAML = """
-    render_modes: ['human']
+    render_modes: ['rgb_array', 'depth_array']
 
     max_geom: 1000
 
@@ -565,13 +580,17 @@ if __name__ == "__main__":
     fullscreen: True
 
     use_shared_context: true
+
+    camera_config:
+        typename: 'fixed'
+        fixedcamid: 0
     """
 
     xml = MjCambrianXML(Path(__file__).parent / "models" / "test.xml")
     xml.add(
         xml.find(".//worldbody"),
         "camera",
-        pos="0 0 0.2",
+        pos="0 0 0.5",
         quat="0.5 0.5 0.5 0.5",
         resolution="640 480",
     )
@@ -585,12 +604,23 @@ if __name__ == "__main__":
     renderer.reset(model, data)
 
     while renderer.is_running():
-        image = renderer.render()
-        if image is None:
+        out = renderer.render()
+        if out is None:
             continue
 
-        cv2.imshow("image", image[:, :, ::-1])
+        if isinstance(out, tuple):
+            rgb, depth = out
+        else:
+            rgb, depth = out, None
+
+        cv2.imshow("image", rgb[:, :, ::-1])
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
+
+        if depth is not None:
+            depth_rgb = convert_depth_to_rgb(model, depth)
+            cv2.imshow("depth", depth_rgb)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
 
     renderer.close()

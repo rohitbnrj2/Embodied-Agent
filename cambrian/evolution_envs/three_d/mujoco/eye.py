@@ -50,6 +50,9 @@ class MjCambrianEye:
         assert "rgb_array" in config.renderer_config.render_modes, (
             "Must specify 'rgb_array' in the render modes for the renderer config."
         )
+        assert "depth_array" in config.renderer_config.render_modes, (
+            "Must specify 'depth_array' in the render modes for the renderer config."
+        )
 
         config.setdefault("filter_size", [0, 0])
 
@@ -155,15 +158,13 @@ class MjCambrianEye:
         return self.step()
 
     def step(self) -> np.ndarray:
-        """Simply calls `render(return_depth=False)`.
+        """Simply calls `render` and sets the last observation.
         See `render()` for more information."""
         obs = self.render(return_depth=False)
         self._last_obs = obs.copy()
         return obs
 
-    def render(
-        self, return_depth: bool = True
-    ) -> np.ndarray | Tuple[np.ndarray, np.ndarray]:
+    def render(self) -> np.ndarray:
         """Render the image from the camera. If `return_depth` is True, returns the
         both depth image and rgb, otherwise only rgb.
 
@@ -172,10 +173,10 @@ class MjCambrianEye:
         the psf is applied, the image will be cropped to `self.resolution`.
         """
 
-        rgb = self._renderer.render().transpose(1, 0, 2) # (H, W, C) -> (W, H, C)
+        rgb, depth = self._renderer.render()
+        rgb = rgb.transpose(1, 0, 2) # (H, W, C) -> (W, H, C)
 
-        if return_depth:
-            raise NotImplementedError("Depth rendering not implemented yet.")
+        # Apply PSF here
 
         return self._crop(rgb)
 

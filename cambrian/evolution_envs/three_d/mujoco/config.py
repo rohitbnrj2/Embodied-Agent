@@ -376,9 +376,9 @@ class MjCambrianCameraConfig(MjCambrianBaseConfig["MjCambrianCameraConfig"]):
         azimuth (Optional[float]): The azimuth angle.
         elevation (Optional[float]): The elevation angle.
 
-        type_str (Optional[str]): The type of camera as a string. Mutually exclusive
+        typename (Optional[str]): The type of camera as a string. Mutually exclusive
             with type. Converted to mjtCamera with
-            getattr(..., f"mjCAMERA_{type_str.upper()}")
+            getattr(..., f"mjCAMERA_{typename.upper()}")
         fixedcamname (Optional[str]): The name of the camera. Mutually exclusive with
             fixedcamid. Used to determine the fixedcamid using mj.mj_name2id.
         trackbodyname (Optional[str]): The name of the body to track. Mutually exclusive
@@ -398,7 +398,7 @@ class MjCambrianCameraConfig(MjCambrianBaseConfig["MjCambrianCameraConfig"]):
     azimuth: Optional[float] = None
     elevation: Optional[float] = None
 
-    type_str: Optional[str] = None
+    typename: Optional[str] = None
     fixedcamname: Optional[str] = None
     trackbodyname: Optional[str] = None
 
