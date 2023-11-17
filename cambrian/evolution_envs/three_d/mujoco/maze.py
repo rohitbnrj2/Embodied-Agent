@@ -152,6 +152,40 @@ MANY_GOAL_MAZE = [
 ]
 
 # ================
+# EVAL MAPS
+
+OPTIC_FLOW_EVAL_MAZE_TUNNEL = [
+    [1, R, 1, 1, 1],
+    [1, 0, 1, 1, 1],
+    [1, 0, 1, 1, 1],
+    [1, 0, 0, 1, 1],
+    [1, 0, 0, 1, 1],
+    [1, 0, 0, 0, 1],
+    [1, 0, 0, 0, 1],
+    [1, 1, 0, 0, 1],
+    [1, 1, 0, 0, 1],
+    [1, 1, 1, 0, 1],
+    [1, 1, 1, 0, 1],
+    [1, 1, 1, G, 1],
+    [1, 1, 1, 1, 1],
+]
+
+OPTIC_FLOW_EVAL_MAZE_SNAKE = [
+    [1, 1, 1, 1, 1],
+    [1, R, 0, 0, 1],
+    [1, 1, 1, 0, 1],
+    [1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 1],
+    [1, 0, 1, 1, 1],
+    [1, 0, 1, 1, 1],
+    [1, 0, 0, 0, 1],
+    [1, 1, 1, 0, 1],
+    [1, 1, 1, 0, 1],
+    [1, G, 0, G, 1],
+    [1, G, G, G, 1],
+    [1, 1, 1, 1, 1],
+]
+# ================
 
 # from https://learnopengl.com/Lighting/Light-casters
 ATTENUATION_LOOKUP_TABLE: Dict[int, Tuple[float, float, float]] = {
@@ -402,7 +436,7 @@ class MjCambrianMaze(Maze):
         return None
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     maze, xml = MjCambrianMaze.make_maze(
         MjCambrianMazeConfig(use_target_light_source=True)
     )

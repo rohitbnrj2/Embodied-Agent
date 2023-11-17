@@ -658,8 +658,17 @@ if __name__ == "__main__":
         help="Whether to use the mujoco viewer.",
         default=False,
     )
+    parser.add_argument(
+        "--supercloud",
+        action="store_true",
+        help="Whether to run it on supercloud.",
+    )
 
     args = parser.parse_args()
+
+    if args.supercloud:
+        import os
+        os.environ["MUJOCO_GL"] = "egl"
 
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
     env = MjCambrianEnv(config, use_renderer=not args.mj_viewer)
