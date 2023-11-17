@@ -45,6 +45,7 @@ env_config:
   renderer_config:
     render_modes: ["rgb_array"]
 
+    resizeable: True
     fullscreen: False
     fps: 50
 
