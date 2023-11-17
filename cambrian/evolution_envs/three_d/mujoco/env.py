@@ -693,9 +693,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.supercloud:
+        del mj
         import os
 
         os.environ["MUJOCO_GL"] = "egl"
+
+        import mujoco as mj
 
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
     env = MjCambrianEnv(config, use_renderer=not args.mj_viewer)

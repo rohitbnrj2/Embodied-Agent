@@ -27,6 +27,7 @@ class MjCambrianEye:
         self._last_obs: np.ndarray = None
 
         self._renderer = MjCambrianRenderer(config.renderer_config)
+        self._render_depth = "depth_array" in config.renderer_config.render_modes
 
     def _check_config(self, config: MjCambrianEyeConfig) -> MjCambrianEyeConfig:
         """This will automatically set some of the config values if they are not
@@ -50,11 +51,12 @@ class MjCambrianEye:
         assert "rgb_array" in config.renderer_config.render_modes, (
             "Must specify 'rgb_array' in the render modes for the renderer config."
         )
-        assert "depth_array" in config.renderer_config.render_modes, (
-            "Must specify 'depth_array' in the render modes for the renderer config."
-        )
 
         config.setdefault("filter_size", [0, 0])
+        if config.filter_size != [0, 0]:
+            assert "depth_array" in config.renderer_config.render_modes, (
+                "Must specify 'depth_array' in the render modes for the renderer config."
+            )
 
         if config.fovy is not None:
             assert 0 < config.fovy < 180, "Invalid fovy."
@@ -160,7 +162,7 @@ class MjCambrianEye:
     def step(self) -> np.ndarray:
         """Simply calls `render` and sets the last observation.
         See `render()` for more information."""
-        obs = self.render(return_depth=False)
+        obs = self.render()
         self._last_obs = obs.copy()
         return obs
 
@@ -173,7 +175,10 @@ class MjCambrianEye:
         the psf is applied, the image will be cropped to `self.resolution`.
         """
 
-        rgb, depth = self._renderer.render()
+        rgb = self._renderer.render()
+        if self._render_depth:
+            rgb, depth = rgb 
+
         rgb = rgb.transpose(1, 0, 2) # (H, W, C) -> (W, H, C)
 
         # Apply PSF here
