@@ -670,6 +670,20 @@ if __name__ == "__main__":
         default=False,
     )
 
+    parser.add_argument(
+        "-t",
+        "--total-timesteps",
+        type=int,
+        help="The number of timesteps to run the environment for.",
+        default=np.inf,
+    )
+    parser.add_argument(
+        "--record-path",
+        type=str,
+        help="The path to save the video to. It will save a gif and mp4. Don't specify an extension. If not specified, will not record.",
+        default=None,
+    )
+
     args = parser.parse_args()
 
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
@@ -685,9 +699,19 @@ if __name__ == "__main__":
                 mj.mj_step(env.model, env.data)
                 viewer.sync()
     else:
-        while env.renderer.is_running():
+        if args.record_path is not None:
+            assert (
+                args.total_timesteps < np.inf
+            ), "Must specify `-t\--total-timesteps` if recording."
+            env.renderer.record = True
+
+        while env.renderer.is_running() and env._episode_step < args.total_timesteps:
             env.step(env.action_spaces.sample())
             env.render()
         env.close()
+
+        if args.record_path is not None:
+            env.renderer.save(args.record_path)
+            print(f"Saved video to {args.record_path}")
 
     print("Exiting...")

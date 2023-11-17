@@ -20,7 +20,7 @@ Hover over an option on the left side and right click to show all the shortcuts.
 ## Running training
 
 ```bash
-python cambrian/evolution_envs/three_d/mujoco/env.py CONFIG_PATH --train -r 0
+python cambrian/evolution_envs/three_d/mujoco/runner.py CONFIG_PATH --evo -r 0
 ```
 
 > [!TIP]
@@ -28,4 +28,6 @@ python cambrian/evolution_envs/three_d/mujoco/env.py CONFIG_PATH --train -r 0
 
 ## Running on Supercloud
 
-Only difference for running on supercloud is you need to set `MUJOCO_GL=egl`, which sets OpenGL to use the EGL backend which is headless.
+In order to run on supercloud, you need to set `MUJOCO_GL=egl`, which sets OpenGL to use the EGL backend which is headless.
+
+You also can pass `--record-path` to the `env.py` script to set the path that an `mp4` and a `gif` will be recorded.

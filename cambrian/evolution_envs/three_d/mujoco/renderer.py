@@ -85,9 +85,7 @@ class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
         mj.mjr_drawPixels(self.obj.ravel(), None, viewport, mjr_context)
 
 
-
 class MjCambrianViewer(ABC):
-
     _gl_context: mj.gl_context.GLContext = None
 
     def __init__(self, config: MjCambrianRendererConfig):
@@ -114,11 +112,12 @@ class MjCambrianViewer(ABC):
 
         self.setup_contexts()
 
-
     @abstractmethod
     def setup_contexts(self):
         if MjCambrianViewer._gl_context is None:
-            MjCambrianViewer._gl_context = mj.gl_context.GLContext(self.viewport.width, self.viewport.height)
+            MjCambrianViewer._gl_context = mj.gl_context.GLContext(
+                self.viewport.width, self.viewport.height
+            )
         self._gl_context = MjCambrianViewer._gl_context
         self.make_context_current()
 
@@ -230,7 +229,9 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
         super().setup_contexts()
 
         if MjCambrianOffscreenViewer._mjr_context is None:
-            MjCambrianOffscreenViewer._mjr_context = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
+            MjCambrianOffscreenViewer._mjr_context = mj.MjrContext(
+                self.model, mj.mjtFontScale.mjFONTSCALE_50
+            )
         self._mjr_context = MjCambrianOffscreenViewer._mjr_context
 
     def update(self, width: int, height: int):
@@ -284,7 +285,9 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         super().setup_contexts()
 
         if MjCambrianOnscreenViewer._mjr_context is None:
-            MjCambrianOnscreenViewer._mjr_context = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
+            MjCambrianOnscreenViewer._mjr_context = mj.MjrContext(
+                self.model, mj.mjtFontScale.mjFONTSCALE_50
+            )
         self._mjr_context = MjCambrianOnscreenViewer._mjr_context
 
     def make_context_current(self):
