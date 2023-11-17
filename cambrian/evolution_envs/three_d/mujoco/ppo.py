@@ -18,7 +18,20 @@ class MjCambrianPPO(PPO):
 
     def load_policy(self, path: Path | str):
         """Overwrite the load method. Instead of loading the entire state, we'll just
-        load the policy weights."""
+        load the policy weights.
+        
+        There are four cases to consider:
+            - A layer in the saved policy is identical in shape to the current policy
+                - Do nothing for this layer
+            - A layer is both present in the saved policy and the current policy, but
+                the shapes are different
+                - Delete the layer from the saved policy
+            - A layer is present in the saved policy but not the current policy
+                - Delete the layer from the saved policy
+            - A layer is present in the current policy but not the saved policy
+                - Do nothing for this layer. By setting `strict=False` in the call to
+                    `load_state_dict`, we can ignore this layer.
+        """
 
         policy_path = Path(path) / "policy.pt"
         if not policy_path.exists():
@@ -32,9 +45,10 @@ class MjCambrianPPO(PPO):
             if saved_state_dict_key not in policy_state_dict:
                 print(
                     f"WARNING: Key '{saved_state_dict_key}' not found in policy "
-                    "state_dict. This shouldn't happen."
+                    "state_dict. Deleting from saved state dict." 
                 )
                 del saved_state_dict[saved_state_dict_key]
+                continue
 
             saved_state_dict_var = saved_state_dict[saved_state_dict_key]
             policy_state_dict_var = policy_state_dict[saved_state_dict_key]

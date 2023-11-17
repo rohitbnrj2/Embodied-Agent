@@ -559,7 +559,9 @@ class MjCambrianAnimal:
         EDIT_EYE = auto()
 
     @staticmethod
-    def mutate(config: MjCambrianAnimalConfig, *, verbose: int = 0) -> MjCambrianAnimalConfig:
+    def mutate(
+        config: MjCambrianAnimalConfig, *, verbose: int = 0
+    ) -> MjCambrianAnimalConfig:
         if verbose > 1:
             print("Mutating animal...")
 
@@ -567,8 +569,14 @@ class MjCambrianAnimal:
         # This will lean towards less total mutations generally
         p = np.exp(-np.arange(len(MjCambrianAnimal.MutationType)))
         num_of_mutations = np.random.choice(np.arange(1, len(p) + 1), p=p / p.sum())
-        mutations = np.random.choice(MjCambrianAnimal.MutationType, num_of_mutations, False)
+        mutations = np.random.choice(
+            MjCambrianAnimal.MutationType, num_of_mutations, replace=False
+        )
         mutations = reduce(lambda x, y: x | y, mutations)
+
+        if verbose > 1:
+            print(f"Number of mutations: {num_of_mutations}")
+            print(f"Mutations: {mutations}")
 
         if mutations & MjCambrianAnimal.MutationType.REMOVE_LAT_EYE:
             if verbose > 1:
@@ -585,7 +593,7 @@ class MjCambrianAnimal:
                 print("Adding a latitudinal eye.")
 
             config.num_eyes_lat += 1
-        
+
         if mutations & MjCambrianAnimal.MutationType.REMOVE_LON_EYE:
             if verbose > 1:
                 print("Removing a longitudinal eye.")
@@ -660,7 +668,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     overrides = _convert_overrides_to_dict(args.overrides)
-    config: MjCambrianConfig = MjCambrianConfig.load(args.config_path, overrides=overrides)
+    config: MjCambrianConfig = MjCambrianConfig.load(
+        args.config_path, overrides=overrides
+    )
     config.animal_config.name = "animal"
     config.animal_config.idx = 0
     animal = MjCambrianAnimal(config.animal_config)
@@ -683,7 +693,7 @@ if __name__ == "__main__":
 
         renderer = MjCambrianRenderer(renderer_config)
         renderer.reset(model, data)
-        
+
         for viewer in renderer.viewers.values():
             viewer.scene_option.flags[mj.mjtVisFlag.mjVIS_CAMERA] = True
             viewer.model.vis.scale.camera = 1.0
@@ -696,7 +706,7 @@ if __name__ == "__main__":
             i += 1
 
             if i == 600 and args.save:
-                filename = args.title.lower().replace(' ', '_')
+                filename = args.title.lower().replace(" ", "_")
                 renderer.record = True
                 renderer.render()
                 print(f"Saving to {filename}...")

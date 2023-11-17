@@ -147,6 +147,8 @@ class MjCambrianViewer:
 
     def update(
         self,
+        model: mj.MjModel,
+        data: mj.MjData,
         width: Optional[int] = None,
         height: Optional[int] = None,
         camera: Optional[mj.MjvCamera] = None,
@@ -156,6 +158,8 @@ class MjCambrianViewer:
         Derived classes should implement additional functionality, such as resizing the
         window/buffer if the width/height has changed.
         """
+        self.model = model
+        self.data = data
         self.width = self.width if width is None else width
         self.height = self.height if height is None else height
         self.camera = self.camera if camera is None else camera
@@ -334,6 +338,8 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
 
     def update(
         self,
+        model: mj.MjModel,
+        data: mj.MjData,
         width: Optional[int] = None,
         height: Optional[int] = None,
         camera: Optional[mj.MjvCamera] = None,
@@ -355,7 +361,7 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
             self.viewport = mj.MjrRect(0, 0, width, height)
             mj.mjr_resizeOffscreen(width, height, self._mjr_context)
 
-        super().update(width, height, camera)
+        super().update(model, data, width, height, camera)
 
     def render(self) -> np.ndarray:
         """Render the scene to an offscreen buffer and read the pixels from the buffer."""
@@ -585,6 +591,7 @@ class MjCambrianRenderer:
         for render_mode in self.config.render_modes:
             if render_mode in self._viewers:
                 continue
+
             self._viewers[render_mode] = self._create_viewer(model, data, render_mode)
 
         image = self.render()
@@ -641,7 +648,7 @@ class MjCambrianRenderer:
         assert width is not None and height is not None, "Width and height must be set."
 
         for viewer in self._viewers.values():
-            viewer.update(width, height, self.camera)
+            viewer.update(self.model, self.data, width, height, self.camera)
 
         self.config.width = width
         self.config.height = height
@@ -651,7 +658,13 @@ class MjCambrianRenderer:
         for viewer in self._viewers.values():
             # Since the viewers may be shared between renderers, we need to call update
             # to update the underlying buffers, if needed.
-            viewer.update(self.config.width, self.config.height, self.camera)
+            viewer.update(
+                self.model,
+                self.data,
+                self.config.width,
+                self.config.height,
+                self.camera,
+            )
 
             if isinstance(viewer, MjCambrianOffscreenViewer):
                 image = viewer.render()

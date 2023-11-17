@@ -73,8 +73,8 @@ class MjCambrianEvoRunner:
 
         while self.generation < self.config.evo_config.num_generations:
             print(f"Starting generation {self.generation}...")
-            set_random_seed(self._calc_seed(0))
 
+            self.set_seed()
             self.update_logdir()
 
             config = self.select_animal()
@@ -82,6 +82,15 @@ class MjCambrianEvoRunner:
             self.train_animal(config)
 
             self.generation += 1
+
+    def set_seed(self):
+        if self.verbose > 1:
+            print(f"Setting seed for generation {self.generation}...")
+
+        seed = self._calc_seed(0)
+        if self.verbose > 1:
+            print(f"Setting seed to {seed}...")
+        set_random_seed(seed)
 
     def update_logdir(self):
         if self.verbose > 2:
