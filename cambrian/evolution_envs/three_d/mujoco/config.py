@@ -714,12 +714,16 @@ class MjCambrianGenerationConfig(MjCambrianBaseConfig["MjCambrianGenerationConfi
     rank: int
     generation: int
 
-    def __add__(self, new_generation: int) -> int:
+    def __add__(self, other: int) -> int:
         """NOTE: returns an int, not a new generation config."""
-        return self.generation + new_generation
+        return self.generation + other
 
-    def __iadd__(self, new_generation: int) -> "MjCambrianGenerationConfig":
-        self.generation += new_generation
+    def __mul__(self, other: int) -> int:
+        """NOTE: returns an int, not a new generation config."""
+        return self.generation * other
+
+    def __iadd__(self, other: int) -> "MjCambrianGenerationConfig":
+        self.generation += other
         return self
 
     def __lt__(self, other: int) -> bool:
@@ -760,6 +764,9 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig["MjCambrianEvoConfig"]):
         parent_generation (Optional[MjCambrianGenerationConfig]): The config for the
             parent generation. Will be set by the evolution runner. If None, that means
             that the current generation is the first generation (i.e. no parent).
+
+        training_env_vars (Optional[Dict[str, str]]): The environment variables to set 
+            for the training process. This is useful for distributed training.
     """
 
     population_size: int
@@ -772,6 +779,8 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig["MjCambrianEvoConfig"]):
 
     generation: Optional[MjCambrianGenerationConfig] = None
     parent_generation: Optional[MjCambrianGenerationConfig] = None
+
+    training_env_vars: Optional[Dict[str, str]] = None
 
 
 @dataclass

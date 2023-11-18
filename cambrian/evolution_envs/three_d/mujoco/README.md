@@ -20,11 +20,20 @@ Hover over an option on the left side and right click to show all the shortcuts.
 ## Running training
 
 ```bash
-python cambrian/evolution_envs/three_d/mujoco/runner.py CONFIG_PATH --evo -r 0
+python cambrian/evolution_envs/three_d/mujoco/runner.py CONFIG_PATH --train -r 0
 ```
 
 > [!TIP]
 > Training should always be done with `MUJOCO_GL=egl` cause that runs in headless mode and is significantly faster.
+
+## Running evo
+
+```bash
+python cambrian/evolution_envs/three_d/mujoco/evo.py CONFIG_PATH -r 0 -g 0
+```
+
+> [!NOTE]
+> By default `MUJOCO_GL=egl` will be set for the training processes that are spawned. This can be overridden with `--no-egl`, though I'm not sure why you would want to do this.
 
 ## Running on Supercloud
 
