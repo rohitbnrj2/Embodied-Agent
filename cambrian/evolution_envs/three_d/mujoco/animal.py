@@ -633,44 +633,24 @@ class MjCambrianAnimal:
 
 
 if __name__ == "__main__":
-    import argparse
+    import time
     import matplotlib.pyplot as plt
     from config import MjCambrianConfig
-    from runner import _convert_overrides_to_dict
+    from utils import MjCambrianArgumentParser
 
-    parser = argparse.ArgumentParser(description="Animal Test")
+    parser = MjCambrianArgumentParser(description="Animal Test")
 
-    parser.add_argument("config_path", type=str, help="Path to the config file.")
     parser.add_argument("title", type=str, help="Title of the demo.")
 
     parser.add_argument("--save", action="store_true", help="Save the demo")
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--plot", action="store_true", help="Plot the demo")
     action.add_argument("--viewer", action="store_true", help="Launch the viewer")
-
-    parser.add_argument(
-        "-o",
-        "--override",
-        dest="overrides",
-        action="append",
-        type=lambda v: v.split("="),
-        help="Override config values. Do <dot separated yaml config>=<value>",
-        default=[],
-    )
-    parser.add_argument(
-        "--include",
-        action="append",
-        type=str,
-        help="Additional includes to add to the config. Added to the end to override existing overrides, if desired.",
-        default=[],
-    )
+    action.add_argument("--speed-test", action="store_true", help="Speed test")
 
     args = parser.parse_args()
 
-    overrides = _convert_overrides_to_dict(args.overrides)
-    config: MjCambrianConfig = MjCambrianConfig.load(
-        args.config_path, overrides=overrides
-    )
+    config: MjCambrianConfig = MjCambrianConfig.load(args.config, overrides=args.overrides)
     config.animal_config.name = "animal"
     config.animal_config.idx = 0
     animal = MjCambrianAnimal(config.animal_config)
@@ -681,25 +661,51 @@ if __name__ == "__main__":
 
     animal.reset(model, data, [-3, 0])
 
-    if args.viewer:
-        from renderer import MjCambrianRenderer, MjCambrianRendererConfig
+    if args.speed_test:
+        print("Starting speed test...")
+        num_frames = 100
+        t0 = time.time()
+        for _ in range(num_frames):
+            animal.step(np.zeros(animal.action_space.shape))
+            mj.mj_step(model, data)
+        t1 = time.time()
+        print(f"Rendered {num_frames} frames in {t1 - t0} seconds.")
+        print(f"Average FPS: {num_frames / (t1 - t0)}")
+        exit()
 
-        renderer_config: MjCambrianRendererConfig = config.env_config.renderer_config
+    if args.viewer:
+        del model
+        del data
+
+        GROUND_XML = """
+        <mujoco>
+            <worldbody>
+                <geom name="floor" pos="0 0 0" size="10 10 0.25" type="plane" rgba="0.9 0.9 0.9 1"/>
+            </worldbody>
+        </mujoco>
+        """
+        env_xml += MjCambrianXML.from_string(GROUND_XML)
+        model = mj.MjModel.from_xml_string(str(env_xml + animal.generate_xml()))
+        data = mj.MjData(model)
+        animal.reset(model, data, [-3, 0])
+
+        from renderer import MjCambrianRenderer
+
+        renderer_config = config.env_config.renderer_config
         renderer_config.render_modes = ["human", "rgb_array"]
         renderer_config.camera_config.lookat = [-2, 0, 0.25]
         renderer_config.camera_config.elevation = -20
         renderer_config.camera_config.azimuth = 110
-        renderer_config.camera_config.distance = 2.5
+        renderer_config.camera_config.distance = model.stat.extent * 2.5
 
         renderer = MjCambrianRenderer(renderer_config)
         renderer.reset(model, data)
 
-        for viewer in renderer.viewers.values():
-            viewer.scene_option.flags[mj.mjtVisFlag.mjVIS_CAMERA] = True
-            viewer.model.vis.scale.camera = 1.0
+        renderer.viewer.scene_option.flags[mj.mjtVisFlag.mjVIS_CAMERA] = True
+        renderer.viewer.model.vis.scale.camera = 1.0
 
         i = 0
-        while renderer.is_running:
+        while renderer.is_running():
             print(f"Step {i}")
             renderer.render()
             mj.mj_step(model, data)
@@ -710,7 +716,7 @@ if __name__ == "__main__":
                 renderer.record = True
                 renderer.render()
                 print(f"Saving to {filename}...")
-                renderer.save_last_image(filename)
+                renderer.save(filename, save_types=["png"])
                 renderer.record = False
                 break
 

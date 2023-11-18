@@ -118,6 +118,8 @@ class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
         viewport = mj.MjrRect(*self.cursor, self.obj.shape[1], self.obj.shape[0])
         mj.mjr_drawPixels(self.obj.ravel(), None, viewport, mjr_context)
 
+GL_CONTEXT: mj.gl_context.GLContext = None
+MJR_CONTEXT: mj.MjrContext = None
 
 class MjCambrianViewer(ABC):
     def __init__(self, config: MjCambrianRendererConfig):
@@ -142,14 +144,26 @@ class MjCambrianViewer(ABC):
         self.scene = mj.MjvScene(model=model, maxgeom=self.config.max_geom)
         self.viewport = mj.MjrRect(0, 0, width, height)
 
-        if self._gl_context is not None:
-            del self._gl_context
-        if self._mjr_context is not None:
-            del self._mjr_context
+        # NOTE: All shared contexts much match either onscreen or offscreen. And their
+        # height and width most likely must match as well.
+        if self.config.use_shared_context:
+            global GL_CONTEXT, MJR_CONTEXT
+            if GL_CONTEXT is None:
+                GL_CONTEXT = mj.gl_context.GLContext(width, height)
+            self._gl_context = GL_CONTEXT
+            self.make_context_current()
+            if MJR_CONTEXT is None:
+                MJR_CONTEXT = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
+            self._mjr_context = MJR_CONTEXT
+        else:
+            if self._gl_context is not None:
+                del self._gl_context
+            if self._mjr_context is not None:
+                del self._mjr_context
 
-        self._gl_context = mj.gl_context.GLContext(width, height)
-        self.make_context_current()
-        self._mjr_context = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
+            self._gl_context = mj.gl_context.GLContext(width, height)
+            self.make_context_current()
+            self._mjr_context = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
         self._mjr_context.readDepthMap = mj.mjtDepthMap.mjDEPTH_ZEROFAR
 
     def reset_camera(self):
@@ -236,6 +250,7 @@ class MjCambrianViewer(ABC):
         pass
 
     def close(self):
+        return
         self._gl_context.free()
 
     # ===================
@@ -335,6 +350,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         return not (self.window is None or glfw.window_should_close(self.window))
 
     def close(self):
+        return
         if self.window is not None:
             if glfw.get_current_context() == self.window:
                 glfw.make_context_current(None)
@@ -489,6 +505,7 @@ class MjCambrianRenderer:
         return self.viewer.is_running()
 
     def close(self):
+        return
         if hasattr(self, "viewer") and self.viewer is not None:
             self.viewer.close()
 
@@ -578,7 +595,7 @@ if __name__ == "__main__":
 
 
     YAML = """
-    render_modes: ['rgb_array']
+    render_modes: ['rgb_array', 'depth_array']
 
     max_geom: 1000
 
