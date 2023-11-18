@@ -72,6 +72,7 @@ animal_config:
     fov: [45, 20]
     renderer_config:
       render_modes: ["rgb_array"]
+      use_shared_context: True
   intensity_sensor_config:
     mode: "fixed"
     resolution: [1, 1]
