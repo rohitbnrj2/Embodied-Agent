@@ -61,6 +61,8 @@ class PlotEvaluationCallback(BaseCallback):
             plt.cla()
         except Exception as e:
             print(f"Couldn't save monitor: {e}.")
+            print(f"Deleting {self.logdir / 'monitor.csv'}")
+            (self.logdir / "monitor.csv").unlink()
 
         return True
 

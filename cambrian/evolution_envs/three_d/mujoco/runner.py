@@ -293,7 +293,7 @@ class MjCambrianEvoRunner:
             verbose=self.verbose,
         )
 
-        if self.config.evo_config.parent_generation is not None:
+        if self.config.evo_config.parent_generation is not None and False:
             parent_logdir = self.logdir / self.config.evo_config.parent_generation.to_path()
             if (policy_path := parent_logdir / "policy.pt").exists():
                 print(f"Loading model weights from {policy_path}...")

@@ -433,7 +433,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig["MjCambrianRendererConfig"])
         camera_config (Optional[MjCambrianCameraConfig]): The camera config to use for
             the renderer.
 
-        use_shared_context (Optional[bool]): Whether to use a shared context or not.
+        use_shared_context (bool): Whether to use a shared context or not.
             If True, the renderer will share a context with other renderers. This is
             useful for rendering multiple renderers at the same time. If False, the
             renderer will create its own context. This is computationally expensive if
@@ -453,7 +453,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig["MjCambrianRendererConfig"])
 
     camera_config: Optional[MjCambrianCameraConfig] = None
 
-    use_shared_context: Optional[bool] = None
+    use_shared_context: bool = None
 
 
 @dataclass

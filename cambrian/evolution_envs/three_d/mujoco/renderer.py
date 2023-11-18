@@ -142,7 +142,6 @@ class MjCambrianViewer(ABC):
         self.reset_camera()
 
         self.scene = mj.MjvScene(model=model, maxgeom=self.config.max_geom)
-        self.viewport = mj.MjrRect(0, 0, width, height)
 
         # NOTE: All shared contexts much match either onscreen or offscreen. And their
         # height and width most likely must match as well.
@@ -155,7 +154,7 @@ class MjCambrianViewer(ABC):
             if MJR_CONTEXT is None:
                 MJR_CONTEXT = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
             self._mjr_context = MJR_CONTEXT
-        else:
+        elif self.viewport is None or width != self.viewport.width or height != self.viewport.height:
             if self._gl_context is not None:
                 del self._gl_context
             if self._mjr_context is not None:
@@ -165,6 +164,8 @@ class MjCambrianViewer(ABC):
             self.make_context_current()
             self._mjr_context = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
         self._mjr_context.readDepthMap = mj.mjtDepthMap.mjDEPTH_ZEROFAR
+
+        self.viewport = mj.MjrRect(0, 0, width, height)
 
     def reset_camera(self):
         """Setup the camera."""
@@ -455,7 +456,6 @@ class MjCambrianRenderer:
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
         self.config.setdefault("max_geom", 1000)
-        self.config.setdefault("use_shared_context", True)
 
         assert all(
             mode in self.metadata["render.modes"] for mode in self.render_modes
