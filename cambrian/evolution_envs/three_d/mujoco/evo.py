@@ -72,7 +72,7 @@ class MjCambrianEvoRunner:
             config = self.population.spawn()
             self.train_animal(config)
 
-            self.generation += 1
+            self.generation = self.generation + 1
 
     def update(self):
         # Set seed
@@ -97,17 +97,16 @@ class MjCambrianEvoRunner:
         if self.verbose > 1:
             print(f"Training animal for generation {self.generation}...")
 
-        self.config = config
-        self.config.training_config.seed = self._calc_seed(0)
-        self.config.training_config.logdir = str(self.generation_logdir)
-        self.config.training_config.exp_name = ""
-        if (parent := self.config.evo_config.parent_generation_config) is not None:
+        config.training_config.seed = self._calc_seed(0)
+        config.training_config.logdir = str(self.generation_logdir)
+        config.training_config.exp_name = ""
+        if (parent := config.evo_config.parent_generation_config) is not None:
             parent_logdir = self.logdir / parent.to_path()
             if (policy_path := parent_logdir / "policy.pt").exists():
-                self.config.training_config.checkpoint_path = str(policy_path)
+                config.training_config.checkpoint_path = str(policy_path)
 
         config_yaml = self.generation_logdir / "config.yaml"
-        self.config.write_to_yaml(config_yaml)
+        config.write_to_yaml(config_yaml)
 
         trainer_py = Path(__file__).parent / "trainer.py"
         cmd = f"python {trainer_py} {config_yaml} --train"
