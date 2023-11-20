@@ -1,5 +1,4 @@
 from pathlib import Path
-import torch
 
 from stable_baselines3.common.vec_env import (
     VecEnv,
@@ -28,21 +27,16 @@ from callbacks import (
 from ppo import MjCambrianPPO
 
 
-class MjCambrianRunner:
-    """This is the runner class for running evolutionary training and evaluation.
+class MjCambrianTrainer:
+    """This is the trainer class for running training and evaluation.
 
     Args:
         config (MjCambrianConfig): The config to use for training and evaluation.
-        rank (int): The rank of this process. A rank is a unique identifier assigned to
-            each process, where a processes is an individual evo runner running on a
-            separate computer. In the context of a cluster, each node that is running
-            an evo job is considered one rank, where the rank number is a unique int.
     """
 
-    def __init__(self, config: MjCambrianConfig, rank: int, seed: int):
+    def __init__(self, config: MjCambrianConfig):
         self.config = config
-        self.rank = rank
-        self.seed = seed
+        self.seed = self.config.training_config.seed
 
         self.verbose = self.config.training_config.verbose
 
@@ -64,7 +58,7 @@ class MjCambrianRunner:
         total_timesteps = self.config.training_config.total_timesteps
         model.learn(total_timesteps=total_timesteps, callback=callback)
         if self.verbose > 1:
-            print(f"Finished training the animal...")
+            print("Finished training the animal...")
 
         if self.verbose > 1:
             print(f"Saving model to {self.logdir}...")
@@ -198,9 +192,6 @@ if __name__ == "__main__":
     from utils import MjCambrianArgumentParser
 
     parser = MjCambrianArgumentParser()
-    parser.add_argument(
-        "-r", "--rank", type=int, help="Rank of this process", required=True
-    )
 
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--train", action="store_true", help="Train the model")
@@ -224,7 +215,7 @@ if __name__ == "__main__":
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
     config.training_config.setdefault("exp_name", Path(args.config).stem)
 
-    runner = MjCambrianRunner(config, args.rank, args.seed)
+    runner = MjCambrianTrainer(config)
 
     if args.train:
         runner.train()

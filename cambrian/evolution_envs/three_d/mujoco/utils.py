@@ -56,23 +56,14 @@ class MjCambrianArgumentParser(argparse.ArgumentParser):
             help="Override config values. Do <dot separated yaml config> <value>",
             default=[],
         )
-        self.add_argument(
-            "--seed",
-            type=int,
-            help="Seed to use for the environment.",
-            default=None,
-        )
 
     def parse_args(self, *args, **kwargs):
         # to avoid circular imports
         from config import convert_overrides_to_dict
-        from stable_baselines3.common.utils import set_random_seed
 
         args = super().parse_args(*args, **kwargs)
 
         args.overrides = convert_overrides_to_dict(args.overrides)
-        if args.seed is not None:
-            set_random_seed(args.seed)
 
         return args
 

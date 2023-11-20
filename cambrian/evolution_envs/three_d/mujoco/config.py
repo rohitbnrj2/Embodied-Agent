@@ -670,43 +670,14 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
 
 
 @dataclass
-class MjCambrianSharedFileAnimalPoolConfig(
-    MjCambrianBaseConfig["MjCambrianSharedFileAnimalPoolConfig"]
-):
-    """Config for the shared file agent pool. Used for type hinting.
-
-    Attributes:
-        filename (str): The filename of the shared file.
-
-        use_flcok (bool): Whether to use a lock or not. If True, a lock will be used
-            when reading/writing to the file. This is useful for distributed training
-            where multiple processes may be reading/writing to the file at the same
-            time. NOTE: some distributed computing systems don't support file locking.
-        lock_timeout (Optional[int]): The timeout to use for the lock if flock isn't
-            used. Specified in ms. If `use_flock` is True, this is ignored, otherwise
-            it's required.
-    """
-
-    filename: Path | str
-
-    use_flock: bool
-    lock_timeout: Optional[int] = None
-
-    def __post_init__(self):
-        assert (
-            self.use_flock or self.lock_timeout is not None
-        ), "Must set `lock_timeout` if `use_flock` is False. "
-
-        return super().__post_init__()
-
-
-@dataclass
 class MjCambrianGenerationConfig(MjCambrianBaseConfig["MjCambrianGenerationConfig"]):
     """Config for a generation. Used for type hinting.
 
     Attributes:
-        rank (int): The rank of the generation. This is used to uniquely identify the
-            animal in a specific generation.
+        rank (int): The rank of the generation. A rank is a unique identifier assigned to
+            each process, where a processes is an individual evo runner running on a
+            separate computer. In the context of a cluster, each node that is running
+            an evo job is considered one rank, where the rank number is a unique int.
         generation (int): The generation number. This is used to uniquely identify the
             generation.
     """
@@ -714,29 +685,28 @@ class MjCambrianGenerationConfig(MjCambrianBaseConfig["MjCambrianGenerationConfi
     rank: int
     generation: int
 
-    def __add__(self, other: int) -> int:
-        """NOTE: returns an int, not a new generation config."""
-        return self.generation + other
-
-    def __mul__(self, other: int) -> int:
-        """NOTE: returns an int, not a new generation config."""
-        return self.generation * other
-
-    def __iadd__(self, other: int) -> "MjCambrianGenerationConfig":
-        self.generation += other
-        return self
-
-    def __lt__(self, other: int) -> bool:
-        return self.generation < other
-
-    def __eq__(self, other: "MjCambrianGenerationConfig") -> bool:
-        return self.generation == other.generation and self.rank == other.rank
-
-    def __str__(self) -> str:
-        return str(self.generation)
-
     def to_path(self) -> Path:
         return Path(f"generation_{self.generation}") / f"rank_{self.rank}"
+
+@dataclass
+class MjCambrianPopulationConfig(MjCambrianBaseConfig["MjCambrianPopulationConfig"]):
+    """Config for a population. Used for type hinting.
+
+    Attributes:
+        size (int): The population size. This represents the number of agents that 
+            should be trained at any one time.
+        num_top_performers (int): The number of top performers to use in the new agent
+            selection. Either in cross over or in mutation, these top performers are
+            used to generate new agents.
+
+        replication_type (str): The type of replication to use. See
+            `MjCambrianReplicationType` for options.
+    """
+
+    size: int
+    num_top_performers: int
+
+    replication_type: str
 
 
 @dataclass
@@ -744,20 +714,7 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig["MjCambrianEvoConfig"]):
     """Config for evolutions. Used for type hinting.
 
     Attributes:
-        population_size (int): The number of animals in the population. A single agent
-            in a population is defined as a unique configuration. With this definition,
-            an agent could be a unique rank being trained distributed, or a unique
-            process in a SubProcEnv, or even both. TODO: currently only distributed
-        num_top_performers (int): The number of top performers to keep in the population
-            after each generation. The rest of the population will be replaced with
-            mutated copies of the top performers.
-
-        agent_pool_type (str): The type of agent pool to use. See
-            `agent_pool.MjCambrianAnimalPoolType` for options.
-
-        shared_file_config (Optional[MjCambrianSharedFileAnimalPoolConfig]): The config
-            for the shared file agent pool. Only used if `agent_pool_type` is set to
-            `MjCambrianAnimalPoolType.SHARED_FILE`.
+        num_generations (int): The number of generations to run for.
 
         generation (Optional[MjCambrianGenerationConfig]): The config for the current
             generation. Will be set by the evolution runner.
@@ -765,22 +722,18 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig["MjCambrianEvoConfig"]):
             parent generation. Will be set by the evolution runner. If None, that means
             that the current generation is the first generation (i.e. no parent).
 
-        training_env_vars (Optional[Dict[str, str]]): The environment variables to set 
-            for the training process. This is useful for distributed training.
+        environment_variables (Optional[Dict[str, str]]): The environment variables to 
+            set for the training process. 
     """
-
-    population_size: int
-    num_top_performers: int
 
     num_generations: int
 
-    animal_pool_type: str
-    shared_file_config: Optional[MjCambrianSharedFileAnimalPoolConfig] = None
+    population_config: MjCambrianPopulationConfig
 
-    generation: Optional[MjCambrianGenerationConfig] = None
-    parent_generation: Optional[MjCambrianGenerationConfig] = None
+    generation_config: Optional[MjCambrianGenerationConfig] = None
+    parent_generation_config: Optional[MjCambrianGenerationConfig] = None
 
-    training_env_vars: Optional[Dict[str, str]] = None
+    environment_variables: Optional[Dict[str, str]] = None
 
 
 @dataclass

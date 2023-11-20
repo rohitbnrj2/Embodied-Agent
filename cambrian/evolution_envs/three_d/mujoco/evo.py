@@ -4,8 +4,8 @@ from pathlib import Path
 
 from stable_baselines3.common.utils import set_random_seed
 
-from animal import MjCambrianAnimal
 from config import MjCambrianConfig, MjCambrianGenerationConfig
+from population import MjCambrianPopulation
 
 
 class MjCambrianEvoRunner:
@@ -20,14 +20,21 @@ class MjCambrianEvoRunner:
     two levels of parallelism: the number of training sessions and the number of
     environments per training session. This allows us to scale up the training to
     allow multiple parallel environments to be run at the same time on the same node.
-
     """
 
     def __init__(
-        self, config: MjCambrianConfig, rank: int = 0, initial_generation: int = 0
+        self,
+        config: MjCambrianConfig,
+        rank: int = 0,
+        generation: int = 0,
+        *,
+        dry_run: bool = False,
     ):
         self.config = config
-        self.rank = rank
+        self.dry_run = dry_run
+
+        generation_config = MjCambrianGenerationConfig(generation=generation, rank=rank)
+        self.config.evo_config.generation_config = generation_config
 
         self.verbose = self.config.training_config.verbose
 
@@ -37,9 +44,12 @@ class MjCambrianEvoRunner:
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
 
-        self.generation = MjCambrianGenerationConfig(
-            rank=rank, generation=initial_generation
-        )
+        population_config = self.config.evo_config.population_config
+        self.population = MjCambrianPopulation(population_config, self.logdir)
+
+        # Initialize the population
+        self.config.write_to_yaml(self.logdir / "config.yaml")
+        self.population.add_animal(self.logdir)
 
     def evo(self):
         """This method run's evolution.
@@ -59,8 +69,7 @@ class MjCambrianEvoRunner:
 
             self.update()
 
-            config = self.select_animal()
-            config = self.mutate_animal(config)
+            config = self.population.spawn()
             self.train_animal(config)
 
             self.generation += 1
@@ -77,44 +86,34 @@ class MjCambrianEvoRunner:
         # Update logdir
         if self.verbose > 2:
             print(f"Updating logdir for generation {self.generation}...")
-        self.generation_logdir = self.logdir / self.generation.to_path()
+        generation_config = self.config.evo_config.generation_config
+        self.generation_logdir = self.logdir / generation_config.to_path()
         self.generation_logdir.mkdir(parents=True, exist_ok=True)
 
-    def select_animal(self) -> MjCambrianConfig:
-        if self.verbose > 1:
-            print(f"Selecting animal for generation {self.generation}...")
-        return self.config.copy()
-
-    def mutate_animal(self, config: MjCambrianConfig) -> MjCambrianConfig:
-        if self.verbose > 1:
-            print(f"Mutating animal for generation {self.generation}...")
-        animal_config = config.animal_config.copy()
-        animal_config = MjCambrianAnimal.mutate(animal_config, verbose=self.verbose)
-
-        evo_config = config.evo_config.copy()
-        if evo_config.generation is not None:
-            evo_config.parent_generation = evo_config.generation.copy()
-        evo_config.generation = self.generation
-
-        return config.copy(animal_config=animal_config, evo_config=evo_config)
+        # Update the population
+        self.population.update()
 
     def train_animal(self, config: MjCambrianConfig):
         if self.verbose > 1:
             print(f"Training animal for generation {self.generation}...")
 
         self.config = config
+        self.config.training_config.seed = self._calc_seed(0)
         self.config.training_config.logdir = str(self.generation_logdir)
         self.config.training_config.exp_name = ""
-        if (parent_generation := self.config.evo_config.parent_generation) is not None:
-            parent_logdir = self.logdir / parent_generation.to_path()
+        if (parent := self.config.evo_config.parent_generation_config) is not None:
+            parent_logdir = self.logdir / parent.to_path()
             if (policy_path := parent_logdir / "policy.pt").exists():
                 self.config.training_config.checkpoint_path = str(policy_path)
 
-        self.config.write_to_yaml(self.generation_logdir / "config.yaml")
+        config_yaml = self.generation_logdir / "config.yaml"
+        self.config.write_to_yaml(config_yaml)
 
-        runner_py = Path(__file__).parent / "runner.py"
-        cmd = f"python {runner_py} {self.generation_logdir / 'config.yaml'} -r {self.rank} --seed {self._calc_seed(0)} --train"
-        subprocess.run(cmd.split(" "), env=dict(os.environ, **self.config.evo_config.training_env_vars))
+        trainer_py = Path(__file__).parent / "trainer.py"
+        cmd = f"python {trainer_py} {config_yaml} --train"
+        env = dict(os.environ, **self.config.evo_config.environment_variables)
+        if not self.dry_run:
+            subprocess.run(cmd.split(" "), env=env)
 
     # ========
 
@@ -128,19 +127,27 @@ class MjCambrianEvoRunner:
             self.generation * self.rank
             + self.config.training_config.seed
             + i
-            * self.config.evo_config.population_size
+            * self.config.evo_config.population_config.size
             * self.config.evo_config.num_generations
         )
 
     # ========
 
     @property
+    def rank(self) -> int:
+        return self.config.evo_config.generation_config.rank
+
+    @rank.setter
+    def rank(self, rank: int):
+        self.config.evo_config.generation_config.rank = rank
+
+    @property
     def generation(self) -> MjCambrianGenerationConfig:
-        return self.config.evo_config.generation
+        return self.config.evo_config.generation_config.generation
 
     @generation.setter
-    def generation(self, generation: MjCambrianGenerationConfig):
-        self.config.evo_config.generation = generation
+    def generation(self, generation: int):
+        self.config.evo_config.generation_config.generation = generation
 
 
 if __name__ == "__main__":
@@ -148,15 +155,22 @@ if __name__ == "__main__":
 
     parser = MjCambrianArgumentParser()
 
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Don't actually run the training"
+    )
+    parser.add_argument(
+        "-r", "--rank", type=int, help="Rank of this process", default=0
+    )
+
     parser.add_argument("--no-egl", action="store_true", help="Disable EGL rendering")
 
     args = parser.parse_args()
 
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
     config.training_config.setdefault("exp_name", Path(args.config).stem)
-    config.evo_config.setdefault("training_env_vars", {})
+    config.evo_config.setdefault("environment_variables", {})
     if not args.no_egl:
-        config.evo_config.training_env_vars["MUJOCO_GL"] = "egl"
+        config.evo_config.environment_variables["MUJOCO_GL"] = "egl"
 
-    runner = MjCambrianEvoRunner(config)
+    runner = MjCambrianEvoRunner(config, rank=args.rank, dry_run=args.dry_run)
     runner.evo()
