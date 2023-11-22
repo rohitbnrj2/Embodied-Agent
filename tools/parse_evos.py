@@ -220,17 +220,12 @@ def plot(
             # CONFIG
             # ======
             if (config := rank_data.config) is not None:
-                animal_config = config.animal_config
-                default_eye_config = animal_config.default_eye_config
-                current_generation = config.evo_config.generation
-                parent_generation = config.evo_config.parent_generation
-
                 # Plot the rank-over-rank config data
                 def _config_plot(attr, *args, **kwargs):
                     y = config.copy()
                     for k in attr.split("."):
                         if not hasattr(y, k):
-                            raise ValueError(f"Could not find {attr} in config.")
+                            raise ValueError(f"Could not find {attr} in config ({rank_data.path}).")
                         y = getattr(y, k)
                     y = np.average(np.abs(y)) if isinstance(y, list) else y
                     if not dry_run:
@@ -251,10 +246,10 @@ def plot(
                 _config_plot("animal_config.num_eyes_lon")
                 _config_plot("animal_config.default_eye_config.fov")
                 _config_plot("animal_config.default_eye_config.resolution")
-                _config_plot("evo_config.generation.generation")
-                _config_plot("evo_config.generation.rank")
-                _config_plot("evo_config.parent_generation.rank")
-                _config_plot("evo_config.parent_generation.generation")
+                _config_plot("evo_config.generation_config.generation")
+                _config_plot("evo_config.generation_config.rank")
+                _config_plot("evo_config.parent_generation_config.rank")
+                _config_plot("evo_config.parent_generation_config.generation")
 
             # ======
             # EVALS
@@ -280,26 +275,27 @@ def plot(
             # under the same key.
             if (monitor := rank_data.monitor) is not None:
                 x, y = ts2xy(monitor, "timesteps")
-                y = moving_average(y.astype(float), window=min(len(y) // 10, 1000))
-                x = x[len(x) - len(y) :]
+                if len(y) > 0:
+                    y = moving_average(y.astype(float), window=min(len(y) // 10, 1000))
+                    x = x[len(x) - len(y) :]
 
-                # TODO: this looks terrible
-                if not dry_run:
-                    _plot(
-                        x,
-                        y,
-                        f"-{RANK_FORMAT_MAP[rank][-2:]}",
-                        label=f"Rank {rank}",
-                        title="monitor",
-                        xlabel="timesteps",
-                        ylabel="rewards",
-                        locator=tkr.AutoLocator(),
-                    )
+                    # TODO: this looks terrible
+                    if not dry_run:
+                        _plot(
+                            x,
+                            y,
+                            f"-{RANK_FORMAT_MAP[rank][-2:]}",
+                            label=f"Rank {rank}",
+                            title="monitor",
+                            xlabel="timesteps",
+                            ylabel="rewards",
+                            locator=tkr.AutoLocator(),
+                        )
 
-                # Accumulate the data from all ranks
-                data.accumulated_data.setdefault("monitor", dict())
-                data.accumulated_data["monitor"].setdefault(rank, [])
-                data.accumulated_data["monitor"][rank].append((x, y))
+                    # Accumulate the data from all ranks
+                    data.accumulated_data.setdefault("monitor", dict())
+                    data.accumulated_data["monitor"].setdefault(rank, [])
+                    data.accumulated_data["monitor"][rank].append((x, y))
 
     # All generations plots
     if "monitor" in data.accumulated_data:

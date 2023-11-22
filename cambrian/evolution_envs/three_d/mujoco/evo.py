@@ -1,3 +1,4 @@
+from typing import List
 import os
 import subprocess
 from pathlib import Path
@@ -67,12 +68,21 @@ class MjCambrianEvoRunner:
         while self.generation < self.config.evo_config.num_generations:
             print(f"Starting generation {self.generation}...")
 
-            self.update()
+            init_rank = self.rank
+            self._processes: List[subprocess.Popen] = []
+            for _ in range(self.config.evo_config.population_config.size):
+                self.rank += 1
 
-            config = self.population.spawn()
-            self.train_animal(config)
+                self.update()
 
-            self.generation = self.generation + 1
+                config = self.population.spawn()
+                self.train_animal(config)
+
+            for process in self._processes:
+                process.wait()
+
+            self.rank = init_rank
+            self.generation += 1
 
     def update(self):
         # Set seed
@@ -100,6 +110,7 @@ class MjCambrianEvoRunner:
         config.training_config.seed = self._calc_seed(0)
         config.training_config.logdir = str(self.generation_logdir)
         config.training_config.exp_name = ""
+        config.evo_config.generation_config = self.config.evo_config.generation_config
         if (parent := config.evo_config.parent_generation_config) is not None:
             parent_logdir = self.logdir / parent.to_path()
             if (policy_path := parent_logdir / "policy.pt").exists():
@@ -111,8 +122,13 @@ class MjCambrianEvoRunner:
         trainer_py = Path(__file__).parent / "trainer.py"
         cmd = f"python {trainer_py} {config_yaml} --train"
         env = dict(os.environ, **self.config.evo_config.environment_variables)
+        if self.verbose > 1:
+            print(f"Running command: {cmd}")
         if not self.dry_run:
-            subprocess.run(cmd.split(" "), env=env)
+            stdin = subprocess.PIPE if self.verbose <= 1 else None
+            stderr = subprocess.PIPE if self.verbose <= 1 else None
+            popen = subprocess.Popen(cmd.split(" "), env=env, stdin=stdin, stderr=stderr)
+            self._processes.append(popen)
 
     # ========
 
@@ -123,7 +139,7 @@ class MjCambrianEvoRunner:
             i * population_size * num_generations + seed + generation
         """
         return (
-            self.generation * self.rank
+            (self.generation + 1) * (self.rank + 1)
             + self.config.training_config.seed
             + i
             * self.config.evo_config.population_config.size

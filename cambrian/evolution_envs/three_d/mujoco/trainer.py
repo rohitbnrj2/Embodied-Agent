@@ -180,11 +180,11 @@ class MjCambrianTrainer:
             verbose=self.verbose,
         )
 
-        if (policy_path := self.config.training_config.checkpoint_path) is not None:
-            policy_path = Path(policy_path)
-            assert policy_path.exists(), f"Checkpoint path {policy_path} does not exist."
-            print(f"Loading model weights from {policy_path}...")
-            model.load_policy(policy_path.parent)
+        # if (policy_path := self.config.training_config.checkpoint_path) is not None:
+        #     policy_path = Path(policy_path)
+        #     assert policy_path.exists(), f"Checkpoint path {policy_path} does not exist."
+        #     print(f"Loading model weights from {policy_path}...")
+        #     model.load_policy(policy_path.parent)
         return model
 
 

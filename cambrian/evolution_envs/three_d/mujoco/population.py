@@ -60,7 +60,7 @@ class MjCambrianPopulation:
         self.logdir = Path(logdir)
 
         self._all_population: Dict[AnimalID, Tuple[Fitness, MjCambrianConfig]] = {}
-        self._current_population: List[AnimalID] = []
+        self._top_performers: List[AnimalID] = []
 
         self._replication_type = MjCambrianReplicationType[self.config.replication_type]
 
@@ -95,8 +95,9 @@ class MjCambrianPopulation:
 
                 self.add_animal(path)
 
-        sorted_population = sorted(self._all_population.items(), key=lambda x: x[1][0])
-        self._current_population = [uid for uid, _ in sorted_population[-self.size :]]
+        # Sort the population and update the current population
+        pop = sorted(self._all_population.items(), key=lambda x: x[1][0])
+        self._top_performers = [i for i, _ in pop[-self.num_top_performers :]]
 
     def _calculate_fitness(self, path: Path):
         """Calculates the fitness of the given animal.
@@ -130,7 +131,7 @@ class MjCambrianPopulation:
         return config
 
     def _crossover(self):
-        parent1_uid, parent2_uid = np.random.choice(self._current_population, 2, False)
+        parent1_uid, parent2_uid = np.random.choice(self._top_performers, 2, False)
         parent1 = self._all_population[parent1_uid][1].copy()
         parent2 = self._all_population[parent2_uid][1].copy()
 
@@ -142,7 +143,7 @@ class MjCambrianPopulation:
 
     def _mutate(self, config: Optional[MjCambrianConfig] = None):
         if config is None:
-            animal_uid = np.random.choice(self._current_population)
+            animal_uid = np.random.choice(self._top_performers)
             config = self._all_population[animal_uid][1].copy()
         
         verbose = config.training_config.verbose
@@ -166,3 +167,7 @@ class MjCambrianPopulation:
     @property
     def size(self) -> int:
         return self.config.size
+
+    @property
+    def num_top_performers(self) -> int:
+        return self.config.num_top_performers
