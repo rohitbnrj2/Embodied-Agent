@@ -7,3 +7,5 @@ log*/
 .*.swp
 *.sh.*
 *.ipynb_checkpoints/
+out*
+MUJOCO_LOG.TXT

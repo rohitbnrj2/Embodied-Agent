@@ -49,8 +49,7 @@ class MjCambrianEvoRunner:
         self.population = MjCambrianPopulation(population_config, self.logdir)
 
         # Initialize the population
-        self.config.write_to_yaml(self.logdir / "config.yaml")
-        self.population.add_animal(self.logdir)
+        self.population.add_animal(self.config.copy(), -float("inf"))
 
     def evo(self):
         """This method run's evolution.
@@ -71,12 +70,12 @@ class MjCambrianEvoRunner:
             init_rank = self.rank
             self._processes: List[subprocess.Popen] = []
             for _ in range(self.config.evo_config.population_config.size):
-                self.rank += 1
-
                 self.update()
 
                 config = self.population.spawn()
                 self.train_animal(config)
+
+                self.rank += 1
 
             for process in self._processes:
                 process.wait()
@@ -115,6 +114,11 @@ class MjCambrianEvoRunner:
             parent_logdir = self.logdir / parent.to_path()
             if (policy_path := parent_logdir / "policy.pt").exists():
                 config.training_config.checkpoint_path = str(policy_path)
+        if (max_n_envs := self.config.evo_config.max_n_envs) is not None:
+            n_envs = max_n_envs // self.population.size
+            if self.verbose > 1:
+                print(f"Setting n_envs to {n_envs}")
+            config.training_config.n_envs = n_envs
 
         config_yaml = self.generation_logdir / "config.yaml"
         config.write_to_yaml(config_yaml)
@@ -187,5 +191,6 @@ if __name__ == "__main__":
     if not args.no_egl:
         config.evo_config.environment_variables["MUJOCO_GL"] = "egl"
 
-    runner = MjCambrianEvoRunner(config, rank=args.rank, dry_run=args.dry_run)
+    rank = config.evo_config.population_config.size * args.rank
+    runner = MjCambrianEvoRunner(config, rank=rank, dry_run=args.dry_run)
     runner.evo()

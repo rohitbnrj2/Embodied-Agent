@@ -157,7 +157,11 @@ class MjCambrianTrainer:
             callback_after_eval=PlotEvaluationCallback(self.logdir),
         )
 
-        return CallbackList([eval_cb, MjCambrianProgressBarCallback()])
+        rank = None
+        if self.config.evo_config.generation_config is not None:
+            rank = self.config.evo_config.generation_config.rank  
+        progress_bar_callback = MjCambrianProgressBarCallback(rank)
+        return CallbackList([eval_cb, progress_bar_callback])
 
     def _make_model(self, env: VecEnv) -> MjCambrianPPO:
         """This method creates the PPO model.

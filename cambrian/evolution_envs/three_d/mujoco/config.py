@@ -714,18 +714,28 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig["MjCambrianEvoConfig"]):
     """Config for evolutions. Used for type hinting.
 
     Attributes:
+        max_n_envs (Optional[int]): The maximum number of environments to use for
+            parallel training. If None, will use the `training_config.n_envs` var. If
+            set, will set `n_envs` for each training process to 
+            `max_n_envs // population size`.
+
         num_generations (int): The number of generations to run for.
 
-        generation (Optional[MjCambrianGenerationConfig]): The config for the current
-            generation. Will be set by the evolution runner.
-        parent_generation (Optional[MjCambrianGenerationConfig]): The config for the
-            parent generation. Will be set by the evolution runner. If None, that means
-            that the current generation is the first generation (i.e. no parent).
+        population_config (MjCambrianPopulationConfig): The config for the population.
+
+        generation_config (Optional[MjCambrianGenerationConfig]): The config for the 
+            current generation. Will be set by the evolution runner.
+        parent_generation_config (Optional[MjCambrianGenerationConfig]): The config 
+            for the parent generation. Will be set by the evolution runner. If None, 
+            that means that the current generation is the first generation (i.e. no 
+            parent).
 
         environment_variables (Optional[Dict[str, str]]): The environment variables to 
             set for the training process. 
     """
 
+    max_n_envs: Optional[int] = None
+    
     num_generations: int
 
     population_config: MjCambrianPopulationConfig

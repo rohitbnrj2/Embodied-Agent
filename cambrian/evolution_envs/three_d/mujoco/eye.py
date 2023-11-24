@@ -1,3 +1,4 @@
+import time
 from typing import List, Tuple
 import numpy as np
 
@@ -179,14 +180,15 @@ class MjCambrianEye:
         if self._render_depth:
             rgb, depth = rgb 
 
-        rgb = rgb.transpose(1, 0, 2) # (H, W, C) -> (W, H, C)
-
-        # Apply PSF here
+        # TODO: Apply PSF here
 
         return self._crop(rgb)
 
     def _crop(self, image: np.ndarray) -> np.ndarray:
         """Crop the image to the resolution specified in the config."""
+        if self.config.filter_size == [0, 0]:
+            return image
+
         resolution = self.resolution
         cw, ch = int(np.ceil(resolution[0] / 2)), int(np.ceil(resolution[1] / 2))
         ox, oy = 1 if resolution[0] == 1 else 0, 1 if resolution[1] == 1 else 0
@@ -200,10 +202,13 @@ class MjCambrianEye:
 
     @property
     def observation_space(self) -> spaces.Box:
-        """The observation space is just the rgb image."""
+        """The observation space is just the rgb image.
+        
+        Fmt: Height, Width
+        """
 
         observation_space = spaces.Box(
-            0, 255, shape=(*self.resolution, 3), dtype=np.uint8
+            0, 255, shape=(*self.resolution[::-1], 3), dtype=np.uint8
         )
         return observation_space
 

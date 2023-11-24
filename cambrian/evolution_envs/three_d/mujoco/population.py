@@ -64,11 +64,17 @@ class MjCambrianPopulation:
 
         self._replication_type = MjCambrianReplicationType[self.config.replication_type]
 
-    def add_animal(self, path: Path, fitness: Optional[Fitness] = None):
-        assert (path / "config.yaml").exists(), f"{path} does not contain config.yaml"
+    def add_animal(self, path_or_config: AnimalID | MjCambrianConfig, fitness: Optional[Fitness] = None):
+        if isinstance(path_or_config, AnimalID):
+            path = path_or_config
+            assert (path / "config.yaml").exists(), f"{path} does not contain config.yaml"
 
-        fitness = self._calculate_fitness(path) if fitness is None else fitness
-        config = MjCambrianConfig.load(path / "config.yaml")
+            fitness = self._calculate_fitness(path) if fitness is None else fitness
+            config = MjCambrianConfig.load(path / "config.yaml")
+        else:
+            assert fitness is not None, "Must provide fitness if config is provided"
+            config = path_or_config
+            path = "placeholder"
         self._all_population[path] = (fitness, config)
 
     def update(self):

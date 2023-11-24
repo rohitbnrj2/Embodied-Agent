@@ -232,7 +232,7 @@ def plot(
                         _plot(
                             generation,
                             y,
-                            f"{RANK_FORMAT_MAP[rank]}",
+                            f"{RANK_FORMAT_MAP[rank % len(RANK_FORMAT_MAP)]}",
                             *args,
                             label=f"Rank {rank}",
                             title=attr,
@@ -260,7 +260,7 @@ def plot(
                     _plot(
                         generation,
                         np.average(evaluations["results"]),
-                        f"{RANK_FORMAT_MAP[rank]}",
+                        f"{RANK_FORMAT_MAP[rank % len(RANK_FORMAT_MAP)]}",
                         label=f"Rank {rank}",
                         title="average_eval_rewards",
                         xlabel="generation",
@@ -284,7 +284,7 @@ def plot(
                         _plot(
                             x,
                             y,
-                            f"-{RANK_FORMAT_MAP[rank][-2:]}",
+                            f"-{RANK_FORMAT_MAP[rank % len(RANK_FORMAT_MAP)][-2:]}",
                             label=f"Rank {rank}",
                             title="monitor",
                             xlabel="timesteps",
@@ -299,8 +299,8 @@ def plot(
 
     # All generations plots
     if "monitor" in data.accumulated_data:
-        x_prev = 0
         for rank in data.accumulated_data["monitor"]:
+            x_prev = 0
             for x, y in data.accumulated_data["monitor"][rank]:
                 x += x_prev
                 if not dry_run:

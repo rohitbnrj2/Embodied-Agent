@@ -357,8 +357,8 @@ class MjCambrianEnv(gym.Env):
         "Ensure `use_renderer` is set to True in the constructor."
 
         renderer = self.renderer
-        renderer_height = renderer.height
         renderer_width = renderer.width
+        renderer_height = renderer.height
 
         overlays: List[MjCambrianViewerOverlay] = []
         overlay_width = int(renderer_width * self.env_config.overlay_width)
@@ -379,12 +379,15 @@ class MjCambrianEnv(gym.Env):
                 continue
 
             composite = animal.create_composite_image()
-            intensity = np.rot90(animal.intensity_sensor.last_obs, 1)
+            intensity = animal.intensity_sensor.last_obs
             if composite is None:
                 continue
 
-            new_composite = resize_with_aspect_fill(composite, *overlay_size)
-            new_intensity = resize_with_aspect_fill(intensity, *overlay_size)
+            # NOTE: flipud here since we always flipud when copying buffer from gpu,
+            # and when reading the buffer again after drawing the overlay, it will be
+            # flipped again. Flipping here means it will be the right side up.
+            new_composite = np.flipud(resize_with_aspect_fill(composite, *overlay_size))
+            new_intensity = np.flipud(resize_with_aspect_fill(intensity, *overlay_size))
 
             overlays.append(MjCambrianImageViewerOverlay(new_composite, cursor))
 
@@ -398,6 +401,7 @@ class MjCambrianEnv(gym.Env):
             eye0 = next(iter(animal.eyes.values()))
             overlay_text = f"Res: {tuple(eye0.resolution)}"
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
+            cursor.y += TEXT_HEIGHT
             overlay_text = f"FOV: {tuple(eye0.fov)}"
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
             cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
@@ -584,7 +588,11 @@ class MjCambrianEnv(gym.Env):
     ) -> float:
         """The reward is the grayscaled intensity of the a intensity sensor taken to
         the power of some gamma value multiplied by a
-        scale factor (1 / max_episode_steps)."""
+        scale factor (1 / max_episode_steps).
+        
+        TODO (aryoung): Can we just use np.mean instead of np.sum and dividing by 
+        num_pixels? unsure since scaling factor comes outside of power.
+        """
         assert "intensity" in info
         num_pixels = info["intensity"].shape[0] * info["intensity"].shape[1]
         scaling_factor = 1 / num_pixels

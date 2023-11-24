@@ -235,7 +235,7 @@ class MjCambrianViewer(ABC):
         width, height = self.viewport.width, self.viewport.height
         rgb = np.zeros((height, width, 3), dtype=np.uint8)
         depth = np.zeros((height, width), dtype=np.float32)
-        mj.mjr_readPixels(rgb.ravel(), depth.ravel(), self.viewport, self._mjr_context)
+        mj.mjr_readPixels(rgb, depth, self.viewport, self._mjr_context)
         return np.flipud(rgb), np.flipud(depth)
 
     def draw_overlays(self, overlays: List[MjCambrianViewerOverlay]):
@@ -535,19 +535,20 @@ class MjCambrianRenderer:
         print(f"Saving visualizations at {path}...")
 
         path = Path(path)
+        rgb_buffer = np.array(self._rgb_buffer)
         if "gif" in save_types:
             duration = 1000 / self.config.fps
             gif = path.with_suffix(".gif")
-            imageio.mimwrite(gif, self._rgb_buffer, loop=0, duration=duration)
+            imageio.mimwrite(gif, rgb_buffer, loop=0, duration=duration)
         if "mp4" in save_types:
             mp4 = path.with_suffix(".mp4")
             writer = imageio.get_writer(mp4, fps=self.config.fps)
-            for image in self._rgb_buffer:
+            for image in rgb_buffer:
                 writer.append_data(image)
             writer.close()
         if "png" in save_types:
             png = path.with_suffix(".png")
-            imageio.imwrite(png, self._rgb_buffer[-1])
+            imageio.imwrite(png, rgb_buffer[-1])
 
         print(f"Saved visualization at {path}")
 

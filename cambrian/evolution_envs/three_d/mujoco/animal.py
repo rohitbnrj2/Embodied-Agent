@@ -389,7 +389,7 @@ class MjCambrianAnimal:
                 if obs is None:
                     print(f"WARNING: Eye `{name}` has no observation.")
                     continue
-                images[i].append(obs.transpose(1, 0, 2))
+                images[i].append(obs)
         images = np.array(images)
 
         if images.size == 0:

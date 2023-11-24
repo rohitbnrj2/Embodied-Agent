@@ -1,10 +1,16 @@
+from typing import Optional, List
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
 
 from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3.common.callbacks import BaseCallback, EvalCallback, CallbackList, ProgressBarCallback
+from stable_baselines3.common.callbacks import (
+    BaseCallback,
+    EvalCallback,
+    CallbackList,
+    ProgressBarCallback,
+)
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from env import MjCambrianEnv
@@ -157,12 +163,54 @@ class MjCambrianAnimalPoolCallback(BaseCallback):
                 self.parent.best_mean_reward, self.cambrian_env.config.copy()
             )
 
+
 class MjCambrianProgressBarCallback(ProgressBarCallback):
-    """Overwrite the default progress bar callback to flush the pbar on deconstruct."""
+    """Overwrite the default progress bar callback to flush the pbar on deconstruct.
+
+    This will also take a position parameter that will be used to position the progress
+    bar. This is useful when training multiple agents in the same terminal window (i.e.
+    using subprocesses).
+    """
+
+    def __init__(self, position: Optional[int] = None):
+        super().__init__()
+
+        self.position = position
+        self.position = None
+
+        self.pbars: List["tqdm_rich"] = []
+
+    def _on_training_start(self) -> None:
+
+        if self.position is not None:
+            assert self.position >= 0, f"position must be >= 0, got {self.position}."
+            from tqdm import tqdm
+            
+            # Create a tqdm progress bar for each subsequent position. Position is 
+            # assumed to be an int and it represents the vertical position (from 0) that
+            # the progress bar should be at.
+            for i in range(self.position):
+                self.pbars.append(tqdm(total=0, position=i))
+        else:
+            from stable_baselines3.common.callbacks import tqdm
+
+        # Initialize progress bar
+        # Remove timesteps that were done in previous training sessions
+        self.pbar = tqdm(
+            total=self.locals["total_timesteps"] - self.model.num_timesteps,
+            position=self.position,
+        )
+
+    def _on_training_end(self) -> None:
+        super()._on_training_end()
+        for pbar in self.pbars:
+            pbar.refresh()
+            pbar.close()
 
     def __del__(self):
         """This string will restore the terminal back to its original state."""
-        print("\x1b[?25h")
+        self._on_training_end()
+        # print("\x1b[?25h")
 
 
 class CallbackListWithSharedParent(CallbackList):
