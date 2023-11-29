@@ -67,8 +67,21 @@ class PlotEvaluationCallback(BaseCallback):
             plt.cla()
         except Exception as e:
             print(f"Couldn't save monitor: {e}.")
-            print(f"Deleting {self.logdir / 'monitor.csv'}")
-            (self.logdir / "monitor.csv").unlink()
+
+            # Going to try to corret. Possible error states that have been observed:
+            #   1. the second line (the header) is missing a new line after `r,l,t`
+            with open(self.logdir / "monitor.csv", "r+") as f:
+                lines = f.readlines()
+                if lines[1][len('r,l,t'):] != '\n':
+                    line1, line2 = lines[1][:len('r,l,t')], lines[1][len('r,l,t'):]
+                    del lines[1]
+                    lines.insert(1, line1 + '\n')
+                    lines.insert(2, line2)
+                    f.seek(0)
+                    f.writelines(lines)
+
+            print("Corrected monitor.csv.")
+
 
         return True
 

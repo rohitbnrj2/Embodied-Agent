@@ -174,6 +174,7 @@ class MjCambrianTrainer:
         policy_kwargs = dict(
             features_extractor_class=MjCambrianCombinedExtractor,
         )
+
         model = MjCambrianPPO(
             "MultiInputPolicy",
             env,

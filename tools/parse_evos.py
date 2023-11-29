@@ -149,8 +149,11 @@ def load_data(folder: Path) -> Data:
 
             # Get the monitor file
             if (rank_data.path / "monitor.csv").exists():
-                monitor = load_results(rank_data.path)
-                rank_data.monitor = monitor
+                try:
+                    monitor = load_results(rank_data.path)
+                    rank_data.monitor = monitor
+                except:
+                    pass
 
     return data
 
@@ -161,6 +164,8 @@ def plot(
     *,
     rank_to_use: Optional[int] = None,
     generation_to_use: Optional[int] = None,
+    use_legend: bool = False,
+    use_locator: bool = False,
     verbose: int = 0,
     dry_run: bool = False,
 ):
@@ -196,10 +201,12 @@ def plot(
             if not hasattr(fig, "labels"):
                 fig.labels = set()
             fig.labels.add(label)
-            plt.legend(sorted(fig.labels))
+            if use_legend:
+                plt.legend(sorted(fig.labels))
 
         ax = fig.gca()
-        ax.xaxis.set_major_locator(locator)
+        if use_locator: 
+            ax.xaxis.set_major_locator(locator)
 
         return fig
 
@@ -275,9 +282,9 @@ def plot(
             # under the same key.
             if (monitor := rank_data.monitor) is not None:
                 x, y = ts2xy(monitor, "timesteps")
-                if len(y) > 0:
+                if len(y) > 100 and len(x) > 100 and x[-1] > 0:
                     y = moving_average(y.astype(float), window=min(len(y) // 10, 1000))
-                    x = x[len(x) - len(y) :]
+                    x = x[len(x) - len(y) :].astype(np.int64)
 
                     # TODO: this looks terrible
                     if not dry_run:
@@ -317,7 +324,8 @@ def plot(
                     # plot vertical bar
                     plt.axvline(x=x[-1], color="C3", linestyle="--")
                     fig.labels.add("Agent Evolution")
-                    plt.legend(sorted(fig.labels))
+                    if use_legend:
+                        plt.legend(sorted(fig.labels))
                     x_prev = x[-1]
 
     for fig in plt.get_fignums():
@@ -413,6 +421,8 @@ def main(args):
         output_folder=plots_folder,
         rank_to_use=args.rank,
         generation_to_use=args.generation,
+        use_legend=args.legend,
+        use_locator=args.locator,
         verbose=args.verbose,
         dry_run=args.dry_run,
     )
@@ -458,6 +468,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--eval", action="store_true", help="Evaluate the data.")
     parser.add_argument("--plot", action="store_true", help="Plot the data.")
+    parser.add_argument("--legend", action="store_true", help="Use a legend.")
+    parser.add_argument("--locator", action="store_true", help="Use a locator.")
 
     args = parser.parse_args()
 

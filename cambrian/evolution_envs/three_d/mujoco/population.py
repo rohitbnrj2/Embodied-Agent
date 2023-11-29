@@ -70,7 +70,12 @@ class MjCambrianPopulation:
             assert (path / "config.yaml").exists(), f"{path} does not contain config.yaml"
 
             fitness = self._calculate_fitness(path) if fitness is None else fitness
-            config = MjCambrianConfig.load(path / "config.yaml")
+            try:
+                config = MjCambrianConfig.load(path / "config.yaml")
+            except AttributeError:
+                # This may happen if we try to read concurrently as it's being written
+                # Let's just continue
+                return
         else:
             assert fitness is not None, "Must provide fitness if config is provided"
             config = path_or_config
@@ -114,8 +119,16 @@ class MjCambrianPopulation:
         """
         if not (path / "monitor.csv").exists():
             return -np.inf
-        _, rewards = ts2xy(load_results(path), "timesteps")
-        fitness = rewards[-min(len(rewards) - 1, 1000) :].mean()
+        try:
+            _, rewards = ts2xy(load_results(path), "timesteps")
+        except Exception as e:
+            # TODO: Fix this bug in vecmonitor. see callbacks
+            print(e)
+            return -np.inf
+        if len(rewards) < 1000:
+            fitness = -np.inf
+        else:
+            fitness = rewards[-min(len(rewards) - 1, 1000) :].mean()
         return fitness
 
     # ========
