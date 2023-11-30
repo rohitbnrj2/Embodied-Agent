@@ -684,7 +684,8 @@ if __name__ == "__main__":
         GROUND_XML = """
         <mujoco>
             <worldbody>
-                <geom name="floor" pos="0 0 0" size="10 10 0.25" type="plane" rgba="0.9 0.9 0.9 1"/>
+                <geom name="floor" pos="0 0 0" size="10 10 0.25" type="plane" 
+                    rgba="0.9 0.9 0.9 1"/>
             </worldbody>
         </mujoco>
         """

@@ -15,7 +15,10 @@ from dataclasses import dataclass, field
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianConfig, convert_overrides_to_dict
+from cambrian.evolution_envs.three_d.mujoco.config import (
+    MjCambrianConfig,
+    convert_overrides_to_dict,
+)
 from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
 from cambrian.evolution_envs.three_d.mujoco.wrappers import make_single_env
 from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
@@ -134,7 +137,9 @@ def load_data(folder: Path, *, overrides: Dict[str, Any] = {}) -> Data:
             # Get the config file
             if (config_file := rank_data.path / "config.yaml").exists():
                 print(f"\tLoading config from {config_file}...")
-                rank_data.config = MjCambrianConfig.load(config_file, overrides=overrides)
+                rank_data.config = MjCambrianConfig.load(
+                    config_file, overrides=overrides
+                )
 
             # Get the evaluations file
             if (evaluations_file := rank_data.path / "evaluations.npz").exists():
@@ -149,7 +154,7 @@ def load_data(folder: Path, *, overrides: Dict[str, Any] = {}) -> Data:
                 try:
                     monitor = load_results(rank_data.path)
                     rank_data.monitor = monitor
-                except:
+                except Exception:
                     pass
 
     return data
@@ -260,7 +265,8 @@ def plot(
             # ======
             # EVALS
             # ======
-            # TODO: we should try to see how performance improves over the course of training
+            # TODO: we should try to see how performance improves over the course of
+            # training
             if (evaluations := rank_data.evaluations) is not None:
                 if not dry_run:
                     _plot(
@@ -442,7 +448,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Force loading of the data. If not passed, this script will try to find a parse_evos.pkl file and load that instead.",
+        help="Force loading of the data. If not passed, this script will try to find a "
+        "parse_evos.pkl file and load that instead.",
     )
     parser.add_argument(
         "--no-save", action="store_true", help="Do not save the parsed data."

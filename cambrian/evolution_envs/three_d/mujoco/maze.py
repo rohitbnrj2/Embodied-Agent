@@ -310,7 +310,7 @@ class MjCambrianMaze(Maze):
         NOTE #2: The block has a gap and margin of 0.025 and 0.05 respectively. This
             means that if the animal get's within 0.05 of the block, it will be recorded
             as a contact, but there is no actual contact force applied by mujoco. This
-            is helpful so that we can terminate the simulation before the animal 
+            is helpful so that we can terminate the simulation before the animal
             actually comes in conatct with the block and the camera/eye starts seeing
             inside of the block.
         """
@@ -330,7 +330,6 @@ class MjCambrianMaze(Maze):
                 y = maze.y_map_center - (i + 0.5) * config.size_scaling
                 if struct == WALL:  # Unmovable block.
                     # Offset all coordinates so that maze is centered.
-                    # rgba = "0.9 0.9 0.9 1.0" if (i + j) % 2 == 0 else "0.1 0.1 0.1 1.0"
                     size = config.size_scaling
                     xml.add(
                         worldbody,
@@ -382,7 +381,9 @@ class MjCambrianMaze(Maze):
         # Update the floor texture to repeat in a way that matches the blocks
         floor_mat = xml.find(".//material[@name='floor_mat']")
         assert floor_mat is not None, "`floor_mat` not found"
-        floor_mat.attrib["texrepeat"] = " ".join(map(str, [2 / config.size_scaling] * 2))
+        floor_mat.attrib["texrepeat"] = " ".join(
+            map(str, [2 / config.size_scaling] * 2)
+        )
 
         maze._config = config
         return maze, xml
@@ -436,7 +437,7 @@ class MjCambrianMaze(Maze):
         return None
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":
     maze, xml = MjCambrianMaze.make_maze(
         MjCambrianMazeConfig(use_target_light_source=True)
     )

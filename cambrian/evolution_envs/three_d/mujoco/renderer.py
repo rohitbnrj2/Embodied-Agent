@@ -145,6 +145,7 @@ class MjCambrianViewer(ABC):
 
         # NOTE: All shared contexts much match either onscreen or offscreen. And their
         # height and width most likely must match as well.
+        font_scale = mj.mjtFontScale.mjFONTSCALE_50
         if self.config.use_shared_context:
             global GL_CONTEXT, MJR_CONTEXT
             if GL_CONTEXT is None:
@@ -152,9 +153,9 @@ class MjCambrianViewer(ABC):
             self._gl_context = GL_CONTEXT
             self.make_context_current()
             if MJR_CONTEXT is None:
-                MJR_CONTEXT = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
+                MJR_CONTEXT = mj.MjrContext(self.model, font_scale)
             self._mjr_context = MJR_CONTEXT
-        elif self.viewport is None or width != self.viewport.width or height != self.viewport.height:
+        elif self.viewport is None or width != self.width or height != self.height:
             if self._gl_context is not None:
                 del self._gl_context
             if self._mjr_context is not None:
@@ -162,7 +163,7 @@ class MjCambrianViewer(ABC):
 
             self._gl_context = mj.gl_context.GLContext(width, height)
             self.make_context_current()
-            self._mjr_context = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_50)
+            self._mjr_context = mj.MjrContext(self.model, font_scale)
         self._mjr_context.readDepthMap = mj.mjtDepthMap.mjDEPTH_ZEROFAR
 
         self.viewport = mj.MjrRect(0, 0, width, height)
