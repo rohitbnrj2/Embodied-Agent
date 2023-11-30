@@ -1,8 +1,8 @@
 from typing import Dict, Any, List, Optional
 from enum import Flag, auto
 from functools import reduce
-import numpy as np
 
+import numpy as np
 import mujoco as mj
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
@@ -667,9 +667,10 @@ if __name__ == "__main__":
 
     if args.speed_test:
         print("Starting speed test...")
-        num_frames = 100
+        num_frames = 200
         t0 = time.time()
-        for _ in range(num_frames):
+        for i in range(num_frames):
+            print(i)
             animal.step(np.zeros(animal.action_space.shape))
             mj.mj_step(model, data)
         t1 = time.time()

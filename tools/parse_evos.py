@@ -357,7 +357,7 @@ def eval(
 
         sys.modules["feature_extractors"] = feature_extractors
         model = MjCambrianModel.load(logdir / config.training_config.checkpoint_path)
-        # model.load_rollout(filename.with_suffix(".pkl"))
+        model.load_rollout(filename.with_suffix(".pkl"))
 
         evaluate_policy(env, model, 1, record_path=filename)
 

@@ -1,5 +1,5 @@
 import time
-from typing import List, Tuple
+from typing import Tuple, Dict
 import numpy as np
 
 import mujoco as mj
@@ -296,18 +296,10 @@ if __name__ == "__main__":
     parser.add_argument("--no-demo", action="store_true", help="Don't run the demo")
     parser.add_argument("--plot", action="store_true", help="Plot the demo")
     parser.add_argument("--save", action="store_true", help="Save the demo")
-    parser.add_argument(
-        "-sc", "--supercloud", action="store_true", help="Supercloud specific config"
-    )
+    parser.add_argument("--render-modes", nargs="+", default=["rgb_array", "human"])
+    parser.add_argument("--quiet", action="store_true", help="Don't print the xml")
 
     args = parser.parse_args()
-
-    if args.supercloud:
-        import os
-
-        os.environ["PYOPENGL_PLATFORM"] = "osmesa"
-        os.environ["DISPLAY"] = ":0"
-        os.environ["MUJOCO_GL"] = "osmesa"
 
     if not args.plot and not args.save and not args.no_demo:
         print("Warning: No output specified. Use --plot or --save to see the demo.")
@@ -329,30 +321,32 @@ if __name__ == "__main__":
         Y_RANGE = args.yrange
 
         renderer_config = MjCambrianRendererConfig(
-            render_modes=["rgb_array", "human"], use_shared_context=False
+            render_modes=args.render_modes, use_shared_context=True
         )
 
-        eyes: List[MjCambrianEye] = []
+        eyes: Dict[str, MjCambrianEye] = {}
         for i in range(X_NUM):
             x_angle = -X_RANGE / 2 + X_RANGE / (X_NUM + 1) * (i + 1)
             for j in range(Y_NUM):
                 y_angle = -Y_RANGE / 2 + Y_RANGE / (Y_NUM + 1) * (j + 1)
 
-                quat = (default_rot * R.from_euler("xy", [x_angle, y_angle])).as_quat()
+                quat = (default_rot * R.from_euler("xy", [y_angle, x_angle])).as_quat()
 
+                name = f"eye_{i}_{j}"
                 eye_config = MjCambrianEyeConfig(
                     mode="fixed",
-                    name=f"eye_{i}_{j}",
+                    name=name,
                     resolution=[args.width, args.height],
-                    pos=[0, 0, 0.2],
+                    pos=[0, 0, 0.3],
                     quat=list(quat),
                     renderer_config=renderer_config.copy(),
                 )
                 eye = MjCambrianEye(eye_config)
-                eyes.append(eye)
+                eyes[name] = eye
 
                 xml += eye.generate_xml(xml, "body")
-        print(xml)
+        if not args.quiet:
+            print(xml)
 
     model = mj.MjModel.from_xml_string(str(xml))
     data = mj.MjData(model)
@@ -364,35 +358,27 @@ if __name__ == "__main__":
     if args.no_demo:
         exit()
 
+    for eye in eyes.values():
+        eye.reset(model, data)
+
     # Quick test to make sure the renderer is working
     # TODO: The axes images and subplots are in weird spots. not sure why i need to flip
     import time
     import matplotlib.pyplot as plt
 
-    if args.plot or args.save:
-        fig, ax = plt.subplots(Y_NUM, X_NUM, figsize=(Y_NUM, X_NUM))
-        if X_NUM == 1 and Y_NUM == 1:
-            ax = np.array([[ax]])
-        ax = np.flipud(ax)
-        assert X_NUM == Y_NUM
-
     times = []
+    images = []
     start = time.time()
     for i in range(X_NUM):
+        images.append([])
         for j in range(Y_NUM):
-            eye = eyes[i * X_NUM + j]
+            eye = eyes[f"eye_{i}_{j}"]
             t0 = time.time()
-            image = eye.reset(model, data)
+            image = eye.step()
             t1 = time.time()
             times.append(t1 - t0)
 
-            if args.plot or args.save:
-                ax[j, i].imshow(image.transpose(1, 0, 2))
-
-                ax[j, i].set_xticks([])
-                ax[j, i].set_yticks([])
-                ax[j, i].set_xticklabels([])
-                ax[j, i].set_yticklabels([])
+            images[i].append(image)
 
     print("Total time (including setup/plotting/etc):", time.time() - start)
     print("Total time (minus setup/plotting/etc):", sum(times))
@@ -400,9 +386,14 @@ if __name__ == "__main__":
     print("Max time:", np.max(times))
     print("Min time:", np.min(times))
 
+    images = np.array(images)
+    composite_image = np.vstack([np.hstack(image_row) for image_row in reversed(images)])
+
     if args.plot or args.save:
-        fig.suptitle(args.title)
+        plt.title(args.title)
         plt.subplots_adjust(wspace=0, hspace=0)
+
+        plt.imshow(composite_image)
 
     if args.save:
         # save the figure without the frame

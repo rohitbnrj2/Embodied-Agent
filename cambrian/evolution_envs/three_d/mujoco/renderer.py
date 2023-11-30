@@ -143,6 +143,18 @@ class MjCambrianViewer(ABC):
 
         self.scene = mj.MjvScene(model=model, maxgeom=self.config.max_geom)
 
+        # Disable ~all mj flags
+        self.scene.flags[mj.mjtRndFlag.mjRND_SHADOW] = False
+        self.scene.flags[mj.mjtRndFlag.mjRND_WIREFRAME] = False
+        self.scene.flags[mj.mjtRndFlag.mjRND_REFLECTION] = False
+        self.scene.flags[mj.mjtRndFlag.mjRND_ADDITIVE] = False
+        self.scene.flags[mj.mjtRndFlag.mjRND_SKYBOX] = False
+        self.scene.flags[mj.mjtRndFlag.mjRND_FOG] = False
+        self.scene.flags[mj.mjtRndFlag.mjRND_HAZE] = False
+        self.scene.flags[mj.mjtRndFlag.mjRND_SEGMENT] = False
+        self.scene.flags[mj.mjtRndFlag.mjRND_IDCOLOR] = False
+        self.scene.flags[mj.mjtRndFlag.mjRND_CULL_FACE] = True
+
         # NOTE: All shared contexts much match either onscreen or offscreen. And their
         # height and width most likely must match as well.
         font_scale = mj.mjtFontScale.mjFONTSCALE_50
@@ -504,6 +516,7 @@ class MjCambrianRenderer:
         return self.viewer.is_running()
 
     def close(self):
+        return
         if hasattr(self, "viewer") and self.viewer is not None:
             self.viewer.close()
 
