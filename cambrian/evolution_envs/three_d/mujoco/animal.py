@@ -7,16 +7,18 @@ import mujoco as mj
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
 
-from cambrian_xml import MjCambrianXML
-from eye import MjCambrianEye, MjCambrianEyeConfig
-from config import MjCambrianAnimalConfig
-from utils import (
+from cambrian.evolution_envs.three_d.mujoco.cambrian_xml import MjCambrianXML
+from cambrian.evolution_envs.three_d.mujoco.eye import (
+    MjCambrianEye,
+    MjCambrianEyeConfig,
+)
+from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianAnimalConfig
+from cambrian.evolution_envs.three_d.mujoco.utils import (
     get_model_path,
     get_body_id,
     get_body_name,
     get_geom_id,
     get_joint_id,
-    get_joint_name,
     get_geom_name,
     generate_sequence_from_range,
     MjCambrianJoint,
@@ -650,7 +652,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config: MjCambrianConfig = MjCambrianConfig.load(args.config, overrides=args.overrides)
+    config: MjCambrianConfig = MjCambrianConfig.load(
+        args.config, overrides=args.overrides
+    )
     config.animal_config.name = "animal"
     config.animal_config.idx = 0
     animal = MjCambrianAnimal(config.animal_config)

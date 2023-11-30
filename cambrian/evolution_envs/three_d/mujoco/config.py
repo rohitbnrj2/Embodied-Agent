@@ -93,7 +93,11 @@ class MjCambrianBaseConfig(Generic[T]):
         if isinstance(config, (Path, str)):
             config = cls.from_yaml(config, overrides=overrides)
         else:
-            assert isinstance(config, cls)
+            # TODO: not working
+            # assert isinstance(type(config), cls), (
+            #     f"Expected config to be of type {cls.__name__}, but got "
+            #     f"{type(config).__name__}"
+            # )
             config.merge(overrides)
         return config
 

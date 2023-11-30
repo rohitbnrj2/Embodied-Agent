@@ -10,8 +10,8 @@ import OpenGL.GL as GL
 import imageio
 import cv2
 
-from config import MjCambrianRendererConfig
-from utils import get_camera_id, get_body_id
+from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianRendererConfig
+from cambrian.evolution_envs.three_d.mujoco.utils import get_camera_id, get_body_id
 
 TEXT_HEIGHT = 20
 TEXT_MARGIN = 5
@@ -251,7 +251,6 @@ class MjCambrianViewer(ABC):
         pass
 
     def close(self):
-        return
         self._gl_context.free()
 
     # ===================
@@ -351,7 +350,6 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         return not (self.window is None or glfw.window_should_close(self.window))
 
     def close(self):
-        return
         if self.window is not None:
             if glfw.get_current_context() == self.window:
                 glfw.make_context_current(None)
@@ -461,7 +459,7 @@ class MjCambrianRenderer:
             mode in self.metadata["render.modes"] for mode in self.render_modes
         ), f"Invalid render mode found. Valid modes are {self.metadata['render.modes']}"
         assert (
-            not "depth_array" in self.render_modes or "rgb_array" in self.render_modes
+            "depth_array" not in self.render_modes or "rgb_array" in self.render_modes
         ), "Cannot render depth_array without rgb_array."
 
         self.viewer: MjCambrianViewer = None
@@ -505,7 +503,6 @@ class MjCambrianRenderer:
         return self.viewer.is_running()
 
     def close(self):
-        return
         if hasattr(self, "viewer") and self.viewer is not None:
             self.viewer.close()
 

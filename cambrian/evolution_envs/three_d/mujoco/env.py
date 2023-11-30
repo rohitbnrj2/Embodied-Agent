@@ -2,18 +2,19 @@ from typing import Dict, Any, Tuple, List, Optional
 from pathlib import Path
 import numpy as np
 from enum import Enum
+import pickle
 
 import gymnasium as gym
 import mujoco as mj
 from gymnasium import spaces
 from stable_baselines3.common.utils import set_random_seed
 
-from animal import MjCambrianAnimal
-from maze import MjCambrianMaze
-from cambrian_xml import MjCambrianXML
-from config import MjCambrianConfig
-from utils import get_model_path
-from renderer import (
+from cambrian.evolution_envs.three_d.mujoco.animal import MjCambrianAnimal
+from cambrian.evolution_envs.three_d.mujoco.maze import MjCambrianMaze
+from cambrian.evolution_envs.three_d.mujoco.cambrian_xml import MjCambrianXML
+from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianConfig
+from cambrian.evolution_envs.three_d.mujoco.utils import get_model_path
+from cambrian.evolution_envs.three_d.mujoco.renderer import (
     MjCambrianRenderer,
     MjCambrianViewerOverlay,
     MjCambrianTextViewerOverlay,
@@ -80,7 +81,10 @@ class MjCambrianEnv(gym.Env):
 
         self._episode_step = 0
         self._max_episode_steps = self.config.training_config.max_episode_steps
-        self._rollout: Dict[str, Any] = {}
+        self._overlays: Dict[str, Any] = {}
+
+        self._record: bool = False
+        self._rollout: List[Dict[str, Any]] = []
 
         self._reward_fn = self._get_reward_fn(self.env_config.reward_fn_type)
 
@@ -182,10 +186,11 @@ class MjCambrianEnv(gym.Env):
 
         self.maze.reset(self.model, self.data)
 
+        info: Dict[str, Any] = {a: {} for a in self.animals}
         obs: Dict[str, Dict[str, Any]] = {}
         for name, animal in self.animals.items():
             init_qpos = (
-                self.maze.index_to_pos(*animal.config.init_pos)
+                self.maze.cell_rowcol_to_xy(*animal.config.init_pos)
                 if animal.config.init_pos is not None
                 else self.maze.generate_reset_pos()
             )
@@ -197,6 +202,11 @@ class MjCambrianEnv(gym.Env):
             accum_path_len = np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))
             self._optimal_animal_paths[name] = (path, accum_path_len)
 
+            info[name]["pos"] = animal.pos
+
+        info["maze"] = {}
+        info["maze"]["goal"] = self.maze.goal
+
         self._step_mujoco_simulation(1)
 
         if self.renderer is not None:
@@ -205,9 +215,11 @@ class MjCambrianEnv(gym.Env):
             self.renderer.reset(self.model, self.data)
 
         self._episode_step = 0
-        self._rollout.clear()
+        self._overlays.clear()
+        if not self.record:
+            self._rollout.clear()
 
-        return obs, {a: {} for a in self.animals}
+        return obs, info
 
     def step(
         self, action: Dict[str, Any]
@@ -243,6 +255,10 @@ class MjCambrianEnv(gym.Env):
                 obs[name]["goal"] = self.maze.goal.copy()
 
             info[name]["intensity"] = animal.intensity_sensor.last_obs
+            info[name]["action"] = action[name]
+
+        info["maze"] = {}
+        info["maze"]["goal"] = self.maze.goal
 
         self._step_mujoco_simulation(self.env_config.frame_skip)
 
@@ -252,9 +268,10 @@ class MjCambrianEnv(gym.Env):
 
         self._episode_step += 1
 
-        # Store the rollout for later processing
-        # This will probably be used for renderering
-        self._rollout["Step"] = self._episode_step
+        self._overlays["Step"] = self._episode_step
+
+        if self.record:
+            self._rollout.append(list(action.values()))
 
         return obs, reward, terminated, truncated, info
 
@@ -366,7 +383,7 @@ class MjCambrianEnv(gym.Env):
         overlay_size = (overlay_width, overlay_height)
 
         cursor = MjCambrianCursor(x=0, y=renderer_height - TEXT_MARGIN * 2)
-        for key, value in self._rollout.items():
+        for key, value in self._overlays.items():
             cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
             overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
 
@@ -421,9 +438,9 @@ class MjCambrianEnv(gym.Env):
         return renderer.render(overlays=overlays)
 
     @property
-    def rollout(self) -> Dict[str, Any]:
-        """Returns the rollout."""
-        return self._rollout
+    def overlays(self) -> Dict[str, Any]:
+        """Returns the overlays."""
+        return self._overlays
 
     @property
     def agents(self) -> List[str]:
@@ -487,6 +504,25 @@ class MjCambrianEnv(gym.Env):
         for name, animal in self.animals.items():
             action_spaces[name] = animal.action_space
         return spaces.Dict(action_spaces)
+
+    @property
+    def record(self):
+        """Returns whether the environment is recording."""
+        return self._record
+
+    @record.setter
+    def record(self, value: bool):
+        """Sets whether the environment is recording."""
+        self._record = value
+        self.renderer.record = value
+
+    def save(self, path: str | Path):
+        """Saves the simulation output to the given path."""
+        self.renderer.save(path)
+
+        print(f"Saving rollout to {path.with_suffix('.pkl')}")
+        pickle.dump(self._rollout, open(path.with_suffix(".pkl"), "wb"))
+        print(f"Saved rollout to {path.with_suffix('.pkl')}")
 
     def _is_at_goal(self, animal: MjCambrianAnimal) -> bool:
         """Returns whether the animal is at the goal."""
@@ -589,8 +625,8 @@ class MjCambrianEnv(gym.Env):
         """The reward is the grayscaled intensity of the a intensity sensor taken to
         the power of some gamma value multiplied by a
         scale factor (1 / max_episode_steps).
-        
-        TODO (aryoung): Can we just use np.mean instead of np.sum and dividing by 
+
+        TODO (aryoung): Can we just use np.mean instead of np.sum and dividing by
         num_pixels? unsure since scaling factor comes outside of power.
         """
         assert "intensity" in info

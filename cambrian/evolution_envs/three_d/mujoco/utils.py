@@ -1,10 +1,14 @@
 import argparse
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, TYPE_CHECKING, Optional
 from pathlib import Path
 from dataclasses import dataclass
+
+import gymnasium as gym
+import mujoco as mj
 import numpy as np
 
-import mujoco as mj
+if TYPE_CHECKING:
+    from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
 
 
 def safe_index(list_to_index: List[Any], value: Any) -> int:
@@ -37,6 +41,57 @@ def get_model_path(model_path: str | Path, *, throw_error: bool = True) -> Path 
             return None
 
     return model_path
+
+
+# =============
+
+
+def evaluate_policy(
+    env: gym.Env,
+    model: "MjCambrianModel",
+    num_runs: int,
+    *,
+    record_path: Optional[Path] = None,
+):
+    """Evaluate a policy.
+
+    Args:
+        env (gym.Env): The environment to evaluate the policy on. Assumed to be a
+            VecEnv wrapper around a MjCambrianEnv.
+        model (MjCambrianModel): The model to evaluate.
+        num_runs (int): The number of runs to evaluate the policy on.
+
+    Keyword Args:
+        record_path (Optional[Path]): The path to save the video to. If None, the video
+            is not saved. This is passed directly to MjCambrianEnv.renderer.save(), so
+            see that method for more details.
+    """
+    # To avoid circular imports
+    from cambrian.evolution_envs.three_d.mujoco.env import MjCambrianEnv
+
+    cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
+    cambrian_env.record = record_path is not None
+
+    run = 0
+    cumulative_reward = 0
+
+    print("Starting evaluation...")
+    obs = env.reset()
+    while run < num_runs:
+        action, _ = model.predict(obs, deterministic=True)
+        obs, reward, done, _ = env.step(action)
+        cumulative_reward += reward[0]
+
+        if done:
+            print(f"Run {run} done. Cumulative reward: {cumulative_reward}")
+            run += 1
+
+        cambrian_env.overlays["Cumulative Reward"] = f"{cumulative_reward:.2f}"
+        env.render()
+
+    if record_path is not None:
+        cambrian_env.save(record_path)
+        cambrian_env.record = False
 
 
 # =============

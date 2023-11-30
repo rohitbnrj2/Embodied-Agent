@@ -7,9 +7,9 @@ import numpy as np
 import mujoco as mj
 from gymnasium_robotics.envs.maze.maze import Maze
 
-from cambrian_xml import MjCambrianXML
-from config import MjCambrianMazeConfig
-from utils import get_model_path
+from cambrian.evolution_envs.three_d.mujoco.cambrian_xml import MjCambrianXML
+from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianMazeConfig
+from cambrian.evolution_envs.three_d.mujoco.utils import get_model_path
 
 RESET = R = "r"  # Initial Reset position of the agent
 GOAL = G = "g"
@@ -235,9 +235,9 @@ class MjCambrianMaze(Maze):
         self._data = data
 
         self.goal = (
-            self.generate_target_goal()
-            if self._config.init_goal_pos is None
-            else self.cell_rowcol_to_xy(self._config.init_goal_pos)
+            self.cell_rowcol_to_xy(self._config.init_goal_pos)
+            if self._config.init_goal_pos
+            else self.generate_target_goal()
         )
 
         # Update target site position and size

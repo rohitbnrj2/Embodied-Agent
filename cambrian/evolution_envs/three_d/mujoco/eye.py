@@ -5,9 +5,12 @@ import numpy as np
 import mujoco as mj
 from gymnasium import spaces
 
-from cambrian_xml import MjCambrianXML
-from config import MjCambrianEyeConfig, MjCambrianRendererConfig
-from renderer import MjCambrianRenderer
+from cambrian.evolution_envs.three_d.mujoco.cambrian_xml import MjCambrianXML
+from cambrian.evolution_envs.three_d.mujoco.config import (
+    MjCambrianEyeConfig,
+    MjCambrianRendererConfig,
+)
+from cambrian.evolution_envs.three_d.mujoco.renderer import MjCambrianRenderer
 
 
 class MjCambrianEye:
@@ -49,15 +52,15 @@ class MjCambrianEye:
         assert config.pos is not None, "Must specify a position for the eye."
         assert config.quat is not None, "Must specify a quaternion for the eye."
         assert config.resolution is not None, "Must specify a resolution for the eye."
-        assert "rgb_array" in config.renderer_config.render_modes, (
-            "Must specify 'rgb_array' in the render modes for the renderer config."
-        )
+        assert (
+            "rgb_array" in config.renderer_config.render_modes
+        ), "Must specify 'rgb_array' in the render modes for the renderer config."
 
         config.setdefault("filter_size", [0, 0])
         if config.filter_size != [0, 0]:
-            assert "depth_array" in config.renderer_config.render_modes, (
-                "Must specify 'depth_array' in the render modes for the renderer config."
-            )
+            assert (
+                "depth_array" in config.renderer_config.render_modes
+            ), "Must specify 'depth_array' in the render modes for the renderer config."
 
         if config.fovy is not None:
             assert 0 < config.fovy < 180, "Invalid fovy."
@@ -178,7 +181,7 @@ class MjCambrianEye:
 
         rgb = self._renderer.render()
         if self._render_depth:
-            rgb, depth = rgb 
+            rgb, depth = rgb
 
         # TODO: Apply PSF here
 
@@ -203,7 +206,7 @@ class MjCambrianEye:
     @property
     def observation_space(self) -> spaces.Box:
         """The observation space is just the rgb image.
-        
+
         Fmt: Height, Width
         """
 
@@ -326,8 +329,7 @@ if __name__ == "__main__":
         Y_RANGE = args.yrange
 
         renderer_config = MjCambrianRendererConfig(
-            render_modes=["rgb_array", "human"],
-            use_shared_context=False
+            render_modes=["rgb_array", "human"], use_shared_context=False
         )
 
         eyes: List[MjCambrianEye] = []

@@ -3,8 +3,8 @@ from pathlib import Path
 
 import gymnasium as gym
 
-from env import MjCambrianEnv
-from config import MjCambrianConfig
+from cambrian.evolution_envs.three_d.mujoco.env import MjCambrianEnv
+from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianConfig
 
 
 class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):

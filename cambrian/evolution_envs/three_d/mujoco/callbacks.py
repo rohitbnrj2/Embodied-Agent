@@ -16,6 +16,7 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy
 from env import MjCambrianEnv
 from renderer import MjCambrianRenderer
 from cambrian.evolution_envs.three_d.mujoco.animal_pool import MjCambrianAnimalPool
+from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
 
 
 class PlotEvaluationCallback(BaseCallback):
@@ -72,16 +73,15 @@ class PlotEvaluationCallback(BaseCallback):
             #   1. the second line (the header) is missing a new line after `r,l,t`
             with open(self.logdir / "monitor.csv", "r+") as f:
                 lines = f.readlines()
-                if lines[1][len('r,l,t'):] != '\n':
-                    line1, line2 = lines[1][:len('r,l,t')], lines[1][len('r,l,t'):]
+                if lines[1][len("r,l,t") :] != "\n":
+                    line1, line2 = lines[1][: len("r,l,t")], lines[1][len("r,l,t") :]
                     del lines[1]
-                    lines.insert(1, line1 + '\n')
+                    lines.insert(1, line1 + "\n")
                     lines.insert(2, line2)
                     f.seek(0)
                     f.writelines(lines)
 
             print("Corrected monitor.csv.")
-
 
         return True
 
@@ -129,27 +129,14 @@ class SaveVideoCallback(BaseCallback):
         self.max_episode_steps = max_episode_steps
 
     def _on_step(self) -> bool:
-        obs, _ = self.env.reset()
-        self.renderer.record = True
-
-        cumulative_reward = 0
-        for _ in range(self.max_episode_steps):
-            action, _ = self.parent.model.predict(obs, deterministic=True)
-            obs, reward, terminated, truncated, info = self.env.step(action)
-            cumulative_reward += reward
-
-            if terminated or truncated:
-                break
-
-            best_mean_reward = self.parent.best_mean_reward
-            self.cambrian_env.rollout["Cumulative Reward"] = f"{cumulative_reward:.2f}"
-            self.cambrian_env.rollout["Best Mean Reward"] = f"{best_mean_reward:.2f}"
-            self.cambrian_env.rollout["Total Timesteps"] = f"{self.num_timesteps}"
-            self.env.render()
+        best_mean_reward = self.parent.best_mean_reward
+        self.cambrian_env.overlays["Best Mean Reward"] = f"{best_mean_reward:.2f}"
+        self.cambrian_env.overlays["Total Timesteps"] = f"{self.num_timesteps}"
 
         filename = f"vis_{self.n_calls}"
-        self.renderer.save(self.evaldir / filename)
-        self.renderer.record = False
+        evaluate_policy(
+            self.env, self.parent.model, 1, record_path=self.evaldir / filename
+        )
 
         return True
 
@@ -178,52 +165,15 @@ class MjCambrianAnimalPoolCallback(BaseCallback):
 
 
 class MjCambrianProgressBarCallback(ProgressBarCallback):
-    """Overwrite the default progress bar callback to flush the pbar on deconstruct.
+    """Overwrite the default progress bar callback to flush the pbar on deconstruct."""
 
-    This will also take a position parameter that will be used to position the progress
-    bar. This is useful when training multiple agents in the same terminal window (i.e.
-    using subprocesses).
-    """
-
-    def __init__(self, position: Optional[int] = None):
+    def __init__(self):
         super().__init__()
-
-        self.position = position
-        self.position = None
-
-        self.pbars: List["tqdm_rich"] = []
-
-    def _on_training_start(self) -> None:
-
-        if self.position is not None:
-            assert self.position >= 0, f"position must be >= 0, got {self.position}."
-            from tqdm import tqdm
-            
-            # Create a tqdm progress bar for each subsequent position. Position is 
-            # assumed to be an int and it represents the vertical position (from 0) that
-            # the progress bar should be at.
-            for i in range(self.position):
-                self.pbars.append(tqdm(total=0, position=i))
-        else:
-            from stable_baselines3.common.callbacks import tqdm
-
-        # Initialize progress bar
-        # Remove timesteps that were done in previous training sessions
-        self.pbar = tqdm(
-            total=self.locals["total_timesteps"] - self.model.num_timesteps,
-            position=self.position,
-        )
-
-    def _on_training_end(self) -> None:
-        super()._on_training_end()
-        for pbar in self.pbars:
-            pbar.refresh()
-            pbar.close()
 
     def __del__(self):
         """This string will restore the terminal back to its original state."""
+        print("\x1b[?25h")
         self._on_training_end()
-        # print("\x1b[?25h")
 
 
 class CallbackListWithSharedParent(CallbackList):

@@ -10,18 +10,15 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tkr
-from collections import defaultdict
-from functools import partial
-import shutil
-import glob
 from dataclasses import dataclass, field
 
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.results_plotter import load_results, ts2xy
-from stable_baselines3 import PPO
-from stable_baselines3.common.evaluation import evaluate_policy
 
-from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianConfig
+from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianConfig, convert_overrides_to_dict
+from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
+from cambrian.evolution_envs.three_d.mujoco.wrappers import make_single_env
+from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
 
 from plot import moving_average
 
@@ -124,7 +121,7 @@ def get_generation_file_paths(folder: Path) -> Data:
     return Data(path=folder, generations=generations)
 
 
-def load_data(folder: Path) -> Data:
+def load_data(folder: Path, *, overrides: Dict[str, Any] = {}) -> Data:
     print(f"Loading data from {folder}...")
     data = get_generation_file_paths(folder)
 
@@ -137,7 +134,7 @@ def load_data(folder: Path) -> Data:
             # Get the config file
             if (config_file := rank_data.path / "config.yaml").exists():
                 print(f"\tLoading config from {config_file}...")
-                rank_data.config = MjCambrianConfig.load(config_file)
+                rank_data.config = MjCambrianConfig.load(config_file, overrides=overrides)
 
             # Get the evaluations file
             if (evaluations_file := rank_data.path / "evaluations.npz").exists():
@@ -205,7 +202,7 @@ def plot(
                 plt.legend(sorted(fig.labels))
 
         ax = fig.gca()
-        if use_locator: 
+        if use_locator:
             ax.xaxis.set_major_locator(locator)
 
         return fig
@@ -232,7 +229,9 @@ def plot(
                     y = config.copy()
                     for k in attr.split("."):
                         if not hasattr(y, k):
-                            raise ValueError(f"Could not find {attr} in config ({rank_data.path}).")
+                            raise ValueError(
+                                f"Could not find {attr} in config ({rank_data.path})."
+                            )
                         y = getattr(y, k)
                     y = np.average(np.abs(y)) if isinstance(y, list) else y
                     if not dry_run:
@@ -334,7 +333,7 @@ def plot(
 
 
 def eval(
-    generations: Dict,
+    data: Data,
     output_folder: Path,
     *,
     rank_to_use: Optional[int] = None,
@@ -344,59 +343,42 @@ def eval(
 ):
     print("Evaluating model...")
 
-    def _run_eval(logdir: Path, tmpdir: Path, filename: Path, config: Prodict):
-        env = DummyVecEnv([make_env(0, 0, config, 0, force_set_env_rendering=True)])
-        env.render_mode = "human"
-        env.get_attr("sim")[0].render = partial(
-            env.get_attr("sim")[0].render,
-            current_canvas=True,
-            render_video=False,
-            logdir=tmpdir,
-        )
-        model = PPO.load(logdir / "best_model.zip", print_system_info=False)
-        episode_rewards, episode_lengths = evaluate_policy(
-            model,
-            env,
-            render=True,
-            n_eval_episodes=1,
-            return_episode_rewards=True,
-            warn=True,
-        )
-        make_video(tmpdir, sorted(glob.glob((tmpdir / "sim_*.jpg").as_posix())))
-        (tmpdir / "vid.gif").rename(filename.with_suffix(".gif"))
-        (tmpdir / "vid.mp4").rename(filename.with_suffix(".mp4"))
-        shutil.rmtree(tmpdir, ignore_errors=True)
+    def _run_eval(logdir: Path, filename: Path, config: MjCambrianConfig):
+        env = DummyVecEnv([make_single_env(config, config.training_config.seed)])
+
+        import sys
+        from cambrian.evolution_envs.three_d.mujoco import feature_extractors
+
+        sys.modules["feature_extractors"] = feature_extractors
+        model = MjCambrianModel.load(logdir / config.training_config.checkpoint_path)
+        # model.load_rollout(filename.with_suffix(".pkl"))
+
+        evaluate_policy(env, model, 1, record_path=filename)
 
     output_folder.mkdir(parents=True, exist_ok=True)
-    for generation, data in generations.items():
+    for generation, generation_data in data.generations.items():
         if generation_to_use is not None and generation != generation_to_use:
             continue
 
         print(f"Evaluating generation {generation}...")
 
-        ranks = data["ranks"]
-        for rank, rank_data in ranks.items():
+        for rank, rank_data in generation_data.ranks.items():
             if rank_to_use is not None and rank != rank_to_use:
                 continue
 
             print(f"\tEvaluating rank {rank}...")
 
             if verbose > 1:
-                print(
-                    yaml.dump(
-                        rank_data["config"].to_dict(is_recursive=True), sort_keys=False
-                    )
-                )
+                print(rank_data.config)
 
             if not dry_run:
                 _run_eval(
-                    rank_data["path"],
-                    output_folder / "temp",
+                    rank_data.path,
                     output_folder / f"generation_{generation}_rank_{rank}",
-                    rank_data["config"],
+                    rank_data.config,
                 )
 
-            print(f"\tDone.")
+            print("\tDone.")
 
 
 def main(args):
@@ -411,25 +393,27 @@ def main(args):
     evals_folder.mkdir(parents=True, exist_ok=True)
 
     if args.force or (data := try_load_pickle_data(folder)) is None:
-        data = load_data(folder)
+        data = load_data(folder, overrides=convert_overrides_to_dict(args.overrides))
 
         if not args.no_save:
             save_data(data, folder)
 
     kwargs = dict(
         data=data,
-        output_folder=plots_folder,
         rank_to_use=args.rank,
         generation_to_use=args.generation,
-        use_legend=args.legend,
-        use_locator=args.locator,
         verbose=args.verbose,
         dry_run=args.dry_run,
     )
     if args.plot:
-        plot(**kwargs)
+        plot(
+            output_folder=plots_folder,
+            use_legend=args.legend,
+            use_locator=args.locator,
+            **kwargs,
+        )
     if args.eval:
-        eval(**kwargs)
+        eval(output_folder=evals_folder, **kwargs)
 
 
 if __name__ == "__main__":
@@ -437,10 +421,19 @@ if __name__ == "__main__":
 
     parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument("--dry-run", action="store_true", help="Dry run.")
+    parser.add_argument(
+        "-o",
+        "--override",
+        dest="overrides",
+        action="append",
+        nargs=2,
+        help="Override config values. Do <dot separated yaml config> <value>",
+        default=[],
+    )
 
     parser.add_argument("folder", type=str, help="The folder to parse.")
     parser.add_argument(
-        "-o",
+        "-O",
         "--output",
         type=str,
         help="The output folder. Defaults to <folder>/parse_evos/",

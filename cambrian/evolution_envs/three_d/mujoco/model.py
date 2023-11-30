@@ -1,12 +1,16 @@
+from typing import List, Any, Dict
 from pathlib import Path
-import torch
+import pickle
 
+import torch
 from stable_baselines3 import PPO
 
 
-class MjCambrianPPO(PPO):
+class MjCambrianModel(PPO):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self._rollout: List[Dict[str, Any]] = None
 
     def save_policy(self, path: Path | str):
         """Overwrite the save method. Instead of saving the entire state, we'll
@@ -58,3 +62,20 @@ class MjCambrianPPO(PPO):
                 del saved_state_dict[saved_state_dict_key]
 
         self.policy.load_state_dict(saved_state_dict, strict=False)
+
+    def load_rollout(self, path: Path | str):
+        """Load the rollout data from a previous training run. The rollout is a list
+        of actions based on a current step. The model.predict call will then be 
+        overwritten to return the next action. This loader is "dumb" in the sense that
+        it doesn't actually process the observations when it's using rollout, it will 
+        simply keep track of the current step and return the next action in the
+        rollout.
+        """
+        with open(path, "rb") as f:
+            self._rollout = pickle.load(f)
+
+    def predict(self, *args, **kwargs):
+        if self._rollout is not None:
+            return self._rollout.pop(0), None
+
+        return super().predict(*args, **kwargs)

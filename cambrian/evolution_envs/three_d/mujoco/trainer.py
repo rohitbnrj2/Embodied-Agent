@@ -14,17 +14,19 @@ from stable_baselines3.common.callbacks import (
 )
 from stable_baselines3.common.utils import set_random_seed
 
-from feature_extractors import MjCambrianCombinedExtractor
-from config import MjCambrianConfig
-from env import MjCambrianEnv
-from wrappers import make_single_env
-from callbacks import (
+from cambrian.evolution_envs.three_d.mujoco.feature_extractors import (
+    MjCambrianCombinedExtractor,
+)
+from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianConfig
+from cambrian.evolution_envs.three_d.mujoco.wrappers import make_single_env
+from cambrian.evolution_envs.three_d.mujoco.callbacks import (
     PlotEvaluationCallback,
     SaveVideoCallback,
     CallbackListWithSharedParent,
     MjCambrianProgressBarCallback,
 )
-from ppo import MjCambrianPPO
+from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
+from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
 
 
 class MjCambrianTrainer:
@@ -45,6 +47,8 @@ class MjCambrianTrainer:
             / self.config.training_config.exp_name
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
+
+        self.config.write_to_yaml(self.logdir / "config.yaml")
 
         set_random_seed(self._calc_seed(0))
 
@@ -70,29 +74,8 @@ class MjCambrianTrainer:
         env = self._make_env(1)
         model = self._make_model(env)
 
-        cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
-        cambrian_env.renderer.record = record
-
-        run = 0
-        cumulative_reward = 0
-
-        print("Starting evaluation...")
-        obs = env.reset()
-        while run < num_runs:
-            action, _ = model.predict(obs, deterministic=True)
-            obs, reward, done, _ = env.step(action)
-            cumulative_reward += reward[0]
-
-            if done:
-                print(f"Run {run} done. Cumulative reward: {cumulative_reward}")
-                run += 1
-
-            cambrian_env.rollout["Cumulative Reward"] = f"{cumulative_reward:.2f}"
-            env.render()
-
-        if record:
-            cambrian_env.renderer.save(self.logdir / "eval")
-            cambrian_env.renderer.record = False
+        record_path = self.logdir / "eval" if record else None
+        evaluate_policy(env, model, num_runs, record_path=record_path)
 
     # ========
 
@@ -159,15 +142,15 @@ class MjCambrianTrainer:
 
         rank = None
         if self.config.evo_config.generation_config is not None:
-            rank = self.config.evo_config.generation_config.rank  
+            rank = self.config.evo_config.generation_config.rank
         progress_bar_callback = MjCambrianProgressBarCallback(rank)
         return CallbackList([eval_cb, progress_bar_callback])
 
-    def _make_model(self, env: VecEnv) -> MjCambrianPPO:
+    def _make_model(self, env: VecEnv) -> MjCambrianModel:
         """This method creates the PPO model.
 
         If available, the weights of a previously trained model are loaded into the new
-        model. See `MjCambrianPPO` for more details, but because the shape of the
+        model. See `MjCambrianModel` for more details, but because the shape of the
         output may be different between animals, the weights with different shapes
         are ignored.
         """
@@ -175,7 +158,7 @@ class MjCambrianTrainer:
             features_extractor_class=MjCambrianCombinedExtractor,
         )
 
-        model = MjCambrianPPO(
+        model = MjCambrianModel(
             "MultiInputPolicy",
             env,
             n_steps=self.config.training_config.n_steps,
