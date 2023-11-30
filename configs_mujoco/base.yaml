@@ -5,6 +5,7 @@ training_config:
   logdir: "logs-mujoco"
   exp_name: null # if unset, will be set to the name of the config file
   checkpoint_path: null # Will train from scratch if unset
+  policy_path: null # Will train from scratch if unset
 
   total_timesteps: 1_000_000
   max_episode_steps: 128

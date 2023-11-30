@@ -110,10 +110,10 @@ class MjCambrianEvoRunner:
         config.training_config.logdir = str(self.generation_logdir)
         config.training_config.exp_name = ""
         config.evo_config.generation_config = self.config.evo_config.generation_config
-        if (parent := config.evo_config.parent_generation_config) is not None:
-            parent_logdir = self.logdir / parent.to_path()
-            if (policy_path := parent_logdir / "policy.pt").exists():
-                config.training_config.checkpoint_path = str(policy_path)
+        # if (parent := config.evo_config.parent_generation_config) is not None:
+        #     parent_logdir = self.logdir / parent.to_path()
+        #     if (policy_path := parent_logdir / "policy.pt").exists():
+        #         config.training_config.policy_path = str(policy_path)
         if (max_n_envs := self.config.evo_config.max_n_envs) is not None:
             n_envs = max_n_envs // self.population.size
             if self.verbose > 1:

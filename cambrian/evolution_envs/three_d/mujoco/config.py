@@ -276,6 +276,8 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig["MjCambrianTrainingConfig"])
             subdirectory. If unset, will set to the name of the config file.
         checkpoint_path (Optional[Path | str]): The path to the model checkpoint to
             load. If None, training will start from scratch.
+        policy_path (Optional[Path | str]): The path to the policy checkpoint to load.
+            Should be a `.pt` file that was saved using MjCambrianModel.save_policy.
 
         total_timesteps (int): The total number of timesteps to train for.
         max_episode_steps (int): The maximum number of steps per episode.
@@ -305,6 +307,7 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig["MjCambrianTrainingConfig"])
     logdir: Path | str
     exp_name: Optional[str] = None
     checkpoint_path: Optional[Path | str] = None
+    policy_path: Optional[Path | str] = None
 
     total_timesteps: int
     max_episode_steps: int

@@ -147,7 +147,7 @@ class MjCambrianTrainer:
         return CallbackList([eval_cb, progress_bar_callback])
 
     def _make_model(self, env: VecEnv) -> MjCambrianModel:
-        """This method creates the PPO model.
+        """This method creates the model.
 
         If available, the weights of a previously trained model are loaded into the new
         model. See `MjCambrianModel` for more details, but because the shape of the
@@ -158,21 +158,24 @@ class MjCambrianTrainer:
             features_extractor_class=MjCambrianCombinedExtractor,
         )
 
-        model = MjCambrianModel(
-            "MultiInputPolicy",
-            env,
-            n_steps=self.config.training_config.n_steps,
-            batch_size=self.config.training_config.batch_size,
-            learning_rate=self.config.training_config.learning_rate,
-            policy_kwargs=policy_kwargs,
-            verbose=self.verbose,
-        )
+        if (checkpoint_path := self.config.training_config.checkpoint_path) is not None:
+            model = MjCambrianModel.load(checkpoint_path, env=env, verbose=self.verbose)
+        else:
+            model = MjCambrianModel(
+                "MultiInputPolicy",
+                env,
+                n_steps=self.config.training_config.n_steps,
+                batch_size=self.config.training_config.batch_size,
+                learning_rate=self.config.training_config.learning_rate,
+                policy_kwargs=policy_kwargs,
+                verbose=self.verbose,
+            )
 
-        # if (policy_path := self.config.training_config.checkpoint_path) is not None:
-        #     policy_path = Path(policy_path)
-        #     assert policy_path.exists(), f"Checkpoint path {policy_path} does not exist." # noqa
-        #     print(f"Loading model weights from {policy_path}...")
-        #     model.load_policy(policy_path.parent)
+        if (policy_path := self.config.training_config.policy_path) is not None:
+            policy_path = Path(policy_path)
+            assert policy_path.exists(), f"Checkpoint path {policy_path} does not exist."
+            print(f"Loading model weights from {policy_path}...")
+            model.load_policy(policy_path.parent)
         return model
 
 
