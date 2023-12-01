@@ -111,8 +111,8 @@ class SaveVideoCallback(BaseCallback):
     ):
         super().__init__(verbose)
 
-        self.env = env.envs[0]
-        self.cambrian_env: MjCambrianEnv = self.env.unwrapped
+        self.env = env
+        self.cambrian_env: MjCambrianEnv = self.env.envs[0].unwrapped
         self.renderer: MjCambrianRenderer = self.cambrian_env.renderer
 
         self.logdir = Path(logdir)

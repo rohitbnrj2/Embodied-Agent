@@ -140,10 +140,7 @@ class MjCambrianTrainer:
             callback_after_eval=PlotEvaluationCallback(self.logdir),
         )
 
-        rank = None
-        if self.config.evo_config.generation_config is not None:
-            rank = self.config.evo_config.generation_config.rank
-        progress_bar_callback = MjCambrianProgressBarCallback(rank)
+        progress_bar_callback = MjCambrianProgressBarCallback()
         return CallbackList([eval_cb, progress_bar_callback])
 
     def _make_model(self, env: VecEnv) -> MjCambrianModel:
