@@ -49,6 +49,9 @@ class MjCambrianEvoRunner:
         population_config = self.config.evo_config.population_config
         self.population = MjCambrianPopulation(population_config, self.logdir)
 
+        trainer_py = Path(__file__).parent / "trainer.py"
+        self.python_cmd = f"python {trainer_py}"
+
         # Initialize the population
         self.population.add_animal(self.config.copy(), -float("inf"))
 
@@ -133,8 +136,7 @@ class MjCambrianEvoRunner:
         config_yaml = self.generation_logdir / "config.yaml"
         config.write_to_yaml(config_yaml)
 
-        trainer_py = Path(__file__).parent / "trainer.py"
-        cmd = f"python {trainer_py} {config_yaml} --train"
+        cmd = f"{self.python_cmd} {config_yaml} --train"
         env = dict(os.environ, **self.config.evo_config.environment_variables)
         if self.verbose > 1:
             print(f"Running command: {cmd}")
