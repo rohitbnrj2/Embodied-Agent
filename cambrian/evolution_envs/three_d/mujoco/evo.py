@@ -76,13 +76,12 @@ class MjCambrianEvoRunner:
         def _train_animal(rank: int):
             generation = 0
             while generation < self.config.evo_config.num_generations:
-                self.update(rank)
+                self.population.update()
 
-                config = self.population.spawn()
-                config.evo_config.generation_config.rank = rank
-
+                config = self.spawn_animal(generation, rank)
                 process = self.train_animal(config)
-                process.wait()
+                if not self.dry_run:
+                    process.wait()
 
                 generation += 1
 
@@ -95,47 +94,36 @@ class MjCambrianEvoRunner:
         for thread in threads:
             thread.join()
 
-    def update(self, rank: int):
-        # Set seed
+    def spawn_animal(self, generation: int, rank: int) -> MjCambrianConfig:
+        config = self.population.spawn()
+
         if self.verbose > 1:
-            print(f"Setting seed for generation {self.generation}...")
-        seed = self._calc_seed(rank)
-        set_random_seed(seed)
-        if self.verbose > 1:
-            print(f"Seed set to {seed}.")
+            print(f"Spawning animal with generation {generation} and rank {rank}.")
+        config.evo_config.generation_config.rank = rank
+        config.evo_config.generation_config.generation = generation
+        generation_logdir = self.logdir / config.evo_config.generation_config.to_path()
+        generation_logdir.mkdir(parents=True, exist_ok=True)
 
-        # Update logdir
-        if self.verbose > 2:
-            print(f"Updating logdir for generation {self.generation}...")
-        generation_config = self.config.evo_config.generation_config
-        self.generation_logdir = self.logdir / generation_config.to_path()
-        self.generation_logdir.mkdir(parents=True, exist_ok=True)
-
-        # Update the population
-        self.population.update()
-
-    def train_animal(self, config: MjCambrianConfig) -> subprocess.Popen | None:
-        if self.verbose > 1:
-            print(f"Training animal for generation {self.generation}...")
-
-        rank = config.evo_config.generation_config.rank
-        config.training_config.seed = self._calc_seed(rank)
-        config.training_config.logdir = str(self.generation_logdir)
+        config.training_config.seed = self._calc_seed(generation, rank)
+        config.training_config.logdir = str(generation_logdir)
         config.training_config.exp_name = ""
-        config.evo_config.generation_config = self.config.evo_config.generation_config
         # if (parent := config.evo_config.parent_generation_config) is not None:
         #     parent_logdir = self.logdir / parent.to_path()
         #     if (policy_path := parent_logdir / "policy.pt").exists():
         #         config.training_config.policy_path = str(policy_path)
-        if (max_n_envs := self.config.evo_config.max_n_envs) is not None:
+        if (max_n_envs := config.evo_config.max_n_envs) is not None:
             n_envs = max_n_envs // self.population.size
             if self.verbose > 1:
                 print(f"Setting n_envs to {n_envs}")
             config.training_config.n_envs = n_envs
 
-        config_yaml = self.generation_logdir / "config.yaml"
-        config.write_to_yaml(config_yaml)
+        # Save the config
+        config.write_to_yaml(generation_logdir / "config.yaml")
 
+        return config
+
+    def train_animal(self, config: MjCambrianConfig) -> subprocess.Popen | None:
+        config_yaml = Path(config.training_config.logdir) / "config.yaml"
         cmd = f"{self.python_cmd} {config_yaml} --train"
         env = dict(os.environ, **self.config.evo_config.environment_variables)
         if self.verbose > 1:
@@ -147,37 +135,18 @@ class MjCambrianEvoRunner:
 
     # ========
 
-    def _calc_seed(self, rank: int) -> int:
+    def _calc_seed(self, generation: int, rank: int) -> int:
         """Calculates a unique seed for each environment.
 
         Equation is as follows:
             i * population_size * num_generations + seed + generation
         """
         return (
-            (self.generation + 1) * (rank + 1)
+            (generation + 1) * (rank + 1)
             + self.config.training_config.seed
             * self.config.evo_config.population_config.size
             * self.config.evo_config.num_generations
         )
-
-    # ========
-
-    @property
-    def rank(self) -> int:
-        return self.config.evo_config.generation_config.rank
-
-    @rank.setter
-    def rank(self, rank: int):
-        self.config.evo_config.generation_config.rank = rank
-
-    @property
-    def generation(self) -> MjCambrianGenerationConfig:
-        return self.config.evo_config.generation_config.generation
-
-    @generation.setter
-    def generation(self, generation: int):
-        self.config.evo_config.generation_config.generation = generation
-
 
 if __name__ == "__main__":
     from utils import MjCambrianArgumentParser
