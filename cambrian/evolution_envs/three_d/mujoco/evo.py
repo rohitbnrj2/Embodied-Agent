@@ -1,6 +1,7 @@
 from typing import List
 import os
 import subprocess
+import threading
 from pathlib import Path
 
 from stable_baselines3.common.utils import set_random_seed
@@ -54,40 +55,48 @@ class MjCambrianEvoRunner:
     def evo(self):
         """This method run's evolution.
 
-        The evolution loop is as follows:
-            1. Select an animal
-            2. Mutation the animal
-            3. Train the animal
+        The evolution loop does the following:
+            1. Updates the population
+            2. Spawns a new animal
+            3. Trains the animal
             4. Repeat
 
-        Animal selection logic is provided by the MjCambrianAnimalPool subclass which
-        is selected.
+        To reduce the amount of time any one process is waiting, we'll spawn a new 
+        training immediately after it finishes training. Training stops when the total
+        number of generations across all processes reaches 
+        num_generations * population_size.
+
+        Animal selection logic is provided by the MjCambrianPopulation subclass and 
+        mutation is performed by MjCambrianAnimal.
         """
 
-        while self.generation < self.config.evo_config.num_generations:
-            print(f"Starting generation {self.generation}...")
-
-            init_rank = self.rank
-            self._processes: List[subprocess.Popen] = []
-            for _ in range(self.config.evo_config.population_config.size):
-                self.update()
+        def _train_animal(rank: int):
+            generation = 0
+            while generation < self.config.evo_config.num_generations:
+                self.update(rank)
 
                 config = self.population.spawn()
-                self.train_animal(config)
+                config.evo_config.generation_config.rank = rank
 
-                self.rank += 1
-
-            for process in self._processes:
+                process = self.train_animal(config)
                 process.wait()
 
-            self.rank = init_rank
-            self.generation += 1
+                generation += 1
 
-    def update(self):
+        threads: List[threading.Thread] = []
+        for rank in range(self.config.evo_config.population_config.size):
+            thread = threading.Thread(target=_train_animal, args=(rank,))
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+    def update(self, rank: int):
         # Set seed
         if self.verbose > 1:
             print(f"Setting seed for generation {self.generation}...")
-        seed = self._calc_seed(0)
+        seed = self._calc_seed(rank)
         set_random_seed(seed)
         if self.verbose > 1:
             print(f"Seed set to {seed}.")
@@ -102,11 +111,12 @@ class MjCambrianEvoRunner:
         # Update the population
         self.population.update()
 
-    def train_animal(self, config: MjCambrianConfig):
+    def train_animal(self, config: MjCambrianConfig) -> subprocess.Popen | None:
         if self.verbose > 1:
             print(f"Training animal for generation {self.generation}...")
 
-        config.training_config.seed = self._calc_seed(0)
+        rank = config.evo_config.generation_config.rank
+        config.training_config.seed = self._calc_seed(rank)
         config.training_config.logdir = str(self.generation_logdir)
         config.training_config.exp_name = ""
         config.evo_config.generation_config = self.config.evo_config.generation_config
@@ -131,21 +141,19 @@ class MjCambrianEvoRunner:
         if not self.dry_run:
             stdin = subprocess.PIPE if self.verbose <= 1 else None
             stderr = subprocess.PIPE if self.verbose <= 1 else None
-            popen = subprocess.Popen(cmd.split(" "), env=env, stdin=stdin, stderr=stderr)
-            self._processes.append(popen)
+            return subprocess.Popen(cmd.split(" "), env=env, stdin=stdin, stderr=stderr)
 
     # ========
 
-    def _calc_seed(self, i: int) -> int:
+    def _calc_seed(self, rank: int) -> int:
         """Calculates a unique seed for each environment.
 
         Equation is as follows:
             i * population_size * num_generations + seed + generation
         """
         return (
-            (self.generation + 1) * (self.rank + 1)
+            (self.generation + 1) * (rank + 1)
             + self.config.training_config.seed
-            + i
             * self.config.evo_config.population_config.size
             * self.config.evo_config.num_generations
         )
