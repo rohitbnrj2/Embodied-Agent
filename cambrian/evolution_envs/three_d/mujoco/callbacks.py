@@ -21,13 +21,13 @@ from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
 class PlotEvaluationCallback(BaseCallback):
     """Should be used with an EvalCallback to plot the evaluation results.
 
-    This callback will take the evaluations.npz file produced by the EvalCallback and
+    This callback will take the monitor.csv file produced by the VecMonitor and
     plot the results and save it as an image. Should be passed as the
     `callback_after_eval` for the EvalCallback.
 
     Args:
         logdir (Path | str): The directory where the evaluation results are stored. The
-            evaluations.npz file is expected to be at `<logdir>/evaluations.npz`. The
+            evaluations.npz file is expected to be at `<logdir>/monitor.csv`. The
             resulting plot is going to be stored at
             `<logdir>/evaluations/monitor.png`.
 
