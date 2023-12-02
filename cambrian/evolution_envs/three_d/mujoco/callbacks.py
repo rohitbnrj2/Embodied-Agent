@@ -49,38 +49,22 @@ class PlotEvaluationCallback(BaseCallback):
         if self.verbose > 0:
             print(f"Plotting evaluation results at {self.evaldir}")
 
-        # Also save the monitor
-        try:
-            x, y = ts2xy(load_results(self.logdir), "timesteps")
+        x, y = ts2xy(load_results(self.logdir), "timesteps")
 
-            def moving_average(values, window):
-                weights = np.repeat(1.0, window) / window
-                return np.convolve(values, weights, "valid")
+        def moving_average(values, window):
+            weights = np.repeat(1.0, window) / window
+            return np.convolve(values, weights, "valid")
 
-            y = moving_average(y.astype(float), window=min(len(y) // 10, 1000))
-            x = x[len(x) - len(y) :]  # truncate x
+        y = moving_average(y.astype(float), window=min(len(y) // 10, 1000))
+        x = x[len(x) - len(y) :]  # truncate x
 
-            plt.plot(x, y)
-            plt.xlabel("Number of Timesteps")
-            plt.ylabel("Rewards")
-            plt.savefig(self.evaldir / "monitor.png")
-            plt.cla()
-        except Exception as e:
-            print(f"Couldn't save monitor: {e}.")
+        plt.plot(x, y)
+        plt.fill_between(x, y - y.std() * 1.96, y + y.std() * 1.96, alpha=0.2)
 
-            # Going to try to corret. Possible error states that have been observed:
-            #   1. the second line (the header) is missing a new line after `r,l,t`
-            with open(self.logdir / "monitor.csv", "r+") as f:
-                lines = f.readlines()
-                if lines[1][len("r,l,t") :] != "\n":
-                    line1, line2 = lines[1][: len("r,l,t")], lines[1][len("r,l,t") :]
-                    del lines[1]
-                    lines.insert(1, line1 + "\n")
-                    lines.insert(2, line2)
-                    f.seek(0)
-                    f.writelines(lines)
-
-            print("Corrected monitor.csv.")
+        plt.xlabel("Number of Timesteps")
+        plt.ylabel("Rewards")
+        plt.savefig(self.evaldir / "monitor.png")
+        plt.cla()
 
         return True
 

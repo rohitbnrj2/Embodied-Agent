@@ -55,7 +55,7 @@ class MjCambrianTrainer:
     def train(self):
         """Train the animal."""
         env = self._make_env(self.config.training_config.n_envs)
-        eval_env = self._make_env(1)
+        eval_env = self._make_env(1, use_monitor=False)
         callback = self._make_callback(env, eval_env)
         model = self._make_model(env)
 
@@ -82,7 +82,7 @@ class MjCambrianTrainer:
     def _calc_seed(self, i: int) -> int:
         return self.config.training_config.seed + i * self.seed
 
-    def _make_env(self, n_envs: int) -> VecEnv:
+    def _make_env(self, n_envs: int, *, use_monitor: bool = True) -> VecEnv:
         assert n_envs > 0, f"n_envs must be > 0, got {n_envs}."
 
         envs = [make_single_env(self.config, self._calc_seed(i)) for i in range(n_envs)]
@@ -91,7 +91,9 @@ class MjCambrianTrainer:
             vec_env = DummyVecEnv(envs)
         else:
             vec_env = SubprocVecEnv(envs)
-        return VecMonitor(vec_env, str(self.logdir / "monitor.csv"))
+        if use_monitor:
+            vec_env = VecMonitor(vec_env, str(self.logdir / "monitor.csv"))
+        return MjCambrianModel._wrap_env(vec_env)
 
     def _make_callback(self, env: VecEnv, eval_env: VecEnv) -> BaseCallback:
         """Makes the callbacks.
