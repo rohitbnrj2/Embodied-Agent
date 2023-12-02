@@ -86,7 +86,9 @@ class MjCambrianEvoRunner:
                 generation += 1
 
         threads: List[threading.Thread] = []
-        for rank in range(self.config.evo_config.population_config.size):
+        init_rank = self.config.evo_config.generation_config.rank
+        population_size = self.config.evo_config.population_config.size
+        for rank in range(init_rank, init_rank + population_size):
             thread = threading.Thread(target=_train_animal, args=(rank,))
             thread.start()
             threads.append(thread)

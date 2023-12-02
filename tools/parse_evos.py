@@ -6,12 +6,12 @@ from pathlib import Path
 import pickle
 import os
 import yaml
+from dataclasses import dataclass, field
+
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tkr
-from dataclasses import dataclass, field
-
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
@@ -151,11 +151,7 @@ def load_data(folder: Path, *, overrides: Dict[str, Any] = {}) -> Data:
 
             # Get the monitor file
             if (rank_data.path / "monitor.csv").exists():
-                try:
-                    monitor = load_results(rank_data.path)
-                    rank_data.monitor = monitor
-                except Exception:
-                    pass
+                rank_data.monitor = load_results(rank_data.path)
 
     return data
 

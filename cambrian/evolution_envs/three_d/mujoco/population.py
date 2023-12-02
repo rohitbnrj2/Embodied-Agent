@@ -119,16 +119,13 @@ class MjCambrianPopulation:
         """
         if not (path / "monitor.csv").exists():
             return -np.inf
-        try:
-            _, rewards = ts2xy(load_results(path), "timesteps")
-            if len(rewards) < 1000:
-                fitness = -np.inf
-            else:
-                fitness = rewards[-min(len(rewards) - 1, 1000) :].mean()
-        except Exception as e:
-            # TODO: Fix this bug in vecmonitor. see callbacks
-            print(e)
-            return -np.inf
+
+        _, rewards = ts2xy(load_results(path), "timesteps")
+        if len(rewards) < 1000:
+            fitness = -np.inf
+        else:
+            fitness = rewards[-min(len(rewards) - 1, 1000) :].mean()
+
         return fitness
 
     # ========

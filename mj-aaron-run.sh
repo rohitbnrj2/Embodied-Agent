@@ -6,8 +6,8 @@
 #SBATCH --time=4-04:00:00
 #SBATCH --qos=high
 #SBATCH --job-name mj_training
-#SBATCH --output=out2/R-%x.%j_%a.out
-#SBATCH --error=out2/R-%x.%j_%a.err
+#SBATCH --output=out/R-%x.%j_%a.out
+#SBATCH --error=out/R-%x.%j_%a.err
 
 source /etc/profile
 module load anaconda/Python-ML-2023b
