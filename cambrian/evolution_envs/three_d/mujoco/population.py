@@ -155,7 +155,7 @@ class MjCambrianPopulation:
         parent1.animal_config = MjCambrianAnimal.crossover(
             parent1.animal_config, parent2.animal_config, verbose=verbose
         )
-        self._set_parent(parent1, parent1)
+        return self._set_parent(parent1, parent1)
 
     def _mutate(self, config: Optional[MjCambrianConfig] = None):
         if config is None:

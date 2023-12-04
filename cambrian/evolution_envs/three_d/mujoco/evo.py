@@ -73,7 +73,7 @@ class MjCambrianEvoRunner:
         mutation is performed by MjCambrianAnimal.
         """
 
-        def _train_animal(rank: int):
+        def _loop(rank: int):
             generation = 0
             while generation < self.config.evo_config.num_generations:
                 self.population.update()
@@ -89,7 +89,7 @@ class MjCambrianEvoRunner:
         init_rank = self.config.evo_config.generation_config.rank
         population_size = self.config.evo_config.population_config.size
         for rank in range(init_rank, init_rank + population_size):
-            thread = threading.Thread(target=_train_animal, args=(rank,))
+            thread = threading.Thread(target=_loop, args=(rank,))
             thread.start()
             threads.append(thread)
 
@@ -132,8 +132,9 @@ class MjCambrianEvoRunner:
             print(f"Running command: {cmd}")
         if not self.dry_run:
             stdin = subprocess.PIPE if self.verbose <= 1 else None
+            stdout = subprocess.PIPE if self.verbose <= 1 else None
             stderr = subprocess.PIPE if self.verbose <= 1 else None
-            return subprocess.Popen(cmd.split(" "), env=env, stdin=stdin, stderr=stderr)
+            return subprocess.Popen(cmd.split(" "), env=env, stdin=stdin, stdout=stdout, stderr=stderr)
 
     # ========
 
