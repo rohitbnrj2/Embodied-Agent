@@ -637,6 +637,10 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
             observation.
         use_action_obs (bool): Whether to use the action observation or not.
 
+        enforce_2d (bool): Whether to enforce 2d eye placement. If True, all eyes
+            will be placed on the same plane and they will all have a vertical 
+            resolution of 1.
+
         num_eyes_lat (int): The number of eyes to place latitudinally/vertically.
         num_eyes_lon (int): The number of eyes to place longitudinally/horizontally.
         eyes_lat_range (Tuple[float, float]): The x range of the eye. This is used to
@@ -667,6 +671,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
     use_qvel_obs: bool
     use_intensity_obs: bool
     use_action_obs: bool
+
+    enforce_2d: bool
 
     num_eyes_lat: int
     num_eyes_lon: int

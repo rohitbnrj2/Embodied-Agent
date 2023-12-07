@@ -67,6 +67,8 @@ animal_config:
   use_intensity_obs: False
   use_action_obs: True
 
+  enforce_2d: True
+
   default_eye_config:
     mode: "fixed"
     filter_size: [0, 0]

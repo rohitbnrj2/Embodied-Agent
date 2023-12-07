@@ -76,6 +76,15 @@ class MjCambrianAnimal:
         assert config.geom_name is not None, "No geom name specified."
         assert config.default_eye_config is not None, "No default eye config."
 
+        if config.enforce_2d:
+            assert config.num_eyes_lat == 1, "Enforcing 2D requires 1 lat eye."
+            assert config.default_eye_config.resolution[1] == 1, (
+                "Enforcing 2D requires the eye height to be 1."
+            )
+            assert config.default_eye_config.fov[1] == 1, (
+                "Enforcing 2D requires the eye fov to be 1."
+            )
+
         config.model_path = get_model_path(config.model_path)
 
         return config
@@ -567,13 +576,18 @@ class MjCambrianAnimal:
         if verbose > 1:
             print("Mutating animal...")
 
+        # The mutation options are all the possible mutations
+        # Unless we're enforcing 2d, then we can't add/remove latitudinal eyes
+        mutation_options = list(MjCambrianAnimal.MutationType)
+        if config.enforce_2d:
+            mutation_options.remove(MjCambrianAnimal.MutationType.ADD_LAT_EYE)
+            mutation_options.remove(MjCambrianAnimal.MutationType.REMOVE_LAT_EYE)
+
         # Randomly select the number of mutations to perform with a skewed dist
         # This will lean towards less total mutations generally
         p = np.exp(-np.arange(len(MjCambrianAnimal.MutationType)))
         num_of_mutations = np.random.choice(np.arange(1, len(p) + 1), p=p / p.sum())
-        mutations = np.random.choice(
-            MjCambrianAnimal.MutationType, num_of_mutations, replace=False
-        )
+        mutations = np.random.choice(mutation_options, num_of_mutations, replace=False)
         mutations = reduce(lambda x, y: x | y, mutations)
 
         if verbose > 1:
@@ -628,6 +642,10 @@ class MjCambrianAnimal:
             default_eye_config.resolution = edit(default_eye_config.resolution)
             default_eye_config.fov = edit(default_eye_config.fov)
 
+            if config.enforce_2d:
+                default_eye_config.resolution[1] = 1
+                default_eye_config.fov[1] = 1
+
         if verbose > 2:
             print(f"Mutated animal: \n{config}")
 
@@ -652,14 +670,19 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config: MjCambrianConfig = MjCambrianConfig.load(
-        args.config, overrides=args.overrides
-    )
+    config = args.config
+    overrides = args.overrides
+    config = MjCambrianConfig.load(config, overrides=overrides)
     config.animal_config.name = "animal"
     config.animal_config.idx = 0
+    if config.animal_config.enforce_2d:
+        config.animal_config.num_eyes_lat = 1
+        config.animal_config.default_eye_config.resolution[1] = 1
+        config.animal_config.default_eye_config.fov[1] = 1
+
     animal = MjCambrianAnimal(config.animal_config)
 
-    env_xml = MjCambrianXML(get_model_path(config.env_config.scene_path))
+    env_xml = MjCambrianXML(get_model_path("models/test.xml"))
     model = mj.MjModel.from_xml_string(str(env_xml + animal.generate_xml()))
     data = mj.MjData(model)
 
