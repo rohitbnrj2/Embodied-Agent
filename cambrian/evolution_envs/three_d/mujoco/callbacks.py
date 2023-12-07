@@ -156,7 +156,8 @@ class MjCambrianProgressBarCallback(ProgressBarCallback):
     def __del__(self):
         """This string will restore the terminal back to its original state."""
         print("\x1b[?25h")
-        self._on_training_end()
+        if hasattr(self, "pbar"):
+            self._on_training_end()
 
 
 class CallbackListWithSharedParent(CallbackList):

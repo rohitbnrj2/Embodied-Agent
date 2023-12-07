@@ -642,9 +642,9 @@ class MjCambrianAnimal:
             default_eye_config.resolution = edit(default_eye_config.resolution)
             default_eye_config.fov = edit(default_eye_config.fov)
 
-            if config.enforce_2d:
-                default_eye_config.resolution[1] = 1
-                default_eye_config.fov[1] = 1
+        if config.enforce_2d:
+            config.default_eye_config.resolution[1] = 1
+            config.default_eye_config.fov[1] = 1
 
         if verbose > 2:
             print(f"Mutated animal: \n{config}")
