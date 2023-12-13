@@ -70,6 +70,8 @@ class MjCambrianTrainer:
         if self.verbose > 1:
             print(f"Saved model to {self.logdir}...")
 
+        Path(self.logdir / "finished").touch()
+
     def eval(self, num_runs: int, record: bool = False):
         env = self._make_env(1)
         model = self._make_model(env)

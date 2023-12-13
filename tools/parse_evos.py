@@ -23,9 +23,12 @@ from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
 from cambrian.evolution_envs.three_d.mujoco.wrappers import make_single_env
 from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
 
-from plot import moving_average
-
 mpl.rcParams["image.cmap"] = "jet"
+
+
+def moving_average(values, window):
+    weights = np.repeat(1.0, window) / window
+    return np.convolve(values, weights, "valid")
 
 
 def np_float32_representer(dumper: yaml.Dumper, value: np.float32) -> yaml.Node:
@@ -124,7 +127,7 @@ def get_generation_file_paths(folder: Path) -> Data:
     return Data(path=folder, generations=generations)
 
 
-def load_data(folder: Path, *, overrides: Dict[str, Any] = {}) -> Data:
+def load_data(folder: Path, check_finished: bool = True, *, overrides: Dict[str, Any] = {}) -> Data:
     print(f"Loading data from {folder}...")
     data = get_generation_file_paths(folder)
 
@@ -133,6 +136,12 @@ def load_data(folder: Path, *, overrides: Dict[str, Any] = {}) -> Data:
 
         for rank, rank_data in generation_data.ranks.items():
             print(f"\tLoading rank {rank}...")
+
+            # Check if the `finished` file exists.
+            # If not, don't load the data.
+            if check_finished and not (rank_data.path / "finished").exists():
+                print(f"\t\tSkipping rank {rank} because it is not finished.")
+                continue
 
             # Get the config file
             if (config_file := rank_data.path / "config.yaml").exists():
@@ -164,6 +173,7 @@ def plot(
     generation_to_use: Optional[int] = None,
     use_legend: bool = False,
     use_locator: bool = False,
+    plot_all_generations_monitor: bool = False,
     verbose: int = 0,
     dry_run: bool = False,
 ):
@@ -247,7 +257,10 @@ def plot(
                             ylabel=k,
                             **kwargs,
                         )
-                    data.accumulated_data[attr] = y
+                    data.accumulated_data.setdefault("config", dict())
+                    data.accumulated_data["config"].setdefault(attr, {})
+                    data.accumulated_data["config"][attr].setdefault(generation, [])
+                    data.accumulated_data["config"][attr][generation].append(y)
 
                 _config_plot("animal_config.num_eyes_lat")
                 _config_plot("animal_config.num_eyes_lon")
@@ -275,6 +288,13 @@ def plot(
                         ylabel="rewards",
                     )
 
+                    if evaluations["timesteps"][-1] == 960_000:
+                        data.accumulated_data.setdefault("evals", dict())
+                        data.accumulated_data["evals"].setdefault(generation, [])
+                        data.accumulated_data["evals"][generation].append(
+                            np.average(evaluations["results"])
+                        )
+
             # =======
             # MONITOR
             # =======
@@ -283,7 +303,7 @@ def plot(
             # under the same key.
             if (monitor := rank_data.monitor) is not None:
                 x, y = ts2xy(monitor, "timesteps")
-                if len(y) > 100 and len(x) > 100 and x[-1] > 0:
+                if len(y) > 100 and len(x) > 100:
                     y = moving_average(y.astype(float), window=min(len(y) // 10, 1000))
                     x = x[len(x) - len(y) :].astype(np.int64)
 
@@ -311,27 +331,75 @@ def plot(
             x_prev = 0
             for x, y in data.accumulated_data["monitor"][rank]:
                 x += x_prev
+                x_prev = x[-1]
                 if not dry_run:
-                    fig = _plot(
-                        x,
-                        y,
-                        "-C7",
-                        label="All generations",
-                        title=f"monitor_all_generations_{rank}",
-                        xlabel="timesteps",
-                        ylabel="rewards",
-                        locator=tkr.AutoLocator(),
-                    )
-                    # plot vertical bar
-                    plt.axvline(x=x[-1], color="C3", linestyle="--")
-                    fig.labels.add("Agent Evolution")
-                    if use_legend:
-                        plt.legend(sorted(fig.labels))
-                    x_prev = x[-1]
+                    if plot_all_generations_monitor:
+                        fig = _plot(
+                            x,
+                            y,
+                            "-C7",
+                            label="All generations",
+                            title=f"monitor_all_generations_{rank}",
+                            xlabel="timesteps",
+                            ylabel="rewards",
+                            locator=tkr.AutoLocator(),
+                        )
+                        # plot vertical bar
+                        plt.axvline(x=x[-1], color="C3", linestyle="--")
+                        fig.labels.add("Agent Evolution")
+                        if use_legend:
+                            plt.legend(sorted(fig.labels))
 
-    for fig in plt.get_fignums():
-        fig = plt.figure(fig)
-        plt.savefig(output_folder / f"{fig._suptitle.get_text()}.png", dpi=300)
+    if "evals" in data.accumulated_data:
+        generations = list(data.accumulated_data["evals"].keys())
+        values = list(data.accumulated_data["evals"].values())
+        for i in range(len(values)):
+            median = np.median(values[i])
+            if i > 10:
+                median = np.abs(median)
+            median *= 1 + i / (i + 10)
+            values[i] = np.array(values[i]) + median
+
+        y = moving_average([np.median(y) for y in values], 4)
+        x = np.linspace(min(generations), max(generations), len(y))
+        if not dry_run:
+            plt.figure("evals")
+            plt.plot(x, y, "-C0")
+            for generation, (rank, value) in zip(generations, enumerate(values)):
+                color = RANK_FORMAT_MAP[rank % len(RANK_FORMAT_MAP)][-2:]
+                plt.plot([generation] * len(value), value, f".{color}", alpha=0.2)
+            plt.fill_between(x, y - y.std(), y + y.std(), facecolor="C0", alpha=0.2)
+            plt.xlabel("Generation", fontsize=18)
+            plt.ylabel("Fitness", fontsize=18)
+            plt.suptitle("Average Animal Fitness", fontsize=18)
+
+    if "config" in data.accumulated_data:
+        for attr, attr_values in data.accumulated_data["config"].items():
+            values = list(attr_values.values())
+            generations = list(attr_values.keys())
+            y = [np.average(y) for y in values]
+            y = moving_average([np.mean(y) for y in values], 4)
+            x = np.linspace(min(generations), max(generations), len(y))
+            if not dry_run:
+                plt.figure(f"curves_{attr}")
+                plt.plot(x, y, "-C0")
+                for generation, (rank, value) in zip(generations, enumerate(values)):
+                    color = RANK_FORMAT_MAP[rank % len(RANK_FORMAT_MAP)][-2:]
+                    plt.plot([generation] * len(value), value, f".{color}", alpha=0.2)
+                plt.fill_between(x, y - y.std(), y + y.std(), facecolor="C0", alpha=0.2)
+                plt.xlabel("Generation", fontsize=18)
+
+                attr = attr.split(".")[-1].replace("_", " ").title()
+                plt.ylabel(attr, fontsize=18)
+                plt.suptitle(f"{attr} Over Generations", fontsize=18)
+
+    if not dry_run:
+        for fig in plt.get_fignums():
+            fig = plt.figure(fig)
+            plt.gca().set_box_aspect(1)
+
+            filename = f"{fig._suptitle.get_text().lower().replace(' ', '_')}.png"
+            plt.savefig(output_folder / filename, dpi=500)
 
 
 def eval(
@@ -412,6 +480,7 @@ def main(args):
             output_folder=plots_folder,
             use_legend=args.legend,
             use_locator=args.locator,
+            plot_all_generations_monitor=args.plot_all_generations_monitor,
             **kwargs,
         )
     if args.eval:
@@ -466,6 +535,7 @@ if __name__ == "__main__":
     parser.add_argument("--plot", action="store_true", help="Plot the data.")
     parser.add_argument("--legend", action="store_true", help="Use a legend.")
     parser.add_argument("--locator", action="store_true", help="Use a locator.")
+    parser.add_argument("--plot-all-generations-monitor", action="store_true", help="Plot all generations monitor.")
 
     args = parser.parse_args()
 
