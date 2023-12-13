@@ -189,31 +189,36 @@ def plot(
         6: "8C6",
     }
 
+    def _legend(fig=None):
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = dict(sorted(zip(labels, handles), key=lambda t: t[0]))
+        if fig is not None:
+            fig.legend(by_label.values(), by_label.keys())
+        else:
+            plt.legend(by_label.values(), by_label.keys())
+
     def _plot(
         *args,
         title,
         xlabel,
         ylabel,
-        label=None,
-        locator=tkr.MultipleLocator(),
+        locator=tkr.MultipleLocator(1),
+        override_use_legend=False,
+        override_use_locator=False,
         **kwargs,
     ):
         fig = plt.figure(title)
 
-        plt.plot(*args, **kwargs)
+        handle, = plt.plot(*args, **kwargs)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.suptitle(title)
 
-        if label is not None:
-            if not hasattr(fig, "labels"):
-                fig.labels = set()
-            fig.labels.add(label)
-            if use_legend:
-                plt.legend(sorted(fig.labels))
+        if use_legend or override_use_legend:
+            _legend(fig)
 
         ax = fig.gca()
-        if use_locator:
+        if use_locator or override_use_locator:
             ax.xaxis.set_major_locator(locator)
 
         return fig
@@ -302,34 +307,64 @@ def plot(
             # Get the data and delete it from the dict. We'll write the parsed data back
             # under the same key.
             if (monitor := rank_data.monitor) is not None:
+                window = 100
                 x, y = ts2xy(monitor, "timesteps")
-                if len(y) > 100 and len(x) > 100:
-                    y = moving_average(y.astype(float), window=min(len(y) // 10, 1000))
-                    x = x[len(x) - len(y) :].astype(np.int64)
+                t = ts2xy(monitor, "walltime_hrs")[0] * 60  # convert to minutes
+                if len(y) > window:
 
-                    # TODO: this looks terrible
-                    if not dry_run:
+                    y = moving_average(y, window)
+                    x = x[window - 1 :].astype(np.int64)
+                    t = t[window - 1 :]
+
+                    if not dry_run and (config := rank_data.config) is not None:
+                        node = rank // config.evo_config.population_config.size
+                        num_eyes = (
+                            config.animal_config.num_eyes_lat
+                            * config.animal_config.num_eyes_lon
+                        )
+                        res = config.animal_config.default_eye_config.resolution
+                        num_pixels = res[0] * res[1]
                         _plot(
-                            x,
-                            y,
-                            f"-{RANK_FORMAT_MAP[rank % len(RANK_FORMAT_MAP)][-2:]}",
-                            label=f"Rank {rank}",
-                            title="monitor",
-                            xlabel="timesteps",
-                            ylabel="rewards",
-                            locator=tkr.AutoLocator(),
+                            generation,
+                            t[-1],
+                            RANK_FORMAT_MAP[node % len(RANK_FORMAT_MAP)],
+                            label=f"Node {node}",
+                            title="monitor_walltime",
+                            xlabel="generation",
+                            ylabel="walltime (min)",
+                            override_use_legend=True,
+                        )
+                        _plot(
+                            generation,
+                            t[-1],
+                            RANK_FORMAT_MAP[num_eyes % len(RANK_FORMAT_MAP)],
+                            label=f"Num Eyes: {num_eyes}",
+                            title="monitor_walltime_by_eye",
+                            xlabel="generation",
+                            ylabel="walltime (min)",
+                            override_use_legend=True,
+                        )
+                        _plot(
+                            generation,
+                            t[-1],
+                            RANK_FORMAT_MAP[(num_pixels) % len(RANK_FORMAT_MAP)],
+                            label=f"Num Pixels: {num_pixels}",
+                            title="monitor_walltime_by_num_pixels",
+                            xlabel="generation",
+                            ylabel="walltime (min)",
+                            override_use_legend=True,
                         )
 
                     # Accumulate the data from all ranks
                     data.accumulated_data.setdefault("monitor", dict())
                     data.accumulated_data["monitor"].setdefault(rank, [])
-                    data.accumulated_data["monitor"][rank].append((x, y))
+                    data.accumulated_data["monitor"][rank].append((x, t, y))
 
     # All generations plots
     if "monitor" in data.accumulated_data:
         for rank in data.accumulated_data["monitor"]:
             x_prev = 0
-            for x, y in data.accumulated_data["monitor"][rank]:
+            for x, t, y in data.accumulated_data["monitor"][rank]:
                 x += x_prev
                 x_prev = x[-1]
                 if not dry_run:
@@ -345,10 +380,9 @@ def plot(
                             locator=tkr.AutoLocator(),
                         )
                         # plot vertical bar
-                        plt.axvline(x=x[-1], color="C3", linestyle="--")
-                        fig.labels.add("Agent Evolution")
-                        if use_legend:
-                            plt.legend(sorted(fig.labels))
+                        fig.gca().axvline(x=x[-1], color="C3", linestyle="--", label="Agent Evolution")
+                        _legend(fig)
+                        x_prev = x[-1]
 
     if "evals" in data.accumulated_data:
         generations = list(data.accumulated_data["evals"].keys())

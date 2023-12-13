@@ -16,6 +16,7 @@ module load cuda/11.8
 # Fix for > 25 threads issue
 export OPENBLAS_NUM_THREADS=1
 export PMIX_MCA_gds=hash
+ulimit -u unlimited
 
 REPO=/home/gridsan/ayoung/Pseudos/bees/EyesOfCambrian
 
