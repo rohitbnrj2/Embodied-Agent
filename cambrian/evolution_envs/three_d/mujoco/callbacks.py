@@ -13,8 +13,10 @@ from stable_baselines3.common.callbacks import (
 )
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from env import MjCambrianEnv
-from renderer import MjCambrianRenderer
+from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
+from cambrian.evolution_envs.three_d.mujoco.env import MjCambrianEnv
+from cambrian.evolution_envs.three_d.mujoco.renderer import MjCambrianRenderer
+from cambrian.evolution_envs.three_d.mujoco.animal_pool import MjCambrianAnimalPool
 from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
 
 
@@ -103,7 +105,7 @@ class SaveVideoCallback(BaseCallback):
         self.evaldir = self.logdir / "evaluations"
         self.evaldir.mkdir(parents=True, exist_ok=True)
 
-        # Delete all the existing gifs
+        # Delete all the existing renders
         for f in glob.glob(str(self.evaldir / "vis_*")):
             if self.verbose > 0:
                 print(f"Deleting {f}")
@@ -124,6 +126,38 @@ class SaveVideoCallback(BaseCallback):
         # Copy the most recent gif to latest.gif so that we can just watch this file
         latest_filename = self.evaldir / "latest.gif"
         shutil.copy(self.evaldir / filename.with_suffix(".gif"), latest_filename)
+
+        return True
+
+class MjCambrianSavePolicyCallback(BaseCallback):
+    """Should be used with an EvalCallback to save the policy.
+
+    This callback will save the policy at the end of each evaluation. Should be passed
+    as the `callback_after_eval` for the EvalCallback.
+
+    Args:
+        logdir (Path | str): The directory to store the generated visualizations. The
+            resulting visualizations are going to be stored at
+            `<logdir>/evaluations/visualization.gif`.
+    """
+
+    parent: EvalCallback
+
+    def __init__(
+        self,
+        logdir: Path | str,
+        *,
+        verbose: int = 0,
+    ):
+        super().__init__(verbose)
+
+        self.logdir = Path(logdir)
+        self.logdir.mkdir(parents=True, exist_ok=True)
+
+        self.model: MjCambrianModel = None
+
+    def _on_step(self) -> bool:
+        self.model.save_policy(self.logdir)
 
         return True
 

@@ -22,6 +22,7 @@ from cambrian.evolution_envs.three_d.mujoco.wrappers import make_single_env
 from cambrian.evolution_envs.three_d.mujoco.callbacks import (
     PlotEvaluationCallback,
     SaveVideoCallback,
+    MjCambrianSavePolicyCallback,
     CallbackListWithSharedParent,
     MjCambrianProgressBarCallback,
 )
@@ -130,6 +131,9 @@ class MjCambrianTrainer:
                 self.config.training_config.min_no_improvement_evals,
                 verbose=self.verbose,
             )
+        )
+        callbacks_on_new_best.append(
+            MjCambrianSavePolicyCallback(self.logdir, verbose=self.verbose)
         )
         callbacks_on_new_best = CallbackListWithSharedParent(callbacks_on_new_best)
 

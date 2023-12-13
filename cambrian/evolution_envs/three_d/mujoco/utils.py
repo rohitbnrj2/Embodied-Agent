@@ -91,6 +91,7 @@ def evaluate_policy(
 
         if done:
             print(f"Run {run} done. Cumulative reward: {cumulative_reward}")
+            cumulative_reward = 0
             run += 1
 
         if cambrian_env.config.env_config.add_overlays:
