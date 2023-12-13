@@ -293,12 +293,11 @@ def plot(
                         ylabel="rewards",
                     )
 
-                    if evaluations["timesteps"][-1] == 960_000:
-                        data.accumulated_data.setdefault("evals", dict())
-                        data.accumulated_data["evals"].setdefault(generation, [])
-                        data.accumulated_data["evals"][generation].append(
-                            np.average(evaluations["results"])
-                        )
+                    data.accumulated_data.setdefault("evals", dict())
+                    data.accumulated_data["evals"].setdefault(generation, [])
+                    data.accumulated_data["evals"][generation].append(
+                        np.average(evaluations["results"])
+                    )
 
             # =======
             # MONITOR
