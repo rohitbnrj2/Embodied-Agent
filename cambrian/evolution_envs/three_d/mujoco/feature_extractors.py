@@ -7,6 +7,7 @@ from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim, is_image_space
 
+
 class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
     """Overwrite of the default feature extractor of Stable Baselines 3."""
 
@@ -16,7 +17,8 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
         cnn_output_dim: int = 256,
         normalized_image: bool = False,
     ) -> None:
-        # TODO we do not know features-dim here before going over all the items, so put something there. This is dirty!
+        # TODO we do not know features-dim here before going over all the items, so put
+        # something there. This is dirty!
         super().__init__(observation_space, features_dim=1)
 
         extractors: Dict[str, torch.nn.Module] = {}
@@ -24,7 +26,11 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
         total_concat_size = 0
         for key, subspace in observation_space.spaces.items():
             if is_image_space(subspace, normalized_image=normalized_image):
-                extractors[key] = MjCambrianNatureCNN(subspace, features_dim=cnn_output_dim, normalized_image=normalized_image)
+                extractors[key] = MjCambrianNatureCNN(
+                    subspace,
+                    features_dim=cnn_output_dim,
+                    normalized_image=normalized_image,
+                )
                 total_concat_size += cnn_output_dim
             else:
                 # The observation key is a vector, flatten it if needed
@@ -43,13 +49,14 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
             encoded_tensor_list.append(extractor(observations[key]))
         return torch.cat(encoded_tensor_list, dim=1)
 
+
 class MjCambrianNatureCNN(BaseFeaturesExtractor):
     """This class overrides the default CNN feature extractor of Stable Baselines 3.
 
     The default feature extractor doesn't support images smaller than 36x36 because of
     the kernel_size, stride, and padding parameters of the convolutional layers. This
     class just overrides this functionality _only_ when the observation space has an
-    image smaller than 36x36. Otherwise, it just uses the default feature extractor 
+    image smaller than 36x36. Otherwise, it just uses the default feature extractor
     logic.
     """
 
@@ -66,15 +73,18 @@ class MjCambrianNatureCNN(BaseFeaturesExtractor):
         super().__init__(observation_space, features_dim)
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
-        assert is_image_space(observation_space, check_channels=False, normalized_image=normalized_image), (
+        assert is_image_space(
+            observation_space, check_channels=False, normalized_image=normalized_image
+        ), (
             "You should use NatureCNN "
             f"only with images not with {observation_space}\n"
-            "(you are probably using `CnnPolicy` instead of `MlpPolicy` or `MultiInputPolicy`)\n"
+            "(you are probably using `CnnPolicy` instead of `MlpPolicy` "
+            "or `MultiInputPolicy`)\n"
             "If you are using a custom environment,\n"
             "please check it using our env checker:\n"
             "https://stable-baselines3.readthedocs.io/en/master/common/env_checker.html.\n"
-            "If you are using `VecNormalize` or already normalized channel-first images "
-            "you should pass `normalize_images=False`: \n"
+            "If you are using `VecNormalize` or already normalized "
+            "channel-first images you should pass `normalize_images=False`: \n"
             "https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html"
         )
 
@@ -102,9 +112,13 @@ class MjCambrianNatureCNN(BaseFeaturesExtractor):
 
         # Compute shape by doing one forward pass
         with torch.no_grad():
-            n_flatten = self.cnn(torch.as_tensor(observation_space.sample()[None]).float()).shape[1]
+            n_flatten = self.cnn(
+                torch.as_tensor(observation_space.sample()[None]).float()
+            ).shape[1]
 
-        self.linear = torch.nn.Sequential(torch.nn.Linear(n_flatten, features_dim), torch.nn.ReLU())
+        self.linear = torch.nn.Sequential(
+            torch.nn.Linear(n_flatten, features_dim), torch.nn.ReLU()
+        )
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         return self.linear(self.cnn(observations))

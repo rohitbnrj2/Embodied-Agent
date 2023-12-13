@@ -124,7 +124,7 @@ class MjCambrianBaseConfig(Generic[T]):
             yaml.dump(self.to_dict(), f)
 
     @classmethod
-    def from_dict(cls: T, dict: Dict[str, Any]):
+    def from_dict(cls: T, dict: Dict[str, Any]) -> T:
         """
         Recursively converts a dictionary into a dataclass instance.
 
@@ -203,8 +203,8 @@ class MjCambrianBaseConfig(Generic[T]):
         """Return the dataclass as a dictionary.
 
         Keyword Args:
-            remove_nones (bool): Whether to remove fields that are None or not. If False,
-                will include all fields, even if they are None.
+            remove_nones (bool): Whether to remove fields that are None or not. If 
+                False, will include all fields, even if they are None.
         """
 
         def remove_nones_fn(d: Dict[str, Any]) -> Dict[str, Any]:
@@ -351,6 +351,8 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig["MjCambrianMazeConfig"]):
 
         init_goal_pos (Optional[Tuple[float, float]]): The initial position of the goal
             in the maze. If unset, will be randomly generated.
+        eval_goal_pos (Optional[Tuple[float, float]]): The evaluation position of the
+            goal in the maze. If unset, will be randomly generated.
         use_target_light_source (bool): Whether to use a target light source or not. If
             False, the default target site will be used (a red sphere). Otherwise, a
             light source will be used. The light source is simply a spot light facing
@@ -365,6 +367,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig["MjCambrianMazeConfig"]):
     height: float
 
     init_goal_pos: Optional[Tuple[float, float]] = None
+    eval_goal_pos: Optional[Tuple[float, float]] = None
     use_target_light_source: bool
 
 
@@ -498,8 +501,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig["MjCambrianEnvConfig"]):
             animal is assumed to be "at the goal".
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
 
-        renderer_config (MjCambrianViewerConfig): The default viewer config to
-            use for the mujoco viewer.
+        add_overlays (bool): Whether to add overlays or not. 
         overlay_width (Optional[float]): The width of _each_ rendered overlay that's
             placed on the render output. This is primarily for debugging. If unset,
             no overlay will be added. This is a percentage!! It's the percentage of
@@ -508,6 +510,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig["MjCambrianEnvConfig"]):
             placed on the render output. This is primarily for debugging. If unset,
             no overlay will be added. This is a percentage!! It's the percentage of
             the total height of the render output.
+        renderer_config (MjCambrianViewerConfig): The default viewer config to
+            use for the mujoco viewer.
 
         maze_config (MjCambrianMazeConfig): The config for the maze.
     """
@@ -526,9 +530,10 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig["MjCambrianEnvConfig"]):
 
     frame_skip: int
 
-    renderer_config: MjCambrianRendererConfig
+    add_overlays: bool
     overlay_width: Optional[float] = None
     overlay_height: Optional[float] = None
+    renderer_config: MjCambrianRendererConfig
 
     maze_config: MjCambrianMazeConfig
 
@@ -687,8 +692,8 @@ class MjCambrianGenerationConfig(MjCambrianBaseConfig["MjCambrianGenerationConfi
     """Config for a generation. Used for type hinting.
 
     Attributes:
-        rank (int): The rank of the generation. A rank is a unique identifier assigned to
-            each process, where a processes is an individual evo runner running on a
+        rank (int): The rank of the generation. A rank is a unique identifier assigned 
+            to each process, where a processes is an individual evo runner running on a
             separate computer. In the context of a cluster, each node that is running
             an evo job is considered one rank, where the rank number is a unique int.
         generation (int): The generation number. This is used to uniquely identify the
@@ -769,7 +774,7 @@ class MjCambrianConfig(MjCambrianBaseConfig["MjCambrianConfig"]):
     evo_config: MjCambrianEvoConfig
 
     @classmethod
-    def from_dict(cls: T, dict: Dict[str, Any]):
+    def from_dict(cls: T, dict: Dict[str, Any]) -> T:
         """Overrides the base class method to handle includes."""
         includes = dict.pop("includes", None)
         if includes is not None:

@@ -1,5 +1,5 @@
 import argparse
-from typing import Any, List, Tuple, TYPE_CHECKING, Optional
+from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -42,8 +42,7 @@ def get_model_path(model_path: str | Path, *, throw_error: bool = True) -> Path 
 
     return model_path
 
-
-# =============
+# ============
 
 
 def evaluate_policy(
@@ -52,6 +51,7 @@ def evaluate_policy(
     num_runs: int,
     *,
     record_path: Optional[Path] = None,
+    step_callback: Optional[Callable] = None,
 ):
     """Evaluate a policy.
 
@@ -70,7 +70,14 @@ def evaluate_policy(
     from cambrian.evolution_envs.three_d.mujoco.env import MjCambrianEnv
 
     cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
-    cambrian_env.record = record_path is not None
+    if record_path is not None:
+        # don't set to record_path is not None directly cause this will delete overlays
+        cambrian_env.record = True
+    
+    prev_init_goal_pos = None
+    if (eval_goal_pos := cambrian_env.maze.config.eval_goal_pos) is not None:
+        prev_init_goal_pos = cambrian_env.maze.config.init_goal_pos
+        cambrian_env.maze.config.init_goal_pos = eval_goal_pos
 
     run = 0
     cumulative_reward = 0
@@ -86,12 +93,19 @@ def evaluate_policy(
             print(f"Run {run} done. Cumulative reward: {cumulative_reward}")
             run += 1
 
-        cambrian_env.overlays["Cumulative Reward"] = f"{cumulative_reward:.2f}"
+        if cambrian_env.config.env_config.add_overlays:
+            cambrian_env.overlays["Cumulative Reward"] = f"{cumulative_reward:.2f}"
         env.render()
+
+        if step_callback is not None:
+            step_callback()
 
     if record_path is not None:
         cambrian_env.save(record_path)
         cambrian_env.record = False
+
+    if prev_init_goal_pos is not None:
+        cambrian_env.maze.config.init_goal_pos = prev_init_goal_pos
 
 
 # =============

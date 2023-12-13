@@ -10,7 +10,6 @@ from config import MjCambrianPopulationConfig, MjCambrianConfig
 from animal import MjCambrianAnimal
 
 Fitness = float
-AnimalID = Path  # Path to the animal's directory, assumed to be unique
 
 
 class MjCambrianReplicationType(Flag):
@@ -59,15 +58,19 @@ class MjCambrianPopulation:
         self.config = config
         self.logdir = Path(logdir)
 
-        self._all_population: Dict[AnimalID, Tuple[Fitness, MjCambrianConfig]] = {}
-        self._top_performers: List[AnimalID] = []
+        self._all_population: Dict[Path, Tuple[Fitness, MjCambrianConfig]] = {}
+        self._top_performers: List[Path] = []
 
         self._replication_type = MjCambrianReplicationType[self.config.replication_type]
 
-    def add_animal(self, path_or_config: AnimalID | MjCambrianConfig, fitness: Optional[Fitness] = None):
-        if isinstance(path_or_config, AnimalID):
+    def add_animal(
+        self, path_or_config: Path | MjCambrianConfig, fitness: Optional[Fitness] = None
+    ):
+        if isinstance(path_or_config, Path):
             path = path_or_config
-            assert (path / "config.yaml").exists(), f"{path} does not contain config.yaml"
+            assert (
+                path / "config.yaml"
+            ).exists(), f"{path} does not contain config.yaml"
 
             fitness = self._calculate_fitness(path) if fitness is None else fitness
             try:
@@ -146,29 +149,20 @@ class MjCambrianPopulation:
 
         return config
 
-    def _crossover(self):
-        parent1_uid, parent2_uid = np.random.choice(self._top_performers, 2, False)
-        parent1 = self._all_population[parent1_uid][1].copy()
-        parent2 = self._all_population[parent2_uid][1].copy()
+    def _select_animals(self, num: int) -> List[MjCambrianConfig]:
+        """Selects `num` animals from the current population.
 
-        verbose = parent1.training_config.verbose
-        parent1.animal_config = MjCambrianAnimal.crossover(
-            parent1.animal_config, parent2.animal_config, verbose=verbose
-        )
-        return self._set_parent(parent1, parent1)
+        The animal is selected based on the fitness of the animal. The animal with the
+        highest fitness is selected.
+        """
+        animals = np.random.choice(self._top_performers, num, False)
+        configs = [self._set_parent(self._all_population[a][1].copy()) for a in animals]
 
-    def _mutate(self, config: Optional[MjCambrianConfig] = None):
-        if config is None:
-            animal_uid = np.random.choice(self._top_performers)
-            config = self._all_population[animal_uid][1].copy()
-        
-        verbose = config.training_config.verbose
-        animal_config = config.animal_config.copy()
-        config.animal_config = MjCambrianAnimal.mutate(animal_config, verbose=verbose)
+        return configs
 
-        return self._set_parent(config, config)
+    def _set_parent(self, config: MjCambrianConfig, parent: Optional[MjCambrianConfig] = None):
+        parent = parent if parent is not None else config
 
-    def _set_parent(self, config: MjCambrianConfig, parent: MjCambrianConfig):
         print(
             f"Selected parent from generation "
             f"{parent.evo_config.generation_config.generation} and rank "
@@ -176,6 +170,26 @@ class MjCambrianPopulation:
         )
         parent_generation_config = parent.evo_config.generation_config.copy()
         config.evo_config.parent_generation_config = parent_generation_config
+        return config
+
+    def _crossover(self):
+        parent1, parent2 = self._select_animals(2)
+
+        parent1.animal_config = MjCambrianAnimal.crossover(
+            parent1.animal_config,
+            parent2.animal_config,
+            verbose=parent1.training_config.verbose,
+        )
+        return parent1
+
+    def _mutate(self, config: Optional[MjCambrianConfig] = None):
+        if config is None:
+            config = self._select_animals(1)[0]
+
+        config.animal_config = MjCambrianAnimal.mutate(
+            config.animal_config, verbose=config.training_config.verbose
+        )
+
         return config
 
     # ========

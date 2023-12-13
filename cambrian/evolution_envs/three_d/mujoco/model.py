@@ -72,7 +72,7 @@ class MjCambrianModel(PPO):
         rollout.
         """
         with open(path, "rb") as f:
-            self._rollout = pickle.load(f)
+            self._rollout = pickle.load(f)["actions"]
 
     def predict(self, *args, **kwargs):
         if self._rollout is not None:

@@ -78,12 +78,12 @@ class MjCambrianAnimal:
 
         if config.enforce_2d:
             assert config.num_eyes_lat == 1, "Enforcing 2D requires 1 lat eye."
-            assert config.default_eye_config.resolution[1] == 1, (
-                "Enforcing 2D requires the eye height to be 1."
-            )
-            assert config.default_eye_config.fov[1] == 1, (
-                "Enforcing 2D requires the eye fov to be 1."
-            )
+            assert (
+                config.default_eye_config.resolution[1] == 1
+            ), "Enforcing 2D requires the eye height to be 1."
+            assert (
+                config.default_eye_config.fov[1] == 1
+            ), "Enforcing 2D requires the eye fov to be 1."
 
         config.model_path = get_model_path(config.model_path)
 
@@ -224,18 +224,20 @@ class MjCambrianAnimal:
         # resolution of the intensity sensor.
         if (
             self.config.use_intensity_obs
+            and len(self._eyes) > 0
             and min(self.config.default_eye_config.resolution[:2]) > 3
         ):
-            self.config.intensity_sensor_config.resolution = [
-                max(self.config.intensity_sensor_config.resolution[0], 4),
-                max(self.config.intensity_sensor_config.resolution[1], 4),
-            ]
+            print("WARNING: Increasing intensity sensor resolution.")
+            w = max(self.config.intensity_sensor_config.resolution[0], 4)
+            h = max(self.config.intensity_sensor_config.resolution[1], 4)
+            h = h if not self.config.enforce_2d else 1
+            self.config.intensity_sensor_config.resolution = [w, h]
 
         # Add a forward facing eye intensity sensor
         self._intensity_sensor = self._create_eye(
             self.config.intensity_sensor_config.copy(),
             f"{self.name}_intensity_sensor",
-            np.radians(self.config.intensity_sensor_config.fov[1]) / 2,
+            np.radians(eyes_lat_range.mean()),
             np.pi / 2,
         )
         if self.config.use_intensity_obs:
@@ -585,9 +587,9 @@ class MjCambrianAnimal:
 
         # Randomly select the number of mutations to perform with a skewed dist
         # This will lean towards less total mutations generally
-        p = np.exp(-np.arange(len(MjCambrianAnimal.MutationType)))
+        p = np.exp(-np.arange(len(mutation_options)))
         num_of_mutations = np.random.choice(np.arange(1, len(p) + 1), p=p / p.sum())
-        mutations = np.random.choice(mutation_options, num_of_mutations, replace=False)
+        mutations = np.random.choice(mutation_options, num_of_mutations, False)
         mutations = reduce(lambda x, y: x | y, mutations)
 
         if verbose > 1:
@@ -650,6 +652,15 @@ class MjCambrianAnimal:
             print(f"Mutated animal: \n{config}")
 
         return config
+
+    @staticmethod
+    def crossover(
+        parent1: MjCambrianAnimalConfig,
+        parent2: MjCambrianAnimalConfig,
+        *,
+        verbose: int = 0,
+    ) -> MjCambrianAnimalConfig:
+        raise NotImplementedError("Crossover not implemented.")
 
 
 if __name__ == "__main__":

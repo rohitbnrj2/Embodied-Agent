@@ -81,10 +81,11 @@ class MjCambrianEnv(gym.Env):
 
         self._episode_step = 0
         self._max_episode_steps = self.config.training_config.max_episode_steps
-        self._overlays: Dict[str, Any] = {}
+        self._num_resets = 0
 
         self._record: bool = False
-        self._rollout: List[Dict[str, Any]] = []
+        self._rollout: Dict[str, Any] = {}
+        self._overlays: Dict[str, Any] = {}
 
         self._reward_fn = self._get_reward_fn(self.env_config.reward_fn_type)
 
@@ -215,8 +216,9 @@ class MjCambrianEnv(gym.Env):
             self.renderer.reset(self.model, self.data)
 
         self._episode_step = 0
-        self._overlays.clear()
+        self._num_resets += 1
         if not self.record:
+            self._overlays.clear()
             self._rollout.clear()
 
         return obs, info
@@ -268,10 +270,14 @@ class MjCambrianEnv(gym.Env):
 
         self._episode_step += 1
 
-        self._overlays["Step"] = self._episode_step
+        if not self.config.env_config.add_overlays:
+            self._overlays["Step"] = self._episode_step
 
         if self.record:
-            self._rollout.append(list(action.values()))
+            self._rollout.setdefault("actions", []).append(list(action.values()))
+            self._rollout.setdefault("positions", []).append(
+                [a.pos for a in self.animals.values()]
+            )
 
         return obs, reward, terminated, truncated, info
 
@@ -384,8 +390,14 @@ class MjCambrianEnv(gym.Env):
 
         cursor = MjCambrianCursor(x=0, y=renderer_height - TEXT_MARGIN * 2)
         for key, value in self._overlays.items():
-            cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
-            overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
+            if issubclass(type(value), MjCambrianViewerOverlay):
+                overlays.append(value)
+            else:
+                cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
+                overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
+
+        if not self.config.env_config.add_overlays:
+            return self.renderer.render(overlays=overlays)
 
         cursor = MjCambrianCursor(0, 0)
         for i, (name, animal) in enumerate(self.animals.items()):
@@ -398,7 +410,8 @@ class MjCambrianEnv(gym.Env):
             composite = animal.create_composite_image()
             intensity = animal.intensity_sensor.last_obs
             if composite is None:
-                continue
+                # Make the composite image black so we can still render other overlays
+                composite = np.zeros((*overlay_size, 3), dtype=np.uint8)
 
             # NOTE: flipud here since we always flipud when copying buffer from gpu,
             # and when reading the buffer again after drawing the overlay, it will be
@@ -436,6 +449,21 @@ class MjCambrianEnv(gym.Env):
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
 
         return renderer.render(overlays=overlays)
+
+    @property
+    def episode_step(self) -> int:
+        """Returns the current episode step."""
+        return self._episode_step
+
+    @property
+    def num_resets(self) -> int:
+        """Returns the number of resets."""
+        return self._num_resets
+
+    @property
+    def max_episode_steps(self) -> int:
+        """Returns the max episode steps."""
+        return self._max_episode_steps
 
     @property
     def overlays(self) -> Dict[str, Any]:
@@ -516,12 +544,16 @@ class MjCambrianEnv(gym.Env):
         self._record = value
         self.renderer.record = value
 
+        if not self.record:
+            self._rollout.clear()
+
     def save(self, path: str | Path):
         """Saves the simulation output to the given path."""
         self.renderer.save(path)
 
         print(f"Saving rollout to {path.with_suffix('.pkl')}")
-        pickle.dump(self._rollout, open(path.with_suffix(".pkl"), "wb"))
+        with open(path.with_suffix(".pkl"), "wb") as f:
+            pickle.dump(self._rollout, f)
         print(f"Saved rollout to {path.with_suffix('.pkl')}")
 
     def _is_at_goal(self, animal: MjCambrianAnimal) -> bool:
@@ -534,43 +566,11 @@ class MjCambrianEnv(gym.Env):
     # ================
     # Reward Functions
 
-    class _RewardType(str, Enum):
-        EUCLIDEAN = "euclidean"
-        DELTA_EUCLIDEAN = "delta_euclidean"
-        DELTA_EUCLIDEAN_W_MOVEMENT = "delta_euclidean_w_movement"
-        DISTANCE_ALONG_PATH = "distance_along_path"
-        INTENSITY_SENSOR = "intensity_sensor"
-        INTENSITY_AND_VELOCITY = "intensity_and_velocity"
-        INTENSITY_EUCLIDEAN_AND_AT_GOAL = "intensity_euclidean_and_at_goal"
-        INTENSITY_AND_AT_GOAL = "intensity_and_at_goal"
-        INTENSITY_SENSOR_AND_EUCLIDEAN = "intensity_sensor_and_euclidean"
-        SPARSE = "sparse"
-
     def _get_reward_fn(self, reward_fn_type: str):
         assert reward_fn_type is not None, "reward_fn_type must be set"
-        reward_fn_type = self._RewardType(reward_fn_type)
-        if reward_fn_type == self._RewardType.EUCLIDEAN:
-            return self._reward_fn_euclidean
-        elif reward_fn_type == self._RewardType.DELTA_EUCLIDEAN:
-            return self._reward_fn_delta_euclidean
-        elif reward_fn_type == self._RewardType.DELTA_EUCLIDEAN_W_MOVEMENT:
-            return self._reward_fn_delta_euclidean_w_movement
-        elif reward_fn_type == self._RewardType.DISTANCE_ALONG_PATH:
-            return self._reward_fn_distance_along_path
-        elif reward_fn_type == self._RewardType.INTENSITY_SENSOR:
-            return self._reward_fn_intensity_sensor
-        elif reward_fn_type == self._RewardType.INTENSITY_AND_VELOCITY:
-            return self._reward_fn_intensity_and_velocity
-        elif reward_fn_type == self._RewardType.INTENSITY_EUCLIDEAN_AND_AT_GOAL:
-            return self._reward_fn_intensity_euclidean_and_at_goal
-        elif reward_fn_type == self._RewardType.INTENSITY_AND_AT_GOAL:
-            return self._reward_fn_intensity_and_at_goal
-        elif reward_fn_type == self._RewardType.INTENSITY_SENSOR_AND_EUCLIDEAN:
-            return self._reward_fn_intensity_and_euclidean
-        elif reward_fn_type == self._RewardType.SPARSE:
-            return self._reward_fn_sparse
-        else:
-            raise ValueError(f"Unrecognized reward_fn_type {reward_fn_type}")
+        fn_name = f"_reward_fn_{reward_fn_type}"
+        assert hasattr(self, fn_name), f"Unrecognized reward_fn_type {reward_fn_type}"
+        return getattr(self, fn_name)
 
     def _reward_fn_euclidean(
         self,
@@ -581,6 +581,15 @@ class MjCambrianEnv(gym.Env):
         current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
         initial_distance_to_goal = np.linalg.norm(animal.init_pos - self.maze.goal)
         return 1 - current_distance_to_goal / initial_distance_to_goal
+
+    def _reward_fn_euclidean_and_at_goal(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """This reward combines `reward_fn_euclidean` and `reward_fn_sparse`."""
+        euclidean_reward = self._reward_fn_euclidean(animal, info)
+        return 1 if self._is_at_goal(animal) else euclidean_reward
 
     def _reward_fn_delta_euclidean(
         self,
@@ -615,6 +624,17 @@ class MjCambrianEnv(gym.Env):
         idx = np.argmin(np.linalg.norm(path[:-1] - animal.pos, axis=1))
         return accum_path_len[idx] / accum_path_len[-1]
 
+    def _reward_fn_delta_distance_along_path(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """Rewards the distance along the optimal path to the goal."""
+        path, accum_path_len = self._optimal_animal_paths[animal.name]
+        idx = np.argmin(np.linalg.norm(path[:-1] - animal.pos, axis=1))
+        prev_idx = np.argmin(np.linalg.norm(path[:-1] - info["prev_pos"], axis=1))
+        return (accum_path_len[idx] - accum_path_len[prev_idx]) / accum_path_len[-1]
+
     def _reward_fn_intensity_sensor(
         self,
         animal: MjCambrianAnimal,
@@ -625,15 +645,10 @@ class MjCambrianEnv(gym.Env):
         """The reward is the grayscaled intensity of the a intensity sensor taken to
         the power of some gamma value multiplied by a
         scale factor (1 / max_episode_steps).
-
-        TODO (aryoung): Can we just use np.mean instead of np.sum and dividing by
-        num_pixels? unsure since scaling factor comes outside of power.
         """
         assert "intensity" in info
-        num_pixels = info["intensity"].shape[0] * info["intensity"].shape[1]
-        scaling_factor = 1 / num_pixels
-        intensity = np.sum(info["intensity"]) / 3.0 / 255.0
-        return (intensity**gamma) * scaling_factor
+        intensity = np.mean(info["intensity"]) / 255.0
+        return intensity ** gamma
 
     def _reward_fn_intensity_and_velocity(
         self,
@@ -667,7 +682,7 @@ class MjCambrianEnv(gym.Env):
         in terms of euclidean distance to the goal. But if it's within this threshold,
         then the reward is 1."""
         intensity_reward = self._reward_fn_intensity_sensor(animal, info)
-        return 1 if self._is_at_goal(animal) else intensity_reward
+        return 3 if self._is_at_goal(animal) else intensity_reward
 
     def _reward_fn_intensity_and_euclidean(
         self,
@@ -713,11 +728,6 @@ if __name__ == "__main__":
         help="Whether to use the mujoco viewer.",
         default=False,
     )
-    parser.add_argument(
-        "--supercloud",
-        action="store_true",
-        help="Whether to run it on supercloud.",
-    )
 
     parser.add_argument(
         "-t",
@@ -733,16 +743,14 @@ if __name__ == "__main__":
         "Don't specify an extension. If not specified, will not record.",
         default=None,
     )
+    parser.add_argument(
+        "--record-composites",
+        action="store_true",
+        help="Whether to record the composite image in addition to the full rendered "
+        "image. Only used if `--record-path` is specified.",
+    )
 
     args = parser.parse_args()
-
-    if args.supercloud:
-        del mj
-        import os
-
-        os.environ["MUJOCO_GL"] = "egl"
-
-        import mujoco as mj
 
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
     env = MjCambrianEnv(config, use_renderer=not args.mj_viewer)
@@ -752,24 +760,48 @@ if __name__ == "__main__":
     if args.mj_viewer:
         import mujoco.viewer
 
-        with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
+        with mujoco.viewer.launch_passive(
+            env.model, env.data, show_left_ui=False, show_right_ui=False
+        ) as viewer:
             while viewer.is_running():
                 mj.mj_step(env.model, env.data)
                 viewer.sync()
     else:
+        record_composites = False
         if args.record_path is not None:
             assert (
                 args.total_timesteps < np.inf
             ), "Must specify `-t\--total-timesteps` if recording."
             env.renderer.record = True
+            if args.record_composites:
+                record_composites = True
+                composites = {k: [] for k in env.animals}
 
         while env.renderer.is_running() and env._episode_step < args.total_timesteps:
             env.step(env.action_spaces.sample())
             env.render()
+            if record_composites:
+                for name, animal in env.animals.items():
+                    composite = animal.create_composite_image()
+                    resized_composite = resize_with_aspect_fill(
+                        composite, composite.shape[0] * 20, composite.shape[1] * 20
+                    )
+                    composites[name].append(resized_composite)
         env.close()
 
         if args.record_path is not None:
             env.renderer.save(args.record_path)
             print(f"Saved video to {args.record_path}")
+            if record_composites:
+                import imageio
+
+                for name, composite in composites.items():
+                    path = f"{args.record_path}_{name}_composites"
+                    imageio.mimwrite(
+                        f"{path}.gif",
+                        composite,
+                        duration=1000 * 1 / 30,
+                    )
+                    imageio.imwrite(f"{path}.png", composite[-1])
 
     print("Exiting...")

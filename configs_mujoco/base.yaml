@@ -22,7 +22,7 @@ training_config:
   max_no_improvement_evals: 10 # check_freq * max_no_improvement_evals steps
   min_no_improvement_evals: 10 # check_freq * min_no_improvement_evals steps
 
-  seed: 242424
+  seed: 424242
   verbose: 2
 
 env_config:
@@ -36,13 +36,13 @@ env_config:
   use_goal_obs: False
   terminate_at_goal: False
   truncate_on_contact: False
-  distance_to_goal_threshold: 1.0
+  distance_to_goal_threshold: 2.0
 
   frame_skip: 10
 
+  add_overlays: True
   overlay_width: 0.5
   overlay_height: 0.35
-
   renderer_config:
     render_modes: ["rgb_array"]
 
@@ -50,7 +50,7 @@ env_config:
     fullscreen: False
     fps: 50
 
-    use_shared_context: False
+    use_shared_context: True
 
   maze_config:
     name: "MANY_GOAL_MAZE" 
@@ -83,7 +83,7 @@ animal_config:
     filter_size: [0, 0]
     renderer_config:
       render_modes: ["rgb_array"]
-      use_shared_context: False
+      use_shared_context: True
 
 evo_config:
   population_config:

@@ -3,8 +3,8 @@ includes:
   animal: configs_mujoco/animals/ant.yaml
 
 animal_config:
-  num_eyes_lat: 20
-  num_eyes_lon: 20
+  num_eyes_lat: 10
+  num_eyes_lon: 10
   default_eye_config:
     resolution: [10, 10]
     fov: [45, 30]

@@ -114,14 +114,14 @@ class MjCambrianTrainer:
                 settings. This is provided by Stable Baselines.
         """
         callbacks_on_new_best = []
-        callbacks_on_new_best.append(
-            SaveVideoCallback(
-                eval_env,
-                self.logdir,
-                self.config.training_config.max_episode_steps,
-                verbose=self.verbose,
-            )
-        )
+        # callbacks_on_new_best.append(
+        #     SaveVideoCallback(
+        #         eval_env,
+        #         self.logdir,
+        #         self.config.training_config.max_episode_steps,
+        #         verbose=self.verbose,
+        #     )
+        # )
         callbacks_on_new_best.append(
             StopTrainingOnNoModelImprovement(
                 self.config.training_config.max_no_improvement_evals,
@@ -131,6 +131,20 @@ class MjCambrianTrainer:
         )
         callbacks_on_new_best = CallbackListWithSharedParent(callbacks_on_new_best)
 
+        callbacks_after_eval = []
+        callbacks_after_eval.append(
+            PlotEvaluationCallback(self.logdir, verbose=self.verbose)
+        )
+        callbacks_after_eval.append(
+            SaveVideoCallback(
+                eval_env,
+                self.logdir,
+                self.config.training_config.max_episode_steps,
+                verbose=self.verbose,
+            )
+        )
+        callbacks_after_eval = CallbackListWithSharedParent(callbacks_after_eval)
+
         eval_cb = EvalCallback(
             env,
             best_model_save_path=self.logdir,
@@ -139,7 +153,7 @@ class MjCambrianTrainer:
             deterministic=True,
             render=False,
             callback_on_new_best=callbacks_on_new_best,
-            callback_after_eval=PlotEvaluationCallback(self.logdir),
+            callback_after_eval=callbacks_after_eval,
         )
 
         progress_bar_callback = MjCambrianProgressBarCallback()

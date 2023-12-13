@@ -4,13 +4,13 @@
       data="0.0 0.0 0.55 1.0 0.0 0.0 0.0 0.0 1.0 0.0 -1.0 0.0 -1.0 0.0 1.0" />
   </custom>
   <asset>
-    <material name="torso_mat" emission="0.1" rgba="0.8 0.6 0.4 1" />
+    <material name="geom_mat" emission="0.1" rgba="0.8 0.6 0.4 1" />
   </asset>
   <default>
     <default class="ant">
       <joint limited="true" armature="1" damping="1" />
       <geom condim="3" conaffinity="0" margin="0.01" friction="1 0.5 0.5" solref=".02 1"
-        solimp=".8 .8 .01" density="5.0" material="torso_mat" />
+        solimp=".8 .8 .01" density="5.0" material="geom_mat" />
     </default>
   </default>
   <worldbody>

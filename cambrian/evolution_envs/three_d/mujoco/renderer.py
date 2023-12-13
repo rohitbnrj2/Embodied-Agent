@@ -299,20 +299,34 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
 
 
 class MjCambrianOnscreenViewer(MjCambrianViewer):
-    def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
+    def __init__(self, config: MjCambrianRendererConfig):
+        super().__init__(config)
+
         self.config.setdefault("resizeable", False)
         self.config.setdefault("fullscreen", False)
 
+        self.window = None
+        self.default_window_pos: Tuple[int, int] = None
+        self._scale: float = None
+
+        self._last_mouse_x: int = None
+        self._last_mouse_y: int = None
+        self._is_paused: bool = None
+
+    def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
         self._last_mouse_x: int = 0
         self._last_mouse_y: int = 0
         self._is_paused: bool = False
 
-        glfw.init()
+        if self.window is None:
+            glfw.init()
 
-        glfw.window_hint(glfw.RESIZABLE, int(self.config.resizeable))
-        glfw.window_hint(glfw.VISIBLE, 1)
-        self.window = glfw.create_window(width, height, "MjCambrian", None, None)
-        self.default_window_pos = glfw.get_window_pos(self.window)
+            glfw.window_hint(glfw.RESIZABLE, int(self.config.resizeable))
+            glfw.window_hint(glfw.VISIBLE, 1)
+            self.window = glfw.create_window(width, height, "MjCambrian", None, None)
+            self.default_window_pos = glfw.get_window_pos(self.window)
+        else:
+            glfw.set_window_size(self.window, width, height)
         self.fullscreen(self.config.fullscreen)
 
         super().reset(model, data, width, height)
@@ -327,6 +341,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
         mj.mjr_setBuffer(mj.mjtFramebuffer.mjFB_WINDOW, self._mjr_context)
         glfw.swap_interval(1)
+
 
     def make_context_current(self):
         super().make_context_current()
@@ -546,11 +561,7 @@ class MjCambrianRenderer:
         print(f"Saving visualizations at {path}...")
 
         path = Path(path)
-        rgb_buffer = np.array(self._rgb_buffer)
-        if "gif" in save_types:
-            duration = 1000 / self.config.fps
-            gif = path.with_suffix(".gif")
-            imageio.mimwrite(gif, rgb_buffer, loop=0, duration=duration)
+        rgb_buffer = np.array(self._rgb_buffer[:-1])
         if "mp4" in save_types:
             mp4 = path.with_suffix(".mp4")
             writer = imageio.get_writer(mp4, fps=self.config.fps)
@@ -560,6 +571,10 @@ class MjCambrianRenderer:
         if "png" in save_types:
             png = path.with_suffix(".png")
             imageio.imwrite(png, rgb_buffer[-1])
+        if "gif" in save_types:
+            duration = 1000 / self.config.fps
+            gif = path.with_suffix(".gif")
+            imageio.mimwrite(gif, rgb_buffer, loop=0, duration=duration)
 
         print(f"Saved visualization at {path}")
 

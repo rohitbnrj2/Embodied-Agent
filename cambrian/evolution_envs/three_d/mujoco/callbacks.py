@@ -2,6 +2,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
+import shutil
 
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import (
@@ -14,7 +15,6 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from env import MjCambrianEnv
 from renderer import MjCambrianRenderer
-from cambrian.evolution_envs.three_d.mujoco.animal_pool import MjCambrianAnimalPool
 from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
 
 
@@ -116,35 +116,16 @@ class SaveVideoCallback(BaseCallback):
         self.cambrian_env.overlays["Best Mean Reward"] = f"{best_mean_reward:.2f}"
         self.cambrian_env.overlays["Total Timesteps"] = f"{self.num_timesteps}"
 
-        filename = f"vis_{self.n_calls}"
+        filename = Path(f"vis_{self.n_calls}")
         evaluate_policy(
             self.env, self.parent.model, 1, record_path=self.evaldir / filename
         )
 
+        # Copy the most recent gif to latest.gif so that we can just watch this file
+        latest_filename = self.evaldir / "latest.gif"
+        shutil.copy(self.evaldir / filename.with_suffix(".gif"), latest_filename)
+
         return True
-
-
-class MjCambrianAnimalPoolCallback(BaseCallback):
-    parent: EvalCallback
-
-    def __init__(
-        self,
-        env: DummyVecEnv,
-        animal_pool: MjCambrianAnimalPool,
-        *,
-        verbose: int = 0,
-    ):
-        super().__init__(verbose)
-
-        self.env = env.envs[0]
-        self.cambrian_env: MjCambrianEnv = self.env.unwrapped
-        self.animal_pool = animal_pool
-
-    def _on_step(self) -> bool:
-        if self.parent is not None:
-            self.animal_pool.write_to_pool(
-                self.parent.best_mean_reward, self.cambrian_env.config.copy()
-            )
 
 
 class MjCambrianProgressBarCallback(ProgressBarCallback):
@@ -156,8 +137,6 @@ class MjCambrianProgressBarCallback(ProgressBarCallback):
     def __del__(self):
         """This string will restore the terminal back to its original state."""
         print("\x1b[?25h")
-        if hasattr(self, "pbar"):
-            self._on_training_end()
 
 
 class CallbackListWithSharedParent(CallbackList):

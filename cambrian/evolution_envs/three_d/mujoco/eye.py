@@ -85,7 +85,7 @@ class MjCambrianEye:
             scale_factor_width = padded_width / original_width
             scale_factor_height = padded_height / original_height
 
-            # sensorsize = (2 * focal * tan(fov / 2)
+            # sensorsize = 2 * focal * tan(fov / 2)
             fovx, fovy = config.fov
             focalx, focaly = config.focal
             config.sensorsize = [

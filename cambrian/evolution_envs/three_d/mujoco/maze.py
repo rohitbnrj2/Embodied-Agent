@@ -15,7 +15,7 @@ RESET = R = "r"  # Initial Reset position of the agent
 GOAL = G = "g"
 COMBINED = C = "c"  # These cells can be selected as goal or reset locations
 WALL = W = "1"
-FREE = F = "0"
+EMPTY = E = "0"
 
 
 EMPTY_MAZE = [
@@ -93,39 +93,48 @@ MEDIUM_MAZE_DIVERSE_GR = [
 ]
 
 LARGE_MAZE = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-    [1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1],
-    [1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1],
-    [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 0, 0, 1, 0, 1],
+    [1, 0, 1, 0, 1, 0, 0, 0, 1],
+    [1, 0, 1, 0, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 1, 1, 0, 1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 0, 1, 0, 1, 0, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 1, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1],
 ]
 
 LARGE_MAZE_DIVERSE_G = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, R, 0, 0, 0, 1, G, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 0, 0, 0, G, 0, 1, 0, 0, G, 1],
-    [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-    [1, 0, G, 1, 0, 1, 0, 0, 0, 0, 0, 1],
-    [1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1],
-    [1, 0, 0, 1, G, 0, G, 1, 0, G, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, R, 0, 0, 0, 0, 1, 0, 1],
+    [1, 0, 1, 0, 1, G, 0, 0, 1],
+    [1, 0, 1, 0, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, G, 1],
+    [1, 1, 1, G, 1, 1, 1, 0, 1],
+    [1, G, 0, 0, 0, 0, 0, G, 1],
+    [1, 0, 1, 1, 1, 0, 1, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 0, 1, 0, 1, 0, 1, G, 1],
+    [1, 0, 0, G, 0, 0, 1, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1],
 ]
 
 LARGE_MAZE_DIVERSE_GR = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, C, 0, 0, 0, 1, C, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 0, 0, 0, C, 0, 1, 0, 0, C, 1],
-    [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-    [1, 0, C, 1, 0, 1, 0, 0, 0, 0, 0, 1],
-    [1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1],
-    [1, 0, 0, 1, C, 0, C, 1, 0, C, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, C, 0, 0, 0, 0, 1, 0, 1],
+    [1, 0, 1, 0, 1, C, 0, 0, 1],
+    [1, 0, 1, 0, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, C, 1],
+    [1, 1, 1, C, 1, 1, 1, 0, 1],
+    [1, C, 0, 0, 0, 0, 0, C, 1],
+    [1, 0, 1, 1, 1, 0, 1, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 0, 1, 0, 1, 0, 1, C, 1],
+    [1, 0, 0, C, 0, 0, 1, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1],
 ]
 
 # ================
@@ -149,6 +158,33 @@ MANY_GOAL_MAZE = [
     [1, G, G, G, G, 1],
     [1, G, G, G, G, 1],
     [1, 1, 1, 1, 1, 1],
+]
+
+# Augmented U_MAZE but has one reset position
+MEDIUM_MAZE_STATIC = [
+    [1, 1, 1, 1, 1, 1, 1, 1],
+    [1, R, 0, 1, 1, 0, 0, 1],
+    [1, 0, 0, 1, 0, 0, 0, 1],
+    [1, 1, 0, 0, 0, 1, 1, 1],
+    [1, 0, 0, 1, 0, 0, 0, 1],
+    [1, 0, 1, 0, 0, 1, 0, 1],
+    [1, 0, 0, 0, 1, 0, G, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1],
+]
+
+LARGE_MAZE_STATIC = [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, R, 0, 0, 0, 0, 1, 0, 1],
+    [1, 0, 1, 0, 1, 0, 0, 0, 1],
+    [1, 0, 1, 0, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 1, 1, 0, 1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 0, 1, 0, 1, 0, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 1, G, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1],
 ]
 
 # ================
@@ -235,7 +271,7 @@ class MjCambrianMaze(Maze):
         self._data = data
 
         self.goal = (
-            self.cell_rowcol_to_xy(self._config.init_goal_pos)
+            np.array(self.cell_rowcol_to_xy(self._config.init_goal_pos))
             if self._config.init_goal_pos
             else self.generate_target_goal()
         )
@@ -352,7 +388,7 @@ class MjCambrianMaze(Maze):
                     maze._unique_goal_locations.append(np.array([x, y]))
                 elif struct == COMBINED:
                     maze._combined_locations.append(np.array([x, y]))
-                elif struct == 0:
+                elif struct == EMPTY:
                     empty_locations.append(np.array([x, y]))
 
         # Add the combined cell locations (goal/reset) to goal and reset
@@ -426,7 +462,7 @@ class MjCambrianMaze(Maze):
                 ):
                     # If the movement is diagonal, check that the adjacent cells are
                     # free as well so the path doesn't clip through walls
-                    pr, pc = current[0], current[0]
+                    pr, pc = current[0], current[1]
                     if (dr, dc) in moves[4:]:
                         if self.maze_map[r][pc] == WALL or self.maze_map[pr][c] == WALL:
                             continue
@@ -436,10 +472,23 @@ class MjCambrianMaze(Maze):
 
         return None
 
+    @property
+    def config(self) -> MjCambrianMazeConfig:
+        """Returns the config."""
+        return self._config
+
 
 if __name__ == "__main__":
-    maze, xml = MjCambrianMaze.make_maze(
-        MjCambrianMazeConfig(use_target_light_source=True)
-    )
+    import time
 
+    config = MjCambrianMazeConfig(use_target_light_source=True)
+    maze, xml = MjCambrianMaze.make_maze(config)
     print(xml)
+
+    start = maze.generate_reset_pos()
+    goal = maze.generate_target_goal()
+
+    t0 = time.time()
+    path = maze.compute_optimal_path(start, goal)
+    t1 = time.time()
+    print(f"Time taken: {t1 - t0:.3f}s")
