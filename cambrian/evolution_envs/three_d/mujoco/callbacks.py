@@ -16,7 +16,6 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy
 from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
 from cambrian.evolution_envs.three_d.mujoco.env import MjCambrianEnv
 from cambrian.evolution_envs.three_d.mujoco.renderer import MjCambrianRenderer
-from cambrian.evolution_envs.three_d.mujoco.animal_pool import MjCambrianAnimalPool
 from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
 
 
