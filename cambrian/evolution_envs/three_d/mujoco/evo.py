@@ -4,8 +4,6 @@ import subprocess
 import threading
 from pathlib import Path
 
-from stable_baselines3.common.utils import set_random_seed
-
 from config import MjCambrianConfig, MjCambrianGenerationConfig
 from population import MjCambrianPopulation
 
@@ -113,11 +111,16 @@ class MjCambrianEvoRunner:
         #     parent_logdir = self.logdir / parent.to_path()
         #     if (policy_path := parent_logdir / "policy.pt").exists():
         #         config.training_config.policy_path = str(policy_path)
-        if (max_n_envs := config.evo_config.max_n_envs) is not None:
-            n_envs = max_n_envs // self.population.size
-            if self.verbose > 1:
-                print(f"Setting n_envs to {n_envs}")
-            config.training_config.n_envs = n_envs
+
+        # Set n_envs to be the max_n_envs divided by the population size
+        n_envs = config.evo_config.max_n_envs // self.population.size
+        if self.verbose > 1:
+            print(f"Setting n_envs to {n_envs}")
+        config.training_config.n_envs = n_envs
+
+        # Set the total timesteps to be the total timesteps divided by the number of
+        # envs. This maintains the sample efficiency as n_envs increases.
+        config.training_config.total_timesteps = config.evo_config.total_timesteps // n_envs
 
         # Save the config
         config.write_to_yaml(generation_logdir / "config.yaml")

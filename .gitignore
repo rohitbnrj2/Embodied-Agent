@@ -6,6 +6,6 @@ log*/
 *.egg-info*/
 .*.swp
 *.sh.*
-*.ipynb_checkpoints/
+.ipynb_checkpoints/
 out*
 MUJOCO_LOG.TXT

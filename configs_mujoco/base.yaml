@@ -40,6 +40,7 @@ env_config:
 
   frame_skip: 10
 
+  use_renderer: True
   add_overlays: True
   overlay_width: 0.5
   overlay_height: 0.35
@@ -76,6 +77,8 @@ animal_config:
     renderer_config:
       render_modes: ["rgb_array"]
       use_shared_context: True
+  
+  disable_intensity_sensor: False
   intensity_sensor_config:
     mode: "fixed"
     resolution: [1, 1]
@@ -86,6 +89,9 @@ animal_config:
       use_shared_context: True
 
 evo_config:
+  max_n_envs: 10
+  total_timesteps: 1_000_000 # training_config.total_timesteps = total_timesteps // n_envs
+
   population_config:
     size: 4
     num_top_performers: 2

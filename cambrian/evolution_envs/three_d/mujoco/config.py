@@ -501,6 +501,9 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig["MjCambrianEnvConfig"]):
             animal is assumed to be "at the goal".
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
 
+        use_renderer (bool): Whether to use the renderer. Should set to False if
+            `render` will never be called. Defaults to True. This is useful to reduce
+            the amount of vram consumed by non-rendering environments.
         add_overlays (bool): Whether to add overlays or not. 
         overlay_width (Optional[float]): The width of _each_ rendered overlay that's
             placed on the render output. This is primarily for debugging. If unset,
@@ -530,6 +533,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig["MjCambrianEnvConfig"]):
 
     frame_skip: int
 
+    use_renderer: bool
     add_overlays: bool
     overlay_width: Optional[float] = None
     overlay_height: Optional[float] = None
@@ -658,6 +662,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
             animal's bounding sphere.
         default_eye_config (MjCambrianEyeConfig): The default eye config to use for the
             eyes.
+
+        disable_intensity_sensor (bool): Whether to disable the intensity sensor or not.
         intensity_sensor_config (MjCambrianEyeConfig): The eye config to use for the
             intensity sensor.
     """
@@ -684,6 +690,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
     eyes_lat_range: Tuple[float, float]
     eyes_lon_range: Tuple[float, float]
     default_eye_config: MjCambrianEyeConfig
+
+    disable_intensity_sensor: bool
     intensity_sensor_config: MjCambrianEyeConfig
 
 
@@ -732,10 +740,13 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig["MjCambrianEvoConfig"]):
     """Config for evolutions. Used for type hinting.
 
     Attributes:
-        max_n_envs (Optional[int]): The maximum number of environments to use for
-            parallel training. If None, will use the `training_config.n_envs` var. If
-            set, will set `n_envs` for each training process to 
+        max_n_envs (int): The maximum number of environments to use for
+            parallel training. Will set `n_envs` for each training process to 
             `max_n_envs // population size`.
+        total_timesteps (int): The total number of timesteps to train for. 
+            Will set `total_timesteps` for each training process to `total_timesteps //
+            n_envs`.
+
 
         num_generations (int): The number of generations to run for.
 
@@ -752,7 +763,8 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig["MjCambrianEvoConfig"]):
             set for the training process. 
     """
 
-    max_n_envs: Optional[int] = None
+    max_n_envs: int
+    total_timesteps: int
     
     num_generations: int
 
@@ -771,7 +783,7 @@ class MjCambrianConfig(MjCambrianBaseConfig["MjCambrianConfig"]):
     training_config: MjCambrianTrainingConfig
     env_config: MjCambrianEnvConfig
     animal_config: MjCambrianAnimalConfig
-    evo_config: MjCambrianEvoConfig
+    evo_config: Optional[MjCambrianEvoConfig] = None
 
     @classmethod
     def from_dict(cls: T, dict: Dict[str, Any]) -> T:

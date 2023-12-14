@@ -1,0 +1,55 @@
+<mujoco model="scene">
+    <compiler assetdir="/home/aaron/Pseudos/mit/robobees/EyesOfCambrian/cambrian/evolution_envs/three_d/mujoco/models/assets" angle="degree" coordinate="local" inertiafromgeom="true" />
+    <option density="1000" integrator="implicitfast" timestep="0.02" viscosity="1.8e-5" />
+    <visual>
+        <map znear="0.001" zfar="3" />
+        <scale frustum="40" />
+        <rgba camera="0.6 0.9 0.6 1" />
+    </visual>
+    <asset>
+        <texture type="skybox" builtin="gradient" width="100" height="100" rgb1="0 0 0" rgb2="0 0 0" />
+    <material name="particle_mat" emission="1" rgba="0.3 0.6 0.3 1" />
+      
+  <material name="particle_direction_mat" emission="1" rgba="0.6 0.3 0.3 1" />
+    
+ <texture name="checker_tex_cube" file="checker_texture.png" type="cube" />
+        <texture name="checker_tex_2d" file="checker_texture.png" type="2d" />
+
+        
+        <material name="floor_mat" rgba="0.1 0.1 0.1 1.0" shininess="0.0" specular="0.0" texrepeat="0.5 0.5" />
+        <material name="target_mat" emission="5" />
+        <material name="block_mat" texture="checker_tex_cube" />
+    </asset>
+    <worldbody><body name="particle_0" pos="0 0 0.2">
+         
+   <geom name="particle_geom_0" type="sphere" size="0.2" rgba="0.0 0.0 1.0 0.0" contype="1" friction=".5 .1 .1" density="1000" margin="0.002" condim="1" conaffinity="1" group="2" />
+         
+   <site name="particle_site_0" pos="0.0 0.0 0.0" material="particle_mat" size="0.2" />
+         
+   <joint name="ball_x_0" type="slide" pos="0 0 0" axis="1 0 0" damping="1" limited="false" />
+         
+   <joint name="ball_y_0" type="slide" pos="0 0 0" axis="0 1 0" damping="1" limited="false" />
+         
+   <joint name="ball_z_0" type="hinge" pos="0 0 0" axis="0 0 1" damping="1" limited="false" />
+         
+   <site name="particle_direction_site_0" group="2" pos="0.3 0.0 0.0" quat="0.5 0.5 0.5 0.5" type="cylinder" material="particle_direction_mat" rgba="1.0 0.0 0.0 1.0" size="0.05 0.15" />
+       
+  <camera name="animal_0_eye_0_0" mode="fixed" pos="0.09848077530122082 -0.17057370639048872 0.03472963553338608" quat="-0.16636567534280194 -0.19826689127414623 0.739942111693848 0.6208851530148457" resolution="4 4" focal="0.1 0.1" sensorsize="0.08284271247461901 0.035265396141692995" /><camera name="animal_0_eye_0_1" mode="fixed" pos="0.09848077530122093 0.17057370639048863 0.03472963553338607" quat="-0.6208851530148456 -0.7399421116938482 0.19826689127414635 0.1663656753428021" resolution="4 4" focal="0.1 0.1" sensorsize="0.08284271247461901 0.035265396141692995" /><camera name="animal_0_intensity_sensor" mode="fixed" pos="0.1999990720829932 -4.440873736853886e-17 0.0006092338973741778" quat="-0.49923787679650494 -0.5007609633065638 0.5007609633065638 0.49923787679650505" resolution="1 1" focal="0.1 0.1" sensorsize="0.34641016151377535 0.0174977327051848" /></body>
+    
+ <body name="floor">
+            <geom name="floor" type="plane" pos="0 0 -0.05" size="1 1 1" material="floor_mat" condim="1" group="1" />
+        </body>
+        <site name="target" type="sphere" pos="0 0 1" rgba="1 1 1 1" material="target_mat" group="1" />
+
+        <light name="target_light" pos="0 0 1" dir="0 0 -1" cutoff="180" exponent="0.1" ambient="1 1 1" diffuse="1 1 1" specular="1 1 1" castshadow="false" />
+    <geom name="block_0_0" pos="-10.0 12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_0_1" pos="-6.0 12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_0_2" pos="-2.0 12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_0_3" pos="2.0 12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_0_4" pos="6.0 12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_0_5" pos="10.0 12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_1_0" pos="-10.0 8.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_1_5" pos="10.0 8.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_2_0" pos="-10.0 4.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_2_1" pos="-6.0 4.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_2_2" pos="-2.0 4.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_2_5" pos="10.0 4.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_3_0" pos="-10.0 0.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_3_5" pos="10.0 0.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_4_0" pos="-10.0 -4.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_4_5" pos="10.0 -4.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_5_0" pos="-10.0 -8.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_5_5" pos="10.0 -8.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_6_0" pos="-10.0 -12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_6_1" pos="-6.0 -12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_6_2" pos="-2.0 -12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_6_3" pos="2.0 -12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_6_4" pos="6.0 -12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /><geom name="block_6_5" pos="10.0 -12.0 1.0" size="2.0 2.0 1.0" type="box" gap="0.05" margin="0.1" material="block_mat" contype="1" conaffinity="1" group="1" /></worldbody>
+<actuator>
+          
+  <motor name="motor_x_0" joint="ball_x_0" ctrlrange="-1.0 1.0" ctrllimited="true" gear="100" />
+      
+  <motor name="motor_y_0" joint="ball_y_0" ctrlrange="-1.0 1.0" ctrllimited="true" gear="100" />
+      
+  <motor name="motor_z_0" joint="ball_z_0" ctrlrange="-1.0 1.0" ctrllimited="true" gear="1" />
+    
+ </actuator>
+<visual><headlight active="0" /></visual></mujoco>

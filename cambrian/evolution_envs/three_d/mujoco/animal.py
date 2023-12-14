@@ -31,7 +31,7 @@ class MjCambrianAnimal:
     """The animal class is defined as a physics object with eyes.
 
     This object serves as an agent in a multi-agent mujoco environment. Therefore,
-    it must have a uniquely idenfitiable name.
+    it must have a uniquely identifiable name.
 
     In our context, an animal has at least one eye and a body which an eye can be
     attached to. This class abstracts away the inner workings of the mujoco model itself
@@ -234,14 +234,15 @@ class MjCambrianAnimal:
             self.config.intensity_sensor_config.resolution = [w, h]
 
         # Add a forward facing eye intensity sensor
-        self._intensity_sensor = self._create_eye(
-            self.config.intensity_sensor_config.copy(),
-            f"{self.name}_intensity_sensor",
-            np.radians(eyes_lat_range.mean()),
-            np.pi / 2,
-        )
-        if self.config.use_intensity_obs:
-            self._eyes[self._intensity_sensor.name] = self._intensity_sensor
+        if not self.config.disable_intensity_sensor:
+            self._intensity_sensor = self._create_eye(
+                self.config.intensity_sensor_config.copy(),
+                f"{self.name}_intensity_sensor",
+                np.radians(eyes_lat_range.mean()),
+                np.pi / 2,
+            )
+            if self.config.use_intensity_obs:
+                self._eyes[self._intensity_sensor.name] = self._intensity_sensor
 
     def _create_eye(
         self, config: MjCambrianEyeConfig, name: str, lat: float, lon: float
@@ -289,7 +290,7 @@ class MjCambrianAnimal:
         for eye in self.eyes.values():
             self.xml += eye.generate_xml(self.xml, self.config.body_name)
 
-        if not self.config.use_intensity_obs:
+        if not self.config.use_intensity_obs and not self.config.disable_intensity_sensor:
             self.xml += self._intensity_sensor.generate_xml(
                 self.xml, self.config.body_name
             )
@@ -344,7 +345,7 @@ class MjCambrianAnimal:
         for name, eye in self.eyes.items():
             obs[name] = eye.reset(model, data)
 
-        if not self.config.use_intensity_obs:
+        if not self.config.use_intensity_obs and not self.config.disable_intensity_sensor:
             self._intensity_sensor.reset(model, data)
 
         return self._get_obs(obs, np.zeros(self._numctrl))
@@ -356,7 +357,7 @@ class MjCambrianAnimal:
         for name, eye in self.eyes.items():
             obs[name] = eye.step()
 
-        if not self.config.use_intensity_obs:
+        if not self.config.use_intensity_obs and not self.config.disable_intensity_sensor:
             self._intensity_sensor.step()
 
         self._data.ctrl[self._actadrs] = action

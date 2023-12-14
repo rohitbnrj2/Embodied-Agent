@@ -50,17 +50,12 @@ class MjCambrianEnv(gym.Env):
     Args:
         config_path (str | Path | MjCambrianConfig): The path to the config file or the
             config object itself.
-
-    Keyword Args:
-        use_renderer (bool): Whether to use the renderer. Should set to False if
-            `render` will never be called. Defaults to True. This is useful to reduce
-            the amount of vram consumed by non-rendering environments.
     """
 
     metadata = {"render_modes": ["human", "rgb_array"]}
 
     def __init__(
-        self, config: str | Path | MjCambrianConfig, *, use_renderer: bool = True
+        self, config: str | Path | MjCambrianConfig
     ):
         self._setup_config(config)
 
@@ -76,7 +71,7 @@ class MjCambrianEnv(gym.Env):
         self.render_mode = (
             "human" if "human" in self.renderer_config.render_modes else "rgb_array"
         )
-        if use_renderer:
+        if self.env_config.use_renderer:
             self.renderer = MjCambrianRenderer(self.renderer_config)
 
         self._episode_step = 0
@@ -256,7 +251,8 @@ class MjCambrianEnv(gym.Env):
             if self.env_config.use_goal_obs:
                 obs[name]["goal"] = self.maze.goal.copy()
 
-            info[name]["intensity"] = animal.intensity_sensor.last_obs
+            if not self.config.animal_config.disable_intensity_sensor:
+                info[name]["intensity"] = animal.intensity_sensor.last_obs
             info[name]["action"] = action[name]
 
         info["maze"] = {}
@@ -408,10 +404,14 @@ class MjCambrianEnv(gym.Env):
                 continue
 
             composite = animal.create_composite_image()
-            intensity = animal.intensity_sensor.last_obs
             if composite is None:
                 # Make the composite image black so we can still render other overlays
                 composite = np.zeros((*overlay_size, 3), dtype=np.uint8)
+            if self.config.animal_config.disable_intensity_sensor:
+                # Make the intensity image black so we can still render other overlays
+                intensity = np.zeros(composite.shape, dtype=np.uint8)
+            else:
+                intensity = animal.intensity_sensor.last_obs
 
             # NOTE: flipud here since we always flipud when copying buffer from gpu,
             # and when reading the buffer again after drawing the overlay, it will be
@@ -753,7 +753,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
-    env = MjCambrianEnv(config, use_renderer=not args.mj_viewer)
+    config.use_renderer = not args.mj_viewer
+    env = MjCambrianEnv(config)
+    print(env.xml.write("test.xml"))
     env.reset()
 
     print("Running...")

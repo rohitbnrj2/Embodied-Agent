@@ -42,6 +42,7 @@ def get_model_path(model_path: str | Path, *, throw_error: bool = True) -> Path 
 
     return model_path
 
+
 # ============
 
 
@@ -73,7 +74,7 @@ def evaluate_policy(
     if record_path is not None:
         # don't set to record_path is not None directly cause this will delete overlays
         cambrian_env.record = True
-    
+
     prev_init_goal_pos = None
     if (eval_goal_pos := cambrian_env.maze.config.eval_goal_pos) is not None:
         prev_init_goal_pos = cambrian_env.maze.config.init_goal_pos
@@ -129,10 +130,13 @@ class MjCambrianArgumentParser(argparse.ArgumentParser):
 
     def parse_args(self, *args, **kwargs):
         # to avoid circular imports
-        from config import convert_overrides_to_dict
+        from cambrian.evolution_envs.three_d.mujoco.config import (
+            convert_overrides_to_dict,
+        )
 
         args = super().parse_args(*args, **kwargs)
 
+        args.original_overrides = args.overrides
         args.overrides = convert_overrides_to_dict(args.overrides)
 
         return args
