@@ -349,15 +349,27 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig["MjCambrianMazeConfig"]):
             MuJoCo simulation.
         height (float): The height of the walls in the MuJoCo simulation.
 
-        init_goal_pos (Optional[Tuple[float, float]]): The initial position of the goal
-            in the maze. If unset, will be randomly generated.
+        use_target_light_sources (bool): Whether to use a target light sources or not. 
+            If False, the colored target sites will be used (e.g. a red sphere). 
+            Otherwise, a light source will be used. The light source is simply a spot 
+            light facing down. If unset (i.e. None), this field will set to the 
+            opposite of the `use_directional_light` field in `MjCambrianEnvConfig`.
+
+        init_goal_pos (Optional[Tuple[float, float]]): The initial position of the 
+            goal in the maze. If unset, will be randomly generated.
         eval_goal_pos (Optional[Tuple[float, float]]): The evaluation position of the
             goal in the maze. If unset, will be randomly generated.
-        use_target_light_source (bool): Whether to use a target light source or not. If
-            False, the default target site will be used (a red sphere). Otherwise, a
-            light source will be used. The light source is simply a spot light facing
-            down. If unset (i.e. None), this field will set to the opposite of the
-            `use_directional_light` field in `MjCambrianEnvConfig`.
+
+        use_adversary (bool): Whether to use an adversarial target or not. If
+            True, a second target will be created which is deemed adversarial. Also,
+            the target's will be given high frequency textures which correspond to 
+            whether a target is adversarial or the true goal. This is done in hopes of 
+            having the animal learn to see high frequency input.
+        init_adversary_pos (Optional[Tuple[float, float]]): The initial position
+            of the adversary target in the maze. If unset, will be randomly generated.
+        eval_adversary_pos (Optional[Tuple[float, float]]): The evaluation
+            position of the adversary target in the maze. If unset, will be randomly
+            generated.
     """
 
     name: str
@@ -366,9 +378,14 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig["MjCambrianMazeConfig"]):
     size_scaling: float
     height: float
 
+    use_target_light_sources: bool
+
     init_goal_pos: Optional[Tuple[float, float]] = None
     eval_goal_pos: Optional[Tuple[float, float]] = None
-    use_target_light_source: bool
+
+    use_adversary: bool
+    init_adversary_pos: Optional[Tuple[float, float]] = None
+    eval_adversary_pos: Optional[Tuple[float, float]] = None
 
 
 @dataclass
@@ -433,7 +450,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig["MjCambrianRendererConfig"])
         height (int): The height of the rendered image. For onscreen renderers, if this
             is set, the window cannot be resized. Must be set for offscreen renderers.
 
-        resizeable (Optional[bool]): Whether the window is resizeable or not. This only
+        resizable (Optional[bool]): Whether the window is resizable or not. This only
             applies to onscreen renderers.
         fullscreen (Optional[bool]): Whether to render in fullscreen or not. If True,
             the width and height are ignored and the window is rendered in fullscreen.
@@ -457,7 +474,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig["MjCambrianRendererConfig"])
     width: Optional[int] = None
     height: Optional[int] = None
 
-    resizeable: Optional[bool] = None
+    resizable: Optional[bool] = None
     fullscreen: Optional[bool] = None
     fps: Optional[int] = None
 
@@ -497,8 +514,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig["MjCambrianEnvConfig"]):
             reaches the goal or not.
         truncate_on_contact (bool): Whether to truncate the episode when the animal
             makes contact with an object or not.
-        distance_to_goal_threshold (float): The distance to the goal at which the
-            animal is assumed to be "at the goal".
+        distance_to_target_threshold (float): The distance to the target at which the
+            animal is assumed to be "at the target".
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
 
         use_renderer (bool): Whether to use the renderer. Should set to False if
@@ -529,7 +546,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig["MjCambrianEnvConfig"]):
     use_goal_obs: bool
     terminate_at_goal: bool
     truncate_on_contact: bool
-    distance_to_goal_threshold: float
+    distance_to_target_threshold: float
 
     frame_skip: int
 

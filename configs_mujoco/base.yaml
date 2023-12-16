@@ -36,7 +36,7 @@ env_config:
   use_goal_obs: False
   terminate_at_goal: False
   truncate_on_contact: False
-  distance_to_goal_threshold: 2.0
+  distance_to_target_threshold: 2.0
 
   frame_skip: 10
 
@@ -47,7 +47,7 @@ env_config:
   renderer_config:
     render_modes: ["rgb_array"]
 
-    resizeable: True
+    resizable: True
     fullscreen: False
     fps: 50
 
@@ -60,7 +60,9 @@ env_config:
     size_scaling: 4.0
     height: 0.5
 
-    use_target_light_source: True
+    use_target_light_sources: True
+
+    use_adversary: False
 
 animal_config:
   use_qpos_obs: False
@@ -68,7 +70,7 @@ animal_config:
   use_intensity_obs: False
   use_action_obs: True
 
-  enforce_2d: True
+  enforce_2d: False
 
   default_eye_config:
     mode: "fixed"

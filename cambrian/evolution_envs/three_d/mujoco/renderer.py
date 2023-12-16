@@ -41,6 +41,7 @@ def resize_with_aspect_fill(image: np.ndarray, width: int, height: int):
 
     return result
 
+
 def convert_depth_to_rgb(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
     """https://github.com/google-deepmind/mujoco/blob/main/python/mujoco/renderer.py"""
     # Get the distances to the near and far clipping planes.
@@ -75,6 +76,7 @@ def convert_depth_to_rgb(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
     depth[:] = out_64.astype(np.float32)
 
     return depth
+
 
 @dataclass
 class MjCambrianCursor:
@@ -118,8 +120,10 @@ class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
         viewport = mj.MjrRect(*self.cursor, self.obj.shape[1], self.obj.shape[0])
         mj.mjr_drawPixels(self.obj.ravel(), None, viewport, mjr_context)
 
+
 GL_CONTEXT: mj.gl_context.GLContext = None
 MJR_CONTEXT: mj.MjrContext = None
+
 
 class MjCambrianViewer(ABC):
     def __init__(self, config: MjCambrianRendererConfig):
@@ -155,11 +159,23 @@ class MjCambrianViewer(ABC):
         self.scene.flags[mj.mjtRndFlag.mjRND_IDCOLOR] = False
         self.scene.flags[mj.mjtRndFlag.mjRND_CULL_FACE] = True
 
-        # NOTE: All shared contexts much match either onscreen or offscreen. And their
-        # height and width most likely must match as well.
+        # NOTE: All shared contexts must match either onscreen or offscreen. And their
+        # height and width most likely must match as well. If the existing context
+        # is onscreen and we're requesting offscreen, override use_shared_context (and
+        # vice versa).
+        global GL_CONTEXT, MJR_CONTEXT
+        if self.config.use_shared_context:
+            if (
+                MJR_CONTEXT
+                and MJR_CONTEXT.currentBuffer != self.get_framebuffer_option()
+            ):
+                print(
+                    "WARNING: Overriding use_shared_context. First buffer and current buffer don't match."
+                )
+                self.config.use_shared_context = False
+
         font_scale = mj.mjtFontScale.mjFONTSCALE_50
         if self.config.use_shared_context:
-            global GL_CONTEXT, MJR_CONTEXT
             if GL_CONTEXT is None:
                 GL_CONTEXT = mj.gl_context.GLContext(width, height)
             self._gl_context = GL_CONTEXT
@@ -179,6 +195,8 @@ class MjCambrianViewer(ABC):
         self._mjr_context.readDepthMap = mj.mjtDepthMap.mjDEPTH_ZEROFAR
 
         self.viewport = mj.MjrRect(0, 0, width, height)
+
+        mj.mjr_setBuffer(self.get_framebuffer_option(), self._mjr_context)
 
     def reset_camera(self):
         """Setup the camera."""
@@ -260,6 +278,10 @@ class MjCambrianViewer(ABC):
         pass
 
     @abstractmethod
+    def get_framebuffer_option(self) -> int:
+        pass
+
+    @abstractmethod
     def is_running(self):
         pass
 
@@ -278,10 +300,8 @@ class MjCambrianViewer(ABC):
 
 
 class MjCambrianOffscreenViewer(MjCambrianViewer):
-    def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
-        super().reset(model, data, width, height)
-
-        mj.mjr_setBuffer(mj.mjtFramebuffer.mjFB_OFFSCREEN, self._mjr_context)
+    def get_framebuffer_option(self) -> int:
+        return mj.mjtFramebuffer.mjFB_OFFSCREEN.value
 
     def update(self, width: int, height: int):
         if self.viewport.width != width or self.viewport.height != height:
@@ -302,7 +322,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
     def __init__(self, config: MjCambrianRendererConfig):
         super().__init__(config)
 
-        self.config.setdefault("resizeable", False)
+        self.config.setdefault("resizable", False)
         self.config.setdefault("fullscreen", False)
 
         self.window = None
@@ -319,14 +339,28 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         self._is_paused: bool = False
 
         if self.window is None:
-            glfw.init()
+            if not glfw.init():
+                raise Exception("GLFW failed to initialize.")
 
-            glfw.window_hint(glfw.RESIZABLE, int(self.config.resizeable))
-            glfw.window_hint(glfw.VISIBLE, 1)
-            self.window = glfw.create_window(width, height, "MjCambrian", None, None)
+            gl_context = None
+            if self.config.use_shared_context:
+                global GL_CONTEXT
+                if GL_CONTEXT is None:
+                    GL_CONTEXT = mj.gl_context.GLContext(width, height)
+                gl_context = GL_CONTEXT._context
+            self.window = glfw.create_window(
+                width, height, "MjCambrian", None, gl_context
+            )
+            if not self.window:
+                glfw.terminate()
+                raise Exception("GLFW failed to create window.")
+
+            resizable = glfw.TRUE if self.config.resizable else glfw.FALSE
+            glfw.set_window_attrib(self.window, glfw.RESIZABLE, resizable)
+            glfw.show_window(self.window)
+
             self.default_window_pos = glfw.get_window_pos(self.window)
-        else:
-            glfw.set_window_size(self.window, width, height)
+        glfw.set_window_size(self.window, width, height)
         self.fullscreen(self.config.fullscreen)
 
         super().reset(model, data, width, height)
@@ -339,18 +373,19 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         glfw.set_scroll_callback(self.window, self._scroll_callback)
         glfw.set_key_callback(self.window, self._key_callback)
 
-        mj.mjr_setBuffer(mj.mjtFramebuffer.mjFB_WINDOW, self._mjr_context)
         glfw.swap_interval(1)
 
-
     def make_context_current(self):
-        super().make_context_current()
         glfw.make_context_current(self.window)
+        super().make_context_current()
+
+    def get_framebuffer_option(self) -> int:
+        return mj.mjtFramebuffer.mjFB_WINDOW.value
 
     def update(self, width: int, height: int):
         if self.viewport.width != width or self.viewport.height != height:
             self.make_context_current()
-            self.viweport = mj.MjrRect(0, 0, width, height)
+            self.viewport = mj.MjrRect(0, 0, width, height)
             GL.glViewport(0, 0, width, height)
 
         super().update(width, height)
@@ -363,6 +398,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
             print("WARNING: Tried to render closed or closing window.")
             return
 
+        self.make_context_current()
         width, height = glfw.get_framebuffer_size(self.window)
         self.viewport = mj.MjrRect(0, 0, width, height)
 
@@ -620,7 +656,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-
     YAML = """
     render_modes: ['rgb_array', 'depth_array']
 
@@ -629,7 +664,7 @@ if __name__ == "__main__":
     width: 640
     height: 480
 
-    resizeable: true
+    resizable: true
     fullscreen: true
 
     use_shared_context: true

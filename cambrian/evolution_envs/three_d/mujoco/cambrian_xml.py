@@ -24,8 +24,10 @@ class MjCambrianXML:
         self._root = self._tree.getroot()
 
     def write(self, path: Path | str):
-        """Write the xml to a file."""
-        self._tree.write(path)
+        """Write the xml to a file. Will pretty write the xml."""
+        xml_string = self.to_string()
+        with open(path, "w") as f:
+            f.write(xml_string)
 
     @staticmethod
     def make_empty() -> "MjCambrianXML":

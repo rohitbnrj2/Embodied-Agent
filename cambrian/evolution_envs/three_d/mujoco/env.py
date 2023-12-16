@@ -62,6 +62,8 @@ class MjCambrianEnv(gym.Env):
         self.animals: Dict[str, MjCambrianAnimal] = {}
         self._create_animals()
 
+        self.maze = MjCambrianMaze(self.env_config.maze_config)
+
         self.xml = self.generate_xml()
 
         self.model = mj.MjModel.from_xml_string(self.xml.to_string())
@@ -129,8 +131,8 @@ class MjCambrianEnv(gym.Env):
                 pos="0 0 1.3",
                 dir="-0 0 -1.3",
             )
-        if self.env_config.maze_config.use_target_light_source is None:
-            self.env_config.maze_config.use_target_light_source = (
+        if self.env_config.maze_config.use_target_light_sources is None:
+            self.env_config.maze_config.use_target_light_sources = (
                 not self.env_config.use_directional_light
             )
 
@@ -138,9 +140,8 @@ class MjCambrianEnv(gym.Env):
         for animal in self.animals.values():
             xml += animal.generate_xml()
 
-        # Create the maze and add it to the xml
-        self.maze, maze_xml = MjCambrianMaze.make_maze(self.env_config.maze_config)
-        xml += maze_xml
+        # Add the maze to the xml
+        xml += self.maze.generate_xml()
 
         # Disable the headlight
         if not self.env_config.use_headlight:
@@ -180,16 +181,17 @@ class MjCambrianEnv(gym.Env):
 
         mj.mj_resetData(self.model, self.data)
 
-        self.maze.reset(self.model, self.data)
+        self.maze.reset(self.model)
 
         info: Dict[str, Any] = {a: {} for a in self.animals}
         obs: Dict[str, Dict[str, Any]] = {}
         for name, animal in self.animals.items():
             init_qpos = (
                 self.maze.cell_rowcol_to_xy(*animal.config.init_pos)
-                if animal.config.init_pos is not None
+                if animal.config.init_pos
                 else self.maze.generate_reset_pos()
             )
+
             obs[name] = animal.reset(self.model, self.data, init_qpos)
             if self.env_config.use_goal_obs:
                 obs[name]["goal"] = self.maze.goal.copy()
@@ -208,6 +210,8 @@ class MjCambrianEnv(gym.Env):
         if self.renderer is not None:
             extent = self.model.stat.extent
             self.renderer.config.camera_config.setdefault("distance", extent)
+            self.renderer.set_option("sitegroup", True, slice(None))
+            self.renderer.set_option("geomgroup", True, slice(None))
             self.renderer.reset(self.model, self.data)
 
         self._episode_step = 0
@@ -327,9 +331,19 @@ class MjCambrianEnv(gym.Env):
             rewards[name] = self._reward_fn(animal, info[name])
 
             # Add a -1 to the reward if the animal has contacts and truncate_on_contact
-            # is False
-            if not self.env_config.truncate_on_contact and animal.has_contacts:
+            # is False. We'll assume that the truncation value corresponds correctly to
+            # whether contacts have been recorded, so no need to check the truncate
+            if animal.has_contacts:
                 rewards[name] -= 1
+
+            # If we're using an adversarial target and we're at the adversary, then
+            # give a reward of -1. We'll assume that the truncation value corresponds
+            # correctly to whether we've reached the adversary, so no need to check 
+            # we need to truncate on contact
+            # TODO: Should we terminate when at adversary? Above comment is incorrect
+            if self.env_config.maze_config.use_adversary:
+                if self._is_at_target(animal, self.maze.adversary):
+                    rewards[name] -= 1
 
         return rewards
 
@@ -556,12 +570,16 @@ class MjCambrianEnv(gym.Env):
             pickle.dump(self._rollout, f)
         print(f"Saved rollout to {path.with_suffix('.pkl')}")
 
-    def _is_at_goal(self, animal: MjCambrianAnimal) -> bool:
-        """Returns whether the animal is at the goal."""
+    def _is_at_target(self, animal: MjCambrianAnimal, target: np.ndarray) -> bool:
+        """Returns whether the animal is at the target."""
         return (
-            np.linalg.norm(animal.pos - self.maze.goal)
-            < self.env_config.distance_to_goal_threshold
+            np.linalg.norm(animal.pos - target)
+            < self.env_config.distance_to_target_threshold
         )
+
+    def _is_at_goal(self, animal: MjCambrianAnimal) -> bool:
+        """Alias to _is_at_target(animal, self.maze.goal)"""
+        return self._is_at_target(animal, self.maze.goal)
 
     # ================
     # Reward Functions
@@ -599,7 +617,16 @@ class MjCambrianEnv(gym.Env):
         """Rewards the change in distance to the goal from the previous step."""
         current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
         previous_distance_to_goal = np.linalg.norm(info["prev_pos"] - self.maze.goal)
-        return np.clip(current_distance_to_goal - previous_distance_to_goal, 0, 1)
+        return np.clip(current_distance_to_goal - previous_distance_to_goal, 0, 0.5)
+
+    def _reward_fn_delta_euclidean_and_at_goal(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """This reward combines `reward_fn_delta_euclidean` and `reward_fn_sparse`."""
+        delta_euclidean_reward = self._reward_fn_delta_euclidean(animal, info)
+        return 1 if self._is_at_goal(animal) else delta_euclidean_reward
 
     def _reward_fn_delta_euclidean_w_movement(
         self,
@@ -718,6 +745,7 @@ def make_single_env(
 
 
 if __name__ == "__main__":
+    import time
     from utils import MjCambrianArgumentParser
 
     parser = MjCambrianArgumentParser()
@@ -755,15 +783,15 @@ if __name__ == "__main__":
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
     config.use_renderer = not args.mj_viewer
     env = MjCambrianEnv(config)
-    print(env.xml.write("test.xml"))
     env.reset()
+    env.xml.write("test.xml")
 
     print("Running...")
     if args.mj_viewer:
         import mujoco.viewer
 
         with mujoco.viewer.launch_passive(
-            env.model, env.data, show_left_ui=False, show_right_ui=False
+            env.model, env.data#, show_left_ui=False, show_right_ui=False
         ) as viewer:
             while viewer.is_running():
                 mj.mj_step(env.model, env.data)
