@@ -338,8 +338,9 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig["MjCambrianMazeConfig"]):
     """Defines a map config. Used for type hinting.
 
     Attributes:
-        name (str): The name of the map. See
-            `cambrian.evolution_envs.three_d.mujoco.maps`
+        map (List[List[str]]): The map to use for the maze. It's a 2D array where
+            each element is a string and corresponds to a "pixel" in the map. See
+            `maze.py` for info on what different strings mean. 
         maze_path (Path | str): The path to the maze xml file. This is the file that
             contains the xml for the maze. The path is either absolute, relative to the
             execution path or relative to the
@@ -372,7 +373,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig["MjCambrianMazeConfig"]):
             generated.
     """
 
-    name: str
+    map: List[List[str]]
     maze_path: Path | str
 
     size_scaling: float

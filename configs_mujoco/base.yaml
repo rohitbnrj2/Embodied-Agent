@@ -1,5 +1,6 @@
 includes:
   render: configs_mujoco/overlays/render_bev.yaml
+  maze: configs_mujoco/mazes/train/G_MAZE_DIVERSE.yaml
 
 training_config:
   logdir: "logs-mujoco"
@@ -54,7 +55,6 @@ env_config:
     use_shared_context: True
 
   maze_config:
-    name: "MANY_GOAL_MAZE" 
     maze_path: "models/maze.xml"
 
     size_scaling: 4.0

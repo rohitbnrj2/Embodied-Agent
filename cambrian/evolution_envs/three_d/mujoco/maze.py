@@ -10,216 +10,14 @@ from cambrian.evolution_envs.three_d.mujoco.cambrian_xml import MjCambrianXML
 from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianMazeConfig
 from cambrian.evolution_envs.three_d.mujoco.utils import get_model_path
 
-RESET = R = "r"  # Initial Reset position of the agent
-TARGET = T = "t"
-COMBINED = C = "c"  # These cells can be selected as target or reset locations
+# ================
+
+RESET = R = "R"  # Initial Reset position of the agent
+TARGET = T = "T"
+COMBINED = C = "C"  # These cells can be selected as target or reset locations
 WALL = W = "1"
 EMPTY = E = "0"
 
-
-EMPTY_MAZE = [
-    [1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 1],
-    [1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 1],
-    [1, 1, 1, 1, 1],
-]
-
-OPEN = [
-    [1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1],
-]
-
-OPEN_DIVERSE_G = [
-    [1, 1, 1, 1, 1, 1, 1],
-    [1, R, T, T, T, T, 1],
-    [1, T, T, T, T, T, 1],
-    [1, T, T, T, T, T, 1],
-    [1, 1, 1, 1, 1, 1, 1],
-]
-
-OPEN_DIVERSE_GR = [
-    [1, 1, 1, 1, 1, 1, 1],
-    [1, C, C, C, C, C, 1],
-    [1, C, C, C, C, C, 1],
-    [1, C, C, C, C, C, 1],
-    [1, 1, 1, 1, 1, 1, 1],
-]
-
-# Maze specifications for dataset generation
-U_MAZE = [
-    [1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 1],
-    [1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 1],
-    [1, 1, 1, 1, 1],
-]
-
-MEDIUM_MAZE = [
-    [1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 1, 1, 0, 0, 1],
-    [1, 0, 0, 1, 0, 0, 0, 1],
-    [1, 1, 0, 0, 0, 1, 1, 1],
-    [1, 0, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 0, 0, 1, 0, 1],
-    [1, 0, 0, 0, 1, 0, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1],
-]
-
-MEDIUM_MAZE_DIVERSE_G = [
-    [1, 1, 1, 1, 1, 1, 1, 1],
-    [1, R, 0, 1, 1, 0, 0, 1],
-    [1, 0, 0, 1, 0, 0, T, 1],
-    [1, 1, 0, 0, 0, 1, 1, 1],
-    [1, 0, 0, 1, 0, 0, 0, 1],
-    [1, T, 1, 0, 0, 1, 0, 1],
-    [1, 0, 0, 0, 1, T, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1],
-]
-
-MEDIUM_MAZE_DIVERSE_GR = [
-    [1, 1, 1, 1, 1, 1, 1, 1],
-    [1, C, 0, 1, 1, 0, 0, 1],
-    [1, 0, 0, 1, 0, 0, C, 1],
-    [1, 1, 0, 0, 0, 1, 1, 1],
-    [1, 0, 0, 1, 0, 0, 0, 1],
-    [1, C, 1, 0, 0, 1, 0, 1],
-    [1, 0, 0, 0, 1, C, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1],
-]
-
-LARGE_MAZE = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 1, 0, 1],
-    [1, 0, 1, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 0, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-    [1, 1, 1, 0, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 0, 1, 1, 1],
-    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1],
-]
-
-LARGE_MAZE_DIVERSE_G = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, R, 0, 0, 0, 0, 1, 0, 1],
-    [1, 0, 1, 0, 1, T, 0, 0, 1],
-    [1, 0, 1, 0, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 1, 0, 0, T, 1],
-    [1, 1, 1, T, 1, 1, 1, 0, 1],
-    [1, T, 0, 0, 0, 0, 0, T, 1],
-    [1, 0, 1, 1, 1, 0, 1, 1, 1],
-    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 0, 1, 0, 1, T, 1],
-    [1, 0, 0, T, 0, 0, 1, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1],
-]
-
-LARGE_MAZE_DIVERSE_GR = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, C, 0, 0, 0, 0, 1, 0, 1],
-    [1, 0, 1, 0, 1, C, 0, 0, 1],
-    [1, 0, 1, 0, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 1, 0, 0, C, 1],
-    [1, 1, 1, C, 1, 1, 1, 0, 1],
-    [1, C, 0, 0, 0, 0, 0, C, 1],
-    [1, 0, 1, 1, 1, 0, 1, 1, 1],
-    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 0, 1, 0, 1, C, 1],
-    [1, 0, 0, C, 0, 0, 1, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1],
-]
-
-# ================
-# CUSTOM MAPS
-
-# U_MAZE but has one reset position and one goal position
-U_MAZE_STATIC = [
-    [1, 1, 1, 1, 1],
-    [1, R, 0, 0, 1],
-    [1, 1, 1, 0, 1],
-    [1, T, 0, 0, 1],
-    [1, 1, 1, 1, 1],
-]
-
-# Augmented U_MAZE but has one reset position
-MANY_GOAL_MAZE = [
-    [1, 1, 1, 1, 1, 1],
-    [1, R, 0, 0, 0, 1],
-    [1, 1, 1, 0, 0, 1],
-    [1, T, T, 0, 0, 1],
-    [1, T, T, T, 0, 1],
-    [1, T, T, T, T, 1],
-    [1, 1, 1, 1, 1, 1],
-]
-
-# Augmented U_MAZE but has one reset position
-MEDIUM_MAZE_STATIC = [
-    [1, 1, 1, 1, 1, 1, 1, 1],
-    [1, R, 0, 1, 1, 0, 0, 1],
-    [1, 0, 0, 1, 0, 0, 0, 1],
-    [1, 1, 0, 0, 0, 1, 1, 1],
-    [1, 0, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 0, 0, 1, 0, 1],
-    [1, 0, 0, 0, 1, 0, T, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1],
-]
-
-LARGE_MAZE_STATIC = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, R, 0, 0, 0, 0, 1, 0, 1],
-    [1, 0, 1, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 0, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-    [1, 1, 1, 0, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 0, 1, 1, 1],
-    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1, T, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1],
-]
-
-# ================
-# EVAL MAPS
-
-OPTIC_FLOW_EVAL_MAZE_TUNNEL = [
-    [1, R, 1, 1, 1],
-    [1, 0, 1, 1, 1],
-    [1, 0, 1, 1, 1],
-    [1, 0, 0, 1, 1],
-    [1, 0, 0, 1, 1],
-    [1, 0, 0, 0, 1],
-    [1, 0, 0, 0, 1],
-    [1, 1, 0, 0, 1],
-    [1, 1, 0, 0, 1],
-    [1, 1, 1, 0, 1],
-    [1, 1, 1, 0, 1],
-    [1, 1, 1, T, 1],
-    [1, 1, 1, 1, 1],
-]
-
-OPTIC_FLOW_EVAL_MAZE_SNAKE = [
-    [1, 1, 1, 1, 1],
-    [1, R, 0, 0, 1],
-    [1, 1, 1, 0, 1],
-    [1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1],
-    [1, 0, 1, 1, 1],
-    [1, 0, 0, 0, 1],
-    [1, 1, 1, 0, 1],
-    [1, 1, 1, 0, 1],
-    [1, T, 0, T, 1],
-    [1, T, T, T, 1],
-    [1, 1, 1, 1, 1],
-]
 # ================
 
 # from https://learnopengl.com/Lighting/Light-casters
@@ -268,7 +66,7 @@ class MjCambrianMaze:
     def __init__(self, config: MjCambrianMazeConfig):
         self._config: MjCambrianMazeConfig = config
 
-        self._map: np.ndarray = make_map(config.name)
+        self._map: np.ndarray = np.array(config.map, dtype=str)
 
         self._unique_target_locations: List[np.ndarray] = []
         self._unique_reset_locations: List[np.ndarray] = []
@@ -427,6 +225,9 @@ class MjCambrianMaze:
             self._init_goal_pos if self._init_goal_pos else self.generate_target_pos()
         )
         if self.config.use_adversary:
+            assert len(self._unique_target_locations) > 1, (
+                "Must have at least 2 unique target locations to use an adversary"
+            )
             self._adversary = (
                 self._init_adversary_pos
                 if self._init_adversary_pos

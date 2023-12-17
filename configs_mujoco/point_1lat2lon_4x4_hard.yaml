@@ -1,9 +1,0 @@
-includes:
-  point_1lat2lon_4x4: configs_mujoco/point_1lat2lon_4x4.yaml
-
-training_config:
-  max_episode_steps: 256
-
-env_config:
-  maze_config:
-    name: "MEDIUM_MAZE_DIVERSE_G"
