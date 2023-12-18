@@ -98,11 +98,15 @@ class MjCambrianEvoRunner:
         if generation == 0:
             config = self.config.copy()
             num_mutations = random.randint(1, self.population.config.init_num_mutations)
+            print(f"Mutating the first animal {num_mutations} times.")
             for _ in range(num_mutations):
                 config = self.population.spawn(
                     replication_type=MjCambrianReplicationType.MUTATION,
                     config=config,
                 )
+            config.evo_config.parent_generation_config = (
+                config.evo_config.generation_config.copy()
+            )
         else:
             config = self.population.spawn()
 
