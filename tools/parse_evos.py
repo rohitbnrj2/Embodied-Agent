@@ -496,7 +496,7 @@ def main(args):
     evals_folder.mkdir(parents=True, exist_ok=True)
 
     if args.force or (data := try_load_pickle_data(folder)) is None:
-        data = load_data(folder, overrides=convert_overrides_to_dict(args.overrides))
+        data = load_data(folder, check_finished=not args.no_check_finished, overrides=convert_overrides_to_dict(args.overrides))
 
         if not args.no_save:
             save_data(data, folder)
@@ -569,6 +569,7 @@ if __name__ == "__main__":
     parser.add_argument("--legend", action="store_true", help="Use a legend.")
     parser.add_argument("--locator", action="store_true", help="Use a locator.")
     parser.add_argument("--plot-all-generations-monitor", action="store_true", help="Plot all generations monitor.")
+    parser.add_argument("--no-check-finished", action="store_true", help="Don't check if a file called `finished` has been written.")
 
     args = parser.parse_args()
 
