@@ -3,9 +3,10 @@ import os
 import subprocess
 import threading
 from pathlib import Path
+import random
 
 from config import MjCambrianConfig, MjCambrianGenerationConfig
-from population import MjCambrianPopulation
+from population import MjCambrianPopulation, MjCambrianReplicationType
 
 
 class MjCambrianEvoRunner:
@@ -50,9 +51,6 @@ class MjCambrianEvoRunner:
         trainer_py = Path(__file__).parent / "trainer.py"
         self.python_cmd = f"python {trainer_py}"
 
-        # Initialize the population
-        self.population.add_animal(self.config.copy(), -float("inf"))
-
     def evo(self):
         """This method run's evolution.
 
@@ -62,12 +60,12 @@ class MjCambrianEvoRunner:
             3. Trains the animal
             4. Repeat
 
-        To reduce the amount of time any one process is waiting, we'll spawn a new 
+        To reduce the amount of time any one process is waiting, we'll spawn a new
         training immediately after it finishes training. Training stops when the total
-        number of generations across all processes reaches 
+        number of generations across all processes reaches
         num_generations * population_size.
 
-        Animal selection logic is provided by the MjCambrianPopulation subclass and 
+        Animal selection logic is provided by the MjCambrianPopulation subclass and
         mutation is performed by MjCambrianAnimal.
         """
 
@@ -95,7 +93,18 @@ class MjCambrianEvoRunner:
             thread.join()
 
     def spawn_animal(self, generation: int, rank: int) -> MjCambrianConfig:
-        config = self.population.spawn()
+        # For the first generation, we'll mutate the original config n number of times
+        # to facilitate a diverse initial population.
+        if generation == 0:
+            config = self.config.copy()
+            num_mutations = random.randint(1, self.population.config.init_num_mutations)
+            for _ in range(num_mutations):
+                config = self.population.spawn(
+                    replication_type=MjCambrianReplicationType.MUTATION,
+                    config=config,
+                )
+        else:
+            config = self.population.spawn()
 
         if self.verbose > 1:
             print(f"Spawning animal with generation {generation} and rank {rank}.")
@@ -120,7 +129,9 @@ class MjCambrianEvoRunner:
 
         # Set the total timesteps to be the total timesteps divided by the number of
         # envs. This maintains the sample efficiency as n_envs increases.
-        config.training_config.total_timesteps = config.evo_config.total_timesteps // n_envs
+        config.training_config.total_timesteps = (
+            config.evo_config.total_timesteps // n_envs
+        )
 
         # Save the config
         config.write_to_yaml(generation_logdir / "config.yaml")
@@ -137,7 +148,9 @@ class MjCambrianEvoRunner:
             stdin = subprocess.PIPE if self.verbose <= 1 else None
             stdout = subprocess.PIPE if self.verbose <= 1 else None
             stderr = subprocess.PIPE if self.verbose <= 1 else None
-            return subprocess.Popen(cmd.split(" "), env=env, stdin=stdin, stdout=stdout, stderr=stderr)
+            return subprocess.Popen(
+                cmd.split(" "), env=env, stdin=stdin, stdout=stdout, stderr=stderr
+            )
 
     # ========
 
@@ -147,12 +160,15 @@ class MjCambrianEvoRunner:
         Equation is as follows:
             i * population_size * num_generations + seed + generation
         """
+        # fmt: off
         return (
-            (generation + 1) * (rank + 1)
-            + self.config.training_config.seed
-            * self.config.evo_config.population_config.size
-            * self.config.evo_config.num_generations
+            (generation + 1) * (rank + 1) 
+            + self.config.training_config.seed 
+            * self.config.evo_config.population_config.size 
+            * self.config.evo_config.num_generations 
         )
+        # fmt: on
+
 
 if __name__ == "__main__":
     from utils import MjCambrianArgumentParser

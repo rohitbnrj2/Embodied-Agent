@@ -66,6 +66,19 @@ class MjCambrianPopulation:
     def add_animal(
         self, path_or_config: Path | MjCambrianConfig, fitness: Optional[Fitness] = None
     ):
+        """Add an animal to the population. This can be called internally during an
+        update or externally, such as when adding the very first animal to the
+        population.
+
+        Args:
+            path_or_config (Path | MjCambrianConfig): The path to the animal's config or
+                the animal's config. If a config is passed, the fitness parameter must
+                be provided. Furthermore, it assumed that the animal is being added for
+                convenience (like when we need to add an initial animal to the
+                population); therefore, the key is set to "placeholder".
+            fitness (Optional[Fitness]): The animal's fitness. If None, the fitness is
+                calculated from the animal's monitor.csv file.
+        """
         if isinstance(path_or_config, Path):
             path = path_or_config
             assert (
@@ -133,18 +146,34 @@ class MjCambrianPopulation:
 
     # ========
 
-    def spawn(self) -> MjCambrianConfig:
+    def spawn(
+        self,
+        *,
+        replication_type: Optional[MjCambrianReplicationType] = None,
+        config: Optional[MjCambrianConfig] = None,
+    ) -> MjCambrianConfig:
         """This method will spawn a new animal from the current population.
 
         Spawning can be simply a mutation or crossover between multiple animals in the
         current population. Crossover always comes first, followed by mutation. This
         means crossover can include mutations.
+
+        Keyword Args:
+            replication_type (Optional[MjCambrianReplicationType]): The type of
+                replication to perform on the animal. If None, the type is set to the
+                default type specified in the config.
+            config (Optional[MjCambrianConfig]): The config to use for the new animal.
+                Only used if the mutation type is set to
+                `MjCambrianReplicationType.MUTATION`. If unset, a config is selected
+                from the current population.
         """
-        config: MjCambrianConfig = None
-        if self._replication_type & MjCambrianReplicationType.CROSSOVER:
+        if replication_type is None:
+            replication_type = self._replication_type
+
+        if replication_type & MjCambrianReplicationType.CROSSOVER:
             config = self._crossover()
 
-        if self._replication_type & MjCambrianReplicationType.MUTATION:
+        if replication_type & MjCambrianReplicationType.MUTATION:
             config = self._mutate(config)
 
         return config
@@ -160,7 +189,9 @@ class MjCambrianPopulation:
 
         return configs
 
-    def _set_parent(self, config: MjCambrianConfig, parent: Optional[MjCambrianConfig] = None):
+    def _set_parent(
+        self, config: MjCambrianConfig, parent: Optional[MjCambrianConfig] = None
+    ):
         parent = parent if parent is not None else config
 
         print(

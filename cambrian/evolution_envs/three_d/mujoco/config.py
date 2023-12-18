@@ -745,12 +745,18 @@ class MjCambrianPopulationConfig(MjCambrianBaseConfig["MjCambrianPopulationConfi
 
         replication_type (str): The type of replication to use. See
             `MjCambrianReplicationType` for options.
+
+        init_num_mutations (int): The number of mutations to perform on the
+            default config to generate the initial population. The actual number of
+            mutations is calculated using random.randint(1, init_num_mutations).
     """
 
     size: int
     num_top_performers: int
 
     replication_type: str
+
+    init_num_mutations: int
 
 
 @dataclass

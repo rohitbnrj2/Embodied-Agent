@@ -100,4 +100,6 @@ evo_config:
 
     replication_type: "MUTATION"
 
+    init_num_mutations: 25
+
   num_generations: 20
