@@ -667,6 +667,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
         enforce_2d (bool): Whether to enforce 2d eye placement. If True, all eyes
             will be placed on the same plane and they will all have a vertical 
             resolution of 1.
+        only_mutate_resolution (bool): If true, only the resolution is mutated. No
+            the num eyes or fov will not be changed.
 
         num_eyes_lat (int): The number of eyes to place latitudinally/vertically.
         num_eyes_lon (int): The number of eyes to place longitudinally/horizontally.
@@ -680,6 +682,10 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
             animal's bounding sphere.
         default_eye_config (MjCambrianEyeConfig): The default eye config to use for the
             eyes.
+        use_single_camera (bool): If true, a single camera will be used
+            to render all eyes. Each eye will then be a cropping of the single camera.
+            We do this to minimize the number of render calls (hopefully improving
+            sim speed). If False, each eye will have its own camera/renderer.
 
         disable_intensity_sensor (bool): Whether to disable the intensity sensor or not.
         intensity_sensor_config (MjCambrianEyeConfig): The eye config to use for the
@@ -702,12 +708,14 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
     use_action_obs: bool
 
     enforce_2d: bool
+    only_mutate_resolution: bool
 
     num_eyes_lat: int
     num_eyes_lon: int
     eyes_lat_range: Tuple[float, float]
     eyes_lon_range: Tuple[float, float]
     default_eye_config: MjCambrianEyeConfig
+    use_single_camera: bool  
 
     disable_intensity_sensor: bool
     intensity_sensor_config: MjCambrianEyeConfig

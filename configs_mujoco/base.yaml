@@ -71,6 +71,7 @@ animal_config:
   use_action_obs: True
 
   enforce_2d: False
+  only_mutate_resolution: False
 
   default_eye_config:
     mode: "fixed"
@@ -79,6 +80,7 @@ animal_config:
     renderer_config:
       render_modes: ["rgb_array"]
       use_shared_context: True
+  use_single_camera: False
   
   disable_intensity_sensor: False
   intensity_sensor_config:

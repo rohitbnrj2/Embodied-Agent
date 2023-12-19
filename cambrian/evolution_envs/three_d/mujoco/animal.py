@@ -84,6 +84,8 @@ class MjCambrianAnimal:
             assert (
                 config.default_eye_config.fov[1] == 1
             ), "Enforcing 2D requires the eye fov to be 1."
+        if config.use_single_camera:
+            raise NotImplementedError("Single camera not implemented yet.")
 
         config.model_path = get_model_path(config.model_path)
 
@@ -580,11 +582,14 @@ class MjCambrianAnimal:
             print("Mutating animal...")
 
         # The mutation options are all the possible mutations
-        # Unless we're enforcing 2d, then we can't add/remove latitudinal eyes
         mutation_options = list(MjCambrianAnimal.MutationType)
         if config.enforce_2d:
+            # If we're enforcing 2d, we can't add/remove latitudinal eyes
             mutation_options.remove(MjCambrianAnimal.MutationType.ADD_LAT_EYE)
             mutation_options.remove(MjCambrianAnimal.MutationType.REMOVE_LAT_EYE)
+        if config.only_mutate_resolution:
+            # If we're only mutating the res, we can only edit
+            mutation_options = [MjCambrianAnimal.MutationType.EDIT_EYE]
 
         # Randomly select the number of mutations to perform with a skewed dist
         # This will lean towards less total mutations generally
@@ -643,7 +648,8 @@ class MjCambrianAnimal:
             # Each edit (for now) is just taking the current state and multiplying by
             # some random number between 0.8 and 1.2
             default_eye_config.resolution = edit(default_eye_config.resolution)
-            default_eye_config.fov = edit(default_eye_config.fov)
+            if not config.only_mutate_resolution:
+                default_eye_config.fov = edit(default_eye_config.fov)
 
         if config.enforce_2d:
             config.default_eye_config.resolution[1] = 1
