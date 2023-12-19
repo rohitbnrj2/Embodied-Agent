@@ -727,8 +727,8 @@ class MjCambrianEnv(gym.Env):
         animal: MjCambrianAnimal,
         info: bool,
     ) -> float:
-        """This reward is 1 if the animal is at the goal, 0 otherwise."""
-        return 1 if self._is_at_goal(animal) else 0
+        """This reward is 1 if the animal is at the goal, -0.1 otherwise."""
+        return 1 if self._is_at_goal(animal) else -0.1
 
 
 def make_single_env(

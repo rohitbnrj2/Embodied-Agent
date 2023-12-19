@@ -13,7 +13,7 @@ source /etc/profile
 module load anaconda/Python-ML-2023b
 module load cuda/11.8
 
-# Fix for > 25 threads issue
+export TF_CPP_MIN_LOG_LEVEL=2
 export OPENBLAS_NUM_THREADS=1
 export PMIX_MCA_gds=hash
 ulimit -u unlimited
