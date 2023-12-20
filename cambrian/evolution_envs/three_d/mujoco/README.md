@@ -12,18 +12,20 @@ MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/env.py configs_mujoc
 
 ## Visualizing the world/environment
 
-There is a runner in `env.py` that will visualize the world. If you're running this with a display (i.e. not on a cluster), you have a few options:
+There is a runner in `env.py` that will visualize the world. You have a few run options:
 
 ```bash
+# Interactive + Display 
 # Run with the custom visualization viewer in birds-eye view mode. This is interactive, so you can move around.
 python cambrian/evolution_envs/three_d/mujoco/env.py <CONFIG_PATH> -o env_config.renderer_config.render_modes "[human, rgb_array]"
 
+# Noninteractive + headless
 # Run the custom viewer but headless and save the output
-# -t is required with --record-path and is the number of timesteps to run for
+# NOTE: This is non-interactive and should probably be run headless
 python cambrian/evolution_envs/three_d/mujoco/env.py <CONFIG_PATH> --record-path <OUTPUT> -t <TOTAL_TIMESTEPS>
 
+# Noninteractive + headless
 # Run with builtin mujoco viewer
-# NOTE: This cannot be run headless
 python cambrian/evolution_envs/three_d/mujoco/env.py <CONFIG_PATH> --mj-viewer
 ```
 
@@ -43,7 +45,7 @@ MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py CONFIG_PA
 ```
 
 > [!TIP]
-> Training should always be done with `MUJOCO_GL=egl` cause that runs with a headless implementation of OpenGL mode and is significantly faster. `evo.py` will set this automatically for training runs, but you need to explicitly set it for `trainer.py`.
+> Training should always be done with `MUJOCO_GL=egl` cause that runs with a headless implementation of OpenGL and is significantly faster. `evo.py` will set this automatically for training runs, but you need to explicitly set it for `trainer.py`.
 
 > [!NOTE]
 > You can also pass `--eval` to run evaluation to visualize the env. Set the `render_modes` to include `'human'` or pass `--record` to output a gif/mp4. Use `-h` to see options.
