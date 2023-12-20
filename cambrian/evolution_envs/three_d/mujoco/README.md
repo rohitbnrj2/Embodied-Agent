@@ -1,5 +1,15 @@
 # Mujoco stuff
 
+Make sure you clone and install using `pip install -e .`.
+
+## TL;DR
+
+Run a simple environment and save the run as a gif/mp4.
+
+```bash
+MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/env.py configs_mujoco/point_1lat1lon_1x1.yaml --record-path test -t 200
+```
+
 ## Visualizing the world/environment
 
 There is a runner in `env.py` that will visualize the world. If you're running this with a display (i.e. not on a cluster), you have a few options:
