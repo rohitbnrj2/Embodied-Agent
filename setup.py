@@ -2,19 +2,15 @@
 
 from setuptools import setup
 
+def parse_requirements():
+    with open("requirements.txt") as f:
+        required = f.read().splitlines()
+
+    return required
+
 
 setup(
     name='cambrian',
     packages=['cambrian'],
-    # install_requires=[
-    #     "gym<0.24.0",
-    #     "numpy",
-    #     "mujoco",
-    #     "pybullet",
-    #     "h5py",
-    #     "termcolor",  # adept_envs dependency
-    #     "click",  # adept_envs dependency
-    #     "dm_control>=1.0.3",
-    #     "mjrl @ git+https://github.com/aravindr93/mjrl@master#egg=mjrl",
-    # ]
+    install_requires=parse_requirements()
 )
