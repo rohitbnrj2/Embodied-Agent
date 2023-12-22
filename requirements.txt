@@ -1,0 +1,7 @@
+stable_baselines3[extra]
+mujoco
+pyyaml
+mergedeep
+scipy
+imageio
+gymnasium_robotics
