@@ -17,7 +17,7 @@ There is a runner in `env.py` that will visualize the world. You have a few run 
 ```bash
 # Interactive + Display 
 # Run with the custom visualization viewer in birds-eye view mode. This is interactive, so you can move around.
-python cambrian/evolution_envs/three_d/mujoco/env.py <CONFIG_PATH> -o env_config.renderer_config.render_modes "[human, rgb_array]"
+python cambrian/evolution_envs/three_d/mujoco/env.py <CONFIG_PATH> -o env_config.renderer_config.render_modes="[human, rgb_array]"
 
 # Noninteractive + headless
 # Run the custom viewer but headless and save the output
@@ -69,4 +69,4 @@ You also can pass `--record-path` to the `env.py` script to set the path that an
 
 ### Configs/Overrides
 
-All configs should be put under `configs_mujoco`. We will transition to use `omegaconf` soon, but for now, you can either edit the config directly in `configs_mujoco` (probably don't want to commit those changes) or use `-o <dot.separated.path> <value>` as used [above](#visualizing-the-worldenvironment).
+All configs should be put under `configs_mujoco`. We will transition to use `omegaconf` soon, but for now, you can either edit the config directly in `configs_mujoco` (probably don't want to commit those changes) or use `-o <dot.separated.path>=<value>` as used [above](#visualizing-the-worldenvironment).

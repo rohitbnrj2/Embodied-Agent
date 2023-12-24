@@ -4,7 +4,7 @@ includes:
 
 training_config:
   logdir: "logs-mujoco"
-  exp_name: null # if unset, will be set to the name of the config file
+  exp_name: "${.logdir}"
   checkpoint_path: null # Will train from scratch if unset
   policy_path: null # Will train from scratch if unset
 
@@ -15,7 +15,7 @@ training_config:
   learning_rate: 0.001
   n_epochs: 8
   gae_lambda: 0.95
-  batch_size: null # Automatically set to `n_steps * n_envs // n_epochs`
+  batch_size: ${eval:'${.n_steps} * ${.n_envs} // ${.n_epochs}'}
   n_envs: 10
 
   eval_freq: 10000
@@ -94,14 +94,15 @@ animal_config:
 
 evo_config:
   max_n_envs: 10
-  total_timesteps: 1_000_000 # training_config.total_timesteps = total_timesteps // n_envs
 
   population_config:
     size: 4
     num_top_performers: 2
 
-    replication_type: "MUTATION"
-
     init_num_mutations: 100
 
+    replication_type: MUTATION
+
   num_generations: 20
+
+  environment_variables: {}

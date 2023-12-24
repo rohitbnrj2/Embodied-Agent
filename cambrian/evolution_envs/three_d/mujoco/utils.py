@@ -121,23 +121,17 @@ class MjCambrianArgumentParser(argparse.ArgumentParser):
         self.add_argument(
             "-o",
             "--override",
+            "--overrides",
             dest="overrides",
-            action="append",
-            nargs=2,
-            help="Override config values. Do <dot separated yaml config> <value>",
+            action="extend",
+            nargs="+",
+            type=str,
+            help="Override config values. Do <config>.<key>=<value>",
             default=[],
         )
 
     def parse_args(self, *args, **kwargs):
-        # to avoid circular imports
-        from cambrian.evolution_envs.three_d.mujoco.config import (
-            convert_overrides_to_dict,
-        )
-
         args = super().parse_args(*args, **kwargs)
-
-        args.original_overrides = args.overrides
-        args.overrides = convert_overrides_to_dict(args.overrides)
 
         return args
 

@@ -1,273 +1,97 @@
-from types import UnionType
-from typing import (
-    Dict,
-    Any,
-    Tuple,
-    Optional,
-    Union,
-    get_args,
-    get_origin,
-    List,
-    TypeVar,
-    Generic,
-)
-import yaml
-from dataclasses import dataclass, asdict, fields, is_dataclass, replace
+from typing import Dict, Any, Tuple, Optional, List, TypeVar, Type
+from collections.abc import Iterable
+from dataclasses import dataclass, replace, field
 from pathlib import Path
-from functools import reduce, partial
 from copy import deepcopy
-import mergedeep
-import numpy as np
 
-dataclass = partial(dataclass, kw_only=True, repr=False)
+import yaml
+from omegaconf import OmegaConf
 
+# ==================== Global Config ====================
 
-def _get_underlying_type(field_type: type) -> type:
-    """Get the underlying type of a field. This is useful for dealing with Union
-    types."""
-    origin = get_origin(field_type)
-    if origin is Union:
-        args = get_args(field_type)
-        return reduce(lambda x, y: x | y if y is not type(None) else x, args)
-    else:
-        return field_type
+if not OmegaConf.has_resolver("eval"):
+    OmegaConf.register_new_resolver("eval", eval)
+
+list_repr = "tag:yaml.org,2002:seq"
+yaml.add_representer(list, lambda d, seq: d.represent_sequence(list_repr, seq, True))
+
+# =======================================================
 
 
-def _is_iterable(field_type: type) -> bool:
-    is_iterable = False
-    try:
-        iter(field_type)
-        is_iterable = True
-    except TypeError:
-        try:
-            iter(get_origin(field_type))
-            is_iterable = True
-        except TypeError:
-            pass
-    return is_iterable
+T = TypeVar("T", bound="MjCambrianBaseConfig")
 
 
-def _list_representer(dumper, data):
-    return dumper.represent_sequence("tag:yaml.org,2002:seq", data, flow_style=True)
-
-
-yaml.add_representer(list, _list_representer)
-yaml.add_representer(tuple, _list_representer)
-
-
-def convert_overrides_to_dict(overrides: List[Tuple[str, Any]]) -> Dict[str, Any]:
-    """Convert an override list (probably passed through the command line) that
-    is in the form (key, dot.separated.nested.value) to a dictionary that `from_dict`
-    expects."""
-
-    overrides_dict: Dict[str, Any] = {}
-    for k, v in overrides:
-        d = overrides_dict
-
-        keys = k.split(".")
-        for key in keys[:-1]:
-            d = d.setdefault(key, {})
-        d[keys[-1]] = yaml.safe_load(v)
-
-    return overrides_dict
-
-
-T = TypeVar("T")
-
-
-@dataclass
-class MjCambrianBaseConfig(Generic[T]):
+@dataclass(kw_only=True, repr=False)
+class MjCambrianBaseConfig:
     """Base config for all configs. This is an abstract class."""
 
     @classmethod
-    def load(cls, config: Path | str | T, *, overrides: Dict[str, Any] = {}) -> T:
-        """Load the config from a yaml file or another config. If overrides are passed,
-        they are merged into the config.
-
+    def load(
+        cls: Type[T],
+        config: Path | str | T,
+        *,
+        overrides: List[List[str]] = [],
+        instantiate: bool = False,
+    ) -> T | Dict[str, Any]:
+        """Load a config. Accepts a path to a yaml file or a config object.
+        
         Args:
-            config (Path | str | MjCambrianBaseConfig): The config to load. If a path or
-                string is passed, it is assumed to be a path to a yaml file. If a config
-                is passed, it is assumed to be a config of the same type as this config.
-            overrides (Dict[str, Any]): The overrides to merge into the config.
-        """
-        if isinstance(config, (Path, str)):
-            config = cls.from_yaml(config, overrides=overrides)
-        else:
-            # TODO: not working
-            # assert isinstance(type(config), cls), (
-            #     f"Expected config to be of type {cls.__name__}, but got "
-            #     f"{type(config).__name__}"
-            # )
-            config.merge(overrides)
-        return config
-
-    @classmethod
-    def from_yaml(cls, path: Path | str, *, overrides: Dict[str, Any] = {}) -> T:
-        """Load the config from a yaml file. Will call `from_dict` with the output form
-        `yaml.safe_load`.
-
-        Args:
-            path (Path | str): The path to the yaml file.
-            overrides (Dict[str, Any]): The overrides to merge into the config.
-        """
-        path = Path(path)
-        with open(path, "r") as f:
-            data = yaml.safe_load(f)
-
-        data = mergedeep.merge(data, overrides)
-
-        return cls.from_dict(data)
-
-    def write_to_yaml(self, path: Path | str):
-        """Write the config to a yaml file."""
-        with open(path, "w") as f:
-            yaml.dump(self.to_dict(), f)
-
-    @classmethod
-    def from_dict(cls: T, dict: Dict[str, Any]) -> T:
-        """
-        Recursively converts a dictionary into a dataclass instance.
-
-        This function supports nested data structures, which means that if a dataclass
-        contains fields that are themselves dataclasses, it will instantiate those as
-        well.
-
-        This will also do some rudimentary type checking and validation. For example,
-        if a field is a dataclass, it will check that the dictionary contains the
-        correct fields to instantiate that dataclass. It will also check that the types
-        of the fields in the dictionary match the types of the fields in the dataclass.
-
-        Args:
-            cls (BaseConfig): The config to which the dictionary should be converted to.
-            dict (Dict[str, Any]): The dictionary containing the data to be converted
-                into a dataclass instance.
-        """
-        if dict is None:
-            # early exist if dict is None
-            # this happens when a recursive call is made and the field is None/Optional
-            return None
-
-        field_types = {f.name: _get_underlying_type(f.type) for f in fields(cls)}
-        field_values = {}
-        for field_name, field_value in dict.items():
-            if field_name not in field_types:
-                raise AttributeError(f"Unknown field '{field_name}' in {cls.__name__}")
-            if is_dataclass(field_types[field_name]) and field_value:
-                assert issubclass(field_types[field_name], MjCambrianBaseConfig)
-                # Recursively convert nested dictionaries into their corresponding
-                # dataclasses
-                field_values[field_name] = field_types[field_name].from_dict(
-                    field_value
-                )
-            else:
-                field_values[field_name] = field_value
-        try:
-            return cls(**field_values)
-        except TypeError as e:
-            raise TypeError(
-                f"Error instantiating {cls.__name__} from dictionary: {e}"
-            ) from e
-
-    def merge(self, other: Dict[str, Any] | T):
-        """Merge this config with a passed dictionary or config. This will recursively
-        merge nested dictionaries/configs, as well.
-
-        Args:
-            other (Dict[str, Any] | MjCambrianBaseConfig): The dictionary to merge with.
-                If a dataclass is passed, it will be converted to a dictionary first.
-        """
-        if issubclass(type(other), MjCambrianBaseConfig):
-            other = other.to_dict()
-
-        for field_name, field_value in other.items():
-            if field_name not in self.__annotations__:
-                raise AttributeError(
-                    f"Unknown field '{field_name}' in {self.__class__.__name__}"
-                )
-
-            if is_dataclass(self.__annotations__[field_name]):
-                assert issubclass(
-                    self.__annotations__[field_name], MjCambrianBaseConfig
-                )
-                # Recursively convert nested dictionaries into their corresponding
-                # dataclasses
-                if getattr(self, field_name) is None:
-                    self_value = self.__annotations__[field_name].from_dict(field_value)
-                else:
-                    self_value = getattr(self, field_name).merge(field_value)
-                setattr(self, field_name, self_value)
-            else:
-                setattr(self, field_name, field_value)
-
-    def to_dict(self, *, remove_nones: bool = False) -> Dict[str, Any]:
-        """Return the dataclass as a dictionary.
+            config (Path | str | T): The config to load. Can be a path to a yaml file,
+                a yaml string or a config object.
 
         Keyword Args:
-            remove_nones (bool): Whether to remove fields that are None or not. If 
-                False, will include all fields, even if they are None.
+            overrides (List[List[str]]): A list of overrides to apply to the config.
+                Each override is a list of strings of the form `key=value`. This is
+                passed to OmegaConf.from_dotlist. Defaults to [].
+            instantiate (bool): Whether to instantiate the config or not. If True, the
+                config will be converted to an object. If False, the config will be
+                converted to a dictionary. Defaults to False.
+
+        Returns:
+            T | Dict[str, Any]: The loaded config. If `instantiate` is True, the config
+                will be an object of type T. Otherwise, it will be a dictionary.
         """
 
-        def remove_nones_fn(d: Dict[str, Any]) -> Dict[str, Any]:
-            if isinstance(d, dict):
-                return {k: remove_nones_fn(v) for k, v in d.items() if v is not None}
-            return d
+        if isinstance(config, (Path, str)):
+            config = OmegaConf.load(config)
+ #
+        config = OmegaConf.merge(config, OmegaConf.from_dotlist(overrides))
 
-        return asdict(self) if not remove_nones else remove_nones_fn(asdict(self))
+        if instantiate:
+            return OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(cls), config))
+        else:
+            return OmegaConf.to_container(config)
 
-    def copy(self, **kwargs) -> T:
+    def save(self, path: Path | str):
+        """Save the config to a yaml file."""
+        OmegaConf.save(self, path, resolve=True)
+
+    def copy(self: Type[T], **kwargs) -> T:
         """Copy the config such that it is a new instance."""
         return self.update(**kwargs)
 
-    def update(self, **kwargs) -> T:
+    def update(self: Type[T], **kwargs) -> T:
         """Update the config with the given kwargs. This is a shallow update, meaning it
         will only replace attributes at this class level, not nested."""
         return replace(deepcopy(self), **kwargs)
 
-    def setdefault(self, field: str, default: Any) -> Any:
-        """Assign the default value to the field if it is not already set. Like
+    def setdefault(self: Type[T], key: str, default: Any) -> Any:
+        """Assign the default value to the key if it is not already set. Like
         `dict.setdefault`."""
-        if not hasattr(self, field) or getattr(self, field) is None:
-            setattr(self, field, default)
-        return getattr(self, field)
+        if not hasattr(self, key) or getattr(self, key) is None:
+            setattr(self, key, default)
+        return getattr(self, key)
 
-    def __contains__(self, key: str) -> bool:
-        """Check if the dataclass contains a field with the given name."""
+    def __contains__(self: Type[T], key: str) -> bool:
+        """Check if the dataclass contains a key with the given name."""
         return key in self.__annotations__
 
     def __str__(self):
-        return yaml.dump(self.to_dict())
-
-    def __post_init__(self):
-        """Check that the types of the fields match the types of the dataclass."""
-
-        def _throw_error(name: str, value: Any, expected_type: type):
-            raise TypeError(
-                f"The field `{name}` was assigned to type `{type(value).__name__}` "
-                f"instead of `{expected_type}`"
-            )
-
-        for name, field_type in self.__annotations__.items():
-            field_type = _get_underlying_type(field_type)
-            value = self.__dict__[name]
-            if value is None:
-                continue
-
-            origin = get_origin(field_type)
-            if _is_iterable(field_type):
-                # TODO: Not going to type check iterables
-                pass
-            elif origin is Union or origin is UnionType:
-                args = get_args(field_type)
-                if not any(
-                    isinstance(value, arg) for arg in args if arg is not type(None)
-                ):
-                    _throw_error(name, value, field_type)
-            elif not isinstance(value, field_type):
-                _throw_error(name, value, field_type)
+        return OmegaConf.to_yaml(self)
 
 
-@dataclass
-class MjCambrianTrainingConfig(MjCambrianBaseConfig["MjCambrianTrainingConfig"]):
+@dataclass(kw_only=True, repr=False)
+class MjCambrianTrainingConfig(MjCambrianBaseConfig):
     """Settings for the training process. Used for type hinting.
 
     Attributes:
@@ -327,20 +151,15 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig["MjCambrianTrainingConfig"])
     seed: int
     verbose: int
 
-    def __post_init__(self):
-        self.setdefault("batch_size", self.n_steps * self.n_envs // self.n_epochs)
 
-        super().__post_init__()
-
-
-@dataclass
-class MjCambrianMazeConfig(MjCambrianBaseConfig["MjCambrianMazeConfig"]):
+@dataclass(kw_only=True, repr=False)
+class MjCambrianMazeConfig(MjCambrianBaseConfig):
     """Defines a map config. Used for type hinting.
 
     Attributes:
         map (List[List[str]]): The map to use for the maze. It's a 2D array where
             each element is a string and corresponds to a "pixel" in the map. See
-            `maze.py` for info on what different strings mean. 
+            `maze.py` for info on what different strings mean.
         maze_path (Path | str): The path to the maze xml file. This is the file that
             contains the xml for the maze. The path is either absolute, relative to the
             execution path or relative to the
@@ -350,21 +169,21 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig["MjCambrianMazeConfig"]):
             MuJoCo simulation.
         height (float): The height of the walls in the MuJoCo simulation.
 
-        use_target_light_sources (bool): Whether to use a target light sources or not. 
-            If False, the colored target sites will be used (e.g. a red sphere). 
-            Otherwise, a light source will be used. The light source is simply a spot 
-            light facing down. If unset (i.e. None), this field will set to the 
+        use_target_light_sources (bool): Whether to use a target light sources or not.
+            If False, the colored target sites will be used (e.g. a red sphere).
+            Otherwise, a light source will be used. The light source is simply a spot
+            light facing down. If unset (i.e. None), this field will set to the
             opposite of the `use_directional_light` field in `MjCambrianEnvConfig`.
 
-        init_goal_pos (Optional[Tuple[float, float]]): The initial position of the 
+        init_goal_pos (Optional[Tuple[float, float]]): The initial position of the
             goal in the maze. If unset, will be randomly generated.
         eval_goal_pos (Optional[Tuple[float, float]]): The evaluation position of the
             goal in the maze. If unset, will be randomly generated.
 
         use_adversary (bool): Whether to use an adversarial target or not. If
             True, a second target will be created which is deemed adversarial. Also,
-            the target's will be given high frequency textures which correspond to 
-            whether a target is adversarial or the true goal. This is done in hopes of 
+            the target's will be given high frequency textures which correspond to
+            whether a target is adversarial or the true goal. This is done in hopes of
             having the animal learn to see high frequency input.
         init_adversary_pos (Optional[Tuple[float, float]]): The initial position
             of the adversary target in the maze. If unset, will be randomly generated.
@@ -373,7 +192,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig["MjCambrianMazeConfig"]):
             generated.
     """
 
-    map: List[List[str]]
+    map: List[List]
     maze_path: Path | str
 
     size_scaling: float
@@ -389,8 +208,8 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig["MjCambrianMazeConfig"]):
     eval_adversary_pos: Optional[Tuple[float, float]] = None
 
 
-@dataclass
-class MjCambrianCameraConfig(MjCambrianBaseConfig["MjCambrianCameraConfig"]):
+@dataclass(kw_only=True, repr=False)
+class MjCambrianCameraConfig(MjCambrianBaseConfig):
     """Defines a camera config. Used for type hinting. This is a wrapper of
     mj.mjvCamera that is used to configure the camera in the viewer.
 
@@ -433,8 +252,8 @@ class MjCambrianCameraConfig(MjCambrianBaseConfig["MjCambrianCameraConfig"]):
     distance_factor: Optional[float] = None
 
 
-@dataclass
-class MjCambrianRendererConfig(MjCambrianBaseConfig["MjCambrianRendererConfig"]):
+@dataclass(kw_only=True, repr=False)
+class MjCambrianRendererConfig(MjCambrianBaseConfig):
     """The config for the renderer. Used for type hinting.
 
     A renderer corresponds to a single camera. The renderer can then view the scene in
@@ -481,11 +300,11 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig["MjCambrianRendererConfig"])
 
     camera_config: Optional[MjCambrianCameraConfig] = None
 
-    use_shared_context: bool = None
+    use_shared_context: bool
 
 
-@dataclass
-class MjCambrianEnvConfig(MjCambrianBaseConfig["MjCambrianEnvConfig"]):
+@dataclass(kw_only=True, repr=False)
+class MjCambrianEnvConfig(MjCambrianBaseConfig):
     """Defines a config for the cambrian environment.
 
     Attributes:
@@ -522,7 +341,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig["MjCambrianEnvConfig"]):
         use_renderer (bool): Whether to use the renderer. Should set to False if
             `render` will never be called. Defaults to True. This is useful to reduce
             the amount of vram consumed by non-rendering environments.
-        add_overlays (bool): Whether to add overlays or not. 
+        add_overlays (bool): Whether to add overlays or not.
         overlay_width (Optional[float]): The width of _each_ rendered overlay that's
             placed on the render output. This is primarily for debugging. If unset,
             no overlay will be added. This is a percentage!! It's the percentage of
@@ -560,8 +379,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig["MjCambrianEnvConfig"]):
     maze_config: MjCambrianMazeConfig
 
 
-@dataclass
-class MjCambrianEyeConfig(MjCambrianBaseConfig["MjCambrianEyeConfig"]):
+@dataclass(kw_only=True, repr=False)
+class MjCambrianEyeConfig(MjCambrianBaseConfig):
     """Defines the config for an eye. Used for type hinting.
 
     Attributes:
@@ -617,7 +436,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig["MjCambrianEyeConfig"]):
 
         def set_if_not_none(key: str, val: Any):
             if val is not None:
-                if isinstance(val, (list, tuple, np.ndarray)):
+                if isinstance(val, Iterable) and not isinstance(val, str):
                     val = " ".join(map(str, val))
                 kwargs[key] = val
 
@@ -633,8 +452,8 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig["MjCambrianEyeConfig"]):
         return kwargs
 
 
-@dataclass
-class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
+@dataclass(kw_only=True, repr=False)
+class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     """Defines the config for an animal. Used for type hinting.
 
     Attributes:
@@ -665,7 +484,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
         use_action_obs (bool): Whether to use the action observation or not.
 
         enforce_2d (bool): Whether to enforce 2d eye placement. If True, all eyes
-            will be placed on the same plane and they will all have a vertical 
+            will be placed on the same plane and they will all have a vertical
             resolution of 1.
         only_mutate_resolution (bool): If true, only the resolution is mutated. No
             the num eyes or fov will not be changed.
@@ -715,18 +534,18 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
     eyes_lat_range: Tuple[float, float]
     eyes_lon_range: Tuple[float, float]
     default_eye_config: MjCambrianEyeConfig
-    use_single_camera: bool  
+    use_single_camera: bool
 
     disable_intensity_sensor: bool
     intensity_sensor_config: MjCambrianEyeConfig
 
 
-@dataclass
-class MjCambrianGenerationConfig(MjCambrianBaseConfig["MjCambrianGenerationConfig"]):
+@dataclass(kw_only=True, repr=False)
+class MjCambrianGenerationConfig(MjCambrianBaseConfig):
     """Config for a generation. Used for type hinting.
 
     Attributes:
-        rank (int): The rank of the generation. A rank is a unique identifier assigned 
+        rank (int): The rank of the generation. A rank is a unique identifier assigned
             to each process, where a processes is an individual evo runner running on a
             separate computer. In the context of a cluster, each node that is running
             an evo job is considered one rank, where the rank number is a unique int.
@@ -740,64 +559,60 @@ class MjCambrianGenerationConfig(MjCambrianBaseConfig["MjCambrianGenerationConfi
     def to_path(self) -> Path:
         return Path(f"generation_{self.generation}") / f"rank_{self.rank}"
 
-@dataclass
-class MjCambrianPopulationConfig(MjCambrianBaseConfig["MjCambrianPopulationConfig"]):
+
+@dataclass(kw_only=True, repr=False)
+class MjCambrianPopulationConfig(MjCambrianBaseConfig):
     """Config for a population. Used for type hinting.
 
     Attributes:
-        size (int): The population size. This represents the number of agents that 
+        size (int): The population size. This represents the number of agents that
             should be trained at any one time.
         num_top_performers (int): The number of top performers to use in the new agent
             selection. Either in cross over or in mutation, these top performers are
             used to generate new agents.
 
-        replication_type (str): The type of replication to use. See
-            `MjCambrianReplicationType` for options.
-
         init_num_mutations (int): The number of mutations to perform on the
             default config to generate the initial population. The actual number of
             mutations is calculated using random.randint(1, init_num_mutations).
+
+        replication_type (str): The type of replication to use. See
+            `ReplicationType` for options.
     """
 
     size: int
     num_top_performers: int
 
-    replication_type: str
-
     init_num_mutations: int
 
+    replication_type: str 
 
-@dataclass
-class MjCambrianEvoConfig(MjCambrianBaseConfig["MjCambrianEvoConfig"]):
+
+@dataclass(kw_only=True, repr=False)
+class MjCambrianEvoConfig(MjCambrianBaseConfig):
     """Config for evolutions. Used for type hinting.
 
     Attributes:
         max_n_envs (int): The maximum number of environments to use for
-            parallel training. Will set `n_envs` for each training process to 
+            parallel training. Will set `n_envs` for each training process to
             `max_n_envs // population size`.
-        total_timesteps (int): The total number of timesteps to train for. 
-            Will set `total_timesteps` for each training process to `total_timesteps //
-            n_envs`.
-
 
         num_generations (int): The number of generations to run for.
 
         population_config (MjCambrianPopulationConfig): The config for the population.
 
-        generation_config (Optional[MjCambrianGenerationConfig]): The config for the 
+        generation_config (Optional[MjCambrianGenerationConfig]): The config for the
             current generation. Will be set by the evolution runner.
-        parent_generation_config (Optional[MjCambrianGenerationConfig]): The config 
-            for the parent generation. Will be set by the evolution runner. If None, 
-            that means that the current generation is the first generation (i.e. no 
+        parent_generation_config (Optional[MjCambrianGenerationConfig]): The config
+            for the parent generation. Will be set by the evolution runner. If None,
+            that means that the current generation is the first generation (i.e. no
             parent).
 
-        environment_variables (Optional[Dict[str, str]]): The environment variables to 
-            set for the training process. 
+        environment_variables (Optional[Dict[str, str]]): The environment variables to
+            set for the training process.
     """
 
     max_n_envs: int
-    total_timesteps: int
-    
+
     num_generations: int
 
     population_config: MjCambrianPopulationConfig
@@ -805,12 +620,27 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig["MjCambrianEvoConfig"]):
     generation_config: Optional[MjCambrianGenerationConfig] = None
     parent_generation_config: Optional[MjCambrianGenerationConfig] = None
 
-    environment_variables: Optional[Dict[str, str]] = None
+    environment_variables: Dict[str, str]
 
 
-@dataclass
-class MjCambrianConfig(MjCambrianBaseConfig["MjCambrianConfig"]):
-    includes: Optional[Dict[str, Path | str]] = None
+@dataclass(kw_only=True, repr=False)
+class MjCambrianConfig(MjCambrianBaseConfig):
+    """The base config for the mujoco cambrian environment. Used for type hinting.
+    
+    Attributes:
+        includes (Dict[str, Path | str]): A dictionary of includes. The keys are the
+            names of the include and the values are the paths to the include files.
+            These includes are merged into the config. This is useful for splitting
+            configs into multiple files. When overriding, you can override the include
+            path directly using the key.
+
+        training_config (MjCambrianTrainingConfig): The config for the training process.
+        env_config (MjCambrianEnvConfig): The config for the environment.
+        animal_config (MjCambrianAnimalConfig): The config for the animal.
+        evo_config (Optional[MjCambrianEvoConfig]): The config for the evolution
+            process. If None, the environment will not be run in evolution mode.
+    """
+    includes: Optional[Dict[str, Path | str]] = field(default_factory=dict)
 
     training_config: MjCambrianTrainingConfig
     env_config: MjCambrianEnvConfig
@@ -818,17 +648,25 @@ class MjCambrianConfig(MjCambrianBaseConfig["MjCambrianConfig"]):
     evo_config: Optional[MjCambrianEvoConfig] = None
 
     @classmethod
-    def from_dict(cls: T, dict: Dict[str, Any]) -> T:
-        """Overrides the base class method to handle includes."""
-        includes = dict.pop("includes", None)
-        if includes is not None:
-            for include in reversed(includes.values()):
-                with open(include, "r") as f:
-                    dict = mergedeep.merge(yaml.safe_load(f), dict)
-            dict = cls.from_dict(dict).to_dict()
+    def load(
+        cls: Type[T],
+        config: Path | str | T,
+        *,
+        overrides: Dict[str, Any] = [],
+        instantiate: bool = True,
+    ) -> T:
+        """Overrides the base class method to handle includes.
+        
+        TODO: Use hydra.
+        """
+        config: Dict = super().load(config)
 
-        return super().from_dict(dict)
+        includes: Dict = config.pop("includes", dict())
+        for include in reversed(list(includes.values())):
+            included_config = MjCambrianConfig.load(include, instantiate=False)
+            config = OmegaConf.merge(config, included_config)
 
+        return super().load(config, overrides=overrides, instantiate=instantiate)
 
 if __name__ == "__main__":
     import argparse
@@ -839,17 +677,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o",
         "--override",
+        "--overrides",
         dest="overrides",
-        action="append",
-        type=lambda v: v.split("="),
-        help="Override config values. Do <dot separated yaml config>=<value>",
+        action="extend",
+        nargs="+",
+        type=str,
+        help="Override config values. Do <config>.<key>=<value>",
         default=[],
     )
 
+    parser.add_argument("-q", "--quiet", action="store_true", help="Run in quiet mode")
+
     args = parser.parse_args()
 
-    overrides = convert_overrides_to_dict(args.overrides)
-    config = MjCambrianConfig.from_yaml(args.config, overrides=overrides)
+    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
 
-    print(config)
-    print(config.to_dict())
+    if not args.quiet:
+        print(config)

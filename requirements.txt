@@ -1,7 +1,6 @@
 stable_baselines3[extra]
-mujoco
+mujoco>=3.1.0
 pyyaml
-mergedeep
 scipy
 imageio
-gymnasium_robotics
+omegaconf

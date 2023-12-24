@@ -19,7 +19,10 @@ class MjCambrianReplicationType(Flag):
     >>> # Only mutation
     >>> type = MjCambrianReplicationType.MUTATION
     >>> # Both mutation and crossover
-    >>> type = MjCambrianReplicationType.MUTATION | MjCambrianReplicationType.CROSSOVER
+    >>> type = (
+            MjCambrianReplicationType.MUTATION
+            | MjCambrianReplicationType.CROSSOVER
+        )
     """
 
     MUTATION = auto()
@@ -159,21 +162,21 @@ class MjCambrianPopulation:
         means crossover can include mutations.
 
         Keyword Args:
-            replication_type (Optional[MjCambrianReplicationType]): The type of
-                replication to perform on the animal. If None, the type is set to the
-                default type specified in the config.
+            replication_type (Optional[MjCambrianReplicationType]):
+                The type of replication to perform on the animal. If None, the type is
+                set to the default type specified in the config.
             config (Optional[MjCambrianConfig]): The config to use for the new animal.
                 Only used if the mutation type is set to
-                `MjCambrianReplicationType.MUTATION`. If unset, a config is selected
-                from the current population.
+                `MjCambrianReplicationType.MUTATION`. If unset, a
+                config is selected from the current population.
         """
         if replication_type is None:
             replication_type = self._replication_type
 
-        if replication_type & MjCambrianReplicationType.CROSSOVER:
+        if MjCambrianReplicationType.CROSSOVER in replication_type:
             config = self._crossover()
 
-        if replication_type & MjCambrianReplicationType.MUTATION:
+        if MjCambrianReplicationType.MUTATION in replication_type:
             config = self._mutate(config)
 
         return config

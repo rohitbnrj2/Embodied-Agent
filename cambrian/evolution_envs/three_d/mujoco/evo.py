@@ -5,8 +5,11 @@ import threading
 from pathlib import Path
 import random
 
-from config import MjCambrianConfig, MjCambrianGenerationConfig
-from population import MjCambrianPopulation, MjCambrianReplicationType
+from cambrian.evolution_envs.three_d.mujoco.config import (
+    MjCambrianConfig,
+    MjCambrianGenerationConfig,
+)
+from cambrian.evolution_envs.three_d.mujoco.population import MjCambrianPopulation, MjCambrianReplicationType
 
 
 class MjCambrianEvoRunner:
@@ -131,14 +134,8 @@ class MjCambrianEvoRunner:
             print(f"Setting n_envs to {n_envs}")
         config.training_config.n_envs = n_envs
 
-        # Set the total timesteps to be the total timesteps divided by the number of
-        # envs. This maintains the sample efficiency as n_envs increases.
-        config.training_config.total_timesteps = (
-            config.evo_config.total_timesteps // n_envs
-        )
-
         # Save the config
-        config.write_to_yaml(generation_logdir / "config.yaml")
+        config.save(generation_logdir / "config.yaml")
 
         return config
 

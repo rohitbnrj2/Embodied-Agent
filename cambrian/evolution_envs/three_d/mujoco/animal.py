@@ -602,7 +602,7 @@ class MjCambrianAnimal:
             print(f"Number of mutations: {num_of_mutations}")
             print(f"Mutations: {mutations}")
 
-        if mutations & MjCambrianAnimal.MutationType.REMOVE_LAT_EYE:
+        if MjCambrianAnimal.MutationType.REMOVE_LAT_EYE in mutations:
             if verbose > 1:
                 print("Removing a latitudinal eye.")
 
@@ -612,13 +612,13 @@ class MjCambrianAnimal:
             else:
                 config.num_eyes_lat -= 1
 
-        if mutations & MjCambrianAnimal.MutationType.ADD_LAT_EYE:
+        if MjCambrianAnimal.MutationType.ADD_LAT_EYE in mutations:
             if verbose > 1:
                 print("Adding a latitudinal eye.")
 
             config.num_eyes_lat += 1
 
-        if mutations & MjCambrianAnimal.MutationType.REMOVE_LON_EYE:
+        if MjCambrianAnimal.MutationType.REMOVE_LON_EYE in mutations:
             if verbose > 1:
                 print("Removing a longitudinal eye.")
 
@@ -628,13 +628,13 @@ class MjCambrianAnimal:
             else:
                 config.num_eyes_lon -= 1
 
-        if mutations & MjCambrianAnimal.MutationType.ADD_LON_EYE:
+        if MjCambrianAnimal.MutationType.ADD_LON_EYE in mutations:
             if verbose > 1:
                 print("Adding a longitudinal eye.")
 
             config.num_eyes_lon += 1
 
-        if mutations & MjCambrianAnimal.MutationType.EDIT_EYE:
+        if MjCambrianAnimal.MutationType.EDIT_EYE in mutations:
             if verbose > 1:
                 print("Editing an eye.")
 

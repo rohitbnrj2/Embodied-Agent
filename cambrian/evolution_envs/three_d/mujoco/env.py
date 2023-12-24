@@ -1,9 +1,8 @@
 from typing import Dict, Any, Tuple, List, Optional
 from pathlib import Path
-import numpy as np
-from enum import Enum
 import pickle
 
+import numpy as np
 import gymnasium as gym
 import mujoco as mj
 from gymnasium import spaces

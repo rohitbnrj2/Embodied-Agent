@@ -49,7 +49,7 @@ class MjCambrianTrainer:
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
 
-        self.config.write_to_yaml(self.logdir / "config.yaml")
+        self.config.save(self.logdir / "config.yaml")
 
         set_random_seed(self._calc_seed(0))
 
