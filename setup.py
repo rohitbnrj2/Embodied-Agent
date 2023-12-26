@@ -12,5 +12,6 @@ def parse_requirements():
 setup(
     name='cambrian',
     packages=['cambrian'],
-    install_requires=parse_requirements()
+    install_requires=parse_requirements(),
+    python_requires=">=3.10"
 )
