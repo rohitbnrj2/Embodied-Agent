@@ -25,7 +25,7 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
 
         total_concat_size = 0
         for key, subspace in observation_space.spaces.items():
-            if is_image_space(subspace, normalized_image=normalized_image):
+            if len(subspace.shape) == 4 or is_image_space(subspace, normalized_image=normalized_image):
                 extractors[key] = MjCambrianNatureCNN(
                     subspace,
                     features_dim=cnn_output_dim,
@@ -44,7 +44,6 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
 
     def forward(self, observations: TensorDict) -> torch.Tensor:
         encoded_tensor_list = []
-
         for key, extractor in self.extractors.items():
             encoded_tensor_list.append(extractor(observations[key]))
         return torch.cat(encoded_tensor_list, dim=1)
@@ -73,22 +72,23 @@ class MjCambrianNatureCNN(BaseFeaturesExtractor):
         super().__init__(observation_space, features_dim)
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
-        assert is_image_space(
-            observation_space, check_channels=False, normalized_image=normalized_image
-        ), (
-            "You should use NatureCNN "
-            f"only with images not with {observation_space}\n"
-            "(you are probably using `CnnPolicy` instead of `MlpPolicy` "
-            "or `MultiInputPolicy`)\n"
-            "If you are using a custom environment,\n"
-            "please check it using our env checker:\n"
-            "https://stable-baselines3.readthedocs.io/en/master/common/env_checker.html.\n"
-            "If you are using `VecNormalize` or already normalized "
-            "channel-first images you should pass `normalize_images=False`: \n"
-            "https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html"
-        )
+        # assert is_image_space(
+        #     observation_space, check_channels=False, normalized_image=normalized_image
+        # ), (
+        #     "You should use NatureCNN "
+        #     f"only with images not with {observation_space}\n"
+        #     "(you are probably using `CnnPolicy` instead of `MlpPolicy` "
+        #     "or `MultiInputPolicy`)\n"
+        #     "If you are using a custom environment,\n"
+        #     "please check it using our env checker:\n"
+        #     "https://stable-baselines3.readthedocs.io/en/master/common/env_checker.html.\n"
+        #     "If you are using `VecNormalize` or already normalized "
+        #     "channel-first images you should pass `normalize_images=False`: \n"
+        #     "https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html"
+        # )
 
-        n_input_channels = observation_space.shape[0]
+        time_steps = observation_space.shape[0]
+        n_input_channels = observation_space.shape[3]
         if min(observation_space.shape[1:]) > 36:
             self.cnn = torch.nn.Sequential(
                 torch.nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4),
@@ -112,13 +112,26 @@ class MjCambrianNatureCNN(BaseFeaturesExtractor):
 
         # Compute shape by doing one forward pass
         with torch.no_grad():
+            # print(f"{observation_space.sample()[None][:, 0, :, :, :].shape}")
             n_flatten = self.cnn(
-                torch.as_tensor(observation_space.sample()[None]).float()
+                torch.as_tensor(observation_space.sample()[None][:, 0, :, :, :]).float().permute(0, 3, 1, 2)
             ).shape[1]
 
         self.linear = torch.nn.Sequential(
             torch.nn.Linear(n_flatten, features_dim), torch.nn.ReLU()
         )
 
+        self.temporal_linear = torch.nn.Sequential(
+            torch.nn.Linear(features_dim * time_steps, features_dim), torch.nn.ReLU()
+        )
+
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        return self.linear(self.cnn(observations))
+        B = observations.shape[0]
+        T = observations.shape[1]
+        encoding_list = [] # [B, self.features_dim, T]
+        for t in range(T):
+            obs_ = observations[:, t, :, :, :].permute(0, 3, 1, 2) / 255.
+            encoding = self.linear(self.cnn(obs_))
+            encoding_list.append(encoding)
+        # output should be of shape [B, self.features_dim]
+        return self.temporal_linear(torch.cat(encoding_list, dim=1).reshape(B, -1)).reshape(B, -1)

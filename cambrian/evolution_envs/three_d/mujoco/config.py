@@ -531,6 +531,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
     num_eyes_lat: int
     num_eyes_lon: int
+    n_temporal_obs: int
     eyes_lat_range: Tuple[float, float]
     eyes_lon_range: Tuple[float, float]
     default_eye_config: MjCambrianEyeConfig

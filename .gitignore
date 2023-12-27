@@ -8,4 +8,5 @@ log*/
 *.sh.*
 .ipynb_checkpoints/
 out*
+*.out
 MUJOCO_LOG.TXT

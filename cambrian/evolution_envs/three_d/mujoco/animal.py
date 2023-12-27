@@ -1,3 +1,5 @@
+from collections import deque
+from copy import copy
 from typing import Dict, Any, List, Optional
 from enum import Flag, auto
 from functools import reduce
@@ -343,9 +345,16 @@ class MjCambrianAnimal:
         mj.mj_forward(model, data)
         self.init_pos = self.pos.copy()
 
+        self.obs: Dict[str, Any] = {}
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
-            obs[name] = eye.reset(model, data)
+            self.obs[name] = deque(maxlen=self.config.n_temporal_obs)            
+            eye_obs = eye.reset(model, data)
+            for _ in range(self.config.n_temporal_obs):
+                self.obs[name].append(np.zeros(eye_obs.shape))
+            self.obs[name].append(eye_obs)
+
+            obs[name] = copy(np.array(self.obs[name])).reshape(self.config.n_temporal_obs, *eye.resolution[::-1], 3)
 
         if not self.config.use_intensity_obs and not self.config.disable_intensity_sensor:
             self._intensity_sensor.reset(model, data)
@@ -357,7 +366,8 @@ class MjCambrianAnimal:
 
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
-            obs[name] = eye.step()
+            self.obs[name].append(eye.step())
+            obs[name] = copy(np.array(self.obs[name])).reshape(self.config.n_temporal_obs, *eye.resolution[::-1], 3)
 
         if not self.config.use_intensity_obs and not self.config.disable_intensity_sensor:
             self._intensity_sensor.step()
@@ -488,7 +498,9 @@ class MjCambrianAnimal:
         observation_space: Dict[spaces.Dict] = {}
 
         for name, eye in self.eyes.items():
-            observation_space[name] = eye.observation_space
+            observation_space[name] = spaces.Box(
+            0, 255, shape=(self.config.n_temporal_obs, *eye.resolution[::-1], 3), dtype=np.uint8
+        )
 
         if self.config.use_qpos_obs:
             observation_space["qpos"] = spaces.Box(

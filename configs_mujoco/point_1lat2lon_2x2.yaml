@@ -1,0 +1,11 @@
+includes:
+  base: configs_mujoco/base.yaml
+  point: configs_mujoco/animals/point.yaml
+
+animal_config:
+  num_eyes_lat: 1
+  num_eyes_lon: 2
+  n_temporal_obs: 1
+
+  default_eye_config:
+    resolution: [2, 2]
