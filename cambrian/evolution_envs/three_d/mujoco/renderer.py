@@ -11,7 +11,7 @@ import imageio
 import cv2
 
 from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianRendererConfig
-from cambrian.evolution_envs.three_d.mujoco.utils import get_camera_id, get_body_id
+from cambrian.evolution_envs.three_d.mujoco.utils import get_camera_id, get_body_id, get_camera_name, get_body_name
 
 TEXT_HEIGHT = 20
 TEXT_MARGIN = 5
@@ -114,7 +114,6 @@ class MjCambrianTextViewerOverlay(MjCambrianViewerOverlay):
             mjr_context,
         )
 
-
 class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
     def draw(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
         viewport = mj.MjrRect(*self.cursor, self.obj.shape[1], self.obj.shape[0])
@@ -128,6 +127,7 @@ MJR_CONTEXT: mj.MjrContext = None
 class MjCambrianViewer(ABC):
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
+        self.config.setdefault("max_geom", 1000)
 
         self.model: mj.MjModel = None
         self.data: mj.MjData = None
@@ -204,41 +204,29 @@ class MjCambrianViewer(ABC):
         if camera_config is None:
             return
 
-        assert not (
-            camera_config.type and camera_config.typename
-        ), "Camera type and typename are mutually exclusive."
-        assert not (
-            camera_config.fixedcamid and camera_config.fixedcamname
-        ), "Camera fixedcamid and fixedcamname are mutually exclusive."
-        assert not (
-            camera_config.trackbodyid and camera_config.trackbodyname
-        ), "Camera trackbodyid and trackbodyname are mutually exclusive."
+        def set_camera_property(name: str, value: Any):
+            if value is not None:
+                setattr(self.camera, name, value)
 
-        if camera_config.type is not None:
-            self.camera.type = camera_config.type
-        if camera_config.typename is not None:
-            typename = f"mjCAMERA_{camera_config.typename.upper()}"
-            self.camera.type = getattr(mj.mjtCamera, typename)
-        if camera_config.fixedcamid is not None:
-            self.camera.fixedcamid = camera_config.fixedcamid
-        if camera_config.fixedcamname is not None:
-            fixedcamname = camera_config.fixedcamname
-            self.camera.fixedcamid = get_camera_id(self.model, fixedcamname)
-        if camera_config.trackbodyid is not None:
-            self.camera.trackbodyid = camera_config.trackbodyid
-        if camera_config.trackbodyname is not None:
-            trackbodyname = camera_config.trackbodyname
-            self.camera.trackbodyid = get_body_id(self.model, trackbodyname)
-        if camera_config.distance is not None:
-            self.camera.distance = camera_config.distance
-            if camera_config.distance_factor is not None:
-                self.camera.distance *= camera_config.distance_factor
-        if camera_config.azimuth is not None:
-            self.camera.azimuth = camera_config.azimuth
-        if camera_config.elevation is not None:
-            self.camera.elevation = camera_config.elevation
-        if camera_config.lookat is not None:
-            self.camera.lookat[:] = camera_config.lookat
+        set_camera_property("type", camera_config.type)
+        set_camera_property("fixedcamid", camera_config.fixedcamid)
+        set_camera_property("trackbodyid", camera_config.trackbodyid)
+        set_camera_property("azimuth", camera_config.azimuth)
+        set_camera_property("elevation", camera_config.elevation)
+        set_camera_property("lookat", camera_config.lookat)
+
+        if (typename := camera_config.typename) is not None:
+            self.camera.type = getattr(mj.mjtCamera, f"mjCAMERA_{typename.upper()}")
+
+        if (fixedcamname := camera_config.fixedcamname) is not None:
+            set_camera_property("fixedcamid", get_camera_id(self.model, fixedcamname))
+
+        if (trackbodyname := camera_config.trackbodyname) is not None:
+            set_camera_property("trackbodyid", get_body_id(self.model, trackbodyname))
+
+        distance_factor = camera_config.setdefault("distance_factor", 1)
+        set_camera_property("distance", camera_config.distance)
+        set_camera_property("distance", self.camera.distance * distance_factor)
 
     @abstractmethod
     def update(self, width: int, height: int):
@@ -270,6 +258,9 @@ class MjCambrianViewer(ABC):
         return np.flipud(rgb), np.flipud(depth)
 
     def draw_overlays(self, overlays: List[MjCambrianViewerOverlay]):
+        # Required for some reason to allow overlays to be placed correctly
+        GL.glDisable(GL.GL_DEPTH_TEST)
+
         for overlay in overlays:
             overlay.draw(self._mjr_context, self.viewport)
 
@@ -322,9 +313,6 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
     def __init__(self, config: MjCambrianRendererConfig):
         super().__init__(config)
 
-        self.config.setdefault("resizable", False)
-        self.config.setdefault("fullscreen", False)
-
         self.window = None
         self.default_window_pos: Tuple[int, int] = None
         self._scale: float = None
@@ -355,13 +343,11 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
                 glfw.terminate()
                 raise Exception("GLFW failed to create window.")
 
-            resizable = glfw.TRUE if self.config.resizable else glfw.FALSE
-            glfw.set_window_attrib(self.window, glfw.RESIZABLE, resizable)
             glfw.show_window(self.window)
 
             self.default_window_pos = glfw.get_window_pos(self.window)
         glfw.set_window_size(self.window, width, height)
-        self.fullscreen(self.config.fullscreen)
+        self.fullscreen(self.config.fullscreen if self.config.fullscreen else False)
 
         super().reset(model, data, width, height)
 
@@ -517,7 +503,6 @@ class MjCambrianRenderer:
 
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
-        self.config.setdefault("max_geom", 1000)
 
         assert all(
             mode in self.metadata["render.modes"] for mode in self.render_modes
@@ -597,10 +582,13 @@ class MjCambrianRenderer:
         print(f"Saving visualizations at {path}...")
 
         path = Path(path)
-        rgb_buffer = np.array(self._rgb_buffer[:-1])
+        rgb_buffer = np.array(self._rgb_buffer)
+        if len(rgb_buffer) > 1:
+            rgb_buffer = rgb_buffer[:-1]
+        fps = 50
         if "mp4" in save_types:
             mp4 = path.with_suffix(".mp4")
-            writer = imageio.get_writer(mp4, fps=self.config.fps)
+            writer = imageio.get_writer(mp4, fps=fps)
             for image in rgb_buffer:
                 writer.append_data(image)
             writer.close()
@@ -608,7 +596,7 @@ class MjCambrianRenderer:
             png = path.with_suffix(".png")
             imageio.imwrite(png, rgb_buffer[-1])
         if "gif" in save_types:
-            duration = 1000 / self.config.fps
+            duration = 1000 / fps
             gif = path.with_suffix(".gif")
             imageio.mimwrite(gif, rgb_buffer, loop=0, duration=duration)
 
@@ -659,12 +647,9 @@ if __name__ == "__main__":
     YAML = """
     render_modes: ['rgb_array', 'depth_array']
 
-    max_geom: 1000
-
     width: 640
     height: 480
 
-    resizable: true
     fullscreen: true
 
     use_shared_context: true

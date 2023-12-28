@@ -56,7 +56,6 @@ class MjCambrianEye:
             "rgb_array" in config.renderer_config.render_modes
         ), "Must specify 'rgb_array' in the render modes for the renderer config."
 
-        config.setdefault("filter_size", [0, 0])
         if config.filter_size != [0, 0]:
             assert (
                 "depth_array" in config.renderer_config.render_modes
@@ -89,8 +88,8 @@ class MjCambrianEye:
             fovx, fovy = config.fov
             focalx, focaly = config.focal
             config.sensorsize = [
-                2 * focalx * np.tan(np.radians(fovx) / 2) * scale_factor_width,
-                2 * focaly * np.tan(np.radians(fovy) / 2) * scale_factor_height,
+                float(2 * focalx * np.tan(np.radians(fovx) / 2) * scale_factor_width),
+                float(2 * focaly * np.tan(np.radians(fovy) / 2) * scale_factor_height),
             ]
 
         # Set the height/width of the renderer equal to the resolution of the image
@@ -339,6 +338,8 @@ if __name__ == "__main__":
                     resolution=[args.width, args.height],
                     pos=[0, 0, 0.3],
                     quat=list(quat),
+                    fov=[45, 20],
+                    filter_size=[0, 0],
                     renderer_config=renderer_config.copy(),
                 )
                 eye = MjCambrianEye(eye_config)

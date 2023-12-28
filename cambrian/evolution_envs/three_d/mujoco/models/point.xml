@@ -4,20 +4,20 @@
     <material name="particle_direction_mat" emission="1" rgba="0.6 0.3 0.3 1"/>
   </asset>
   <worldbody>
-    <body name="particle_{uid}" pos="0 0 0.2">
-      <geom name="particle_geom_{uid}" type="sphere" size="0.2" rgba="0.0 0.0 1.0 0.0" contype="1" friction=".5 .1 .1" density="1000" margin="0.002" condim="1" conaffinity="1"/>
-      <site name="particle_site_{uid}" pos="0.0 0.0 0.0" material="particle_mat" size="0.2"/>
-      <joint name="ball_x_{uid}" type="slide" pos="0 0 0" axis="1 0 0" damping="1" limited="false"/>
-      <joint name="ball_y_{uid}" type="slide" pos="0 0 0" axis="0 1 0" damping="1" limited="false"/>
-      <joint name="ball_z_{uid}" type="hinge" pos="0 0 0" axis="0 0 1" damping="1" limited="false"/>
-      <site name="particle_direction_site_{uid}" group="2" pos="0.3 0.0 0.0" quat="0.5 0.5 0.5 0.5" type="cylinder" material="particle_direction_mat" rgba="1.0 0.0 0.0 1.0" size="0.05 0.15" />
+    <body name="particle_${..name}" pos="0 0 0.2">
+      <geom name="particle_geom_${..name}" type="sphere" size="0.2" rgba="0.0 0.0 1.0 0.0" contype="1" friction=".5 .1 .1" density="1000" margin="0.002" condim="1" conaffinity="1"/>
+      <site name="particle_site_${..name}" pos="0.0 0.0 0.0" material="particle_mat" size="0.2"/>
+      <joint name="ball_x_${..name}" type="slide" pos="0 0 0" axis="1 0 0" damping="1" limited="false"/>
+      <joint name="ball_y_${..name}" type="slide" pos="0 0 0" axis="0 1 0" damping="1" limited="false"/>
+      <joint name="ball_z_${..name}" type="hinge" pos="0 0 0" axis="0 0 1" damping="1" limited="false"/>
+      <site name="particle_direction_site_${..name}" group="2" pos="0.3 0.0 0.0" quat="0.5 0.5 0.5 0.5" type="cylinder" material="particle_direction_mat" rgba="1.0 0.0 0.0 1.0" size="0.05 0.15" />
     </body>
   </worldbody>
   <actuator>
     <!-- These are just dummy actuators for providing ranges -->
-    <motor name="motor_x_{uid}" joint="ball_x_{uid}" ctrlrange="-1.0 1.0" ctrllimited="true" gear= "100"/>
-    <motor name="motor_y_{uid}" joint="ball_y_{uid}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="100"/>
+    <motor name="motor_x_${..name}" joint="ball_x_${..name}" ctrlrange="-1.0 1.0" ctrllimited="true" gear= "100"/>
+    <motor name="motor_y_${..name}" joint="ball_y_${..name}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="100"/>
 
-    <motor name="motor_z_{uid}" joint="ball_z_{uid}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="1"/>
+    <motor name="motor_z_${..name}" joint="ball_z_${..name}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="1"/>
   </actuator>
 </mujoco>

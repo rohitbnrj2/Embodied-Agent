@@ -8,7 +8,7 @@ import mujoco as mj
 
 from cambrian.evolution_envs.three_d.mujoco.cambrian_xml import MjCambrianXML
 from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianMazeConfig
-from cambrian.evolution_envs.three_d.mujoco.utils import get_model_path
+from cambrian.evolution_envs.three_d.mujoco.utils import get_include_path
 
 # ================
 
@@ -46,11 +46,6 @@ def get_attenuation(max_distance: float) -> Tuple[float, float, float]:
 
 
 # ================
-
-
-def make_map(name: str) -> np.ndarray:
-    """Returns a map from a name."""
-    return np.asarray(globals()[name.upper()], dtype=str)
 
 
 class MjCambrianMaze:
@@ -114,7 +109,7 @@ class MjCambrianMaze:
         self._unique_reset_locations += self._combined_locations
 
     def generate_xml(self) -> MjCambrianXML:
-        xml = MjCambrianXML(get_model_path(self._config.maze_path))
+        xml = MjCambrianXML.from_string(self._config.xml)
         worldbody = xml.find(".//worldbody")
         assert worldbody is not None
 
@@ -439,12 +434,21 @@ class MjCambrianMaze:
 
 if __name__ == "__main__":
     import time
+    import argparse
+    import yaml
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("xml", type=str)
+    parser.add_argument("map", type=str)
+
+    args = parser.parse_args()
 
     config = MjCambrianMazeConfig(
+        xml=open(args.xml, "r").read(),
+        map=yaml.safe_load(open(args.map, "r").read()),
         use_target_light_sources=True,
         use_adversary=True,
-        name="MANY_GOAL_MAZE",
-        maze_path="models/maze.xml",
         size_scaling=4.0,
         height=0.5,
     )

@@ -1,8 +1,7 @@
-from collections import deque
-from copy import copy
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Deque
 from enum import Flag, auto
 from functools import reduce
+from collections import deque
 
 import numpy as np
 import mujoco as mj
@@ -16,13 +15,12 @@ from cambrian.evolution_envs.three_d.mujoco.eye import (
 )
 from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianAnimalConfig
 from cambrian.evolution_envs.three_d.mujoco.utils import (
-    get_model_path,
+    get_include_path,
     get_body_id,
     get_body_name,
     get_geom_id,
     get_joint_id,
     get_geom_name,
-    generate_sequence_from_range,
     MjCambrianJoint,
     MjCambrianActuator,
     MjCambrianGeometry,
@@ -61,11 +59,16 @@ class MjCambrianAnimal:
 
         self._eyes: Dict[str, MjCambrianEye] = {}
         self._intensity_sensor: MjCambrianEye = None
+        self._responsible_for_intensity_sensor: bool = (
+            not self.config.use_intensity_obs
+            and not self.config.disable_intensity_sensor
+        )
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
         self._initialize()
 
+        self._eye_obs: Dict[str, Deque[np.ndarray]] = None
         self._init_pos: np.ndarray = None
 
     def _check_config(self, config: MjCambrianAnimalConfig) -> MjCambrianAnimalConfig:
@@ -73,23 +76,9 @@ class MjCambrianAnimal:
         we'll update the model path to make sure it's either absolute/relative to
         the execution path or relative to this file."""
 
-        assert config.body_name is not None, "No body name specified."
-        assert config.joint_name is not None, "No joint name specified."
-        assert config.geom_name is not None, "No geom name specified."
-        assert config.default_eye_config is not None, "No default eye config."
-
-        if config.enforce_2d:
-            assert config.num_eyes_lat == 1, "Enforcing 2D requires 1 lat eye."
-            assert (
-                config.default_eye_config.resolution[1] == 1
-            ), "Enforcing 2D requires the eye height to be 1."
-            assert (
-                config.default_eye_config.fov[1] == 1
-            ), "Enforcing 2D requires the eye fov to be 1."
-        if config.use_single_camera:
-            raise NotImplementedError("Single camera not implemented yet.")
-
-        config.model_path = get_model_path(config.model_path)
+        assert config.model_config.body_name is not None, "No body name specified."
+        assert config.model_config.joint_name is not None, "No joint name specified."
+        assert config.model_config.geom_name is not None, "No geom name specified."
 
         return config
 
@@ -101,7 +90,7 @@ class MjCambrianAnimal:
             - parse the geometry
             - place eyes at the appropriate locations
         """
-        model = mj.MjModel.from_xml_path(str(self.config.model_path))
+        model = mj.MjModel.from_xml_string(self.config.model_config.xml)
 
         self._parse_geometry(model)
         self._parse_actuators(model)
@@ -133,8 +122,10 @@ class MjCambrianAnimal:
         self._numctrl = model.nu
 
         # Create the geometries we will use for eye placement
-        geom_id = get_geom_id(model, self.config.geom_name)
-        assert geom_id != -1, f"Could not find geom with name {self.config.geom_name}."
+        geom_id = get_geom_id(model, self.config.model_config.geom_name)
+        assert (
+            geom_id != -1
+        ), f"Could not find geom {self.config.model_config.geom_name}."
         geom_rbound = model.geom_rbound[geom_id]
         geom_pos = model.geom_pos[geom_id]
         self._geom = MjCambrianGeometry(geom_id, geom_rbound, geom_pos)
@@ -147,7 +138,7 @@ class MjCambrianAnimal:
         """
 
         # Root body for the animal
-        body_name = self.config.body_name
+        body_name = self.config.model_config.body_name
         body_id = get_body_id(model, body_name)
         assert body_id != -1, f"Could not find body with name {body_name}."
 
@@ -184,120 +175,68 @@ class MjCambrianAnimal:
         assert len(self._actuators) > 0, f"Body {body_name} has no actuators."
 
     def _place_eyes(self):
-        """Place the eyes on the animal.
+        """Place the eyes on the animal."""
 
-        The current algorithm for eye placement is as follows. We first grab the geom
-        defined in the config. The eyes are then placed randomly
-        on that geometry's bounding sphere (`rbound`). The limits are specified
-        by the animal's config. The eye's are restricted along the latitudes
-        to be placed within `config.eyes_lat_range` (probably 60 degrees or
-        something) and along the longitudes to be placed within `config.eyes_lon_range`.
-
-        NOTE:
-        - For animal-specific eye placement, you should override this method.
-        - `config.[lat|lon]_range` are in degrees.
-
-        TODO: Why are the transformations so weird?
-        TODO: Have a way to change the placement method, like rectangular or custom
-            shape
-        """
-
-        num_eyes_lat = self.config.num_eyes_lat
-        eyes_lat_range = np.radians(self.config.eyes_lat_range)
-        latitudes = generate_sequence_from_range(eyes_lat_range, num_eyes_lat)
-
-        num_eyes_lon = self.config.num_eyes_lon
-        eyes_lon_range = np.radians(self.config.eyes_lon_range) + np.pi / 2
-        longitudes = generate_sequence_from_range(eyes_lon_range, num_eyes_lon)
-
-        for lat_idx, latitude in enumerate(latitudes):
-            for lon_idx, longitude in enumerate(longitudes):
-                name = f"{self.name}_eye_{lat_idx}_{lon_idx}"
-                eye = self._create_eye(
-                    self.config.default_eye_config.copy(),
-                    name,
-                    latitude,
-                    longitude,
-                )
-                self._eyes[name] = eye
-
-        # NOTE: Stable baselines3 requires the images to to have the channel be the last
-        # dimension. If any other eyes have a shape > (3, 3, C), we'll get an error from
-        # sb3 if the intensity sensor is < (3, 3, C) because it seems to think the
-        # channel isn't the last dimension. In this case, let's just increase the
-        # resolution of the intensity sensor.
-        if (
-            self.config.use_intensity_obs
-            and len(self._eyes) > 0
-            and min(self.config.default_eye_config.resolution[:2]) > 3
-        ):
-            print("WARNING: Increasing intensity sensor resolution.")
-            w = max(self.config.intensity_sensor_config.resolution[0], 4)
-            h = max(self.config.intensity_sensor_config.resolution[1], 4)
-            h = h if not self.config.enforce_2d else 1
-            self.config.intensity_sensor_config.resolution = [w, h]
+        for i, eye_config in enumerate(self.config.eye_configs.values()):
+            name = f"{self.name}_eye_{i}"
+            self._eyes[name] = self._create_eye(eye_config, name)
 
         # Add a forward facing eye intensity sensor
         if not self.config.disable_intensity_sensor:
+            intensity_sensor_config = self.config.intensity_sensor_config
+            intensity_sensor_config.coord = [
+                float(np.mean(self.config.model_config.eyes_lat_range)),
+                float(np.mean(self.config.model_config.eyes_lon_range)),
+            ]
             self._intensity_sensor = self._create_eye(
-                self.config.intensity_sensor_config.copy(),
+                intensity_sensor_config,
                 f"{self.name}_intensity_sensor",
-                np.radians(eyes_lat_range.mean()),
-                np.pi / 2,
             )
             if self.config.use_intensity_obs:
                 self._eyes[self._intensity_sensor.name] = self._intensity_sensor
 
-    def _create_eye(
-        self, config: MjCambrianEyeConfig, name: str, lat: float, lon: float
-    ) -> MjCambrianEye:
+    def _create_eye(self, config: MjCambrianEyeConfig, name: str) -> MjCambrianEye:
         """Creates an eye with the given config.
 
         TODO: Rotations are weird. Fix this.
         """
+        assert config.coord is not None, "No coord specified."
+        lat, lon = np.radians(config.coord)
+        lon += np.pi / 2
+
         default_rot = R.from_euler("z", np.pi / 2)
         pos_rot = default_rot * R.from_euler("yz", [lat, lon])
         rot_rot = R.from_euler("z", lat) * R.from_euler("y", -lon) * default_rot
 
         config.name = name
-        config.pos = pos_rot.apply([-self._geom.rbound, 0, 0]) + self._geom.pos
-        config.quat = rot_rot.as_quat()
+        config.pos = (
+            pos_rot.apply([-self._geom.rbound, 0, 0]) + self._geom.pos
+        ).tolist()
+        config.quat = rot_rot.as_quat().tolist()
         return MjCambrianEye(config)
 
-    def generate_xml(self) -> MjCambrianXML:
+    def generate_xml(self, idx: int) -> MjCambrianXML:
         """Generates the xml for the animal. Will generate the xml from the model file
         and then add eyes to it.
         """
-        idx = self.config.idx
-
-        # Update the names to have idx as a suffix
-        self.config.body_name = self.config.body_name.format(uid=idx)
-        self.config.joint_name = self.config.joint_name.format(uid=idx)
-        self.config.geom_name = self.config.geom_name.format(uid=idx)
-
-        # Create the xml and update the names in the xml to be unique
-        # Each name/target/site/etc. should have a fstring-like tag that is evaluated
-        # here. It should be implemented using the python built-in .format and use the
-        # keyword 'uid'
-        # TODO Write better docs here/above
-        temp_xml = MjCambrianXML(self.config.model_path)
-        self.xml = MjCambrianXML.from_string(str(temp_xml).format(uid=idx))
+        self.xml = MjCambrianXML.from_string(self.config.model_config.xml)
 
         # Set each geom in this animal to be a certain group for rendering utils
         # The group number is the index the animal was created + 2
         # + 2 because the default group used in mujoco is 0 and our animal indexes start
         # at 0 and we'll put our scene stuff on group 1
-        for geom in self.xml.findall(f".//*[@name='{self.config.body_name}']//geom"):
+        for geom in self.xml.findall(
+            f".//*[@name='{self.config.model_config.body_name}']//geom"
+        ):
             geom.set("group", str(idx + 2))
 
         # Add eyes
         for eye in self.eyes.values():
-            self.xml += eye.generate_xml(self.xml, self.config.body_name)
+            self.xml += eye.generate_xml(self.xml, self.config.model_config.body_name)
 
-        if not self.config.use_intensity_obs and not self.config.disable_intensity_sensor:
-            self.xml += self._intensity_sensor.generate_xml(
-                self.xml, self.config.body_name
-            )
+        if self._responsible_for_intensity_sensor:
+            body_name = self.config.model_config.body_name
+            self.xml += self._intensity_sensor.generate_xml(self.xml, body_name)
 
         return self.xml
 
@@ -310,20 +249,49 @@ class MjCambrianAnimal:
         self._model = model
         self._data = data
 
+        # Parse actuators
+        self._parse_actuators(model)
+
+        # Accumulate the qpos/qvel/act adrs
+        self._reset_adrs(model)
+
+        # Update the animal's position using the freejoint
+        self.pos = init_qpos
+        # step here so that the observations are updated
+        mj.mj_forward(model, data)
+        self.init_pos = self.pos.copy()
+
+        self._eye_obs: Dict[str, Deque[np.ndarray]] = {}
+        for name, eye in self.eyes.items():
+            reset_obs = eye.reset(model, data)
+
+            # The initial obs is a list of black images and the first obs returned
+            # by reset
+            num_obs = self.config.n_temporal_obs
+            init_eye_obs = deque([np.zeros(reset_obs.shape)] * num_obs, maxlen=num_obs)
+            init_eye_obs.append(reset_obs)
+
+            self._eye_obs[name] = init_eye_obs
+
+        if self._responsible_for_intensity_sensor:
+            self._intensity_sensor.reset(model, data)
+
+        return self._get_obs(np.zeros(self._numctrl))
+
+    def _reset_adrs(self, model: mj.MjModel):
+        """Resets the adrs for the animal. This is used when the model is reloaded."""
+
         # Root body for the animal
-        body_name = self.config.body_name
+        body_name = self.config.model_config.body_name
         self._body_id = get_body_id(model, body_name)
         assert self._body_id != -1, f"Could not find body with name {body_name}."
 
         # This joint is used for positioning the animal in the environment
-        joint_name = self.config.joint_name
+        joint_name = self.config.model_config.joint_name
         self._joint_id = get_joint_id(model, joint_name)
         assert self._joint_id != -1, f"Could not find joint with name {joint_name}."
         self._joint_qposadr = model.jnt_qposadr[self._joint_id]
         self._joint_dofadr = model.jnt_dofadr[self._joint_id]
-
-        # Parse actuators
-        self._parse_actuators(model)
 
         # Accumulate the qpos/qvel/act adrs
         self._qposadrs = []
@@ -339,47 +307,33 @@ class MjCambrianAnimal:
         self._actadrs = [act.adr for act in self._actuators]
         assert len(self._actadrs) == self._numctrl
 
-        # Update the animal's position using the freejoint
-        self.pos = init_qpos
-        # step here so that the observations are updated
-        mj.mj_forward(model, data)
-        self.init_pos = self.pos.copy()
-
-        self.obs: Dict[str, Any] = {}
-        obs: Dict[str, Any] = {}
-        for name, eye in self.eyes.items():
-            self.obs[name] = deque(maxlen=self.config.n_temporal_obs)            
-            eye_obs = eye.reset(model, data)
-            for _ in range(self.config.n_temporal_obs):
-                self.obs[name].append(np.zeros(eye_obs.shape))
-            self.obs[name].append(eye_obs)
-
-            obs[name] = copy(np.array(self.obs[name])).reshape(self.config.n_temporal_obs, *eye.resolution[::-1], 3)
-
-        if not self.config.use_intensity_obs and not self.config.disable_intensity_sensor:
-            self._intensity_sensor.reset(model, data)
-
-        return self._get_obs(obs, np.zeros(self._numctrl))
-
-    def step(self, action: List[float]) -> Dict[str, Any]:
-        """Steps the eyes, updates the ctrl inputs, and returns the observation."""
-
-        obs: Dict[str, Any] = {}
-        for name, eye in self.eyes.items():
-            self.obs[name].append(eye.step())
-            obs[name] = copy(np.array(self.obs[name])).reshape(self.config.n_temporal_obs, *eye.resolution[::-1], 3)
-
-        if not self.config.use_intensity_obs and not self.config.disable_intensity_sensor:
-            self._intensity_sensor.step()
-
+    def apply_action(self, action: List[float]):
+        """Applies the action to the animal."""
         self._data.ctrl[self._actadrs] = action
 
-        return self._get_obs(obs, action)
+    def step(self, action: List[float]) -> Dict[str, Any]:
+        """Steps the eyes, updates the ctrl inputs, and returns the observation.
 
-    def _get_obs(
-        self, obs: Dict[str, Any], action: Optional[List[float]] = None
-    ) -> Dict[str, Any]:
+        NOTE: the action isn't actually applied here, it's simply passed to be stored
+        in the observation, if needed. The action should be applied explicitly with
+        `apply_action`.
+        """
+
+        for name, eye in self.eyes.items():
+            self._eye_obs[name].append(eye.step())
+
+        if self._responsible_for_intensity_sensor:
+            self._intensity_sensor.step()
+
+        return self._get_obs(action)
+
+    def _get_obs(self, action: Optional[List[float]] = None) -> Dict[str, Any]:
         """Creates the entire obs dict."""
+        obs: Dict[str, Any] = {}
+
+        for name in self.eyes.keys():
+            obs[name] = np.array(self._eye_obs[name])
+
         if self.config.use_qpos_obs:
             qpos = self._data.qpos[self._qposadrs]
             obs["qpos"] = qpos.flat.copy()
@@ -403,19 +357,30 @@ class MjCambrianAnimal:
             ML M MR
             BL B BR
         """
-        if self.config.num_eyes_lat == 0 or self.config.num_eyes_lon == 0:
-            return None
+        from cambrian.evolution_envs.three_d.mujoco.renderer import (
+            resize_with_aspect_fill,
+        )
+
+        max_res = (
+            max([eye.config.resolution[0] for eye in self.eyes.values()]),
+            max([eye.config.resolution[1] for eye in self.eyes.values()]),
+        )
+
+        # TODO: sort based on lat/lon
+        num_horizontal = np.ceil(np.sqrt(len(self.eyes))).astype(int)
+        num_vertical = np.ceil(len(self.eyes) / num_horizontal).astype(int)
 
         images = []
-        for i in range(self.config.num_eyes_lat):
+        for i in range(num_vertical):
             images.append([])
-            for j in reversed(range(self.config.num_eyes_lon)):
-                name = f"{self.name}_eye_{i}_{j}"
-                obs = self._eyes[name].last_obs
-                if obs is None:
-                    print(f"WARNING: Eye `{name}` has no observation.")
-                    continue
-                images[i].append(obs)
+            for j in reversed(range(num_horizontal)):
+                name = f"{self.name}_eye_{num_vertical * i + j}"
+
+                if name in self._eyes:
+                    image = self._eyes[name].last_obs
+                else:
+                    image = np.zeros((1, 1, 3), dtype=np.uint8)
+                images[i].append(resize_with_aspect_fill(image, *max_res))
         images = np.array(images)
 
         if images.size == 0:
@@ -497,23 +462,27 @@ class MjCambrianAnimal:
         """
         observation_space: Dict[spaces.Dict] = {}
 
+        n_temporal_obs = self.config.n_temporal_obs
         for name, eye in self.eyes.items():
             observation_space[name] = spaces.Box(
-            0, 255, shape=(self.config.n_temporal_obs, *eye.resolution[::-1], 3), dtype=np.uint8
-        )
+                0, 255, shape=(n_temporal_obs, *eye.resolution, 3), dtype=np.uint8
+            )
 
         if self.config.use_qpos_obs:
             observation_space["qpos"] = spaces.Box(
                 low=-np.inf, high=np.inf, shape=(self._numqpos,), dtype=np.float32
             )
+
         if self.config.use_qvel_obs:
             observation_space["qvel"] = spaces.Box(
                 low=-np.inf, high=np.inf, shape=(self._numqvel,), dtype=np.float32
             )
 
         if self.config.use_action_obs:
+            actlow = np.array([act.low for act in self._actuators])
+            acthigh = np.array([act.high for act in self._actuators])
             observation_space["action"] = spaces.Box(
-                low=-np.inf, high=np.inf, shape=(self._numctrl,), dtype=np.float32
+                low=actlow, high=acthigh, shape=(self._numctrl,), dtype=np.float32
             )
 
         return spaces.Dict(observation_space)
@@ -574,84 +543,76 @@ class MjCambrianAnimal:
         """Use as bitmask to specify which type of mutation to perform on the animal.
 
         Example:
-        >>> # Only adding a photoreceptor
-        >>> type = MutationType.ADD_LAT_EYE
-        >>> # Both adding a photoreceptor and changing a simple eye to lens
-        >>> type = MutationType.REMOVE_LAT_EYE | MutationType.ADD_LON_EYE
+        >>> type = MutationType.ADD_EYE
+        >>> type = MutationType.REMOVE_EYE | MutationType.EDIT_EYE
         """
 
-        ADD_LAT_EYE = auto()
-        REMOVE_LAT_EYE = auto()
-        ADD_LON_EYE = auto()
-        REMOVE_LON_EYE = auto()
+        ADD_EYE = auto()
+        REMOVE_EYE = auto()
         EDIT_EYE = auto()
 
     @staticmethod
     def mutate(
-        config: MjCambrianAnimalConfig, *, verbose: int = 0
+        config: MjCambrianAnimalConfig,
+        default_eye_config: MjCambrianEyeConfig,
+        *,
+        mutations: Optional[MutationType] = None,
+        verbose: int = 0,
     ) -> MjCambrianAnimalConfig:
+        """Mutates the animal config."""
         if verbose > 1:
             print("Mutating animal...")
 
-        # The mutation options are all the possible mutations
-        mutation_options = list(MjCambrianAnimal.MutationType)
-        if config.enforce_2d:
-            # If we're enforcing 2d, we can't add/remove latitudinal eyes
-            mutation_options.remove(MjCambrianAnimal.MutationType.ADD_LAT_EYE)
-            mutation_options.remove(MjCambrianAnimal.MutationType.REMOVE_LAT_EYE)
-        if config.only_mutate_resolution:
-            # If we're only mutating the res, we can only edit
-            mutation_options = [MjCambrianAnimal.MutationType.EDIT_EYE]
+        if not mutations:
+            # The mutation options are all the possible mutations
+            mutation_options = [
+                MjCambrianAnimal.MutationType[m] for m in config.mutation_options
+            ]
 
-        # Randomly select the number of mutations to perform with a skewed dist
-        # This will lean towards less total mutations generally
-        p = np.exp(-np.arange(len(mutation_options)))
-        num_of_mutations = np.random.choice(np.arange(1, len(p) + 1), p=p / p.sum())
-        mutations = np.random.choice(mutation_options, num_of_mutations, False)
-        mutations = reduce(lambda x, y: x | y, mutations)
+            # Randomly select the number of mutations to perform with a skewed dist
+            # This will lean towards less total mutations generally
+            p = np.exp(-np.arange(len(mutation_options)))
+            num_of_mutations = np.random.choice(np.arange(1, len(p) + 1), p=p / p.sum())
+            mutations = np.random.choice(mutation_options, num_of_mutations, False)
+            mutations = reduce(lambda x, y: x | y, mutations)
+
+            if verbose > 1:
+                print(f"Number of mutations: {num_of_mutations}")
 
         if verbose > 1:
-            print(f"Number of mutations: {num_of_mutations}")
             print(f"Mutations: {mutations}")
 
-        if MjCambrianAnimal.MutationType.REMOVE_LAT_EYE in mutations:
+        if MjCambrianAnimal.MutationType.REMOVE_EYE in mutations:
             if verbose > 1:
-                print("Removing a latitudinal eye.")
+                print("Removing a eye.")
 
-            if config.num_eyes_lat <= 1:
-                print("Cannot remove the last latitudinal eye. Adding one instead.")
-                mutations |= MjCambrianAnimal.MutationType.ADD_LAT_EYE
+            if len(config.eye_configs) <= 1:
+                print("Cannot remove the last eye. Adding one instead.")
+                mutations |= MjCambrianAnimal.MutationType.ADD_EYE
             else:
-                config.num_eyes_lat -= 1
+                eye_config = np.random.choice(list(config.eye_configs.values()))
+                del config.eye_configs[eye_config.name]
 
-        if MjCambrianAnimal.MutationType.ADD_LAT_EYE in mutations:
+        if MjCambrianAnimal.MutationType.ADD_EYE in mutations:
             if verbose > 1:
-                print("Adding a latitudinal eye.")
+                print("Adding a eye.")
 
-            config.num_eyes_lat += 1
-
-        if MjCambrianAnimal.MutationType.REMOVE_LON_EYE in mutations:
-            if verbose > 1:
-                print("Removing a longitudinal eye.")
-
-            if config.num_eyes_lon <= 1:
-                print("Cannot remove the last longitudinal eye. Adding one instead.")
-                mutations |= MjCambrianAnimal.MutationType.ADD_LON_EYE
-            else:
-                config.num_eyes_lon -= 1
-
-        if MjCambrianAnimal.MutationType.ADD_LON_EYE in mutations:
-            if verbose > 1:
-                print("Adding a longitudinal eye.")
-
-            config.num_eyes_lon += 1
+            new_eye_config: MjCambrianEyeConfig = default_eye_config.copy()
+            new_eye_config.name = f"{config.name}_eye_{len(config.eye_configs)}"
+            new_eye_config.coord = [
+                np.random.uniform(*config.model_config.eyes_lat_range),
+                np.random.uniform(*config.model_config.eyes_lon_range),
+            ]
+            config.eye_configs[new_eye_config.name] = new_eye_config
 
         if MjCambrianAnimal.MutationType.EDIT_EYE in mutations:
             if verbose > 1:
                 print("Editing an eye.")
 
-            # Edits the default config
-            default_eye_config = config.default_eye_config
+            # Randomly select an eye to edit
+            eye_config: MjCambrianEyeConfig = np.random.choice(
+                list(config.eye_configs.values())
+            )
 
             def edit(attrs, low=0.8, high=1.2):
                 randn = np.random.uniform(low, high)
@@ -659,13 +620,8 @@ class MjCambrianAnimal:
 
             # Each edit (for now) is just taking the current state and multiplying by
             # some random number between 0.8 and 1.2
-            default_eye_config.resolution = edit(default_eye_config.resolution)
-            if not config.only_mutate_resolution:
-                default_eye_config.fov = edit(default_eye_config.fov)
-
-        if config.enforce_2d:
-            config.default_eye_config.resolution[1] = 1
-            config.default_eye_config.fov[1] = 1
+            eye_config.resolution = edit(eye_config.resolution)
+            eye_config.fov = edit(eye_config.fov)
 
         if verbose > 2:
             print(f"Mutated animal: \n{config}")
@@ -693,6 +649,7 @@ if __name__ == "__main__":
     parser.add_argument("title", type=str, help="Title of the demo.")
 
     parser.add_argument("--save", action="store_true", help="Save the demo")
+    parser.add_argument("--mutate", action="store_true", help="Mutate the animal")
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--plot", action="store_true", help="Plot the demo")
     action.add_argument("--viewer", action="store_true", help="Launch the viewer")
@@ -700,20 +657,25 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config = args.config
-    overrides = args.overrides
-    config = MjCambrianConfig.load(config, overrides=overrides)
-    config.animal_config.name = "animal"
-    config.animal_config.idx = 0
-    if config.animal_config.enforce_2d:
-        config.animal_config.num_eyes_lat = 1
-        config.animal_config.default_eye_config.resolution[1] = 1
-        config.animal_config.default_eye_config.fov[1] = 1
+    config: MjCambrianConfig = MjCambrianConfig.load(
+        args.config, overrides=args.overrides
+    )
+    animal_config: MjCambrianAnimalConfig = list(
+        config.env_config.animal_configs.values()
+    )[0]
 
-    animal = MjCambrianAnimal(config.animal_config)
+    if args.mutate:
+        mutations = reduce(lambda x, y: x | y, MjCambrianAnimal.MutationType)
+        animal_config = MjCambrianAnimal.mutate(
+            animal_config,
+            config.evo_config.spawning_config.default_eye_config,
+            mutations=mutations,
+            verbose=2,
+        )
+    animal = MjCambrianAnimal(animal_config)
 
-    env_xml = MjCambrianXML(get_model_path("models/test.xml"))
-    model = mj.MjModel.from_xml_string(str(env_xml + animal.generate_xml()))
+    env_xml = MjCambrianXML(get_include_path("models/test.xml"))
+    model = mj.MjModel.from_xml_string(str(env_xml + animal.generate_xml(0)))
     data = mj.MjData(model)
 
     animal.reset(model, data, [-3, 0])
@@ -732,29 +694,13 @@ if __name__ == "__main__":
         exit()
 
     if args.viewer:
-        del model
-        del data
-
-        GROUND_XML = """
-        <mujoco>
-            <worldbody>
-                <geom name="floor" pos="0 0 0" size="10 10 0.25" type="plane" 
-                    rgba="0.9 0.9 0.9 1"/>
-            </worldbody>
-        </mujoco>
-        """
-        env_xml += MjCambrianXML.from_string(GROUND_XML)
-        model = mj.MjModel.from_xml_string(str(env_xml + animal.generate_xml()))
-        data = mj.MjData(model)
-        animal.reset(model, data, [-3, 0])
-
         from renderer import MjCambrianRenderer
 
         renderer_config = config.env_config.renderer_config
         renderer_config.render_modes = ["human", "rgb_array"]
-        renderer_config.camera_config.lookat = [-2, 0, 0.25]
+        renderer_config.camera_config.lookat = [-3, 0, 0.25]
         renderer_config.camera_config.elevation = -20
-        renderer_config.camera_config.azimuth = 110
+        renderer_config.camera_config.azimuth = 10
         renderer_config.camera_config.distance = model.stat.extent * 2.5
 
         renderer = MjCambrianRenderer(renderer_config)
@@ -799,7 +745,7 @@ if __name__ == "__main__":
         plt.axis("off")
         plt.savefig(filename, bbox_inches="tight", dpi=300)
 
-    if args.plot:
+    if args.plot and not args.save:
         fig_manager = plt.get_current_fig_manager()
         fig_manager.full_screen_toggle()
         plt.show()

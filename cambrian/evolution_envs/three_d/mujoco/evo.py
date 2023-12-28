@@ -8,8 +8,12 @@ import random
 from cambrian.evolution_envs.three_d.mujoco.config import (
     MjCambrianConfig,
     MjCambrianGenerationConfig,
+    MjCambrianSpawningConfig,
 )
-from cambrian.evolution_envs.three_d.mujoco.population import MjCambrianPopulation, MjCambrianReplicationType
+from cambrian.evolution_envs.three_d.mujoco.population import (
+    MjCambrianPopulation,
+)
+from cambrian.evolution_envs.three_d.mujoco.animal import MjCambrianAnimal
 
 
 class MjCambrianEvoRunner:
@@ -96,22 +100,43 @@ class MjCambrianEvoRunner:
             thread.join()
 
     def spawn_animal(self, generation: int, rank: int) -> MjCambrianConfig:
-        # For the first generation, we'll mutate the original config n number of times
-        # to facilitate a diverse initial population.
+        animal_configs = self.config.env_config.animal_configs
+        spawning_config = self.config.evo_config.spawning_config
+
+        # If it's the first generation, we'll mutate the original config n number of
+        # times to facilitate a diverse initial population.
+        # TODO: move to another class
         if generation == 0:
-            config = self.config.copy()
-            num_mutations = random.randint(1, self.population.config.init_num_mutations)
+            config: MjCambrianConfig = self.config.copy()
+            num_mutations = random.randint(1, spawning_config.init_num_mutations)
             print(f"Mutating the first animal {num_mutations} times.")
             for _ in range(num_mutations):
-                config = self.population.spawn(
-                    replication_type=MjCambrianReplicationType.MUTATION,
-                    config=config,
-                )
-            config.evo_config.parent_generation_config = (
-                config.evo_config.generation_config.copy()
-            )
+                for animal_config in animal_configs.values():
+                    animal_configs[animal_config.name] = MjCambrianAnimal.mutate(
+                        animal_config,
+                        spawning_config.default_eye_config,
+                        verbose=self.config.training_config.verbose,
+                    )
+                    animal_configs[animal_config.name].update(
+                        parent_generation_config=config.evo_config.generation_config
+                    )
         else:
-            config = self.population.spawn()
+            replication_type = MjCambrianSpawningConfig.ReplicationType[
+                spawning_config.replication_type
+            ]
+            if MjCambrianSpawningConfig.ReplicationType.MUTATION in replication_type:
+                config = self.population.select_animal()
+                for animal_config in animal_configs.values():
+                    animal_configs[animal_config.name] = MjCambrianAnimal.mutate(
+                        animal_config,
+                        spawning_config.default_eye_config,
+                        verbose=self.config.training_config.verbose,
+                    )
+                    animal_configs[animal_config.name].update(parent_generation_config=config.evo_config.generation_config)
+            elif MjCambrianSpawningConfig.ReplicationType.CROSSOVER in replication_type:
+                raise NotImplementedError
+            else:
+                raise ValueError(f"Invalid replication type {replication_type}")
 
         if self.verbose > 1:
             print(f"Spawning animal with generation {generation} and rank {rank}.")

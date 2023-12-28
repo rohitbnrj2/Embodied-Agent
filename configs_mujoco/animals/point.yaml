@@ -1,7 +1,7 @@
-animal_config:
-  model_path: "models/point.xml"
-  body_name: "particle_{uid}"
-  joint_name: "ball_x_{uid}"
-  geom_name: "particle_geom_{uid}"
-  eyes_lat_range: [-5, 25]
-  eyes_lon_range: [-60, 60]
+xml: ${include:models/point.xml,str}
+body_name: "particle_${..name}"
+joint_name: "ball_x_${..name}"
+geom_name: "particle_geom_${..name}"
+
+eyes_lat_range: [-5, 25]
+eyes_lon_range: [-60, 60]

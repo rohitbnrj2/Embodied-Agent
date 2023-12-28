@@ -13,5 +13,5 @@ setup(
     name='cambrian',
     packages=['cambrian'],
     install_requires=parse_requirements(),
-    python_requires=">=3.10"
+    python_requires='>=3.10',
 )

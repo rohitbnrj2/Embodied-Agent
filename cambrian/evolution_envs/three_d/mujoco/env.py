@@ -12,7 +12,7 @@ from cambrian.evolution_envs.three_d.mujoco.animal import MjCambrianAnimal
 from cambrian.evolution_envs.three_d.mujoco.maze import MjCambrianMaze
 from cambrian.evolution_envs.three_d.mujoco.cambrian_xml import MjCambrianXML
 from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianConfig
-from cambrian.evolution_envs.three_d.mujoco.utils import get_model_path
+from cambrian.evolution_envs.three_d.mujoco.utils import get_include_path
 from cambrian.evolution_envs.three_d.mujoco.renderer import (
     MjCambrianRenderer,
     MjCambrianViewerOverlay,
@@ -92,7 +92,7 @@ class MjCambrianEnv(gym.Env):
 
     def _setup_config(self, config: str | Path | MjCambrianConfig):
         """Helper method to setup the config. This is called by the constructor."""
-        self.config = MjCambrianConfig.load(config)
+        self.config = MjCambrianConfig.load(config) if isinstance(config, str) else config
         self.env_config = self.config.env_config
         self.renderer_config = self.env_config.renderer_config
 
@@ -104,18 +104,13 @@ class MjCambrianEnv(gym.Env):
             - parse the geometry and place eyes at the appropriate locations
             - create the action/observation spaces
         """
-        default_animal_config = self.config.animal_config
-        for i in range(self.env_config.num_animals):
-            animal_config = default_animal_config.copy()
-            animal_config.idx = i
-            if animal_config.name is None:
-                animal_config.name = f"animal_{i}"
+        for animal_config in self.env_config.animal_configs.values():
             assert animal_config.name not in self.animals
             self.animals[animal_config.name] = MjCambrianAnimal(animal_config)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
-        xml = MjCambrianXML(get_model_path(self.env_config.scene_path))
+        xml = MjCambrianXML.from_string(self.env_config.xml)
 
         # Create the directional light, if desired
         if self.env_config.use_directional_light:
@@ -136,8 +131,8 @@ class MjCambrianEnv(gym.Env):
             )
 
         # Add the animals to the xml
-        for animal in self.animals.values():
-            xml += animal.generate_xml()
+        for idx, animal in enumerate(self.animals.values()):
+            xml += animal.generate_xml(idx)
 
         # Add the maze to the xml
         xml += self.maze.generate_xml()
@@ -149,14 +144,15 @@ class MjCambrianEnv(gym.Env):
         # Update the assert path to point to the fully resolved path
         compiler = xml.find(".//compiler")
         assert compiler is not None
+        model_dir = Path(__file__).parent / "models" # TODO: make config attr
         if (texturedir := compiler.attrib.get("texturedir")) is not None:
-            texturedir = str(get_model_path(xml.base_dir / texturedir))
+            texturedir = str(get_include_path(model_dir / texturedir))
             compiler.attrib["texturedir"] = texturedir
         if (meshdir := compiler.attrib.get("meshdir")) is not None:
-            meshdir = str(get_model_path(xml.base_dir / meshdir))
+            meshdir = str(get_include_path(model_dir / meshdir))
             compiler.attrib["meshdir"] = meshdir
         if (assetdir := compiler.attrib.get("assetdir")) is not None:
-            assetdir = str(get_model_path(xml.base_dir / assetdir))
+            assetdir = str(get_include_path(model_dir / assetdir))
             compiler.attrib["assetdir"] = assetdir
 
         return xml
@@ -219,6 +215,9 @@ class MjCambrianEnv(gym.Env):
             self._overlays.clear()
             self._rollout.clear()
 
+        if self.config.env_config.add_overlays:
+            self._overlays["Exp"] = self.config.training_config.exp_name
+
         return obs, info
 
     def step(
@@ -245,6 +244,12 @@ class MjCambrianEnv(gym.Env):
             Dict[str, bool]: Whether each animal has truncated.
             Dict[str, Dict[str, Any]]: The info dict for each animal.
         """
+        # First, apply the actions to the animals and step the simulation
+        for name, animal in self.animals.items():
+            animal.apply_action(action[name])
+
+        self._step_mujoco_simulation(self.env_config.frame_skip)
+
         obs: Dict[str, Any] = {}
         info: Dict[str, Any] = {a: {} for a in self.animals}
         for name, animal in self.animals.items():
@@ -254,14 +259,12 @@ class MjCambrianEnv(gym.Env):
             if self.env_config.use_goal_obs:
                 obs[name]["goal"] = self.maze.goal.copy()
 
-            if not self.config.animal_config.disable_intensity_sensor:
+            if not animal.config.disable_intensity_sensor:
                 info[name]["intensity"] = animal.intensity_sensor.last_obs
             info[name]["action"] = action[name]
 
         info["maze"] = {}
         info["maze"]["goal"] = self.maze.goal
-
-        self._step_mujoco_simulation(self.env_config.frame_skip)
 
         terminated = self.compute_terminated()
         truncated = self.compute_truncated()
@@ -269,14 +272,14 @@ class MjCambrianEnv(gym.Env):
 
         self._episode_step += 1
 
-        if not self.config.env_config.add_overlays:
+        if self.config.env_config.add_overlays:
             self._overlays["Step"] = self._episode_step
 
         if self.record:
-            self._rollout.setdefault("actions", []).append(list(action.values()))
-            self._rollout.setdefault("positions", []).append(
-                [a.pos for a in self.animals.values()]
-            )
+            self._rollout.setdefault("actions", [])
+            self._rollout["actions"].append(list(action.values()))
+            self._rollout.setdefault("positions", [])
+            self._rollout["positions"].append([a.pos for a in self.animals.values()])
 
         return obs, reward, terminated, truncated, info
 
@@ -420,7 +423,7 @@ class MjCambrianEnv(gym.Env):
             if composite is None:
                 # Make the composite image black so we can still render other overlays
                 composite = np.zeros((*overlay_size, 3), dtype=np.uint8)
-            if self.config.animal_config.disable_intensity_sensor:
+            if animal.config.disable_intensity_sensor:
                 # Make the intensity image black so we can still render other overlays
                 intensity = np.zeros(composite.shape, dtype=np.uint8)
             else:
@@ -436,9 +439,7 @@ class MjCambrianEnv(gym.Env):
 
             cursor.x -= TEXT_MARGIN
             cursor.y -= TEXT_MARGIN
-            lon_eyes = animal.config.num_eyes_lon
-            lat_eyes = animal.config.num_eyes_lat
-            overlay_text = f"LonxLat: {lon_eyes}x{lat_eyes}"
+            overlay_text = f"Num Eyes: {len(animal.eyes)}"
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
             cursor.y += TEXT_HEIGHT
             eye0 = next(iter(animal.eyes.values()))
@@ -708,7 +709,7 @@ class MjCambrianEnv(gym.Env):
         in terms of euclidean distance to the goal. But if it's within this threshold,
         then the reward is 1."""
         intensity_reward = self._reward_fn_intensity_sensor(animal, info)
-        return 3 if self._is_at_goal(animal) else intensity_reward
+        return 1 if self._is_at_goal(animal) else intensity_reward
 
     def _reward_fn_intensity_and_euclidean(
         self,
@@ -744,7 +745,6 @@ def make_single_env(
 
 
 if __name__ == "__main__":
-    import time
     from utils import MjCambrianArgumentParser
 
     parser = MjCambrianArgumentParser()
@@ -780,7 +780,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
-    config.use_renderer = not args.mj_viewer
+    config.env_config.use_renderer = not args.mj_viewer
     env = MjCambrianEnv(config)
     env.reset()
     env.xml.write("test.xml")

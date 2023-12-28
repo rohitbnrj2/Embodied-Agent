@@ -1,7 +1,6 @@
-animal_config:
-  model_path: "models/skydio-x2.xml"
-  body_name: "x2_{uid}"
-  joint_name: "x2-freejoint_{uid}"
-  geom_name: "mesh_{uid}"
-  eyes_lat_range: [-10, 25]
-  eyes_lon_range: [-120, 120]
+xml: ${include:models/skydio-x2.xml,str}
+body_name: "x2_${..name}"
+joint_name: "x2-freejoint_${..name}"
+geom_name: "mesh_${..name}"
+eyes_lat_range: [-10, 25]
+eyes_lon_range: [-120, 120]

@@ -20,7 +20,7 @@ def safe_index(list_to_index: List[Any], value: Any) -> int:
         return -1
 
 
-def get_model_path(model_path: str | Path, *, throw_error: bool = True) -> Path | None:
+def get_include_path(model_path: str | Path, *, throw_error: bool = True) -> Path | None:
     """Tries to find the model path. `model_path` can either be relative to the
     execution file, absolute, or relative to cambrian.evolution_envs.three_d.mujoco. The
     latter is the typical method, where `assets/<model>.xml` specifies the model path
@@ -96,6 +96,7 @@ def evaluate_policy(
             run += 1
 
         if cambrian_env.config.env_config.add_overlays:
+            cambrian_env.overlays["Exp"] = cambrian_env.config.training_config.exp_name
             cambrian_env.overlays["Cumulative Reward"] = f"{cumulative_reward:.2f}"
         env.render()
 

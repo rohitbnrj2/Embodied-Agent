@@ -1,15 +1,11 @@
-includes:
-  render: configs_mujoco/overlays/render_bev.yaml
-  maze: configs_mujoco/mazes/train/G_MAZE_DIVERSE.yaml
-
 training_config:
-  logdir: "logs-mujoco"
-  exp_name: "${.logdir}"
+  logdir: logs-mujoco/
+  exp_name: ${filename:}
   checkpoint_path: null # Will train from scratch if unset
   policy_path: null # Will train from scratch if unset
 
   total_timesteps: 1_000_000
-  max_episode_steps: 128
+  max_episode_steps: 256
   n_steps: 2048
 
   learning_rate: 0.001
@@ -27,12 +23,11 @@ training_config:
   verbose: 2
 
 env_config:
-  num_animals: 1
-  scene_path: "models/scene.xml"
+  xml: ${include:models/scene.xml,str}
   use_directional_light: False
   use_headlight: False
 
-  reward_fn_type: "intensity_and_at_goal"
+  reward_fn_type: intensity_and_at_goal
 
   use_goal_obs: False
   terminate_at_goal: False
@@ -46,16 +41,15 @@ env_config:
   overlay_width: 0.5
   overlay_height: 0.35
   renderer_config:
-    render_modes: ["rgb_array"]
+    extend: ${extend:${include:configs_mujoco/overlays/render_bev.yaml}}
 
-    resizable: True
-    fullscreen: False
-    fps: 50
+    render_modes: [rgb_array]
 
     use_shared_context: True
 
   maze_config:
-    maze_path: "models/maze.xml"
+    map: ${include:configs_mujoco/mazes/train/G_MAZE_DIVERSE.yaml}
+    xml: ${include:models/maze.xml,str}
 
     size_scaling: 4.0
     height: 0.5
@@ -64,45 +58,52 @@ env_config:
 
     use_adversary: False
 
-animal_config:
-  use_qpos_obs: False
-  use_qvel_obs: False
-  use_intensity_obs: False
-  use_action_obs: True
-
-  enforce_2d: False
-  only_mutate_resolution: False
-
-  default_eye_config:
-    mode: "fixed"
-    filter_size: [0, 0]
-    fov: [45, 20]
-    renderer_config:
-      render_modes: ["rgb_array"]
-      use_shared_context: True
-  use_single_camera: False
-  
-  disable_intensity_sensor: False
-  intensity_sensor_config:
-    mode: "fixed"
-    resolution: [1, 1]
-    fov: [120, 10]
-    filter_size: [0, 0]
-    renderer_config:
-      render_modes: ["rgb_array"]
-      use_shared_context: True
-
 evo_config:
   max_n_envs: 10
+
+  num_generations: 200
 
   population_config:
     size: 4
     num_top_performers: 2
 
+  spawning_config:
     init_num_mutations: 100
-
     replication_type: MUTATION
 
-  num_generations: 20
+    default_animal_config:
+      name: ${parent:} # will be replaced with parent key. evaluated after extend.
+      use_qpos_obs: False
+      use_qvel_obs: False
+      use_intensity_obs: False
+      use_action_obs: True
+      n_temporal_obs: 10
+
+      mutation_options: [ADD_EYE, REMOVE_EYE, EDIT_EYE]
+
+      disable_intensity_sensor: False
+      intensity_sensor_config:
+        mode: fixed
+        resolution: [1, 1]
+        fov: [120, 10]
+        filter_size: [0, 0]
+
+        renderer_config:
+          render_modes: [rgb_array]
+
+          use_shared_context: True
+
+    default_eye_config:
+      name: ${parent:} # will be replaced with parent key. evaluated after extend.
+      mode: fixed
+      filter_size: [0, 0]
+
+      resolution: [-1, -1] # Placeholder
+      fov: [-1, -1] # Placeholder
+
+      renderer_config:
+        render_modes: [rgb_array]
+
+        use_shared_context: True
 
   environment_variables: {}

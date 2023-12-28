@@ -41,7 +41,7 @@ Hover over an option on the left side and right click to show all the shortcuts.
 ## Running training
 
 ```bash
-MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py CONFIG_PATH --train -r 0
+MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py CONFIG_PATH --train
 ```
 
 > [!TIP]

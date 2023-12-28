@@ -1,8 +1,6 @@
-env_config:
-  renderer_config:
-    camera_config:
-      azimuth: -60.0
-      elevation: -45.0
-      distance_factor: 0.5
+camera_config:
+  azimuth: -60.0
+  elevation: -45.0
+  distance_factor: 0.5
 
-      typename: "tracking"
+  typename: "tracking"

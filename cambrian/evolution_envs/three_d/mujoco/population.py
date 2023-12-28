@@ -1,7 +1,6 @@
 from typing import Dict, Tuple, List, Optional
 from pathlib import Path
 import os
-from enum import Flag, auto
 
 import numpy as np
 from stable_baselines3.common.results_plotter import load_results, ts2xy
@@ -10,23 +9,6 @@ from config import MjCambrianPopulationConfig, MjCambrianConfig
 from animal import MjCambrianAnimal
 
 Fitness = float
-
-
-class MjCambrianReplicationType(Flag):
-    """Use as bitmask to specify which type of replication to perform on the animal.
-
-    Example:
-    >>> # Only mutation
-    >>> type = MjCambrianReplicationType.MUTATION
-    >>> # Both mutation and crossover
-    >>> type = (
-            MjCambrianReplicationType.MUTATION
-            | MjCambrianReplicationType.CROSSOVER
-        )
-    """
-
-    MUTATION = auto()
-    CROSSOVER = auto()
 
 
 class MjCambrianPopulation:
@@ -63,8 +45,6 @@ class MjCambrianPopulation:
 
         self._all_population: Dict[Path, Tuple[Fitness, MjCambrianConfig]] = {}
         self._top_performers: List[Path] = []
-
-        self._replication_type = MjCambrianReplicationType[self.config.replication_type]
 
     def add_animal(
         self, path_or_config: Path | MjCambrianConfig, fitness: Optional[Fitness] = None
@@ -147,84 +127,20 @@ class MjCambrianPopulation:
 
         return fitness
 
-    # ========
+    def select_animal(self) -> MjCambrianConfig:
+        """Alias to `select_animals` that selects a single animal."""
+        return self.select_animals(1)[0]
 
-    def spawn(
-        self,
-        *,
-        replication_type: Optional[MjCambrianReplicationType] = None,
-        config: Optional[MjCambrianConfig] = None,
-    ) -> MjCambrianConfig:
-        """This method will spawn a new animal from the current population.
-
-        Spawning can be simply a mutation or crossover between multiple animals in the
-        current population. Crossover always comes first, followed by mutation. This
-        means crossover can include mutations.
-
-        Keyword Args:
-            replication_type (Optional[MjCambrianReplicationType]):
-                The type of replication to perform on the animal. If None, the type is
-                set to the default type specified in the config.
-            config (Optional[MjCambrianConfig]): The config to use for the new animal.
-                Only used if the mutation type is set to
-                `MjCambrianReplicationType.MUTATION`. If unset, a
-                config is selected from the current population.
-        """
-        if replication_type is None:
-            replication_type = self._replication_type
-
-        if MjCambrianReplicationType.CROSSOVER in replication_type:
-            config = self._crossover()
-
-        if MjCambrianReplicationType.MUTATION in replication_type:
-            config = self._mutate(config)
-
-        return config
-
-    def _select_animals(self, num: int) -> List[MjCambrianConfig]:
+    def select_animals(self, num: int) -> List[MjCambrianConfig]:
         """Selects `num` animals from the current population.
 
         The animal is selected based on the fitness of the animal. The animal with the
         highest fitness is selected.
         """
         animals = np.random.choice(self._top_performers, num, False)
-        configs = [self._set_parent(self._all_population[a][1].copy()) for a in animals]
+        configs = [self._all_population[a][1].copy() for a in animals]
 
         return configs
-
-    def _set_parent(
-        self, config: MjCambrianConfig, parent: Optional[MjCambrianConfig] = None
-    ):
-        parent = parent if parent is not None else config
-
-        print(
-            f"Selected parent from generation "
-            f"{parent.evo_config.generation_config.generation} and rank "
-            f"{parent.evo_config.generation_config.rank}"
-        )
-        parent_generation_config = parent.evo_config.generation_config.copy()
-        config.evo_config.parent_generation_config = parent_generation_config
-        return config
-
-    def _crossover(self):
-        parent1, parent2 = self._select_animals(2)
-
-        parent1.animal_config = MjCambrianAnimal.crossover(
-            parent1.animal_config,
-            parent2.animal_config,
-            verbose=parent1.training_config.verbose,
-        )
-        return parent1
-
-    def _mutate(self, config: Optional[MjCambrianConfig] = None):
-        if config is None:
-            config = self._select_animals(1)[0]
-
-        config.animal_config = MjCambrianAnimal.mutate(
-            config.animal_config, verbose=config.training_config.verbose
-        )
-
-        return config
 
     # ========
 

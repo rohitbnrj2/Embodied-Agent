@@ -1,7 +1,5 @@
-env_config:
-  renderer_config:
-    camera_config:
-      lookat: [5.5, 0, 0]
-      azimuth: 180.0
-      elevation: -90.0
-      distance_factor: 1.25
+camera_config:
+  lookat: [5.5, 0, 0]
+  azimuth: 180.0
+  elevation: -90.0
+  distance_factor: 1.25

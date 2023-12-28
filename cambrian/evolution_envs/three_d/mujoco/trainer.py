@@ -88,7 +88,8 @@ class MjCambrianTrainer:
     def _make_env(self, n_envs: int, *, use_monitor: bool = True) -> VecEnv:
         assert n_envs > 0, f"n_envs must be > 0, got {n_envs}."
 
-        envs = [make_single_env(self.config, self._calc_seed(i)) for i in range(n_envs)]
+        config = self.config.copy()
+        envs = [make_single_env(config, self._calc_seed(i)) for i in range(n_envs)]
 
         if n_envs == 1:
             vec_env = DummyVecEnv(envs)
@@ -203,6 +204,26 @@ if __name__ == "__main__":
 
     parser = MjCambrianArgumentParser()
 
+    parser.add_argument(
+        "-ao",
+        "--animal-overrides",
+        nargs="+",
+        action="extend",
+        type=str,
+        help="Override animal config values. Do <config>.<key>=<value>. These are applied to _all_ animals.",
+        default=[]
+    )
+
+    parser.add_argument(
+        "-eo",
+        "--eye-overrides",
+        nargs="+",
+        action="extend",
+        type=str,
+        help="Override eye config values. Do <config>.<key>=<value>. These are applied to _all_ eyes for _all_ animals.",
+        default=[]
+    )
+
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--train", action="store_true", help="Train the model")
     action.add_argument("--eval", action="store_true", help="Evaluate the model")
@@ -222,8 +243,17 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
-    config.training_config.setdefault("exp_name", Path(args.config).stem)
+    config: MjCambrianConfig = MjCambrianConfig.load(args.config, overrides=args.overrides)
+    
+    animal_configs = config.env_config.animal_configs
+    for animal_name, animal_config in animal_configs.items():
+        animal_config = animal_config.merge_with_dotlist(args.animal_overrides)
+
+        eye_configs = animal_config.eye_configs
+        for eye_name, eye_config in eye_configs.items():
+            eye_config = eye_config.merge_with_dotlist(args.eye_overrides)
+            eye_configs[eye_name] = eye_config
+        animal_configs[animal_name] = animal_config
 
     runner = MjCambrianTrainer(config)
 

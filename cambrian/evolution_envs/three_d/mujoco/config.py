@@ -3,38 +3,100 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace, field
 from pathlib import Path
 from copy import deepcopy
+from enum import Flag, auto
 
 import yaml
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, DictConfig, Node
+
+from cambrian.evolution_envs.three_d.mujoco.utils import get_include_path
 
 # ==================== Global Config ====================
 
-if not OmegaConf.has_resolver("eval"):
-    OmegaConf.register_new_resolver("eval", eval)
+def extend(*args: List[DictConfig], _parent_: DictConfig, _node_: Node):
+    """This resolver is used to extend a config with another config. To use, set the 
+    value to ${extend: ${<dotlist>.<key>}}. This will extend the current config with the
+    config at the given dotlist. It also accepts multiple configs to extend with, just
+    separate with a comma."""
+    # Explicitly set extend to None so it doesn't get resolved again when merging
+    _parent_[_node_._key()] = None
+
+    for interpolation in args:
+        # First move overrides from _parent_ to interpolation since parent is higher 
+        # priority. Then move interpolation back into parent to get all the defaults.
+        # TODO: this makes interpolation happen a lot, slow
+        interpolation = OmegaConf.merge(interpolation, _parent_)
+        OmegaConf.unsafe_merge(_parent_, interpolation)
+    return None
+
+def include(interpolation: DictConfig, type: Optional[str] = 'DictConfig'):
+    """This resolver takes a filepath and returns the config at that filepath. 
+    See `get_include_path` for info on how the path is resolved."""
+    interpolation: Path = get_include_path(interpolation)
+    assert interpolation.exists(), f"File {interpolation} does not exist"
+    assert interpolation.is_file(), f"File {interpolation} is not a file"
+
+    if type == "str":
+        with open(interpolation) as f:
+            return f.read()
+    elif type=="DictConfig":
+        return OmegaConf.load(interpolation)
+    else:
+        raise ValueError(f"Unknown type {type}")
+
+def parent(type: Optional[str] = "key", *, _parent_: DictConfig, _node_: Node):
+    """This resolver is used to access a parent config. To use, set the value to 
+    ${parent: ${<dotlist>.<key>}}. This will access the parent config at the given 
+    dotlist."""
+    if type == "key":
+        return _parent_._key()
+    else:
+        raise ValueError(f"Unknown type {type}")
+
+# TODO: I would guess hydra does the extend/include part with defaults
+OmegaConf.register_new_resolver("eval", eval, replace=True)
+OmegaConf.register_new_resolver("extend", extend, replace=True)
+OmegaConf.register_new_resolver("include", include, replace=True)
+OmegaConf.register_new_resolver("parent", parent, replace=True)
 
 list_repr = "tag:yaml.org,2002:seq"
 yaml.add_representer(list, lambda d, seq: d.represent_sequence(list_repr, seq, True))
+yaml.add_representer(tuple, lambda d, seq: d.represent_sequence(list_repr, seq, True))
+
 
 # =======================================================
 
 
+# TODO: move to python3.11 so we can use Self
 T = TypeVar("T", bound="MjCambrianBaseConfig")
 
 
-@dataclass(kw_only=True, repr=False)
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class MjCambrianBaseConfig:
-    """Base config for all configs. This is an abstract class."""
+    """Base config for all configs. This is an abstract class.
+    
+    Attributes:
+        extend (Optional[str]): The config to extend this config with.
+            This is useful for splitting configs into multiple files. When overriding,
+            you can override the extend path directly using the key. Should be 
+            implemented like this: `extends: ${extend: ${<dotlist>.<key>}}`. You can
+            specify multiple includes by passing a list, like 
+            `extends: ${extend: ${<dotlist>.<key>}, ${<dotlist>.<key>}}`. Lastly, you
+            can also include another file and extend it by using the `include` 
+            resolver. Ex: `extends: ${extend: ${include: <path>}}`.
+    """
+
+    extend: Optional[Dict[str, Any]] = field(default=None, init=False)
 
     @classmethod
     def load(
-        cls: Type[T],
+        cls: T,
         config: Path | str | T,
         *,
         overrides: List[List[str]] = [],
-        instantiate: bool = False,
-    ) -> T | Dict[str, Any]:
+        instantiate: bool = True,
+    ) -> T | DictConfig:
         """Load a config. Accepts a path to a yaml file or a config object.
-        
+
         Args:
             config (Path | str | T): The config to load. Can be a path to a yaml file,
                 a yaml string or a config object.
@@ -48,41 +110,65 @@ class MjCambrianBaseConfig:
                 converted to a dictionary. Defaults to False.
 
         Returns:
-            T | Dict[str, Any]: The loaded config. If `instantiate` is True, the config
-                will be an object of type T. Otherwise, it will be a dictionary.
+            T | DictConfig: The loaded config. If `instantiate` is True, the config
+                will be an object of type T. Otherwise, it will be a 
+                `OmegaConf.DictConfig`.
         """
-
         if isinstance(config, (Path, str)):
-            config = OmegaConf.load(config)
- #
-        config = OmegaConf.merge(config, OmegaConf.from_dotlist(overrides))
+            filename = Path(config)
+            config = OmegaConf.load(filename)
+            OmegaConf.register_new_resolver("filename", lambda: filename.stem, replace=True)
+        if len(overrides) > 0:
+            config = OmegaConf.merge(config, OmegaConf.from_dotlist(overrides))
+
 
         if instantiate:
-            return OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(cls), config))
+            return cls.instantiate(config)
         else:
-            return OmegaConf.to_container(config)
+            return config
+
+    @classmethod
+    def instantiate(cls: Type[T], config: DictConfig) -> T:
+        """Convert a config to an object.
+        
+        We need to merge config in twice so that extend will work properly
+        Not sure why, is kinda of slow. Should be fixed in next OmegaConf version.
+        Real issue is we modify the config in place in resolvers, which is
+        currently an issue with OmegaConf.resolve, but not an issue with merge.
+
+        TODO: is the doubling really necessary?
+        """
+        schema = OmegaConf.structured(cls)
+        config = OmegaConf.merge(schema, config, config)
+        OmegaConf.resolve(config) # resolves included strings
+        return OmegaConf.to_object(config)
 
     def save(self, path: Path | str):
         """Save the config to a yaml file."""
-        OmegaConf.save(self, path, resolve=True)
+        OmegaConf.save(self, path)
 
-    def copy(self: Type[T], **kwargs) -> T:
+    def copy(self: T, **kwargs) -> T:
         """Copy the config such that it is a new instance."""
-        return self.update(**kwargs)
+        return deepcopy(self).update(**kwargs)
 
-    def update(self: Type[T], **kwargs) -> T:
+    def update(self: T, **kwargs) -> T:
         """Update the config with the given kwargs. This is a shallow update, meaning it
         will only replace attributes at this class level, not nested."""
-        return replace(deepcopy(self), **kwargs)
+        return replace(self, **kwargs)
 
-    def setdefault(self: Type[T], key: str, default: Any) -> Any:
+    def merge_with_dotlist(self: T, dotlist: List[str]) -> T:
+        """Merge the config with the given dotlist. This is a shallow merge, meaning it
+        will only replace attributes at this class level, not nested."""
+        return self.update(**OmegaConf.from_dotlist(dotlist))
+
+    def setdefault(self: T, key: str, default: Any) -> Any:
         """Assign the default value to the key if it is not already set. Like
         `dict.setdefault`."""
         if not hasattr(self, key) or getattr(self, key) is None:
             setattr(self, key, default)
         return getattr(self, key)
 
-    def __contains__(self: Type[T], key: str) -> bool:
+    def __contains__(self: T, key: str) -> bool:
         """Check if the dataclass contains a key with the given name."""
         return key in self.__annotations__
 
@@ -90,7 +176,27 @@ class MjCambrianBaseConfig:
         return OmegaConf.to_yaml(self)
 
 
-@dataclass(kw_only=True, repr=False)
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+class MjCambrianGenerationConfig(MjCambrianBaseConfig):
+    """Config for a generation. Used for type hinting.
+
+    Attributes:
+        rank (int): The rank of the generation. A rank is a unique identifier assigned
+            to each process, where a processes is an individual evo runner running on a
+            separate computer. In the context of a cluster, each node that is running
+            an evo job is considered one rank, where the rank number is a unique int.
+        generation (int): The generation number. This is used to uniquely identify the
+            generation.
+    """
+
+    rank: int
+    generation: int
+
+    def to_path(self) -> Path:
+        return Path(f"generation_{self.generation}") / f"rank_{self.rank}"
+
+
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class MjCambrianTrainingConfig(MjCambrianBaseConfig):
     """Settings for the training process. Used for type hinting.
 
@@ -152,7 +258,7 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig):
     verbose: int
 
 
-@dataclass(kw_only=True, repr=False)
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class MjCambrianMazeConfig(MjCambrianBaseConfig):
     """Defines a map config. Used for type hinting.
 
@@ -160,10 +266,8 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
         map (List[List[str]]): The map to use for the maze. It's a 2D array where
             each element is a string and corresponds to a "pixel" in the map. See
             `maze.py` for info on what different strings mean.
-        maze_path (Path | str): The path to the maze xml file. This is the file that
-            contains the xml for the maze. The path is either absolute, relative to the
-            execution path or relative to the
-            cambrian.evolution_envs.three_d.mujoco.maze.py file
+        xml (str): The xml for the maze. This is the xml that will be used to
+            create the maze.
 
         size_scaling (float): The maze scaling for the continuous coordinates in the
             MuJoCo simulation.
@@ -193,7 +297,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
     """
 
     map: List[List]
-    maze_path: Path | str
+    xml: str
 
     size_scaling: float
     height: float
@@ -208,7 +312,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
     eval_adversary_pos: Optional[Tuple[float, float]] = None
 
 
-@dataclass(kw_only=True, repr=False)
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class MjCambrianCameraConfig(MjCambrianBaseConfig):
     """Defines a camera config. Used for type hinting. This is a wrapper of
     mj.mjvCamera that is used to configure the camera in the viewer.
@@ -223,13 +327,12 @@ class MjCambrianCameraConfig(MjCambrianBaseConfig):
         azimuth (Optional[float]): The azimuth angle.
         elevation (Optional[float]): The elevation angle.
 
-        typename (Optional[str]): The type of camera as a string. Mutually exclusive
-            with type. Converted to mjtCamera with
-            getattr(..., f"mjCAMERA_{typename.upper()}")
-        fixedcamname (Optional[str]): The name of the camera. Mutually exclusive with
+        typename (Optional[str]): The type of camera as a string. Takes presidence over
+            type. Converted to mjtCamera with mjCAMERA_{typename.upper()}.
+        fixedcamname (Optional[str]): The name of the camera. Takes presidence over
             fixedcamid. Used to determine the fixedcamid using mj.mj_name2id.
-        trackbodyname (Optional[str]): The name of the body to track. Mutually exclusive
-            with trackbodyid. Used to determine the trackbodyid using mj.mj_name2id.
+        trackbodyname (Optional[str]): The name of the body to track. Takes presidence
+            over trackbodyid. Used to determine the trackbodyid using mj.mj_name2id.
 
         distance_factor (Optional[float]): The distance factor. This is used to
             calculate the distance from the camera to the lookat point. If unset, no
@@ -252,7 +355,7 @@ class MjCambrianCameraConfig(MjCambrianBaseConfig):
     distance_factor: Optional[float] = None
 
 
-@dataclass(kw_only=True, repr=False)
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class MjCambrianRendererConfig(MjCambrianBaseConfig):
     """The config for the renderer. Used for type hinting.
 
@@ -270,12 +373,9 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
         height (int): The height of the rendered image. For onscreen renderers, if this
             is set, the window cannot be resized. Must be set for offscreen renderers.
 
-        resizable (Optional[bool]): Whether the window is resizable or not. This only
-            applies to onscreen renderers.
         fullscreen (Optional[bool]): Whether to render in fullscreen or not. If True,
             the width and height are ignored and the window is rendered in fullscreen.
             This is only valid for onscreen renderers.
-        fps (Optional[int]): The fps to render videos at.
 
         camera_config (Optional[MjCambrianCameraConfig]): The camera config to use for
             the renderer.
@@ -294,25 +394,189 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
     width: Optional[int] = None
     height: Optional[int] = None
 
-    resizable: Optional[bool] = None
     fullscreen: Optional[bool] = None
-    fps: Optional[int] = None
 
     camera_config: Optional[MjCambrianCameraConfig] = None
 
     use_shared_context: bool
 
 
-@dataclass(kw_only=True, repr=False)
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+class MjCambrianEyeConfig(MjCambrianBaseConfig):
+    """Defines the config for an eye. Used for type hinting.
+
+    Attributes:
+        name (Optional[str]): Placeholder for the name of the eye. If set, used
+            directly. If unset, the name is set to `{animal.name}_eye_{eye_index}`.
+
+        mode (str): The mode of the camera. Should always be "fixed". See the mujoco
+            documentation for more info.
+        resolution (Tuple[int, int]): The width and height of the rendered image.
+            Fmt: width height.
+        fov (Tuple[float, float]): Independent of the `fovy` field in the MJCF
+            xml. Used to calculate the sensorsize field. Specified in degrees. Mutually
+            exclusive with `fovy`. If `focal` is unset, it is set to 1, 1. Will override
+            `sensorsize`, if set.
+        filter_size (Tuple[int, int]): The psf filter size. This is
+            convolved across the image, so the actual resolution of the image is plus
+            filter_size / 2.
+        coord (Optional[Tuple[float, float]]): The x and y coordinates of the eye.
+            This is used to determine the placement of the eye on the animal.
+            Specified in degrees. Mutually exclusive with `pos` and `quat`. This attr
+            isn't actually used by eye, but by the animal. The eye has no knowledge
+            of the geometry it's trying to be placed on. Fmt: lat lon
+
+        pos (Optional[Tuple[float, float, float]]): The initial position of the camera.
+            Fmt: xyz
+        quat (Optional[Tuple[float, float, float, float]]): The initial rotation of the
+            camera. Fmt: wxyz.
+        fovy (Optional[float]): The vertical field of view of the camera.
+        focal (Optional[Tuple[float, float]]): The focal length of the camera.
+            Fmt: focal_x focal_y.
+        sensorsize (Optional[Tuple[float, float]]): The sensor size of the camera.
+            Fmt: sensor_x sensor_y.
+
+        renderer_config (MjCambrianRendererConfig): The renderer config to use for the
+            underlying renderer. The width and height of the renderer will be set to the
+            padded resolution (resolution + filter_size) of the eye.
+    """
+
+    name: Optional[str] = None
+
+    mode: str
+    resolution: Tuple[int, int]
+    fov: Tuple[float, float]
+    filter_size: Tuple[int, int]
+
+    pos: Optional[Tuple[float, float, float]] = None
+    quat: Optional[Tuple[float, float, float, float]] = None
+    fovy: Optional[float] = None
+    focal: Optional[Tuple[float, float]] = None
+    sensorsize: Optional[Tuple[float, float]] = None
+
+    coord: Optional[Tuple[float, float]] = None
+
+    renderer_config: MjCambrianRendererConfig
+
+    def to_xml_kwargs(self) -> Dict[str, Any]:
+        kwargs = dict()
+
+        def set_if_not_none(key: str, val: Any):
+            if val is not None:
+                if isinstance(val, Iterable) and not isinstance(val, str):
+                    val = " ".join(map(str, val))
+                kwargs[key] = val
+
+        set_if_not_none("name", self.name)
+        set_if_not_none("mode", self.mode)
+        set_if_not_none("pos", self.pos)
+        set_if_not_none("quat", self.quat)
+        set_if_not_none("resolution", self.resolution)
+        set_if_not_none("fovy", self.fovy)
+        set_if_not_none("focal", self.focal)
+        set_if_not_none("sensorsize", self.sensorsize)
+
+        return kwargs
+
+
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+class MjCambrianAnimalModelConfig(MjCambrianBaseConfig):
+    """Defines the config for an animal model. Used for type hinting.
+
+    Attributes:
+        xml (str): The xml for the animal model. This is the xml that will be used to
+            create the animal model. You should use ${..name} to generate named 
+            attributes.
+        body_name (str): The name of the body that defines the main body of the animal.
+            This will probably be set through a MjCambrianAnimal subclass.
+        joint_name (str): The root joint name for the animal. For positioning (see qpos)
+            This will probably be set through a MjCambrianAnimal subclass.
+        geom_name (str): The name of the geom that are used for eye placement.
+
+        eyes_lat_range (Tuple[float, float]): The x range of the eye. This is used to
+            determine the placement of the eye on the animal. Specified in radians. This
+            is the latitudinal/vertical range of the evenly placed eye about the
+            animal's bounding sphere.
+        eyes_lon_range (Tuple[float, float]): The y range of the eye. This is used to
+            determine the placement of the eye on the animal. Specified in radians. This
+            is the longitudinal/horizontal range of the evenly placed eye about the
+            animal's bounding sphere.
+    """
+
+    xml: str
+    body_name: str
+    joint_name: str
+    geom_name: str
+
+    eyes_lat_range: Tuple[float, float]
+    eyes_lon_range: Tuple[float, float]
+
+
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+class MjCambrianAnimalConfig(MjCambrianBaseConfig):
+    """Defines the config for an animal. Used for type hinting.
+
+    Attributes:
+        name (str): The name of the animal. Used to uniquely name the animal
+            and its eyes.
+
+        init_pos (Tuple[float, float]): The initial position of the animal. If unset,
+            the animal's position at each reset is generated randomly using the
+            `maze.generate_reset_pos` method.
+
+        model_config (MjCambrianAnimalModelConfig): The config for the animal model.
+
+        use_qpos_obs (bool): Whether to use the qpos observation or not.
+        use_qvel_obs (bool): Whether to use the qvel observation or not.
+        use_intensity_obs (bool): Whether to use the intensity sensor observation.
+        use_action_obs (bool): Whether to use the action observation or not.
+        n_temporal_obs (int): The number of temporal observations to use.
+
+        mutation_options (List[str]): The mutation options to use for the animal. See
+            `MjCambrianAnimal.MutationType` for options.
+
+        eye_configs (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
+            The key will be used as the default name for the eye, unless explicitly
+            set in the eye config.
+
+        disable_intensity_sensor (bool): Whether to disable the intensity sensor or not.
+        intensity_sensor_config (MjCambrianEyeConfig): The eye config to use for the
+            intensity sensor.
+
+        parent_generation_config (Optional[MjCambrianGenerationConfig]): The config for
+            the parent generation. Will be set by the evolution runner. If None, that
+            means that the current generation is the first generation (i.e. no parent). 
+    """
+
+    name: str
+
+    model_config: Optional[MjCambrianAnimalModelConfig] = None
+
+    init_pos: Optional[Tuple[float, float]] = None
+
+    use_qpos_obs: bool
+    use_qvel_obs: bool
+    use_intensity_obs: bool
+    use_action_obs: bool
+    n_temporal_obs: int
+
+    mutation_options: List[str]
+
+    eye_configs: Dict[str, MjCambrianEyeConfig] = field(default_factory=dict)
+
+    disable_intensity_sensor: bool
+    intensity_sensor_config: MjCambrianEyeConfig
+
+    parent_generation_config: Optional[MjCambrianGenerationConfig] = None
+
+
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class MjCambrianEnvConfig(MjCambrianBaseConfig):
     """Defines a config for the cambrian environment.
 
     Attributes:
-        num_animals (int): The number of animals to spawn in the env.
-        scene_path (str | Path): The path to the scene file. This is the file that
-            contains the xml for the environment. The path is either absolute, relative
-            to the execution path or relative to the
-            cambrian.evolution_envs.three_d.mujoco
+        xml (str): The xml for the scene. This is the xml that will be used to
+            create the environment.
         use_directional_light (bool): Whether to use a directional light or not. If
             True, a directional light will be instantiated in the model that illuminates
             the entire scene. Otherwise, no global illuminating light will be created.
@@ -354,10 +618,13 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             use for the mujoco viewer.
 
         maze_config (MjCambrianMazeConfig): The config for the maze.
+
+        animal_configs (Dict[str, MjCambrianAnimalConfig]): The configs for the animals.
+            The key will be used as the default name for the animal, unless explicitly
+            set in the animal config.
     """
 
-    num_animals: int
-    scene_path: Path | str
+    xml: str
     use_directional_light: bool
     use_headlight: bool
 
@@ -378,190 +645,10 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
     maze_config: MjCambrianMazeConfig
 
-
-@dataclass(kw_only=True, repr=False)
-class MjCambrianEyeConfig(MjCambrianBaseConfig):
-    """Defines the config for an eye. Used for type hinting.
-
-    Attributes:
-        name (Optional[str]): Placeholder for the name of the eye. If set, used
-            directly. If unset, the name is set to `{animal.name}_eye_{eye_index}`.
-        mode (str): The mode of the camera. Should always be "fixed". See the mujoco
-            documentation for more info.
-        pos (Optional[Tuple[float, float, float]]): The initial position of the camera.
-            Fmt: xyz
-        quat (Optional[Tuple[float, float, float, float]]): The initial rotation of the
-            camera. Fmt: wxyz.
-        resolution (Tuple[int, int]): The width and height of the rendered image.
-            Fmt: width height.
-        fovy (Optinoal[float]): The vertical field of view of the camera.
-        focal (Optional[Tuple[float, float]]): The focal length of the camera.
-            Fmt: focal_x focal_y.
-        focalpixel (Optional[Tuple[int, int]]): The focal length of the camera in
-            pixels.
-        sensorsize (Optional[Tuple[float, float]]): The sensor size of the camera.
-            Fmt: sensor_x sensor_y.
-
-        fov (Optional[Tuple[float, float]]): Independent of the `fovy` field in the MJCF
-            xml. Used to calculate the sensorsize field. Specified in degrees. Mutually
-            exclusive with `fovy`. If `focal` is unset, it is set to 1, 1. Will override
-            `sensorsize`, if set.
-
-        filter_size (Optional[Tuple[int, int]]): The psf filter size. This is
-            convolved across the image, so the actual resolution of the image is plus
-            filter_size / 2
-
-        renderer_config (MjCambrianRendererConfig): The renderer config to use for the
-            underlying renderer. The width and height of the renderer will be set to the
-            padded resolution (resolution + filter_size) of the eye.
-    """
-
-    name: Optional[str] = None
-    mode: str
-    pos: Optional[Tuple[float, float, float]] = None
-    quat: Optional[Tuple[float, float, float, float]] = None
-    resolution: Optional[Tuple[int, int]] = None
-    fovy: Optional[float] = None
-    focal: Optional[Tuple[float, float]] = None
-    sensorsize: Optional[Tuple[float, float]] = None
-
-    fov: Optional[Tuple[float, float]] = None
-
-    filter_size: Optional[Tuple[int, int]] = None
-
-    renderer_config: MjCambrianRendererConfig
-
-    def to_xml_kwargs(self) -> Dict[str, Any]:
-        kwargs = dict()
-
-        def set_if_not_none(key: str, val: Any):
-            if val is not None:
-                if isinstance(val, Iterable) and not isinstance(val, str):
-                    val = " ".join(map(str, val))
-                kwargs[key] = val
-
-        set_if_not_none("name", self.name)
-        set_if_not_none("mode", self.mode)
-        set_if_not_none("pos", self.pos)
-        set_if_not_none("quat", self.quat)
-        set_if_not_none("resolution", self.resolution)
-        set_if_not_none("fovy", self.fovy)
-        set_if_not_none("focal", self.focal)
-        set_if_not_none("sensorsize", self.sensorsize)
-
-        return kwargs
+    animal_configs: Dict[str, MjCambrianAnimalConfig] = field(default_factory=dict)
 
 
-@dataclass(kw_only=True, repr=False)
-class MjCambrianAnimalConfig(MjCambrianBaseConfig):
-    """Defines the config for an animal. Used for type hinting.
-
-    Attributes:
-        name (Optional[str]): The name of the animal. Used to uniquely name the animal
-            and its eyes. Defaults to `{animal_name}_eye_{lat_idx}_{lon_idx}`
-        idx (Optional[int]): The index of the animal as it was created in the env. Used
-            to uniquely change the animal's xml elements. Placeholder; should be set by
-            the env.
-
-        model_path (Path | str): The path to the mujoco model file for the animal.
-            Either absolute, relative to execution path or relative to
-            cambrian.evolution_envs.three_d.mujoco.animal.py file. This will probably
-            be set through a MjCambrianAnimal subclass.
-        body_name (str): The name of the body that defines the main body of the animal.
-            This will probably be set through a MjCambrianAnimal subclass.
-        joint_name (str): The root joint name for the animal. For positioning (see qpos)
-            This will probably be set through a MjCambrianAnimal subclass.
-        geom_name (str): The name of the geom that are used for eye placement.
-
-        init_pos (Tuple[float, float]): The initial position of the animal. If unset,
-            the animal's position at each reset is generated randomly using the
-            `maze.generate_reset_pos` method.
-
-        use_qpos_obs (bool): Whether to use the qpos observation or not.
-        use_qvel_obs (bool): Whether to use the qvel observation or not.
-        use_intensity_obs (bool): Whether to use the intensity sensor
-            observation.
-        use_action_obs (bool): Whether to use the action observation or not.
-
-        enforce_2d (bool): Whether to enforce 2d eye placement. If True, all eyes
-            will be placed on the same plane and they will all have a vertical
-            resolution of 1.
-        only_mutate_resolution (bool): If true, only the resolution is mutated. No
-            the num eyes or fov will not be changed.
-
-        num_eyes_lat (int): The number of eyes to place latitudinally/vertically.
-        num_eyes_lon (int): The number of eyes to place longitudinally/horizontally.
-        eyes_lat_range (Tuple[float, float]): The x range of the eye. This is used to
-            determine the placement of the eye on the animal. Specified in radians. This
-            is the latitudinal/vertical range of the evenly placed eye about the
-            animal's bounding sphere.
-        eyes_lon_range (Tuple[float, float]): The y range of the eye. This is used to
-            determine the placement of the eye on the animal. Specified in radians. This
-            is the longitudinal/horizontal range of the evenly placed eye about the
-            animal's bounding sphere.
-        default_eye_config (MjCambrianEyeConfig): The default eye config to use for the
-            eyes.
-        use_single_camera (bool): If true, a single camera will be used
-            to render all eyes. Each eye will then be a cropping of the single camera.
-            We do this to minimize the number of render calls (hopefully improving
-            sim speed). If False, each eye will have its own camera/renderer.
-
-        disable_intensity_sensor (bool): Whether to disable the intensity sensor or not.
-        intensity_sensor_config (MjCambrianEyeConfig): The eye config to use for the
-            intensity sensor.
-    """
-
-    name: Optional[str] = None
-    idx: Optional[int] = None
-
-    model_path: Path | str
-    body_name: str
-    joint_name: str
-    geom_name: str
-
-    init_pos: Optional[Tuple[float, float]] = None
-
-    use_qpos_obs: bool
-    use_qvel_obs: bool
-    use_intensity_obs: bool
-    use_action_obs: bool
-
-    enforce_2d: bool
-    only_mutate_resolution: bool
-
-    num_eyes_lat: int
-    num_eyes_lon: int
-    n_temporal_obs: int
-    eyes_lat_range: Tuple[float, float]
-    eyes_lon_range: Tuple[float, float]
-    default_eye_config: MjCambrianEyeConfig
-    use_single_camera: bool
-
-    disable_intensity_sensor: bool
-    intensity_sensor_config: MjCambrianEyeConfig
-
-
-@dataclass(kw_only=True, repr=False)
-class MjCambrianGenerationConfig(MjCambrianBaseConfig):
-    """Config for a generation. Used for type hinting.
-
-    Attributes:
-        rank (int): The rank of the generation. A rank is a unique identifier assigned
-            to each process, where a processes is an individual evo runner running on a
-            separate computer. In the context of a cluster, each node that is running
-            an evo job is considered one rank, where the rank number is a unique int.
-        generation (int): The generation number. This is used to uniquely identify the
-            generation.
-    """
-
-    rank: int
-    generation: int
-
-    def to_path(self) -> Path:
-        return Path(f"generation_{self.generation}") / f"rank_{self.rank}"
-
-
-@dataclass(kw_only=True, repr=False)
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class MjCambrianPopulationConfig(MjCambrianBaseConfig):
     """Config for a population. Used for type hinting.
 
@@ -571,8 +658,18 @@ class MjCambrianPopulationConfig(MjCambrianBaseConfig):
         num_top_performers (int): The number of top performers to use in the new agent
             selection. Either in cross over or in mutation, these top performers are
             used to generate new agents.
+    """
 
-        init_num_mutations (int): The number of mutations to perform on the
+    size: int
+    num_top_performers: int
+
+
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+class MjCambrianSpawningConfig(MjCambrianBaseConfig):
+    """Config for spawning. Used for type hinting.
+
+    Attributes:
+        num_mutations (int): The number of mutations to perform on the
             default config to generate the initial population. The actual number of
             mutations is calculated using random.randint(1, init_num_mutations).
 
@@ -580,15 +677,29 @@ class MjCambrianPopulationConfig(MjCambrianBaseConfig):
             `ReplicationType` for options.
     """
 
-    size: int
-    num_top_performers: int
-
     init_num_mutations: int
 
-    replication_type: str 
+
+    class ReplicationType(Flag):
+        """Use as bitmask to specify which type of replication to perform on the animal.
+
+        Example:
+        >>> # Only mutation
+        >>> type = ReplicationType.MUTATION
+        >>> # Both mutation and crossover
+        >>> type = ReplicationType.MUTATION | ReplicationType.CROSSOVER
+        """
+
+        MUTATION = auto()
+        CROSSOVER = auto()
+
+    replication_type: str
+
+    default_animal_config: Optional[MjCambrianAnimalConfig] = None
+    default_eye_config: Optional[MjCambrianEyeConfig] = None
 
 
-@dataclass(kw_only=True, repr=False)
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class MjCambrianEvoConfig(MjCambrianBaseConfig):
     """Config for evolutions. Used for type hinting.
 
@@ -617,60 +728,32 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
     num_generations: int
 
     population_config: MjCambrianPopulationConfig
+    spawning_config: MjCambrianSpawningConfig
 
     generation_config: Optional[MjCambrianGenerationConfig] = None
-    parent_generation_config: Optional[MjCambrianGenerationConfig] = None
 
     environment_variables: Dict[str, str]
 
 
-@dataclass(kw_only=True, repr=False)
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class MjCambrianConfig(MjCambrianBaseConfig):
     """The base config for the mujoco cambrian environment. Used for type hinting.
-    
-    Attributes:
-        includes (Dict[str, Path | str]): A dictionary of includes. The keys are the
-            names of the include and the values are the paths to the include files.
-            These includes are merged into the config. This is useful for splitting
-            configs into multiple files. When overriding, you can override the include
-            path directly using the key.
 
+    Attributes:
         training_config (MjCambrianTrainingConfig): The config for the training process.
         env_config (MjCambrianEnvConfig): The config for the environment.
         animal_config (MjCambrianAnimalConfig): The config for the animal.
         evo_config (Optional[MjCambrianEvoConfig]): The config for the evolution
             process. If None, the environment will not be run in evolution mode.
     """
-    includes: Optional[Dict[str, Path | str]] = field(default_factory=dict)
 
     training_config: MjCambrianTrainingConfig
     env_config: MjCambrianEnvConfig
-    animal_config: MjCambrianAnimalConfig
     evo_config: Optional[MjCambrianEvoConfig] = None
-
-    @classmethod
-    def load(
-        cls: Type[T],
-        config: Path | str | T,
-        *,
-        overrides: Dict[str, Any] = [],
-        instantiate: bool = True,
-    ) -> T:
-        """Overrides the base class method to handle includes.
-        
-        TODO: Use hydra.
-        """
-        config: Dict = super().load(config)
-
-        includes: Dict = config.pop("includes", dict())
-        for include in reversed(list(includes.values())):
-            included_config = MjCambrianConfig.load(include, instantiate=False)
-            config = OmegaConf.merge(config, included_config)
-
-        return super().load(config, overrides=overrides, instantiate=instantiate)
 
 if __name__ == "__main__":
     import argparse
+    import time
 
     parser = argparse.ArgumentParser(description="Dataclass/YAML Tester")
 
@@ -691,7 +774,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    t0 = time.time()
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
+    t1 = time.time()
+
+    print(f"Loaded config in {t1 - t0:.4f} seconds")
 
     if not args.quiet:
         print(config)
