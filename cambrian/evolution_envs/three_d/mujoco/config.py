@@ -3,17 +3,18 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace, field
 from pathlib import Path
 from copy import deepcopy
-from enum import Flag, auto
+from enum import Flag, auto, Enum
 
 import yaml
-from omegaconf import OmegaConf, DictConfig, Node
+from omegaconf import OmegaConf, DictConfig, Node, SCMode
 
 from cambrian.evolution_envs.three_d.mujoco.utils import get_include_path
 
 # ==================== Global Config ====================
 
+
 def extend(*args: List[DictConfig], _parent_: DictConfig, _node_: Node):
-    """This resolver is used to extend a config with another config. To use, set the 
+    """This resolver is used to extend a config with another config. To use, set the
     value to ${extend: ${<dotlist>.<key>}}. This will extend the current config with the
     config at the given dotlist. It also accepts multiple configs to extend with, just
     separate with a comma."""
@@ -21,15 +22,16 @@ def extend(*args: List[DictConfig], _parent_: DictConfig, _node_: Node):
     _parent_[_node_._key()] = None
 
     for interpolation in args:
-        # First move overrides from _parent_ to interpolation since parent is higher 
+        # First move overrides from _parent_ to interpolation since parent is higher
         # priority. Then move interpolation back into parent to get all the defaults.
         # TODO: this makes interpolation happen a lot, slow
         interpolation = OmegaConf.merge(interpolation, _parent_)
         OmegaConf.unsafe_merge(_parent_, interpolation)
     return None
 
-def include(interpolation: DictConfig, type: Optional[str] = 'DictConfig'):
-    """This resolver takes a filepath and returns the config at that filepath. 
+
+def include(interpolation: DictConfig, type: Optional[str] = "DictConfig"):
+    """This resolver takes a filepath and returns the config at that filepath.
     See `get_include_path` for info on how the path is resolved."""
     interpolation: Path = get_include_path(interpolation)
     assert interpolation.exists(), f"File {interpolation} does not exist"
@@ -38,19 +40,21 @@ def include(interpolation: DictConfig, type: Optional[str] = 'DictConfig'):
     if type == "str":
         with open(interpolation) as f:
             return f.read()
-    elif type=="DictConfig":
+    elif type == "DictConfig":
         return OmegaConf.load(interpolation)
     else:
         raise ValueError(f"Unknown type {type}")
 
+
 def parent(type: Optional[str] = "key", *, _parent_: DictConfig, _node_: Node):
-    """This resolver is used to access a parent config. To use, set the value to 
-    ${parent: ${<dotlist>.<key>}}. This will access the parent config at the given 
+    """This resolver is used to access a parent config. To use, set the value to
+    ${parent: ${<dotlist>.<key>}}. This will access the parent config at the given
     dotlist."""
     if type == "key":
         return _parent_._key()
     else:
         raise ValueError(f"Unknown type {type}")
+
 
 # TODO: I would guess hydra does the extend/include part with defaults
 OmegaConf.register_new_resolver("eval", eval, replace=True)
@@ -73,15 +77,15 @@ T = TypeVar("T", bound="MjCambrianBaseConfig")
 @dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class MjCambrianBaseConfig:
     """Base config for all configs. This is an abstract class.
-    
+
     Attributes:
         extend (Optional[str]): The config to extend this config with.
             This is useful for splitting configs into multiple files. When overriding,
-            you can override the extend path directly using the key. Should be 
+            you can override the extend path directly using the key. Should be
             implemented like this: `extends: ${extend: ${<dotlist>.<key>}}`. You can
-            specify multiple includes by passing a list, like 
+            specify multiple includes by passing a list, like
             `extends: ${extend: ${<dotlist>.<key>}, ${<dotlist>.<key>}}`. Lastly, you
-            can also include another file and extend it by using the `include` 
+            can also include another file and extend it by using the `include`
             resolver. Ex: `extends: ${extend: ${include: <path>}}`.
     """
 
@@ -111,16 +115,18 @@ class MjCambrianBaseConfig:
 
         Returns:
             T | DictConfig: The loaded config. If `instantiate` is True, the config
-                will be an object of type T. Otherwise, it will be a 
+                will be an object of type T. Otherwise, it will be a
                 `OmegaConf.DictConfig`.
         """
         if isinstance(config, (Path, str)):
             filename = Path(config)
             config = OmegaConf.load(filename)
-            OmegaConf.register_new_resolver("filename", lambda: filename.stem, replace=True)
-        if len(overrides) > 0:
-            config = OmegaConf.merge(config, OmegaConf.from_dotlist(overrides))
+            OmegaConf.register_new_resolver(
+                "filename", lambda: filename.stem, replace=True
+            )
 
+        overrides = OmegaConf.from_dotlist(overrides)
+        OmegaConf.unsafe_merge(config, overrides, overrides)
 
         if instantiate:
             return cls.instantiate(config)
@@ -130,7 +136,7 @@ class MjCambrianBaseConfig:
     @classmethod
     def instantiate(cls: Type[T], config: DictConfig) -> T:
         """Convert a config to an object.
-        
+
         We need to merge config in twice so that extend will work properly
         Not sure why, is kinda of slow. Should be fixed in next OmegaConf version.
         Real issue is we modify the config in place in resolvers, which is
@@ -138,9 +144,9 @@ class MjCambrianBaseConfig:
 
         TODO: is the doubling really necessary?
         """
-        schema = OmegaConf.structured(cls)
-        config = OmegaConf.merge(schema, config, config)
-        OmegaConf.resolve(config) # resolves included strings
+        config = OmegaConf.merge(cls, config, config)
+        OmegaConf.resolve(config)  # resolves included strings
+        return OmegaConf.to_container(config, resolve=False, throw_on_missing=True, structured_config_mode=SCMode.INSTANTIATE)
         return OmegaConf.to_object(config)
 
     def save(self, path: Path | str):
@@ -263,11 +269,18 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
     """Defines a map config. Used for type hinting.
 
     Attributes:
+        name (str): The name of the maze. Used to uniquely name the maze.
+
         map (List[List[str]]): The map to use for the maze. It's a 2D array where
             each element is a string and corresponds to a "pixel" in the map. See
             `maze.py` for info on what different strings mean.
         xml (str): The xml for the maze. This is the xml that will be used to
             create the maze.
+
+        difficulty (int): The difficulty of the maze. This is used to determine the
+            selection probability of the maze when the mode is set to "DIFFICULTY".
+            The value should be set between 0 and 100, where 0 is the easiest and 100
+            is the hardest.
 
         size_scaling (float): The maze scaling for the continuous coordinates in the
             MuJoCo simulation.
@@ -276,8 +289,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
         use_target_light_sources (bool): Whether to use a target light sources or not.
             If False, the colored target sites will be used (e.g. a red sphere).
             Otherwise, a light source will be used. The light source is simply a spot
-            light facing down. If unset (i.e. None), this field will set to the
-            opposite of the `use_directional_light` field in `MjCambrianEnvConfig`.
+            light facing down.
 
         init_goal_pos (Optional[Tuple[float, float]]): The initial position of the
             goal in the maze. If unset, will be randomly generated.
@@ -296,8 +308,12 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
             generated.
     """
 
+    name: str
+
     map: List[List]
     xml: str
+
+    difficulty: int
 
     size_scaling: float
     height: float
@@ -485,7 +501,7 @@ class MjCambrianAnimalModelConfig(MjCambrianBaseConfig):
 
     Attributes:
         xml (str): The xml for the animal model. This is the xml that will be used to
-            create the animal model. You should use ${..name} to generate named 
+            create the animal model. You should use ${..name} to generate named
             attributes.
         body_name (str): The name of the body that defines the main body of the animal.
             This will probably be set through a MjCambrianAnimal subclass.
@@ -545,7 +561,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
         parent_generation_config (Optional[MjCambrianGenerationConfig]): The config for
             the parent generation. Will be set by the evolution runner. If None, that
-            means that the current generation is the first generation (i.e. no parent). 
+            means that the current generation is the first generation (i.e. no parent).
     """
 
     name: str
@@ -617,7 +633,17 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         renderer_config (MjCambrianViewerConfig): The default viewer config to
             use for the mujoco viewer.
 
-        maze_config (MjCambrianMazeConfig): The config for the maze.
+        maze_selection_criteria (Dict[str, Any]): The mode to use for choosing
+            the maze. The `mode` key is required and must be set to a 
+            `MazeSelectionMode`. See `MazeSelectionMode` for other params or 
+            `maze.py` for more info.
+        maze_config ([Dict[str, MjCambrianMazeConfig]): The configs for the mazes. Each
+            maze will be loaded into the scene and the animal will be placed in a maze
+            at each reset. The maze will be chosen based on the `maze_choice_mode`
+            field.
+        eval_maze_configs (Optional[Dict[str, MjCambrianMazeConfig]]): The 
+            configs for the evaluation mazes. If unset, the one evaluation maze will 
+            be chosen using the maze selection criteria. 
 
         animal_configs (Dict[str, MjCambrianAnimalConfig]): The configs for the animals.
             The key will be used as the default name for the animal, unless explicitly
@@ -643,7 +669,53 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     overlay_height: Optional[float] = None
     renderer_config: MjCambrianRendererConfig
 
-    maze_config: MjCambrianMazeConfig
+    class MazeSelectionMode(Enum):
+        """The mode to use for choosing the maze. See `maze.py` for more info.
+
+        NOTE: the `mode` key is required for the criteria dict. other keys are passed
+        as kwargs to the selection method.
+
+        Ex:
+            # Choose a random maze
+            maze_selection_criteria: 
+                mode: RANDOM
+
+            # Choose a maze based on difficulty
+            maze_selection_criteria: 
+                mode: DIFFICULTY
+                schedule: true
+
+            # From the command line
+            -o ...maze_selection_criteria="{mode: DIFFICULTY, schedule: true}"
+            # or simply
+            -o ...maze_selection_criteria.mode=RANDOM
+
+        Attributes:
+            RANDOM (str): Choose a random maze.
+            DIFFICULTY (str): Choose a maze based on difficulty. A maze is chosen
+                based on the prob exp(-difficulty). By default, easier mazes will
+                be selected based on a skewed distribution. If `schedule` is passed
+                as a kwarg and set to true, the probability of choosing more difficult
+                mazes increases over time with a linear schedule.
+            NAMED (str): Choose a maze based on name. `name` must be passed as a kwarg
+                to the selection method.
+            CYCLE (str): Cycle through the mazes. The mazes are cycled through in
+                the order they are defined in the config.
+
+            EVAL (str): Use the mazes in `eval_maze_configs`. The mazes are cycled,
+                similar to CYCLE. `eval_maze_configs` cannot be None.
+        """
+
+        RANDOM: str = "random"
+        DIFFICULTY: str = "difficulty"
+        NAMED: str = "named"
+        CYCLE: str = "cycle"
+
+        EVAL: str = "eval"
+
+    maze_selection_criteria: Dict[str, Any]
+    maze_configs: Dict[str, MjCambrianMazeConfig]
+    eval_maze_configs: Optional[Dict[str, MjCambrianMazeConfig]] = None 
 
     animal_configs: Dict[str, MjCambrianAnimalConfig] = field(default_factory=dict)
 
@@ -678,7 +750,6 @@ class MjCambrianSpawningConfig(MjCambrianBaseConfig):
     """
 
     init_num_mutations: int
-
 
     class ReplicationType(Flag):
         """Use as bitmask to specify which type of replication to perform on the animal.
@@ -751,6 +822,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
     env_config: MjCambrianEnvConfig
     evo_config: Optional[MjCambrianEvoConfig] = None
 
+
 if __name__ == "__main__":
     import argparse
     import time
@@ -770,15 +842,19 @@ if __name__ == "__main__":
         default=[],
     )
 
+    parser.add_argument("--no-resolve", action="store_true", help="Don't resolve config")
     parser.add_argument("-q", "--quiet", action="store_true", help="Run in quiet mode")
 
     args = parser.parse_args()
 
     t0 = time.time()
-    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
+    config = MjCambrianConfig.load(args.config, overrides=args.overrides, instantiate=not args.no_resolve)
     t1 = time.time()
 
     print(f"Loaded config in {t1 - t0:.4f} seconds")
 
     if not args.quiet:
-        print(config)
+        if args.no_resolve:
+            print(OmegaConf.to_yaml(config))
+        else:
+            print(config)

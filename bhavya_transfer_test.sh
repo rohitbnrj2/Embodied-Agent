@@ -13,6 +13,8 @@
 MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py \
     configs_mujoco/experiments/point_1eye_1x1.yaml --train \
     -o training_config.exp_name='parent_1_${filename:}' \
+    -o env_config.maze_selection_criteria.mode=NAMED \
+    -o env_config.maze_selection_criteria.kwargs='{"name": "G_MAZE_DIVERSE"}' \
     -o training_config.max_episode_steps=256 -o training_config.total_timesteps=2000000 \
     -ao n_temporal_obs=5 -o env_config.truncate_on_contact=False
 
@@ -20,6 +22,8 @@ MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py \
 MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py \
     configs_mujoco/experiments/point_1eye_2x2.yaml --train \
     -o training_config.exp_name='parent_2_${filename:}' \
+    -o env_config.maze_selection_criteria.mode=NAMED \
+    -o env_config.maze_selection_criteria.kwargs='{"name": "G_MAZE_DIVERSE"}' \
     -o training_config.max_episode_steps=256 -o training_config.total_timesteps=2000000 \
     -ao n_temporal_obs=5 -o env_config.truncate_on_contact=False
 
@@ -27,6 +31,8 @@ MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py \
 MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py \
     configs_mujoco/experiments/point_2eyes_2x2.yaml --train \
     -o training_config.exp_name='child_1_${filename:}' \
+    -o env_config.maze_selection_criteria.mode=NAMED \
+    -o env_config.maze_selection_criteria.kwargs='{"name": "G_MAZE_DIVERSE"}' \
     -o training_config.max_episode_steps=256 -o training_config.total_timesteps=2000000 \
     -ao n_temporal_obs=5 -o env_config.truncate_on_contact=False
 
@@ -35,5 +41,7 @@ MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py \
 MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py \
     configs_mujoco/experiments/point_10eyes_1x1.yaml --train \
     -o training_config.exp_name='child_2_${filename:}' \
+    -o env_config.maze_selection_criteria.mode=NAMED \
+    -o env_config.maze_selection_criteria.kwargs='{"name": "G_MAZE_DIVERSE"}' \
     -o training_config.max_episode_steps=256 -o training_config.total_timesteps=2000000 \
     -ao n_temporal_obs=5 -o env_config.truncate_on_contact=False

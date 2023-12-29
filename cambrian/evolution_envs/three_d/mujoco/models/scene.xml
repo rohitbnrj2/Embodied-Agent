@@ -2,7 +2,7 @@
     <compiler assetdir="assets" angle="degree" coordinate="local" inertiafromgeom="true" />
     <option density="1000" integrator="implicitfast" timestep="0.02" viscosity="1.8e-5" />
     <visual>
-        <map znear="0.001" zfar="3" />
+        <!-- <map znear="0.001" zfar="3" /> -->
         <scale frustum="40" />
         <rgba camera="0.6 0.9 0.6 1" />
     </visual>

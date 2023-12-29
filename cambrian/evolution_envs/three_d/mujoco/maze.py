@@ -8,7 +8,7 @@ import mujoco as mj
 
 from cambrian.evolution_envs.three_d.mujoco.cambrian_xml import MjCambrianXML
 from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianMazeConfig
-from cambrian.evolution_envs.three_d.mujoco.utils import get_include_path
+from cambrian.evolution_envs.three_d.mujoco.utils import get_geom_id, get_body_id, get_site_id
 
 # ================
 
@@ -47,6 +47,8 @@ def get_attenuation(max_distance: float) -> Tuple[float, float, float]:
 
 # ================
 
+# [center_x, width]
+MAP_EXTENTS: List[Tuple[int, int]] = [(0, 0)]
 
 class MjCambrianMaze:
     """The maze class. Generates a maze from a given map and provides utility
@@ -60,8 +62,16 @@ class MjCambrianMaze:
 
     def __init__(self, config: MjCambrianMazeConfig):
         self._config: MjCambrianMazeConfig = config
+        self._name = self._config.name
 
         self._map: np.ndarray = np.array(config.map, dtype=str)
+
+        # Move the map origin such that the map doesn't overlap with existing maps
+        # We'll place the map next to the previous one
+        prev_center, prev_width = MAP_EXTENTS[-1]
+        center = prev_center + prev_width / 2 + self.map_width_scaled / 2
+        MAP_EXTENTS.append((center, self.map_width_scaled))
+        self._x_center = center
 
         self._unique_target_locations: List[np.ndarray] = []
         self._unique_reset_locations: List[np.ndarray] = []
@@ -75,6 +85,8 @@ class MjCambrianMaze:
         self._init_goal_pos: np.ndarray = np.array(self._config.init_goal_pos)
         self._adversary: np.ndarray = None
         self._init_adversary_pos: np.ndarray = np.array(self._config.init_adversary_pos)
+
+        self._block_names: List[str] = []
 
     def _update_locations(self):
         for i in range(self.map_length):
@@ -117,26 +129,29 @@ class MjCambrianMaze:
         size_scaling = self.size_scaling
         for wall, (x, y) in enumerate(self._wall_locations):
             scale = size_scaling / 2
+            name = f"block_{self._name}_{wall}"
             xml.add(
                 worldbody,
                 "geom",
-                name=f"block_{wall}",
+                name=name,
                 pos=f"{x} {y} {scale * self.map_height}",
                 size=f"{scale} {scale} {scale * self.map_height}",
-                **{"class": "maze_block"}
+                **{"class": f"maze_block_{self._name}"},
             )
+            self._block_names.append(name)
 
         # Add the goal/adversary sites
         # Set their positions as placeholders, we'll update them later
         def add_target(
-            name: str, *, site_kw: Dict[str, Any] = {}, mat_kw: Dict[str, Any] = {}, top_mat_kw: Dict[str, Any] = {}
+            name: str,
+            *,
+            site_kw: Dict[str, Any] = {},
+            mat_kw: Dict[str, Any] = {},
+            top_mat_kw: Dict[str, Any] = {},
         ):
             # Create a body which we use to change the position of the target
             targetbody = xml.add(
-                worldbody,
-                "body",
-                name=f"{name}_body",
-                childclass="maze_target"
+                worldbody, "body", name=f"{name}_body", childclass=f"maze_target_{self._name}"
             )
 
             # Each target is represented as a site sphere with a material
@@ -186,14 +201,15 @@ class MjCambrianMaze:
                 size=f"{0.05 * size_scaling}",
                 material=f"{name}_top_mat",
                 pos=f"0 0 {0.2 * size_scaling}",
-                group="3", # any group > 2 will be hidden to the agents
+                group="3",  # any group > 2 will be hidden to the agents
             )
 
-        mat_kw = dict(texture="vertical_pattern") if self.config.use_adversary else {}
-        add_target("goal", mat_kw=mat_kw, top_mat_kw=dict(rgba="0 1 0 1"))
+        vertical_pattern_tex = dict(texture=f"vertical_pattern_{self._name}")
+        mat_kw = vertical_pattern_tex if self.config.use_adversary else {}
+        add_target(f"goal_{self._name}", mat_kw=mat_kw, top_mat_kw=dict(rgba="0 1 0 1"))
         if self.config.use_adversary:
             add_target(
-                "adversary",
+                f"adversary_{self._name}",
                 mat_kw=mat_kw,
                 site_kw=dict(
                     euler="0 90 0",
@@ -202,27 +218,29 @@ class MjCambrianMaze:
             )
 
         # # Update the floor texture to repeat in a way that matches the blocks
-        floor_mat = xml.find(".//material[@name='floor_mat']")
-        assert floor_mat is not None, "`floor_mat` not found"
+        floor_mat_name = f"floor_mat_{self._name}"
+        floor_mat = xml.find(f".//material[@name='{floor_mat_name}']")
+        assert floor_mat is not None, f"`{floor_mat_name}` not found"
         floor_mat.attrib["texrepeat"] = f"{2 / size_scaling} {2 / size_scaling}"
 
         # # Update floor size
-        floor = xml.find(".//geom[@name='floor']")
-        assert floor is not None, "`floor` not found"
+        floor_name = f"floor_{self._name}"
+        floor = xml.find(f".//geom[@name='{floor_name}']")
+        assert floor is not None, f"`{floor_name}` not found"
         floor.attrib["size"] = f"{self.map_width_scaled} {self.map_length_scaled} 0.1"
 
         return xml
 
-    def reset(self, model: mj.MjModel):
+    def reset(self, model: mj.MjModel, *, active: bool = True):
         """Resets the maze. Will generate a goal and update the site/geom in mujoco."""
         self._occupied_locations.clear()
         self._goal = (
             self._init_goal_pos if self._init_goal_pos else self.generate_target_pos()
         )
         if self.config.use_adversary:
-            assert len(self._unique_target_locations) > 1, (
-                "Must have at least 2 unique target locations to use an adversary"
-            )
+            assert (
+                len(self._unique_target_locations) > 1
+            ), "Must have at least 2 unique target locations to use an adversary"
             self._adversary = (
                 self._init_adversary_pos
                 if self._init_adversary_pos
@@ -231,17 +249,38 @@ class MjCambrianMaze:
 
         # Update target bodies position and size
         def update_target(name: str, pos: np.ndarray):
-            body_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, f"{name}_body")
+            body_id = get_body_id(model, f"{name}_body")
             assert body_id != -1, f"`{name}_body` body not found"
             model.body_pos[body_id] = [*pos, self.map_height * self.size_scaling // 2]
+
+            site_id = get_site_id(model, f"{name}_site")
+            assert site_id != -1, f"`{name}_site` site not found"
+
+            model.body_conaffinity[body_id] = 1 if active else 0
+            model.site_group[site_id] = 1 if active else 3
 
             if self.config.use_target_light_sources:
                 light_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_LIGHT, f"{name}_light")
                 model.light_attenuation[light_id] = get_attenuation(self.max_dim * 1.75)
-
-        update_target("goal", self.goal)
+                
+                # Set the light to be active or not
+                model.light_active[light_id] = active
+        
+        update_target(f"goal_{self._name}", self.goal)
         if self.config.use_adversary:
-            update_target("adversary", self.adversary)
+            update_target(f"adversary_{self._name}", self.adversary)
+
+        # If this maze is not active, change the groups of all objects to 3 so that
+        # they are hidden from the agents
+        for block_name in self._block_names:
+            geom_id = get_geom_id(model, block_name)
+            assert geom_id != -1, f"`{block_name}` geom not found"
+            model.geom_group[geom_id] = 1 if active else 3
+
+            body_id = model.geom_bodyid[geom_id]
+            assert body_id != -1, f"`{block_name}` body not found"
+            model.body_conaffinity[body_id] = 1 if active else 0
+
 
     def _generate_pos(
         self, locations: List[np.ndarray], *, tries: int = 10
@@ -321,7 +360,7 @@ class MjCambrianMaze:
                     visited[r][c] = True
                     queue.append((path + [(r, c)], dist + 1))
 
-        return None
+        raise ValueError("No path found")
 
     def cell_rowcol_to_xy(self, rowcol_pos: np.ndarray) -> np.ndarray:
         x = (rowcol_pos[1] + 0.5) * self.size_scaling - self.x_map_center
@@ -340,6 +379,11 @@ class MjCambrianMaze:
     def config(self) -> MjCambrianMazeConfig:
         """Returns the config."""
         return self._config
+
+    @property
+    def name(self) -> str:
+        """Returns the name."""
+        return self._name
 
     @property
     def goal(self) -> np.ndarray:
@@ -394,7 +438,7 @@ class MjCambrianMaze:
     @property
     def x_map_center(self) -> float:
         """Returns the x map center."""
-        return self.map_width_scaled / 2
+        return self.map_width_scaled / 2 + self._x_center
 
     @property
     def y_map_center(self) -> float:
@@ -430,6 +474,21 @@ class MjCambrianMaze:
     def occupied_locations(self) -> List[np.ndarray]:
         """Returns the occupied locations."""
         return self._occupied_locations
+
+    @property
+    def lookat(self) -> np.ndarray:
+        """Returns the lookat."""
+        x = -self.x_map_center + self.map_width_scaled // 2 + self.map_width
+        y = self.y_map_center - self.map_length_scaled // 2
+        return np.array([x, y, 0])
+
+    # ==================
+
+    def __repr__(self) -> str:
+        return f"MjCambrianMaze(name={self._name})"
+    
+    def __str__(self) -> str:
+        return self.__repr__()
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy
 from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
 from cambrian.evolution_envs.three_d.mujoco.env import MjCambrianEnv
 from cambrian.evolution_envs.three_d.mujoco.renderer import MjCambrianRenderer
-from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
+from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy, setattrs_temporary
 
 
 class PlotEvaluationCallback(BaseCallback):
@@ -113,14 +113,25 @@ class SaveVideoCallback(BaseCallback):
         self.max_episode_steps = max_episode_steps
 
     def _on_step(self) -> bool:
+        env_config = self.cambrian_env.config.env_config
+
         best_mean_reward = self.parent.best_mean_reward
         self.cambrian_env.overlays["Best Mean Reward"] = f"{best_mean_reward:.2f}"
         self.cambrian_env.overlays["Total Timesteps"] = f"{self.num_timesteps}"
 
-        filename = Path(f"vis_{self.n_calls}")
-        evaluate_policy(
-            self.env, self.parent.model, 1, record_path=self.evaldir / filename
-        )
+        # Update the config for eval
+        eval_maze_configs = env_config.eval_maze_configs
+        maze_selection_criteria = env_config.maze_selection_criteria
+        num_runs = len(eval_maze_configs) if eval_maze_configs else 1
+        mode = "EVAL" if eval_maze_configs else maze_selection_criteria["mode"]
+        with setattrs_temporary(maze_selection_criteria, mode=mode):
+            filename = Path(f"vis_{self.n_calls}")
+            evaluate_policy(
+                self.env,
+                self.parent.model,
+                num_runs,
+                record_path=self.evaldir / filename,
+            )
 
         # Copy the most recent gif to latest.gif so that we can just watch this file
         latest_filename = self.evaldir / "latest.gif"

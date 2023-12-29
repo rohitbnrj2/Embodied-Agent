@@ -1,0 +1,10 @@
+name: ${parent:}
+xml: ${include:models/maze.xml,str}
+
+size_scaling: 4.0
+height: 0.5
+
+use_target_light_sources: True
+
+use_adversary: False
+difficulty: 1

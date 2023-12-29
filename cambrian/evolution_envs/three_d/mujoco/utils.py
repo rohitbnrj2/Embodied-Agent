@@ -2,6 +2,7 @@ import argparse
 from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable
 from pathlib import Path
 from dataclasses import dataclass
+import contextlib
 
 import gymnasium as gym
 import mujoco as mj
@@ -20,7 +21,9 @@ def safe_index(list_to_index: List[Any], value: Any) -> int:
         return -1
 
 
-def get_include_path(model_path: str | Path, *, throw_error: bool = True) -> Path | None:
+def get_include_path(
+    model_path: str | Path, *, throw_error: bool = True
+) -> Path | None:
     """Tries to find the model path. `model_path` can either be relative to the
     execution file, absolute, or relative to cambrian.evolution_envs.three_d.mujoco. The
     latter is the typical method, where `assets/<model>.xml` specifies the model path
@@ -145,6 +148,30 @@ def generate_sequence_from_range(range: Tuple[float, float], num: int) -> List[f
     return [np.average(range)] if num == 1 else np.linspace(*range, num)
 
 
+def merge_dicts(d1: dict, d2: dict) -> dict:
+    """Merge two dictionaries. d2 takes precedence over d1."""
+    return {**d1, **d2}
+
+
+@contextlib.contextmanager
+def setattrs_temporary(obj: Any, **kwargs: Any) -> None:
+    """Temporarily set attributes of an object."""
+    prev_values = {}
+    for attr, value in kwargs.items():
+        if isinstance(obj, dict):
+            prev_values[attr] = obj[attr]
+            obj[attr] = value
+        else:
+            prev_values[attr] = getattr(obj, attr)
+            setattr(obj, attr, value)
+    yield
+    for attr, value in prev_values.items():
+        if isinstance(obj, dict):
+            obj[attr] = value
+        else:
+            setattr(obj, attr, value)
+
+
 # =============
 # Mujoco utils
 
@@ -167,6 +194,16 @@ def get_geom_id(model: mj.MjModel, geom_name: str) -> int:
 def get_geom_name(model: mj.MjModel, geomadr: int) -> str:
     """Get the name of a Mujoco geometry."""
     return mj.mj_id2name(model, mj.mjtObj.mjOBJ_GEOM, geomadr)
+
+
+def get_site_id(model: mj.MjModel, site_name: str) -> int:
+    """Get the ID of a Mujoco geometry."""
+    return mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, site_name)
+
+
+def get_site_name(model: mj.MjModel, siteadr: int) -> str:
+    """Get the name of a Mujoco geometry."""
+    return mj.mj_id2name(model, mj.mjtObj.mjOBJ_SITE, siteadr)
 
 
 def get_joint_id(model: mj.MjModel, joint_name: str) -> int:
