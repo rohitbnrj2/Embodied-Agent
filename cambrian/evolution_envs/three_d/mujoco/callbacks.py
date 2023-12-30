@@ -134,8 +134,8 @@ class SaveVideoCallback(BaseCallback):
             )
 
         # Copy the most recent gif to latest.gif so that we can just watch this file
-        latest_filename = self.evaldir / "latest.gif"
-        shutil.copy(self.evaldir / filename.with_suffix(".gif"), latest_filename)
+        for f in self.evaldir.glob(str(filename.with_suffix(".*"))):
+            shutil.copy(f, f.with_stem("latest"))
 
         return True
 

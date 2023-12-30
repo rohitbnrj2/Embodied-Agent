@@ -100,7 +100,7 @@ def main(args):
         _run_eval(config, Path(file))
 
     record_path = output_folder / "final"
-    cambrian_env.renderer.save(record_path, save_types=["gif", "mp4", "png"])
+    cambrian_env.renderer.save(record_path, save_types=["gif", "mp4", "png", "webp"])
     cambrian_env.record = False
 
 

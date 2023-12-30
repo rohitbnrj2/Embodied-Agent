@@ -3,4 +3,5 @@ mujoco>=3.1.0
 pyyaml
 scipy
 imageio
+webp
 omegaconf==2.3.0

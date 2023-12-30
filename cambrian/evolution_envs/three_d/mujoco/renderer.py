@@ -7,7 +7,6 @@ import glfw
 import numpy as np
 import mujoco as mj
 import OpenGL.GL as GL
-import imageio
 import cv2
 
 from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianRendererConfig
@@ -570,8 +569,9 @@ class MjCambrianRenderer:
 
     # ===================
 
-    def save(self, path: Path | str, *, save_types: List[str] = ["gif", "mp4"]):
-        AVAILABLE_SAVE_TYPES = ["gif", "mp4", "png"]
+    def save(self, path: Path | str, *, save_types: List[str] = ["webp"]):
+
+        AVAILABLE_SAVE_TYPES = ["gif", "mp4", "png", "webp"]
         assert all(
             save_type in AVAILABLE_SAVE_TYPES for save_type in save_types
         ), f"Invalid save type found. Valid types are {AVAILABLE_SAVE_TYPES}."
@@ -587,18 +587,24 @@ class MjCambrianRenderer:
             rgb_buffer = rgb_buffer[:-1]
         fps = 50
         if "mp4" in save_types:
+            import imageio
             mp4 = path.with_suffix(".mp4")
             writer = imageio.get_writer(mp4, fps=fps)
             for image in rgb_buffer:
                 writer.append_data(image)
             writer.close()
         if "png" in save_types:
+            import imageio
             png = path.with_suffix(".png")
             imageio.imwrite(png, rgb_buffer[-1])
         if "gif" in save_types:
+            import imageio
             duration = 1000 / fps
             gif = path.with_suffix(".gif")
             imageio.mimwrite(gif, rgb_buffer, loop=0, duration=duration)
+        if "webp" in save_types:
+            import webp
+            webp.mimwrite(path.with_suffix(".webp"), rgb_buffer, fps=fps)
 
         print(f"Saved visualization at {path}")
 

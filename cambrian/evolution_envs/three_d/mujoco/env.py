@@ -261,7 +261,7 @@ class MjCambrianEnv(gym.Env):
                 # Lambda is scheduled linearly from -2 to 2 over the course of training
                 init_lam = kwargs.get("init_lam", -2.0)
                 t = self._num_timesteps / self.config.training_config.total_timesteps
-                lam = 2 * abs(init_lam) * t - init_lam
+                lam = 2 * abs(init_lam) * t + init_lam
                 p = np.exp(lam * np.arange(len(sorted_mazes)))
             else:
                 # Prob is proportional to the difficulty of the maze
@@ -281,11 +281,12 @@ class MjCambrianEnv(gym.Env):
             idx = -1 if self.maze is None else training_mazes.index(self.maze.config)
             return training_mazes[(idx + 1) % len(training_mazes)]
         elif mode == MjCambrianEnvConfig.MazeSelectionMode.EVAL:
-            if self.maze is None or self.maze.name not in self.eval_mazes:
-                idx = -1
-            else:
-                idx = eval_mazes.index(self.maze)
-            return eval_mazes[(idx + 1) % len(eval_mazes)]
+            idx = self.env_config.maze_selection_criteria.setdefault("eval_idx", 0)
+            eval_maze = eval_mazes[idx]
+            self.env_config.maze_selection_criteria["eval_idx"] = (idx + 1) % len(
+                eval_mazes
+            )
+            return eval_maze
         else:
             raise ValueError(f"Unrecognized maze selection mode {mode}")
 
