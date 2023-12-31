@@ -63,8 +63,6 @@ env_config:
       extend: ${extend:${include:configs_mujoco/mazes/train/MEDIUM_MAZE_DIVERSE.yaml}}
     LARGE_MAZE_DIVERSE:
       extend: ${extend:${include:configs_mujoco/mazes/train/LARGE_MAZE_DIVERSE.yaml}}
-    OPTIC_FLOW_STRAIGHT:
-      extend: ${extend:${include:configs_mujoco/mazes/eval/OPTIC_FLOW_STRAIGHT.yaml}}
   eval_maze_configs:
     OPTIC_FLOW_SNAKE_EASY:
       extend: ${extend:${include:configs_mujoco/mazes/eval/OPTIC_FLOW_SNAKE_EASY.yaml}}
