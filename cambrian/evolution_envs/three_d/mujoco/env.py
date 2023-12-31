@@ -256,16 +256,28 @@ class MjCambrianEnv(gym.Env):
         elif mode == MjCambrianEnvConfig.MazeSelectionMode.DIFFICULTY:
             # Sort the mazes by difficulty
             sorted_mazes = sorted(training_mazes, key=lambda m: m.config.difficulty)
+            sorted_difficulty = np.array([m.config.difficulty for m in sorted_mazes])
 
-            if kwargs.get("schedule", False):
-                # Lambda is scheduled linearly from -2 to 2 over the course of training
-                init_lam = kwargs.get("init_lam", -2.0)
+            if schedule := kwargs.get("schedule", None):
                 t = self._num_timesteps / self.config.training_config.total_timesteps
-                lam = 2 * abs(init_lam) * t + init_lam
-                p = np.exp(lam * np.arange(len(sorted_mazes)))
+                lam_0 = kwargs.get("lam_0", -2.0)  # initial lambda
+                lam_n = kwargs.get("lam_n", 1.0)  # final lambda
+                lam_range = lam_n - lam_0
+                t = 0
+                if schedule == "exponential":
+                    lam_factor = kwargs.get("lam_factor", 5.0)
+                    lam = lam_0 + lam_range * (1 - np.exp(-t * lam_factor))
+                elif schedule == "logistic":
+                    lam_factor = kwargs.get("lam_factor", 10.0)
+                    ti = kwargs.get("ti", 0.3) # inflection
+                    lam = lam_0 + lam_range / (1 + np.exp(-lam_factor * (t - ti)))
+                else:
+                    # Linear
+                    lam = lam_0 + (lam_n - lam_0) * t
+                p = np.exp(lam * sorted_difficulty / sorted_difficulty.max())
             else:
                 # Prob is proportional to the difficulty of the maze
-                p = np.array([m.config.difficulty for m in sorted_mazes])
+                p = sorted_difficulty
             return np.random.choice(sorted_mazes, p=p / p.sum())
         elif mode == MjCambrianEnvConfig.MazeSelectionMode.NAMED:
             assert "name" in kwargs, "Must specify `name` if using NAMED selection mode"
@@ -859,7 +871,7 @@ if __name__ == "__main__":
     config.env_config.use_renderer = not args.mj_viewer
     env = MjCambrianEnv(config)
     env.reset(seed=0)
-    env.xml.write("test.xml")
+    # env.xml.write("test.xml")
 
     print("Running...")
     if args.mj_viewer:
@@ -883,7 +895,7 @@ if __name__ == "__main__":
                 composites = {k: [] for k in env.animals}
 
         while env.renderer.is_running() and env._episode_step < args.total_timesteps:
-            env.step(env.action_spaces.sample())
+            mj.mj_step(env.model, env.data)
             env.render()
             if record_composites:
                 for name, animal in env.animals.items():

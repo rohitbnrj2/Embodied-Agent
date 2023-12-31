@@ -49,7 +49,7 @@ env_config:
 
   maze_selection_criteria:
     mode: DIFFICULTY
-    schedule: True
+    schedule: "logistic" 
   maze_configs:
     STRAIGHT_MAZE_DIVERSE:
       extend: ${extend:${include:configs_mujoco/mazes/train/STRAIGHT_MAZE_DIVERSE.yaml}}
@@ -63,9 +63,23 @@ env_config:
       extend: ${extend:${include:configs_mujoco/mazes/train/MEDIUM_MAZE_DIVERSE.yaml}}
     LARGE_MAZE_DIVERSE:
       extend: ${extend:${include:configs_mujoco/mazes/train/LARGE_MAZE_DIVERSE.yaml}}
+    OPTIC_FLOW_STRAIGHT:
+      extend: ${extend:${include:configs_mujoco/mazes/eval/OPTIC_FLOW_STRAIGHT.yaml}}
   eval_maze_configs:
     OPTIC_FLOW_SNAKE_EASY:
       extend: ${extend:${include:configs_mujoco/mazes/eval/OPTIC_FLOW_SNAKE_EASY.yaml}}
+    STRAIGHT_MAZE_DIVERSE_eval:
+      extend: ${extend:${include:configs_mujoco/mazes/train/STRAIGHT_MAZE_DIVERSE.yaml}}
+    O_MAZE_DIVERSE_eval:
+      extend: ${extend:${include:configs_mujoco/mazes/train/O_MAZE_DIVERSE.yaml}}
+    G_MAZE_DIVERSE_eval:
+      extend: ${extend:${include:configs_mujoco/mazes/train/G_MAZE_DIVERSE.yaml}}
+    M_MAZE_DIVERSE_eval:
+      extend: ${extend:${include:configs_mujoco/mazes/train/M_MAZE_DIVERSE.yaml}}
+    MEDIUM_MAZE_DIVERSE_eval:
+      extend: ${extend:${include:configs_mujoco/mazes/train/MEDIUM_MAZE_DIVERSE.yaml}}
+    LARGE_MAZE_DIVERSE_eval:
+      extend: ${extend:${include:configs_mujoco/mazes/train/LARGE_MAZE_DIVERSE.yaml}}
 
 evo_config:
   max_n_envs: 10

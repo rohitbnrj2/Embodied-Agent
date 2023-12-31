@@ -46,12 +46,12 @@ def include(interpolation: DictConfig, type: Optional[str] = "DictConfig"):
         raise ValueError(f"Unknown type {type}")
 
 
-def parent(type: Optional[str] = "key", *, _parent_: DictConfig, _node_: Node):
+def parent(type: Optional[str] = "key", *, _parent_: DictConfig):
     """This resolver is used to access a parent config. To use, set the value to
     ${parent: ${<dotlist>.<key>}}. This will access the parent config at the given
     dotlist."""
     if type == "key":
-        return _parent_._key()
+        return _parent_._key() if _parent_._key() is not None else "PARENT"
     else:
         raise ValueError(f"Unknown type {type}")
 
@@ -291,6 +291,10 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
             Otherwise, a light source will be used. The light source is simply a spot
             light facing down.
 
+        wall_texture_map (Dict[str, str]): The mapping from texture id to texture name.
+            The keyword "default" is required for walls denoted simply as 1 or W. 
+            Other walls are specified as 1/W:<texture id>.
+
         init_goal_pos (Optional[Tuple[float, float]]): The initial position of the
             goal in the maze. If unset, will be randomly generated.
         eval_goal_pos (Optional[Tuple[float, float]]): The evaluation position of the
@@ -319,6 +323,8 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
     height: float
 
     use_target_light_sources: bool
+
+    wall_texture_map: Dict[str, str]
 
     init_goal_pos: Optional[Tuple[float, float]] = None
     eval_goal_pos: Optional[Tuple[float, float]] = None

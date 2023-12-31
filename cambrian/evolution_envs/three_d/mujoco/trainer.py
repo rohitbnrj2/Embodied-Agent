@@ -73,7 +73,11 @@ class MjCambrianTrainer:
 
         Path(self.logdir / "finished").touch()
 
-    def eval(self, num_runs: int, record: bool = False):
+    def eval(self, record: bool = False):
+        # Set the maze selection mode to eval
+        self.config.env_config.maze_selection_criteria["mode"] = "EVAL"
+        num_runs = len(self.config.env_config.eval_maze_configs)
+
         env = self._make_env(1)
         model = self._make_model(env)
 

@@ -258,7 +258,7 @@ class MjCambrianViewer(ABC):
 
     def draw_overlays(self, overlays: List[MjCambrianViewerOverlay]):
         # Required for some reason to allow overlays to be placed correctly
-        GL.glDisable(GL.GL_DEPTH_TEST)
+        # GL.glDisable(GL.GL_DEPTH_TEST)
 
         for overlay in overlays:
             overlay.draw(self._mjr_context, self.viewport)
