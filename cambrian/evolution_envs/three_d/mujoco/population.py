@@ -100,9 +100,10 @@ class MjCambrianPopulation:
                     continue
 
                 path = root / dir
-                if path in self._all_population or not (path / "config.yaml").exists():
+                if not (path / "config.yaml").exists():
                     continue
 
+                # Will overwrite the animal if it already exists
                 self.add_animal(path)
 
         # Sort the population and update the current population

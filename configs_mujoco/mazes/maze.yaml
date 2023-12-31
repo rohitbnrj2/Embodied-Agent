@@ -7,7 +7,7 @@ height: 0.5
 use_target_light_sources: True
 
 wall_texture_map:
-  default: checkered_10
+  default: vertical_10
 
 use_adversary: False
 difficulty: 1
