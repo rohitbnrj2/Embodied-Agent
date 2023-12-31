@@ -1,0 +1,11 @@
+training_config:
+  n_envs: 40
+
+evo_config:
+  max_n_envs: 40
+
+  population_config:
+    size: 5 # 8 animals on each node each; 40 / 5 = 8
+    num_top_performers: 5
+
+  num_generations: 200 # basically forever
