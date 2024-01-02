@@ -259,11 +259,12 @@ class MjCambrianEnv(gym.Env):
             sorted_difficulty = np.array([m.config.difficulty for m in sorted_mazes])
 
             if schedule := kwargs.get("schedule", None):
-                t = self._num_timesteps / self.config.training_config.total_timesteps
+                training_config = self.config.training_config
+                steps_per_env = training_config.total_timesteps / training_config.n_envs
+                t = self._num_timesteps / steps_per_env
                 lam_0 = kwargs.get("lam_0", -2.0)  # initial lambda
-                lam_n = kwargs.get("lam_n", 1.0)  # final lambda
+                lam_n = kwargs.get("lam_n", 2.0)  # final lambda
                 lam_range = lam_n - lam_0
-                t = 0
                 if schedule == "exponential":
                     lam_factor = kwargs.get("lam_factor", 5.0)
                     lam = lam_0 + lam_range * (1 - np.exp(-t * lam_factor))
