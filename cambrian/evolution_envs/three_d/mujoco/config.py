@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace, field
 from pathlib import Path
 from copy import deepcopy
 from enum import Flag, auto, Enum
+import numpy as np
 
 import yaml
 from omegaconf import OmegaConf, DictConfig, Node, SCMode
@@ -439,14 +440,35 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
             xml. Used to calculate the sensorsize field. Specified in degrees. Mutually
             exclusive with `fovy`. If `focal` is unset, it is set to 1, 1. Will override
             `sensorsize`, if set.
-        filter_size (Tuple[int, int]): The psf filter size. This is
-            convolved across the image, so the actual resolution of the image is plus
-            filter_size / 2.
         coord (Optional[Tuple[float, float]]): The x and y coordinates of the eye.
             This is used to determine the placement of the eye on the animal.
             Specified in degrees. Mutually exclusive with `pos` and `quat`. This attr
             isn't actually used by eye, but by the animal. The eye has no knowledge
             of the geometry it's trying to be placed on. Fmt: lat lon
+
+        #### Optics Params
+        enable_optics (bool): Whether to enable optics or not.
+        load_height_mask_from_file (bool): Whether to load the height mask from file or
+            not. If True, the height mask will be loaded from the file specified in
+            `height_mask_from_file`. If False, the psf wil be randomized or set to zeros
+            using `randomize_psf_init`.
+        height_mask_from_file (Optional[str]): The path to the height mask file to load.
+        randomize_psf_init (bool): Whether to randomize the psf or not. If True, the psf
+            will be randomized. If False, the psf will be set to zeros. Only used if 
+            `load_height_mask_from_file` is False.
+        zernike_basis_path (Optional[str]): The path to the zernike basis file to load.
+
+        psf_filter_size (Tuple[int, int]): The psf filter size. This is
+            convolved across the image, so the actual resolution of the image is plus
+            psf_filter_size / 2. Only used if `load_height_mask_from_file` is False.
+            Otherwise the psf filter size is determined by the height mask.
+        refractive_index (float): The refractive index of the eye.
+        depth_bins (int): The number of depth bins to use for the depth sensor.
+        min_phi_defocus (float): The minimum depth to use for the depth sensor.
+        max_phi_defocus (float): The maximum depth to use for the depth sensor.
+        wavelengths (List[float, float, float]): The wavelengths to use for the
+            intensity sensor. Fmt: wavelength_1 wavelength_2 wavelength_3           
+        #### Optics Params
 
         pos (Optional[Tuple[float, float, float]]): The initial position of the camera.
             Fmt: xyz
@@ -460,7 +482,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
 
         renderer_config (MjCambrianRendererConfig): The renderer config to use for the
             underlying renderer. The width and height of the renderer will be set to the
-            padded resolution (resolution + filter_size) of the eye.
+            padded resolution (resolution + int(psf_filter_size/2)) of the eye.
     """
 
     name: Optional[str] = None
@@ -468,7 +490,19 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     mode: str
     resolution: Tuple[int, int]
     fov: Tuple[float, float]
-    filter_size: Tuple[int, int]
+
+    # Optics params
+    enable_optics: bool = True
+    load_height_mask_from_file: bool = False
+    height_mask_from_file: Optional[str] = None
+    randomize_psf_init: bool = False
+    zernike_basis_path: Optional[str] = None
+    psf_filter_size: Tuple[int, int]
+    refractive_index: float = 1.5 
+    depth_bins: int = 10
+    min_phi_defocus: float = -10
+    max_phi_defocus: float = 10.0
+    wavelengths: List[float, float, float] = [610. * 1e-9, 530. * 1e-9, 470. * 1e-9]
 
     pos: Optional[Tuple[float, float, float]] = None
     quat: Optional[Tuple[float, float, float, float]] = None
@@ -622,6 +656,10 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             makes contact with an object or not.
         distance_to_target_threshold (float): The distance to the target at which the
             animal is assumed to be "at the target".
+        energy_per_step (float): The energy penalty per step.
+        contact_penalty (float): The contact penalty when it contacts the wall.
+        adversary_penalty (float): The adversary penalty when it goes to the wrong target.
+        reward_at_goal (float): The reward to give when the animal reaches the goal.
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
 
         use_renderer (bool): Whether to use the renderer. Should set to False if
@@ -666,6 +704,10 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     terminate_at_goal: bool
     truncate_on_contact: bool
     distance_to_target_threshold: float
+    energy_per_step: float
+    contact_penalty: float
+    adversary_penalty: float
+    reward_at_goal: float
 
     frame_skip: int
 

@@ -1,3 +1,4 @@
+from math import prod
 from typing import Dict, Any, List, Optional, Deque
 from enum import Flag, auto
 from functools import reduce
@@ -497,6 +498,16 @@ class MjCambrianAnimal:
     @property
     def eyes(self) -> Dict[str, MjCambrianEye]:
         return self._eyes
+    
+    @property
+    def num_pixels(self) -> int:
+        try:
+            return self._num_pixels
+        except AttributeError:
+            self._num_pixels = 0
+            for eye in self._eyes.values():
+                self._num_pixels += prod(eye.resolution)
+            return self._num_pixels
 
     @property
     def intensity_sensor(self) -> MjCambrianEye:

@@ -351,7 +351,7 @@ class MjCambrianEnv(gym.Env):
 
         terminated = self.compute_terminated()
         truncated = self.compute_truncated()
-        reward = self.compute_reward(terminated, truncated, info)
+        reward = self.compute_reward(terminated, truncated, info)        
 
         self._episode_step += 1
         self._num_timesteps += 1
@@ -420,7 +420,7 @@ class MjCambrianEnv(gym.Env):
             # is False. We'll assume that the truncation value corresponds correctly to
             # whether contacts have been recorded, so no need to check the truncate
             if animal.has_contacts:
-                rewards[name] -= 1
+                rewards[name] += self.env_config.contact_penalty
 
             # If we're using an adversarial target and we're at the adversary, then
             # give a reward of -1. We'll assume that the truncation value corresponds
@@ -429,7 +429,7 @@ class MjCambrianEnv(gym.Env):
             # TODO: Should we terminate when at adversary? Above comment is incorrect
             if self.maze.config.use_adversary:
                 if self._is_at_target(animal, self.maze.adversary):
-                    rewards[name] -= 1
+                    rewards[name] += self.env_config.adversary_penalty
 
         return rewards
 
@@ -788,6 +788,18 @@ class MjCambrianEnv(gym.Env):
         euclidean_reward = self._reward_fn_delta_euclidean(animal, info)
         reward = (intensity_reward + euclidean_reward) / 2
         return 1 if self._is_at_goal(animal) else reward
+
+    def _reward_fn_energy_per_step_and_at_goal(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """This reward combines `reward_fn_energy_per_step` and `reward_fn_intensity_sensor`."""
+        energy_per_step = np.clip(self.env_config.energy_per_step * (animal.num_pixels), -1.0, 0)
+        intensity_reward = self._reward_fn_intensity_sensor(animal, info)
+        # print("r:", energy_per_step, intensity_reward)
+        return self.config.reward_at_goal + energy_per_step + intensity_reward \
+                if self._is_at_goal(animal) else energy_per_step + intensity_reward
 
     def _reward_fn_intensity_and_at_goal(
         self,

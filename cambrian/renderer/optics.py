@@ -39,20 +39,20 @@ def fft2dshift(input):
 
 class Optics():
 
-    def __init__(self, psf_kernel_size, wvls, refractive_index, min_depth, max_depth, depth_bins) -> None:
+    def __init__(self, psf_kernel_size, wvls, refractive_index, min_phi_defocus, max_phi_defocus, depth_bins) -> None:
         """
         Currently the optics component is set to fixed sizes: 
             psf_kernel_size:  
             wvls: np.array([610., 530., 470.]) * 1e-9
-            min_depth: 
-            max_depth : 
+            min_phi_defocus: 
+            max_phi_defocus: 
             depth_bins: 
         """
         self.psf_kernel_size = psf_kernel_size
         self.wvls = wvls
         self.depth_bins = depth_bins
-        self.min_depth = min_depth
-        self.max_depth = max_depth # min_depth + depth_bins
+        self.min_phi_defocus = min_phi_defocus
+        self.max_phi_defocus = max_phi_defocus 
         self.refractive_index = refractive_index
 
         self.psf_kernel_size = 23 
@@ -60,18 +60,20 @@ class Optics():
         self.N_G = 27
         self.N_B = 23  # size of the blur kernel
 
-        self.disc_depth_range = np.linspace(self.min_depth, self.max_depth, self.depth_bins, np.float32) 
+        self.disc_depth_range = np.linspace(self.min_phi_defocus, self.max_phi_defocus, self.depth_bins, np.float32) 
         self.defocus_phase = self.generate_defocus_phase(self.disc_depth_range, self.psf_kernel_size, self.wvls)
+        self.psfs = None
 
     def render(self, rgb, depth):
         """
         rgb: np.array(H, W, 3, dtype=np.uint8)
-        depth: np.array((H, W), dtype=np.float) between (self.min_depth, max_depth)
+        depth: np.array((H, W), dtype=np.float) between (self.min_phi_defocus, max_depth)
         """
         rgb_torch = torch.tensor(rgb).unsqueeze(0)/255.
         depth_torch = self.compute_disc_depths(depth, self.disc_depth_range).unsqueeze(0).permute(0,3,1,2)
-        psfs = self.generate_psf_from_height_mask(self.height_mask, self.defocus_phase)
-        rgb = self.blur_image(rgb_torch, depth_torch, psfs)
+        if self.psfs is None:
+            self.psfs = self.generate_psf_from_height_mask(self.height_mask, self.defocus_phase)
+        rgb = self.blur_image(rgb_torch, depth_torch, self.psfs)
         return rgb
 
     def generate_defocus_phase(self, disc_depth_range, psf_kernel_size, wvls):
@@ -115,7 +117,6 @@ class Optics():
         self.height_mask = torch.relu(g.reshape((self.psf_kernel_size, self.psf_kernel_size)) + self.wvls[1])
         
     def load_height_mask_from_file(self, zernike_path, height_mask_path): 
-        self._load_zernike_vars(zernike_path)
         self.height_mask = np.loadtxt(height_mask_path).astype(np.float32)
 
     def generate_psf_from_height_mask(self, height_mask, defocus_phase):
@@ -226,9 +227,6 @@ if __name__ == "__main__":
     DEPTH_BINS = 5
     DEPTH_MIN = 0
     DEPTH_MAX = 1
-    N_R = 31
-    N_G = 27
-    N_B = 23  # size of the blur kernel
     WLVS = np.array([610., 530., 470.]) * 1e-9
     PSF_KERNEL_SIZE = 23 # we should probably 10 to keep the parameters small
     REFRACTIVE_INDEX = 1.5

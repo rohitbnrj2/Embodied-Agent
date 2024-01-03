@@ -37,7 +37,7 @@ class MjCambrianEye:
         """This will automatically set some of the config values if they are not
         specified.
 
-        filter_size: set to [0, 0] if not specified
+        psf_filter_size: set to [0, 0] if not specified
         fovy: if set, it must be between 0 and 180. focal, sensorsize, and fov must not
             be set.
         fov: if set, both values must be between 0 and 180. fovy and sensorsize must
@@ -56,7 +56,7 @@ class MjCambrianEye:
             "rgb_array" in config.renderer_config.render_modes
         ), "Must specify 'rgb_array' in the render modes for the renderer config."
 
-        if config.filter_size != [0, 0]:
+        if config.psf_filter_size != [0, 0]:
             assert (
                 "depth_array" in config.renderer_config.render_modes
             ), "Must specify 'depth_array' in the render modes for the renderer config."
@@ -77,8 +77,8 @@ class MjCambrianEye:
             # Adjust the FOV based on the padded resolution
             original_width, original_height = config.resolution
             padded_width, padded_height = (
-                original_width + config.filter_size[0],
-                original_height + config.filter_size[1],
+                original_width + config.psf_filter_size[0],
+                original_height + config.psf_filter_size[1],
             )
 
             scale_factor_width = padded_width / original_width
@@ -188,7 +188,7 @@ class MjCambrianEye:
 
     def _crop(self, image: np.ndarray) -> np.ndarray:
         """Crop the image to the resolution specified in the config."""
-        if self.config.filter_size == [0, 0]:
+        if self.config.psf_filter_size == [0, 0]:
             return image
 
         resolution = self.resolution
@@ -239,10 +239,10 @@ class MjCambrianEye:
         """This is the resolution padded with the filter size / 2. The actual render
         call should use this resolution instead and the cropped after the psf is
         applied."""
-        filter_size = self.config.filter_size
+        psf_filter_size = self.config.psf_filter_size
         return (
-            self.resolution[0] + filter_size[0],
-            self.resolution[1] + filter_size[1],
+            self.resolution[0] + int(psf_filter_size[0]/2),
+            self.resolution[1] + int(psf_filter_size[1]/2),
         )
 
     @property
@@ -339,7 +339,7 @@ if __name__ == "__main__":
                     pos=[0, 0, 0.3],
                     quat=list(quat),
                     fov=[45, 20],
-                    filter_size=[0, 0],
+                    psf_filter_size=[0, 0],
                     renderer_config=renderer_config.copy(),
                 )
                 eye = MjCambrianEye(eye_config)
