@@ -543,7 +543,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
         depth_bins (int): The number of depth bins to use for the depth sensor.
         min_phi_defocus (float): The minimum depth to use for the depth sensor.
         max_phi_defocus (float): The maximum depth to use for the depth sensor.
-        wavelengths (List[float, float, float]): The wavelengths to use for the
+        wavelengths (Tuple[float, float, float]): The wavelengths to use for the
             intensity sensor. Fmt: wavelength_1 wavelength_2 wavelength_3
         #### Optics Params
 
@@ -579,7 +579,9 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     depth_bins: int = 10
     min_phi_defocus: float = -10
     max_phi_defocus: float = 10.0
-    wavelengths: List[float, float, float] = [610.0 * 1e-9, 530.0 * 1e-9, 470.0 * 1e-9]
+    wavelengths: Tuple[float, float, float] = field(
+        default_factory=lambda: [610.0 * 1e-9, 530.0 * 1e-9, 470.0 * 1e-9]
+    )
 
     pos: Optional[Tuple[float, float, float]] = None
     quat: Optional[Tuple[float, float, float, float]] = None

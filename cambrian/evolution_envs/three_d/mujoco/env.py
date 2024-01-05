@@ -79,6 +79,14 @@ class MjCambrianEnv(gym.Env):
         if self.env_config.use_renderer:
             self.renderer = MjCambrianRenderer(self.renderer_config)
 
+        # Reset all the mazes and set as active once
+        maze_names = self.maze_names
+        for name, maze in self._maze_store.items():
+            if name in maze_names:
+                maze.reset(self.model, active=True)
+            if (ref := maze._ref) and ref.name not in maze_names:
+                ref.reset(self.model, active=True)
+
         self._episode_step = 0
         self._max_episode_steps = self.config.training_config.max_episode_steps
         self._num_timesteps = 0

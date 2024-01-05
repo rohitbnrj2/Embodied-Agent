@@ -167,21 +167,22 @@ class MjCambrianMaze:
         assert assets is not None
 
         # Create the wall textures
-        for name, tex in self.config.wall_texture_map.items():
-            xml.add(
-                assets,
-                "texture",
-                name=f"wall_{self._name}_{name}_tex",
-                file=f"maze_textures/{tex}.png",
-                gridsize="3 4",
-                gridlayout=".U..LFRB.D..",
-            )
-            xml.add(
-                assets,
-                "material",
-                name=f"wall_{self._name}_{name}_mat",
-                texture=f"wall_{self._name}_{name}_tex",
-            )
+        for name, textures in self.config.wall_texture_map.items():
+            for tex in textures:
+                xml.add(
+                    assets,
+                    "texture",
+                    name=f"wall_{self._name}_{name}_{tex}_tex",
+                    file=f"maze_textures/{tex}.png",
+                    gridsize="3 4",
+                    gridlayout=".U..LFRB.D..",
+                )
+                xml.add(
+                    assets,
+                    "material",
+                    name=f"wall_{self._name}_{name}_{tex}_mat",
+                    texture=f"wall_{self._name}_{name}_{tex}_tex",
+                )
 
         # Add the walls. Each wall has it's own geom.
         size_scaling = self.size_scaling
@@ -194,7 +195,6 @@ class MjCambrianMaze:
                 name=name,
                 pos=f"{x} {y} {scale * self.map_height}",
                 size=f"{scale} {scale} {scale * self.map_height}",
-                material=f"wall_{self._name}_{t}_mat",
                 **{"class": f"maze_block_{self._name}"},
             )
 
@@ -315,6 +315,8 @@ class MjCambrianMaze:
         if active:
             self._occupied_locations.clear()
 
+            self._reset_wall_textures(model)
+
             self._goal = self._reset_target(self._init_goal_pos)
             if self.config.use_adversary:
                 assert (
@@ -325,6 +327,25 @@ class MjCambrianMaze:
         self._update_target(model, self.goal_name, self.goal, active)
         if self.config.use_adversary:
             self._update_target(model, self.adversary_name, self.adversary, active)
+
+    def _reset_wall_textures(self, model: mj.MjModel):
+        """Helper method to reset the wall textures."""
+        if self._ref is not None:
+            self._ref._reset_wall_textures(model)
+            return
+
+        for i, t in zip(range(len(self._wall_locations)), self._wall_textures):
+            wall_name = f"block_{self._name}_{i}"
+            geom_id = get_geom_id(model, wall_name)
+            assert geom_id != -1, f"`{wall_name}` geom not found"
+
+            # Randomly select a texture for the wall
+            texture = np.random.choice(self.config.wall_texture_map[t])
+            material_name = f"wall_{self._name}_{t}_{texture}_mat"
+            material_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_MATERIAL, material_name)
+            assert material_id != -1, f"`{material_name}` material not found"
+
+            model.geom_matid[geom_id] = material_id
 
     def _reset_target(self, init_pos: Optional[np.ndarray]) -> np.ndarray:
         """Helper method to reset the target."""
