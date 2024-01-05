@@ -119,9 +119,11 @@ if __name__ == "__main__":
 
     # duck typed if resolve is false
     config: MjCambrianConfig = MjCambrianConfig.load(
-        args.config, overrides=args.overrides, instantiate=args.resolve
+        args.config, overrides=args.overrides, resolve=args.resolve, instantiate=args.resolve
     )
-    resolved_config = OmegaConf.create(MjCambrianConfig.instantiate(config.copy()))
+    resolved_config: MjCambrianConfig = MjCambrianConfig.load(
+        args.config, overrides=args.overrides, instantiate=False
+    )
 
     for animal_idx, animal_config in enumerate(
         config.env_config.animal_configs.values()
