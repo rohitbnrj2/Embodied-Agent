@@ -1,0 +1,3 @@
+extend: 
+  dr: ${extend:${include:configs_mujoco/mazes/dr/dr.yaml}}
+  mazes: ${extend:${include:configs_mujoco/mazes/dr/maze_random_textures.yaml},env_config.maze_configs_store.*}

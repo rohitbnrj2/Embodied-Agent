@@ -10,7 +10,7 @@ import OpenGL.GL as GL
 import cv2
 
 from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianRendererConfig
-from cambrian.evolution_envs.three_d.mujoco.utils import get_camera_id, get_body_id, get_camera_name, get_body_name
+from cambrian.evolution_envs.three_d.mujoco.utils import get_camera_id, get_body_id
 
 TEXT_HEIGHT = 20
 TEXT_MARGIN = 5
@@ -112,6 +112,7 @@ class MjCambrianTextViewerOverlay(MjCambrianViewerOverlay):
             "",
             mjr_context,
         )
+
 
 class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
     def draw(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
@@ -570,7 +571,6 @@ class MjCambrianRenderer:
     # ===================
 
     def save(self, path: Path | str, *, save_types: List[str] = ["webp"]):
-
         AVAILABLE_SAVE_TYPES = ["gif", "mp4", "png", "webp"]
         assert all(
             save_type in AVAILABLE_SAVE_TYPES for save_type in save_types
@@ -588,6 +588,7 @@ class MjCambrianRenderer:
         fps = 50
         if "mp4" in save_types:
             import imageio
+
             mp4 = path.with_suffix(".mp4")
             writer = imageio.get_writer(mp4, fps=fps)
             for image in rgb_buffer:
@@ -595,15 +596,18 @@ class MjCambrianRenderer:
             writer.close()
         if "png" in save_types:
             import imageio
+
             png = path.with_suffix(".png")
             imageio.imwrite(png, rgb_buffer[-1])
         if "gif" in save_types:
             import imageio
+
             duration = 1000 / fps
             gif = path.with_suffix(".gif")
             imageio.mimwrite(gif, rgb_buffer, loop=0, duration=duration)
         if "webp" in save_types:
             import webp
+
             webp.mimwrite(path.with_suffix(".webp"), rgb_buffer, fps=fps)
 
         print(f"Saved visualization at {path}")
@@ -635,6 +639,10 @@ class MjCambrianRenderer:
     @property
     def height(self) -> int:
         return self.viewer.height
+
+    @property
+    def ratio(self) -> float:
+        return self.width / self.height
 
 
 if __name__ == "__main__":

@@ -15,6 +15,6 @@ map: [
   ]
 difficulty: 1
 wall_texture_map:
-  R: vertical_4
-  L: vertical_2
-  T: transparent
+  R: [vertical_4]
+  L: [vertical_2]
+  T: [transparent]

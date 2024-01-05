@@ -1,7 +1,7 @@
 """Augmented from `gymnasium_robotics.envs.maze.maze.Maze` to utilize MjCambrianXML."""
 
+from typing import Tuple, Dict, List, Any, Optional
 from collections import deque
-from typing import Tuple, Dict, List, Any
 import numpy as np
 
 import mujoco as mj
@@ -12,7 +12,7 @@ from cambrian.evolution_envs.three_d.mujoco.utils import (
     get_geom_id,
     get_body_id,
     get_site_id,
-    get_include_path,
+    get_light_id,
 )
 
 # ================
@@ -66,18 +66,23 @@ class MjCambrianMaze:
         adversary: the target which the agent is trying to avoid
     """
 
-    def __init__(self, config: MjCambrianMazeConfig):
+    def __init__(self, config: MjCambrianMazeConfig, *, ref: "MjCambrianMaze" = None):
         self._config: MjCambrianMazeConfig = config
         self._name = self._config.name
+        self._ref = ref
 
         self._map: np.ndarray = np.array(config.map, dtype=str)
 
-        # Move the map origin such that the map doesn't overlap with existing maps
-        # We'll place the map next to the previous one
-        prev_center, prev_width = MAP_EXTENTS[-1]
-        center = prev_center + prev_width / 2 + self.map_width_scaled / 2
-        MAP_EXTENTS.append((center, self.map_width_scaled))
-        self._x_center = center
+        if ref is not None:
+            # If we're using a reference maze, copy the map center from the reference
+            self._x_center = ref._x_center
+        else:
+            # Otherwise, move the map origin such that the map doesn't overlap with
+            # existing maps. We'll place the map next to the previous one
+            prev_center, prev_width = MAP_EXTENTS[-1]
+            center = prev_center + prev_width / 2 + self.map_width_scaled / 2
+            MAP_EXTENTS.append((center, self.map_width_scaled))
+            self._x_center = center
 
         self._wall_textures: List[str] = []
         self._unique_target_locations: List[np.ndarray] = []
@@ -88,12 +93,20 @@ class MjCambrianMaze:
         self._occupied_locations: List[np.ndarray] = []
         self._update_locations()
 
-        self._goal: np.ndarray = None
         self._init_goal_pos: np.ndarray = np.array(self._config.init_goal_pos)
-        self._adversary: np.ndarray = None
-        self._init_adversary_pos: np.ndarray = np.array(self._config.init_adversary_pos)
+        self._goal: np.ndarray = self._reset_target(self._init_goal_pos)
+        if self.config.use_adversary:
+            self._init_adversary_pos: np.ndarray = np.array(
+                self._config.init_adversary_pos
+            )
+            self._adversary: np.ndarray = self._reset_target(self._init_adversary_pos)
 
-        self._block_names: List[str] = []
+        # If we're using ref, verify the wall locations are the same and copy
+        # block names
+        if ref is not None:
+            assert np.array_equal(
+                self._wall_locations, ref._wall_locations
+            ), "Wall locations must be the same with reference."
 
     def _update_locations(self):
         def _is_wall(struct: str) -> bool:
@@ -143,6 +156,10 @@ class MjCambrianMaze:
         self._unique_reset_locations += self._combined_locations
 
     def generate_xml(self) -> MjCambrianXML:
+        # If we're using a reference maze, return an empty xml
+        if self._ref is not None:
+            return MjCambrianXML.make_empty()
+
         xml = MjCambrianXML.from_string(self._config.xml)
         worldbody = xml.find(".//worldbody")
         assert worldbody is not None
@@ -157,7 +174,7 @@ class MjCambrianMaze:
                 name=f"wall_{self._name}_{name}_tex",
                 file=f"maze_textures/{tex}.png",
                 gridsize="3 4",
-                gridlayout=".U..LFRB.D.."
+                gridlayout=".U..LFRB.D..",
             )
             xml.add(
                 assets,
@@ -180,90 +197,17 @@ class MjCambrianMaze:
                 material=f"wall_{self._name}_{t}_mat",
                 **{"class": f"maze_block_{self._name}"},
             )
-            self._block_names.append(name)
 
         # Add the goal/adversary sites
         # Set their positions as placeholders, we'll update them later
-        def add_target(
-            name: str,
-            *,
-            site_kw: Dict[str, Any] = {},
-            mat_kw: Dict[str, Any] = {},
-            tex_kw: Dict[str, Any] | None = {},
-            top_mat_kw: Dict[str, Any] = {},
-        ):
-            # Create a body which we use to change the position of the target
-            targetbody = xml.add(
-                worldbody,
-                "body",
-                name=f"{name}_body",
-                childclass=f"maze_target_{self._name}",
-            )
-
-            # Each target is represented as a site sphere with a material
-            xml.add(
-                targetbody,
-                "site",
-                name=f"{name}_site",
-                size=f"{0.2 * size_scaling}",
-                material=f"{name}_mat",
-                **site_kw,
-            )
-
-            mat = xml.add(
-                assets,
-                "material",
-                name=f"{name}_mat",
-                rgba="1 1 1 1",
-                **mat_kw,
-            )
-
-            if tex_kw is not None:
-                xml.add(
-                    assets,
-                    "texture",
-                    name=f"{name}_tex",
-                    type="2d",
-                    **tex_kw,
-                )
-                mat.attrib.setdefault("texture", f"{name}_tex")
-
-            if self.config.use_target_light_sources:
-                xml.add(
-                    targetbody,
-                    "light",
-                    name=f"{name}_light",
-                    pos="0 0 0",
-                )
-                # Set the target material to be emissive
-                mat.attrib["emission"] = "5"
-
-            # And each target has a small site on top so we can differentiate between
-            # the different targets in the birds-eye view
-            xml.add(
-                assets,
-                "material",
-                name=f"{name}_top_mat",
-                emission="5",
-                **top_mat_kw,
-            )
-
-            xml.add(
-                targetbody,
-                "site",
-                name=f"{name}_top_site",
-                size=f"{0.05 * size_scaling}",
-                material=f"{name}_top_mat",
-                pos=f"0 0 {0.2 * size_scaling}",
-                group="3",  # any group > 2 will be hidden to the agents
-            )
-
-        target_tex = "maze_textures/vertical_20.png"
+        target_tex = "maze_textures/vertical_20.png"  # TODO add to config
         tex_kw = dict(file=target_tex) if self.config.use_adversary else None
-        add_target(f"goal_{self._name}", tex_kw=tex_kw, top_mat_kw=dict(rgba="0 1 0 1"))
+        self._add_target(
+            xml, self.goal_name, tex_kw=tex_kw, top_mat_kw=dict(rgba="0 1 0 1")
+        )
         if self.config.use_adversary:
-            add_target(
-                f"adversary_{self._name}",
+            self._add_target(
+                self.adversary_name,
                 tex_kw=tex_kw,
                 site_kw=dict(
                     euler="0 90 0",
@@ -285,55 +229,127 @@ class MjCambrianMaze:
 
         return xml
 
+    def _add_target(
+        self,
+        xml: MjCambrianXML,
+        name: str,
+        *,
+        site_kw: Dict[str, Any] = {},
+        mat_kw: Dict[str, Any] = {},
+        tex_kw: Dict[str, Any] | None = {},
+        top_mat_kw: Dict[str, Any] = {},
+    ):
+        worldbody = xml.find(".//worldbody")
+        assert worldbody is not None
+        assets = xml.find(".//asset")
+        assert assets is not None
+
+        # Create a body which we use to change the position of the target
+        targetbody = xml.add(
+            worldbody,
+            "body",
+            name=f"{name}_body",
+            childclass=f"maze_target_{self._name}",
+        )
+
+        # Each target is represented as a site sphere with a material
+        xml.add(
+            targetbody,
+            "site",
+            name=f"{name}_site",
+            size=f"{0.2 * self.size_scaling}",
+            material=f"{name}_mat",
+            **site_kw,
+        )
+
+        mat = xml.add(
+            assets,
+            "material",
+            name=f"{name}_mat",
+            rgba="1 1 1 1",
+            **mat_kw,
+        )
+
+        if tex_kw is not None:
+            xml.add(
+                assets,
+                "texture",
+                name=f"{name}_tex",
+                type="2d",
+                **tex_kw,
+            )
+            mat.attrib.setdefault("texture", f"{name}_tex")
+
+        if self.config.use_target_light_sources:
+            xml.add(
+                targetbody,
+                "light",
+                name=f"{name}_light",
+                pos="0 0 0",
+            )
+            # Set the target material to be emissive
+            mat.attrib["emission"] = "5"
+
+        # And each target has a small site on top so we can differentiate between
+        # the different targets in the birds-eye view
+        xml.add(
+            assets,
+            "material",
+            name=f"{name}_top_mat",
+            emission="5",
+            **top_mat_kw,
+        )
+
+        xml.add(
+            targetbody,
+            "site",
+            name=f"{name}_top_site",
+            size=f"{0.05 * self.size_scaling}",
+            material=f"{name}_top_mat",
+            pos=f"0 0 {0.2 * self.size_scaling}",
+            group="3",  # any group > 2 will be hidden to the agents
+        )
+
     def reset(self, model: mj.MjModel, *, active: bool = True):
         """Resets the maze. Will generate a goal and update the site/geom in mujoco."""
-        self._occupied_locations.clear()
-        self._goal = (
-            self._init_goal_pos if self._init_goal_pos else self.generate_target_pos()
-        )
+        if active:
+            self._occupied_locations.clear()
+
+            self._goal = self._reset_target(self._init_goal_pos)
+            if self.config.use_adversary:
+                assert (
+                    len(self._unique_target_locations) > 1
+                ), "Must have at least 2 unique target locations to use an adversary"
+                self._adversary = self._reset_target(self._init_adversary_pos)
+
+        self._update_target(model, self.goal_name, self.goal, active)
         if self.config.use_adversary:
-            assert (
-                len(self._unique_target_locations) > 1
-            ), "Must have at least 2 unique target locations to use an adversary"
-            self._adversary = (
-                self._init_adversary_pos
-                if self._init_adversary_pos
-                else self.generate_target_pos()
-            )
+            self._update_target(model, self.adversary_name, self.adversary, active)
 
-        # Update target bodies position and size
-        def update_target(name: str, pos: np.ndarray):
-            body_id = get_body_id(model, f"{name}_body")
-            assert body_id != -1, f"`{name}_body` body not found"
-            model.body_pos[body_id] = [*pos, self.map_height * self.size_scaling // 2]
+    def _reset_target(self, init_pos: Optional[np.ndarray]) -> np.ndarray:
+        """Helper method to reset the target."""
+        return init_pos if init_pos else self.generate_target_pos()
 
-            site_id = get_site_id(model, f"{name}_site")
-            assert site_id != -1, f"`{name}_site` site not found"
+    def _update_target(
+        self, model: mj.MjModel, name: str, pos: np.ndarray, active: bool
+    ):
+        body_id = get_body_id(model, f"{name}_body")
+        assert body_id != -1, f"`{name}_body` body not found"
+        model.body_pos[body_id] = [*pos, self.map_height * self.size_scaling // 2]
 
-            model.body_conaffinity[body_id] = 1 if active else 0
-            model.site_group[site_id] = 1 if active else 3
+        site_id = get_site_id(model, f"{name}_site")
+        assert site_id != -1, f"`{name}_site` site not found"
 
-            if self.config.use_target_light_sources:
-                light_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_LIGHT, f"{name}_light")
-                model.light_attenuation[light_id] = get_attenuation(self.max_dim * 1.5)
+        model.body_conaffinity[body_id] = 1 if active else 0
+        model.site_group[site_id] = 1 if active else 3
 
-                # Set the light to be active or not
-                model.light_active[light_id] = active
+        if self.config.use_target_light_sources:
+            light_id = get_light_id(model, f"{name}_light")
+            assert light_id != -1, f"`{name}_light` light not found"
+            model.light_attenuation[light_id] = get_attenuation(self.max_dim * 1.5)
 
-        update_target(f"goal_{self._name}", self.goal)
-        if self.config.use_adversary:
-            update_target(f"adversary_{self._name}", self.adversary)
-
-        # If this maze is not active, change the groups of all objects to 3 so that
-        # they are hidden from the agents
-        for block_name in self._block_names:
-            geom_id = get_geom_id(model, block_name)
-            assert geom_id != -1, f"`{block_name}` geom not found"
-            model.geom_group[geom_id] = 1 if active else 3
-
-            body_id = model.geom_bodyid[geom_id]
-            assert body_id != -1, f"`{block_name}` body not found"
-            model.body_conaffinity[body_id] = 1 if active else 0
+            # Set the light to be active or not
+            model.light_active[light_id] = active
 
     def _generate_pos(
         self, locations: List[np.ndarray], *, tries: int = 20
@@ -360,14 +376,14 @@ class MjCambrianMaze:
 
     def generate_target_pos(self, *, add_as_occupied: bool = True) -> np.ndarray:
         """Generates a random target position for an env."""
-        target_pos = self._generate_pos(self.unique_target_locations)
+        target_pos = self._generate_pos(self._unique_target_locations)
         if add_as_occupied:
             self._occupied_locations.append(target_pos)
         return target_pos
 
     def generate_reset_pos(self, *, add_as_occupied: bool = True) -> np.ndarray:
         """Generates a random reset position for an env."""
-        reset_pos = self._generate_pos(self.unique_reset_locations)
+        reset_pos = self._generate_pos(self._unique_reset_locations)
         if add_as_occupied:
             self._occupied_locations.append(reset_pos)
         return reset_pos
@@ -449,9 +465,19 @@ class MjCambrianMaze:
         return self._goal
 
     @property
+    def goal_name(self) -> str:
+        """Returns the goal name."""
+        return self._ref.goal_name if self._ref else f"goal_{self._name}"
+
+    @property
     def adversary(self) -> np.ndarray:
         """Returns the adversary."""
         return self._adversary
+
+    @property
+    def adversary_name(self) -> str:
+        """Returns the adversary name."""
+        return self._ref.adversary_name if self._ref else f"adversary_{self._name}"
 
     @property
     def map(self) -> np.ndarray:
@@ -494,6 +520,11 @@ class MjCambrianMaze:
         return max(self.map_length_scaled, self.map_width_scaled)
 
     @property
+    def min_dim(self) -> float:
+        """Returns the min dimension."""
+        return min(self.map_length_scaled, self.map_width_scaled)
+
+    @property
     def x_map_center(self) -> float:
         """Returns the x map center."""
         return self.map_width_scaled / 2 + self._x_center
@@ -502,36 +533,6 @@ class MjCambrianMaze:
     def y_map_center(self) -> float:
         """Returns the y map center."""
         return self.map_length_scaled / 2
-
-    @property
-    def wall_locations(self) -> List[np.ndarray]:
-        """Returns the wall locations."""
-        return self._wall_locations
-
-    @property
-    def unique_reset_locations(self) -> List[np.ndarray]:
-        """Returns the unique reset locations."""
-        return self._unique_reset_locations
-
-    @property
-    def unique_target_locations(self) -> List[np.ndarray]:
-        """Returns the unique target locations."""
-        return self._unique_target_locations
-
-    @property
-    def combined_locations(self) -> List[np.ndarray]:
-        """Returns the combined locations."""
-        return self._combined_locations
-
-    @property
-    def empty_locations(self) -> List[np.ndarray]:
-        """Returns the empty locations."""
-        return self._empty_locations
-
-    @property
-    def occupied_locations(self) -> List[np.ndarray]:
-        """Returns the occupied locations."""
-        return self._occupied_locations
 
     @property
     def lookat(self) -> np.ndarray:

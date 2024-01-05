@@ -235,6 +235,7 @@ class MjCambrianAnimal:
         for eye in self.eyes.values():
             self.xml += eye.generate_xml(self.xml, self.config.model_config.body_name)
 
+        # Add the intensity sensor only if it's not included in self.eyes
         if self._responsible_for_intensity_sensor:
             body_name = self.config.model_config.body_name
             self.xml += self._intensity_sensor.generate_xml(self.xml, body_name)
@@ -498,7 +499,7 @@ class MjCambrianAnimal:
     @property
     def eyes(self) -> Dict[str, MjCambrianEye]:
         return self._eyes
-    
+
     @property
     def num_pixels(self) -> int:
         try:

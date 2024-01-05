@@ -1,6 +1,6 @@
 training_config:
   logdir: logs-mujoco/
-  exp_name: ${filename:}
+  exp_name: ${..filename}
   checkpoint_path: null # Will train from scratch if unset
   policy_path: null # Will train from scratch if unset
 
@@ -55,6 +55,8 @@ env_config:
     mode: NAMED
     name: G_MAZE_DIVERSE
   maze_configs:
+    - G_MAZE_DIVERSE
+  maze_configs_store:
     G_MAZE_DIVERSE:
       extend: ${extend:${include:configs_mujoco/mazes/train/G_MAZE_DIVERSE.yaml}}
 

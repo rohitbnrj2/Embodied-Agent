@@ -24,4 +24,3 @@ env_config:
           fov: [45, 2]
           coord: [10.0, 60.0]
           name: animal_0_eye_2
-      name: animal_0

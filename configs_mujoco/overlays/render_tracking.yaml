@@ -3,4 +3,5 @@ camera_config:
   elevation: -45.0
   distance_factor: 0.5
 
-  # typename: "tracking"
+  trackbodyid: 1 # guessing the first animal's bodyid
+  typename: "tracking"

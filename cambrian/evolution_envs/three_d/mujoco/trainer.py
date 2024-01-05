@@ -75,8 +75,12 @@ class MjCambrianTrainer:
 
     def eval(self, record: bool = False):
         # Set the maze selection mode to eval
-        self.config.env_config.maze_selection_criteria["mode"] = "EVAL"
-        num_runs = len(self.config.env_config.eval_maze_configs)
+        if self.config.env_config.eval_maze_configs is not None:
+            self.config.env_config.maze_selection_criteria["mode"] = "EVAL"
+            num_runs = len(self.config.env_config.eval_maze_configs)
+        else:
+            self.config.env_config.maze_selection_criteria["mode"] = "CYCLE"
+            num_runs = len(self.config.env_config.maze_configs)
 
         env = self._make_env(1)
         model = self._make_model(env)
@@ -197,7 +201,9 @@ class MjCambrianTrainer:
 
         if (policy_path := self.config.training_config.policy_path) is not None:
             policy_path = Path(policy_path)
-            assert policy_path.exists(), f"Checkpoint path {policy_path} does not exist."
+            assert (
+                policy_path.exists()
+            ), f"Checkpoint path {policy_path} does not exist."
             print(f"Loading model weights from {policy_path}...")
             model.load_policy(policy_path.parent)
         return model
@@ -215,9 +221,8 @@ if __name__ == "__main__":
         action="extend",
         type=str,
         help="Override animal config values. Do <config>.<key>=<value>. These are applied to _all_ animals.",
-        default=[]
+        default=[],
     )
-
     parser.add_argument(
         "-eo",
         "--eye-overrides",
@@ -225,7 +230,7 @@ if __name__ == "__main__":
         action="extend",
         type=str,
         help="Override eye config values. Do <config>.<key>=<value>. These are applied to _all_ eyes for _all_ animals.",
-        default=[]
+        default=[],
     )
 
     action = parser.add_mutually_exclusive_group(required=True)
@@ -237,18 +242,13 @@ if __name__ == "__main__":
         action="store_true",
         help="Record the evaluation. Only used if `--eval` is passed.",
     )
-    parser.add_argument(
-        "-n",
-        "--num-runs",
-        type=int,
-        help="Number of runs to evaluate. Only used if `--eval` is passed.",
-        default=1,
-    )
 
     args = parser.parse_args()
 
-    config: MjCambrianConfig = MjCambrianConfig.load(args.config, overrides=args.overrides)
-    
+    config: MjCambrianConfig = MjCambrianConfig.load(
+        args.config, overrides=args.overrides
+    )
+
     animal_configs = config.env_config.animal_configs
     for animal_name, animal_config in animal_configs.items():
         animal_config = animal_config.merge_with_dotlist(args.animal_overrides)
@@ -264,4 +264,4 @@ if __name__ == "__main__":
     if args.train:
         runner.train()
     elif args.eval:
-        runner.eval(args.num_runs, args.record)
+        runner.eval(args.record)

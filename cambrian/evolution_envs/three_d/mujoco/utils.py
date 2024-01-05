@@ -86,7 +86,7 @@ def evaluate_policy(
     run = 0
     cumulative_reward = 0
 
-    print("Starting evaluation...")
+    print(f"Starting {num_runs} evaluation run(s)...")
     obs = env.reset()
     while run < num_runs:
         action, _ = model.predict(obs, deterministic=True)
@@ -224,6 +224,16 @@ def get_camera_id(model: mj.MjModel, camera_name: str) -> int:
 def get_camera_name(model: mj.MjModel, cameraadr: int) -> str:
     """Get the name of a Mujoco camera."""
     return mj.mj_id2name(model, mj.mjtObj.mjOBJ_CAMERA, cameraadr)
+
+
+def get_light_id(model: mj.MjModel, light_name: str) -> int:
+    """Get the ID of a Mujoco light."""
+    return mj.mj_name2id(model, mj.mjtObj.mjOBJ_LIGHT, light_name)
+
+
+def get_light_name(model: mj.MjModel, lightadr: int) -> str:
+    """Get the name of a Mujoco light."""
+    return mj.mj_id2name(model, mj.mjtObj.mjOBJ_LIGHT, lightadr)
 
 
 @dataclass
