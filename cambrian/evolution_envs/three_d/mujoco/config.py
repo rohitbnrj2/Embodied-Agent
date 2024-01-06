@@ -970,6 +970,25 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "-ao",
+        "--animal-overrides",
+        nargs="+",
+        action="extend",
+        type=str,
+        help="Override animal config values. Do <config>.<key>=<value>. These are applied to _all_ animals.",
+        default=[],
+    )
+    parser.add_argument(
+        "-eo",
+        "--eye-overrides",
+        nargs="+",
+        action="extend",
+        type=str,
+        help="Override eye config values. Do <config>.<key>=<value>. These are applied to _all_ eyes for _all_ animals.",
+        default=[],
+    )
+
+    parser.add_argument(
         "--no-resolve", action="store_true", help="Don't resolve config"
     )
     parser.add_argument(
@@ -983,12 +1002,21 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     t0 = time.time()
-    config = MjCambrianConfig.load(
+    config: MjCambrianConfig = MjCambrianConfig.load(
         args.config,
         overrides=args.overrides,
         instantiate=not args.no_instantiate and not args.no_resolve,
         resolve=not args.no_resolve,
     )
+    animal_configs = config.env_config.animal_configs
+    for animal_name, animal_config in animal_configs.items():
+        animal_config = animal_config.merge_with_dotlist(args.animal_overrides)
+
+        eye_configs = animal_config.eye_configs
+        for eye_name, eye_config in eye_configs.items():
+            eye_config = eye_config.merge_with_dotlist(args.eye_overrides)
+            eye_configs[eye_name] = eye_config
+        animal_configs[animal_name] = animal_config
     t1 = time.time()
 
     print(f"Loaded config in {t1 - t0:.4f} seconds")
