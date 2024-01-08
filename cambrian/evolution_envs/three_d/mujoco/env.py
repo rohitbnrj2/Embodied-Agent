@@ -851,7 +851,7 @@ class MjCambrianEnv(gym.Env):
         intensity_reward = self._reward_fn_intensity_sensor(animal, info)
         # print("r:", energy_per_step, intensity_reward)
         return (
-            self.config.reward_at_goal + energy_per_step + intensity_reward
+            self.env_config.reward_at_goal + energy_per_step + intensity_reward
             if self._is_at_goal(animal)
             else energy_per_step + intensity_reward
         )
