@@ -19,7 +19,7 @@ for config in dr dr_random_textures; do
                 -o extend.experiment=${include} \
                 -o training_config.total_timesteps=5_000_000 \
                 -ao n_temporal_obs=${n_temporal_obs} \
-                -o training_config.exp_name="dr_${experiment}_n${n_temporal_obs}" \
+                -o training_config.exp_name="${config}_2_${experiment}_n${n_temporal_obs}" \
                 -o training_config.n_envs=${n_envs}
         done
     done
