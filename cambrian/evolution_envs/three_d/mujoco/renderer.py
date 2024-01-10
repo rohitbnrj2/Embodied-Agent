@@ -608,7 +608,7 @@ class MjCambrianRenderer:
         if "webp" in save_types:
             import webp
 
-            webp.mimwrite(path.with_suffix(".webp"), rgb_buffer, fps=fps)
+            webp.mimwrite(path.with_suffix(".webp"), rgb_buffer, fps=fps, lossless=True)
 
         print(f"Saved visualization at {path}")
 

@@ -161,19 +161,22 @@ class MjCambrianEnv(gym.Env):
         """Generates the xml for the environment."""
         xml = MjCambrianXML.from_string(self.env_config.xml)
 
-        # Create the directional light, if desired
-        if self.env_config.use_directional_light:
+        # Create the ambient light, if desired
+        if self.env_config.use_ambient_light:
+            assert self.env_config.ambient_light_intensity is not None
             xml.add(
                 xml.find(".//worldbody"),
                 "light",
-                directional="true",
-                cutoff="100",
-                exponent="1",
-                diffuse=".1 .1 .1",
-                specular=".1 .1 .1",
-                pos="0 0 1.3",
-                dir="-0 0 -1.3",
+                ambient=" ".join(map(str, self.env_config.ambient_light_intensity)),
+                diffuse="0 0 0",
+                specular="0 0 0",
+                cutoff="180",
+                castshadow="false",
             )
+
+        # Disable the headlight
+        if not self.env_config.use_headlight:
+            xml.add(xml.add(xml.root, "visual"), "headlight", active="0")
 
         # Add the animals to the xml
         for idx, animal in enumerate(self.animals.values()):
@@ -188,10 +191,6 @@ class MjCambrianEnv(gym.Env):
                 xml += maze.generate_xml()
             if (ref := maze._ref) and ref.name not in maze_names:
                 xml += ref.generate_xml()
-
-        # Disable the headlight
-        if not self.env_config.use_headlight:
-            xml.add(xml.add(xml.root, "visual"), "headlight", active="0")
 
         # Update the assert path to point to the fully resolved path
         compiler = xml.find(".//compiler")
@@ -230,7 +229,9 @@ class MjCambrianEnv(gym.Env):
 
         self.maze = self._choose_maze(**self.env_config.maze_selection_criteria)
         for maze in self.mazes:
-            if self.maze != maze:
+            if maze.name != self.maze.name:
+                if (ref := maze._ref) and ref.name == self.maze.name:
+                    continue
                 maze.reset(self.model, active=False)
         # reset explicitly such that the active maze is reset last to ensure that the
         # setup is done correctly
@@ -805,16 +806,19 @@ class MjCambrianEnv(gym.Env):
         self,
         animal: MjCambrianAnimal,
         info: bool,
-        *,
-        gamma: float = 4.0,
     ) -> float:
         """The reward is the grayscaled intensity of the a intensity sensor taken to
         the power of some gamma value multiplied by a
         scale factor (1 / max_episode_steps).
         """
-        assert "intensity" in info
+        if self._num_resets == 1:
+            # Do some checks
+            assert "intensity" in info
+            assert "gamma" in self.env_config.reward_options
+            assert isinstance(self.env_config.reward_options["gamma"], (int, float))
+
         intensity = np.mean(info["intensity"]) / 255.0
-        return intensity**gamma
+        return intensity ** self.env_config.reward_options["gamma"]
 
     def _reward_fn_intensity_and_velocity(
         self,
@@ -970,10 +974,15 @@ if __name__ == "__main__":
                 record_composites = True
                 composites = {k: [] for k in env.animals}
 
+        action = {
+            name: np.zeros_like(animal.action_space.sample())
+            for name, animal in env.animals.items()
+        }
+
         t0 = time.time()
         step = 0
         while env.renderer.is_running() and step < args.total_timesteps:
-            mj.mj_step(env.model, env.data)
+            env.step(action)
             env.render()
             if record_composites:
                 for name, animal in env.animals.items():

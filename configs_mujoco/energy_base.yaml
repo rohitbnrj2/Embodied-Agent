@@ -24,7 +24,7 @@ training_config:
 
 env_config:
   xml: ${include:models/scene.xml,str}
-  use_directional_light: True
+  use_ambient_light: True
   use_headlight: False
 
   reward_fn_type: intensity_and_at_goal #energy_per_step_and_at_goal

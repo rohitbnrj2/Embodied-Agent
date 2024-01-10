@@ -125,7 +125,7 @@ class SaveVideoCallback(BaseCallback):
         num_runs = len(eval_maze_configs) if eval_maze_configs else 1
         mode = "EVAL" if eval_maze_configs else maze_selection_criteria["mode"]
         with setattrs_temporary(maze_selection_criteria, mode=mode):
-            filename = Path(f"vis_{self.n_calls}")
+            filename = Path("latest")
             evaluate_policy(
                 self.env,
                 self.parent.model,
@@ -135,7 +135,7 @@ class SaveVideoCallback(BaseCallback):
 
         # Copy the most recent gif to latest.gif so that we can just watch this file
         for f in self.evaldir.glob(str(filename.with_suffix(".*"))):
-            shutil.copy(f, f.with_stem("latest"))
+            shutil.copy(f, f.with_stem(f"vis_{self.n_calls}"))
 
         return True
 

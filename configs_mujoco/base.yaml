@@ -24,10 +24,13 @@ training_config:
 
 env_config:
   xml: ${include:models/scene.xml,str}
-  use_directional_light: False
   use_headlight: False
+  use_ambient_light: False
+  ambient_light_intensity: [0.1, 0.1, 0.1]
 
   reward_fn_type: intensity_and_at_goal
+  reward_options:
+    gamma: 4.0
 
   use_goal_obs: False
   terminate_at_goal: False
