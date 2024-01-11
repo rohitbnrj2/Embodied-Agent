@@ -1,0 +1,26 @@
+extend:
+  base: ${extend:${include:configs_mujoco/experiments/point_2eyes_10x10.yaml}}
+
+env_config:
+  extend: 
+    mazes: ${extend:${include:configs_mujoco/experiments/simplification/m1.yaml},False}
+
+  use_ambient_light: True
+  ambient_light_intensity: [0.7, 0.7, 0.7]
+
+  reward_fn_type: delta_euclidean
+
+  truncate_on_contact: True
+
+  maze_configs_store:
+    BASE:
+      use_adversary: True
+      hide_targets: False 
+      use_target_light_sources: False
+
+evo_config:
+  spawning_config:
+    default_animal_config:
+      # keeping false for now bc it gives away local movements
+      use_init_pos_obs: False
+      use_current_pos_obs: false

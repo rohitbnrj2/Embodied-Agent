@@ -1,90 +1,28 @@
-training_config:
-  logdir: logs-mujoco/
-  exp_name: ${filename:}
-  checkpoint_path: null # Will train from scratch if unset
-  policy_path: null # Will train from scratch if unset
+extend:
+  base: ${extend:${include:configs_mujoco/base.yaml}}
 
-  total_timesteps: 1_000_000
-  max_episode_steps: 256
+training_config:
   n_steps: 2048 # 2048 increasing to 4096
 
-  learning_rate: 0.001
   n_epochs: 8 # 8 increasing to 10
-  gae_lambda: 0.95
-  batch_size: ${eval:'${.n_steps} * ${.n_envs} // ${.n_epochs}'}
-  n_envs: 10
 
-  eval_freq: 10000
   reward_threshold: 120.0 # 90.0 increasing to 120.0
-  max_no_improvement_evals: 10 # check_freq * max_no_improvement_evals steps
-  min_no_improvement_evals: 10 # check_freq * min_no_improvement_evals steps
-
-  seed: 424242
-  verbose: 2
 
 env_config:
-  xml: ${include:models/scene.xml,str}
   use_ambient_light: True
-  use_headlight: False
 
   reward_fn_type: intensity_and_at_goal #energy_per_step_and_at_goal
+  reward_options:
+    energy_per_step: -0.001
 
-  use_goal_obs: False
-  terminate_at_goal: False
-  truncate_on_contact: False
-  distance_to_target_threshold: 2.0
-  energy_per_step: -0.001
   contact_penalty: -1.5
   adversary_penalty: -1.0
   reward_at_goal: 1.0
 
-  frame_skip: 10
-
-  use_renderer: True
-  add_overlays: True
-  overlay_width: 0.5
-  overlay_height: 0.35
-
-  renderer_config:
-    extend: ${extend:${include:configs_mujoco/overlays/render_bev.yaml}}
-
-    render_modes: [rgb_array]
-
-    use_shared_context: True
-
-  maze_config:
-    map: ${include:configs_mujoco/mazes/train/G_MAZE_DIVERSE.yaml}
-    xml: ${include:models/maze.xml,str}
-
-    size_scaling: 4.0
-    height: 0.5
-
-    use_target_light_sources: True
-
-    use_adversary: False
-
 evo_config:
-  max_n_envs: 10
-
-  num_generations: 200
-
-  population_config:
-    size: 4
-    num_top_performers: 2
-
   spawning_config:
-    init_num_mutations: 100
-    replication_type: MUTATION
-
     default_animal_config:
-      name: ${parent:} # will be replaced with parent key. evaluated after extend.
-      use_qpos_obs: False
-      use_qvel_obs: False
-      use_intensity_obs: False
-      use_action_obs: True
       n_temporal_obs: 5
-
-      mutation_options: [ADD_EYE, REMOVE_EYE, EDIT_EYE]
 
       disable_intensity_sensor: False
       intensity_sensor_config:

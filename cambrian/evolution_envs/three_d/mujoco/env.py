@@ -128,6 +128,7 @@ class MjCambrianEnv(gym.Env):
     def _create_mazes(self):
         """Helper method to create the mazes."""
         self._maze_store: Dict[str, MjCambrianMaze] = {}
+        mazes_to_create = self.env_config.maze_configs + self.env_config.get("eval_maze_configs", [])
         for maze_config in self.env_config.maze_configs_store.values():
             if ref := maze_config.ref:
                 assert ref in self._maze_store, (
@@ -136,7 +137,9 @@ class MjCambrianEnv(gym.Env):
                     f"{[m for m in self._maze_store]}"
                 )
                 ref = self._maze_store[ref]
-            self._maze_store[maze_config.name] = MjCambrianMaze(maze_config, ref=ref)
+
+            if maze_config.name in mazes_to_create or ref:
+                self._maze_store[maze_config.name] = MjCambrianMaze(maze_config, ref=ref)
 
         self._training_mazes: Dict[str, MjCambrianMaze] = {}
         for name in self.env_config.maze_configs:
@@ -330,7 +333,7 @@ class MjCambrianEnv(gym.Env):
             assert kwargs["name"] in self._training_mazes, (
                 f"Unrecognized maze name {kwargs['name']}. "
                 "Must be one of the following: "
-                f"{[m for m in self.training_mazes]}"
+                f"{[m for m in self._training_mazes]}"
             )
             return self._training_mazes[kwargs["name"]]
         elif mode == MjCambrianEnvConfig.MazeSelectionMode.CYCLE:
@@ -758,6 +761,17 @@ class MjCambrianEnv(gym.Env):
         current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
         previous_distance_to_goal = np.linalg.norm(info["prev_pos"] - self.maze.goal)
         return np.clip(current_distance_to_goal - previous_distance_to_goal, 0, 0.5)
+    
+    def _reward_fn_euclidean_delta_from_init(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """Rewards the change in distance to the goal from the previous step."""
+        init_pos = animal.init_pos
+        distance_from_start = np.linalg.norm(animal.pos - init_pos)
+        previous_distance_from_start = np.linalg.norm(info["prev_pos"] - init_pos)
+        return np.clip(distance_from_start - previous_distance_from_start, 0, 0.5)
 
     def _reward_fn_delta_euclidean_and_at_goal(
         self,
@@ -817,8 +831,11 @@ class MjCambrianEnv(gym.Env):
             assert "gamma" in self.env_config.reward_options
             assert isinstance(self.env_config.reward_options["gamma"], (int, float))
 
-        intensity = np.mean(info["intensity"]) / 255.0
-        return intensity ** self.env_config.reward_options["gamma"]
+        intensity = info["intensity"] / 255.0
+        if ambient_light_intensity := self.env_config.ambient_light_intensity:
+            intensity = np.clip(intensity - ambient_light_intensity, 0.0, 1.0)
+
+        return np.mean(intensity) ** self.env_config.reward_options["gamma"]
 
     def _reward_fn_intensity_and_velocity(
         self,
@@ -849,11 +866,12 @@ class MjCambrianEnv(gym.Env):
         info: bool,
     ) -> float:
         """This reward combines `reward_fn_energy_per_step` and `reward_fn_intensity_sensor`."""
-        energy_per_step = np.clip(
-            self.env_config.energy_per_step * (animal.num_pixels), -1.0, 0
-        )
+        if self._num_resets == 1:
+            assert "energy_per_step" in self.env_config.reward_options
+        
+        energy_per_step = self.env_config.reward_options["energy_per_step"]
+        energy_per_step = np.clip(energy_per_step * (animal.num_pixels), -1.0, 0)
         intensity_reward = self._reward_fn_intensity_sensor(animal, info)
-        # print("r:", energy_per_step, intensity_reward)
         return (
             self.env_config.reward_at_goal + energy_per_step + intensity_reward
             if self._is_at_goal(animal)

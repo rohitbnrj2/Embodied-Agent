@@ -1,3 +1,0 @@
-extend:
-  dr: ${extend:${include:configs_mujoco/mazes/dr/dr_random_textures.yaml}}
-  base: ${extend:${include:configs_mujoco/experiments/dr.yaml}}
