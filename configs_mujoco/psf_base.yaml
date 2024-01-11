@@ -53,14 +53,16 @@ env_config:
 
   maze_selection_criteria:
     mode: NAMED
-    name: G_MAZE_DIVERSE
+    name: OPTIC_FLOW_SNAKE_SMALL
   maze_configs:
-    - G_MAZE_DIVERSE
+    - OPTIC_FLOW_SNAKE_SMALL
   maze_configs_store:
     G_MAZE_DIVERSE:
       extend: ${extend:${include:configs_mujoco/mazes/train/G_MAZE_DIVERSE.yaml}}
     M_MAZE_DIVERSE:
       extend: ${extend:${include:configs_mujoco/mazes/train/M_MAZE_DIVERSE.yaml}}
+    OPTIC_FLOW_SNAKE_SMALL:
+      extend: ${extend:${include:configs_mujoco/mazes/eval/OPTIC_FLOW_SNAKE_SMALL.yaml}}
 
 evo_config:
   max_n_envs: 10
@@ -88,6 +90,7 @@ evo_config:
       disable_intensity_sensor: False
       intensity_sensor_config:
         mode: fixed
+        enable_optics: False
         resolution: [1, 1]
         fov: [120, 10]
         psf_filter_size: [0, 0]
@@ -100,13 +103,15 @@ evo_config:
     default_eye_config:
       name: ${parent:} # will be replaced with parent key. evaluated after extend.
       mode: fixed
+      enable_optics: True
+      aperture_open: 1.0 
       psf_filter_size: [0, 0]
 
       resolution: [-1, -1] # Placeholder
       fov: [-1, -1] # Placeholder
 
       renderer_config:
-        render_modes: [rgb_array]
+        render_modes: ["rgb_array", "depth_array"]
 
         use_shared_context: True
 

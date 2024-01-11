@@ -396,7 +396,7 @@ class MjCambrianEnv(gym.Env):
 
         terminated = self.compute_terminated()
         truncated = self.compute_truncated()
-        reward = self.compute_reward(terminated, truncated, info)
+        reward = self._compute_reward(terminated, truncated, info)
 
         self._episode_step += 1
         self._num_timesteps += 1
@@ -432,7 +432,7 @@ class MjCambrianEnv(gym.Env):
         # See https://github.com/openai/gym/issues/1541
         mj.mj_rnePostConstraint(self.model, self.data)
 
-    def compute_reward(
+    def _compute_reward(
         self,
         terminated: Dict[str, bool],
         truncated: Dict[str, bool],

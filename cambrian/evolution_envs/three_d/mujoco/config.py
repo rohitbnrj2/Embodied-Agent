@@ -568,20 +568,29 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     resolution: Tuple[int, int]
     fov: Tuple[float, float]
 
+    # Optics flags
+    enable_optics: bool = False
+    enable_aperture: bool = True
+    enable_lens: bool = False
+    enable_phase_mask: bool = False
+
     # Optics params
-    enable_optics: bool = True
+    aperture_open: float = 1.0 # must between 0 and 1
+    aperture_radius: float = 1 # aperture radius (length units)
+    wavelengths: Tuple[float, float, float] = field(
+        default_factory=lambda: [610.0 * 1e-9, 530.0 * 1e-9, 470.0 * 1e-9]
+    )
+    depth_bins: int = 11
+
+    # only used for lens and phase mask
     load_height_mask_from_file: bool = False
     height_mask_from_file: Optional[str] = None
     randomize_psf_init: bool = False
     zernike_basis_path: Optional[str] = None
     psf_filter_size: Tuple[int, int]
     refractive_index: float = 1.5
-    depth_bins: int = 10
     min_phi_defocus: float = -10
     max_phi_defocus: float = 10.0
-    wavelengths: Tuple[float, float, float] = field(
-        default_factory=lambda: [610.0 * 1e-9, 530.0 * 1e-9, 470.0 * 1e-9]
-    )
 
     pos: Optional[Tuple[float, float, float]] = None
     quat: Optional[Tuple[float, float, float, float]] = None

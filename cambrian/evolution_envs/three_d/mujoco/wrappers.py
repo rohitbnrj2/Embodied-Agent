@@ -2,7 +2,7 @@ from typing import Dict, Any, Tuple
 from pathlib import Path
 
 import gymnasium as gym
-
+from stable_baselines3.common.env_checker import check_env
 from cambrian.evolution_envs.three_d.mujoco.env import MjCambrianEnv
 from cambrian.evolution_envs.three_d.mujoco.config import MjCambrianConfig
 
@@ -47,6 +47,7 @@ def make_single_env(
         env = MjCambrianEnv(config, **kwargs)
         env = MjCambrianSingleAnimalEnvWrapper(env)
         env.reset(seed=seed)
+        check_env(env)
         return env
 
     return _init

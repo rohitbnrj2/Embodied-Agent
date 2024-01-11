@@ -270,7 +270,7 @@ class MjCambrianAnimal:
             # The initial obs is a list of black images and the first obs returned
             # by reset
             num_obs = self.config.n_temporal_obs
-            init_eye_obs = deque([np.zeros(reset_obs.shape)] * num_obs, maxlen=num_obs)
+            init_eye_obs = deque([np.zeros(reset_obs.shape, dtype=reset_obs.dtype)] * num_obs, maxlen=num_obs)
             init_eye_obs.append(reset_obs)
 
             self._eye_obs[name] = init_eye_obs
@@ -278,7 +278,7 @@ class MjCambrianAnimal:
         if self._responsible_for_intensity_sensor:
             self._intensity_sensor.reset(model, data)
 
-        return self._get_obs(np.zeros(self._numctrl))
+        return self._get_obs(np.zeros(self._numctrl, dtype=np.float32))
 
     def _reset_adrs(self, model: mj.MjModel):
         """Resets the adrs for the animal. This is used when the model is reloaded."""
@@ -346,7 +346,7 @@ class MjCambrianAnimal:
 
         if self.config.use_action_obs:
             assert action is not None, "Action expected."
-            obs["action"] = action
+            obs["action"] = action.astype(np.float32)
 
         return obs
 
@@ -466,8 +466,9 @@ class MjCambrianAnimal:
 
         n_temporal_obs = self.config.n_temporal_obs
         for name, eye in self.eyes.items():
+            # NOTE: The input resolution in the yaml file is (W, H) but the eye output is (H, W, 3) so we flip the order here. 
             observation_space[name] = spaces.Box(
-                0, 255, shape=(n_temporal_obs, *eye.resolution, 3), dtype=np.uint8
+                0, 255, shape=(n_temporal_obs, eye.resolution[1], eye.resolution[0], 3), dtype=np.uint8
             )
 
         if self.config.use_qpos_obs:
