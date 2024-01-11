@@ -721,21 +721,26 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     Attributes:
         xml (str): The xml for the scene. This is the xml that will be used to
             create the environment.
-        use_directional_light (bool): Whether to use a directional light or not. If
-            True, a directional light will be instantiated in the model that illuminates
+        use_headlight (bool): Whether to use a headlight or not. The headlight in
+            mujoco is basically a first-person light that illuminates the scene directly
+            in front of the camera. If False (the default), no headlight is used. This
+            should be set to True during visualization/eval/testing.
+        use_ambient_light (bool): Whether to use a ambient light or not. If
+            True, a ambient light will be instantiated in the model that illuminates
             the entire scene. Otherwise, no global illuminating light will be created.
             Setting to False should be used in the case that the animal is trying to
             navigate to a light source. Furthermore, if False, the maze xml will be
             updated such that the target site is a light source instead of a red sphere
             (this behavior can be overwritten using the `target_as_light_source` field
-            in `MjCambrianMazeConfig`).
-        use_headlight (bool): Whether to use a headlight or not. The headlight in
-            mujoco is basically a first-person light that illuminates the scene directly
-            in front of the camera. If False (the default), no headlight is used. This
-            should be set to True during visualization/eval/testing.
+            in `MjCambrianMazeConfig`). To adjust the ambient value of the ambient
+            light, use the `ambient_light_intensity` field.
+        ambient_light_intensity (Optional[Tuple[float, float, float]]): The intensity 
+            value of the ambient light. This is only used if
+            `ambient` is True.
 
         reward_fn_type (str): The reward function type to use. See
             `MjCambrianEnv._RewardType` for options.
+        reward_options (Dict[str, Any]): The options to use for the reward function.
 
         use_goal_obs (bool): Whether to use the goal observation or not.
         terminate_at_goal (bool): Whether to terminate the episode when the animal
@@ -783,10 +788,12 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     """
 
     xml: str
-    use_directional_light: bool
     use_headlight: bool
+    use_ambient_light: bool
+    ambient_light_intensity: Optional[Tuple[float, float, float]] = None
 
     reward_fn_type: str
+    reward_options: Dict[str, Any]
 
     use_goal_obs: bool
     terminate_at_goal: bool
@@ -979,6 +986,25 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "-ao",
+        "--animal-overrides",
+        nargs="+",
+        action="extend",
+        type=str,
+        help="Override animal config values. Do <config>.<key>=<value>. These are applied to _all_ animals.",
+        default=[],
+    )
+    parser.add_argument(
+        "-eo",
+        "--eye-overrides",
+        nargs="+",
+        action="extend",
+        type=str,
+        help="Override eye config values. Do <config>.<key>=<value>. These are applied to _all_ eyes for _all_ animals.",
+        default=[],
+    )
+
+    parser.add_argument(
         "--no-resolve", action="store_true", help="Don't resolve config"
     )
     parser.add_argument(
@@ -992,12 +1018,21 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     t0 = time.time()
-    config = MjCambrianConfig.load(
+    config: MjCambrianConfig = MjCambrianConfig.load(
         args.config,
         overrides=args.overrides,
         instantiate=not args.no_instantiate and not args.no_resolve,
         resolve=not args.no_resolve,
     )
+    animal_configs = config.env_config.animal_configs
+    for animal_name, animal_config in animal_configs.items():
+        animal_config = animal_config.merge_with_dotlist(args.animal_overrides)
+
+        eye_configs = animal_config.eye_configs
+        for eye_name, eye_config in eye_configs.items():
+            eye_config = eye_config.merge_with_dotlist(args.eye_overrides)
+            eye_configs[eye_name] = eye_config
+        animal_configs[animal_name] = animal_config
     t1 = time.time()
 
     print(f"Loaded config in {t1 - t0:.4f} seconds")

@@ -20,7 +20,8 @@ env_config:
     - S_MAZE_INVERSE
     - S_MAZE_DIVERSE
   eval_maze_configs:
-    - S_MAZE_STATIC
+    # - S_MAZE_STATIC
+    - M_MAZE_DIVERSE
   maze_configs_store:
     I_MAZE_STATIC:
       extend: ${extend:${include:configs_mujoco/mazes/dr/I_MAZE_STATIC.yaml}}

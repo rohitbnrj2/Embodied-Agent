@@ -1,4 +1,3 @@
 extend:
-  base: ${extend:${include:configs_mujoco/base.yaml}}
   dr: ${extend:${include:configs_mujoco/mazes/dr/dr.yaml}}
   experiment: ${override_required:}
