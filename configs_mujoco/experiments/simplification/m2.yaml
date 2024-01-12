@@ -1,0 +1,34 @@
+maze_selection_criteria:
+  mode: CYCLE
+maze_configs:
+  # Only statics for training
+  - I_MAZE_DIVERSE
+  - L_MAZE_DIVERSE
+  - U_MAZE_DIVERSE
+eval_maze_configs:
+  - S_MAZE_DIVERSE
+maze_configs_store:
+  BASE:
+    extend: 
+      base: ${extend:${include:configs_mujoco/mazes/maze.yaml}}
+    wall_texture_map:
+      default: [vertical_10]
+      L: [vertical_10] # left
+      R: [vertical_10] # right
+      E: [vertical_10] # end
+  I_MAZE_DIVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/I_MAZE_DIVERSE.yaml}}
+  L_MAZE_DIVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/L_MAZE_DIVERSE.yaml}}
+  U_MAZE_DIVERSE:
+    extend:
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/U_MAZE_DIVERSE.yaml}}
+  S_MAZE_DIVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/S_MAZE_DIVERSE.yaml}}

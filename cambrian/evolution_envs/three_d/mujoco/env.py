@@ -128,7 +128,9 @@ class MjCambrianEnv(gym.Env):
     def _create_mazes(self):
         """Helper method to create the mazes."""
         self._maze_store: Dict[str, MjCambrianMaze] = {}
-        mazes_to_create = self.env_config.maze_configs + self.env_config.get("eval_maze_configs", [])
+        mazes_to_create = self.env_config.maze_configs + self.env_config.get(
+            "eval_maze_configs", []
+        )
         for maze_config in self.env_config.maze_configs_store.values():
             if ref := maze_config.ref:
                 assert ref in self._maze_store, (
@@ -139,7 +141,9 @@ class MjCambrianEnv(gym.Env):
                 ref = self._maze_store[ref]
 
             if maze_config.name in mazes_to_create or ref:
-                self._maze_store[maze_config.name] = MjCambrianMaze(maze_config, ref=ref)
+                self._maze_store[maze_config.name] = MjCambrianMaze(
+                    maze_config, ref=ref
+                )
 
         self._training_mazes: Dict[str, MjCambrianMaze] = {}
         for name in self.env_config.maze_configs:
@@ -376,17 +380,17 @@ class MjCambrianEnv(gym.Env):
             Dict[str, bool]: Whether each animal has truncated.
             Dict[str, Dict[str, Any]]: The info dict for each animal.
         """
+        info: Dict[str, Any] = {a: {} for a in self.animals}
+
         # First, apply the actions to the animals and step the simulation
         for name, animal in self.animals.items():
             animal.apply_action(action[name])
+            info[name]["prev_pos"] = animal.pos
 
         self._step_mujoco_simulation(self.env_config.frame_skip)
 
         obs: Dict[str, Any] = {}
-        info: Dict[str, Any] = {a: {} for a in self.animals}
         for name, animal in self.animals.items():
-            info[name]["prev_pos"] = animal.pos
-
             obs[name] = animal.step(action[name])
             if self.env_config.use_goal_obs:
                 obs[name]["goal"] = self.maze.goal.copy()
@@ -589,11 +593,12 @@ class MjCambrianEnv(gym.Env):
             cursor.y = 0
 
             overlays.append(MjCambrianImageViewerOverlay(new_intensity, cursor))
-            overlay_text = str(intensity.shape[:2])
-            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-            cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
-            overlay_text = animal.intensity_sensor.name
-            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
+            if not animal.config.disable_intensity_sensor:
+                overlay_text = str(intensity.shape[:2])
+                overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
+                cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
+                overlay_text = animal.intensity_sensor.name
+                overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
 
         return renderer.render(overlays=overlays)
 
@@ -760,8 +765,8 @@ class MjCambrianEnv(gym.Env):
         """Rewards the change in distance to the goal from the previous step."""
         current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
         previous_distance_to_goal = np.linalg.norm(info["prev_pos"] - self.maze.goal)
-        return np.clip(current_distance_to_goal - previous_distance_to_goal, 0, 0.5)
-    
+        return np.clip(previous_distance_to_goal - current_distance_to_goal, 0, 0.5)
+
     def _reward_fn_euclidean_delta_from_init(
         self,
         animal: MjCambrianAnimal,
@@ -868,7 +873,7 @@ class MjCambrianEnv(gym.Env):
         """This reward combines `reward_fn_energy_per_step` and `reward_fn_intensity_sensor`."""
         if self._num_resets == 1:
             assert "energy_per_step" in self.env_config.reward_options
-        
+
         energy_per_step = self.env_config.reward_options["energy_per_step"]
         energy_per_step = np.clip(energy_per_step * (animal.num_pixels), -1.0, 0)
         intensity_reward = self._reward_fn_intensity_sensor(animal, info)
@@ -996,11 +1001,16 @@ if __name__ == "__main__":
             name: np.zeros_like(animal.action_space.sample())
             for name, animal in env.animals.items()
         }
+        for n in action:
+            # action[n][0] = 0.5
+            action[n][-1] = 0.5
 
         t0 = time.time()
         step = 0
         while env.renderer.is_running() and step < args.total_timesteps:
-            env.step(action)
+            _, reward, _, _, _ = env.step(action)
+            env.overlays["Step Reward"] = f"{reward['animal_0']:.2f}"
+
             env.render()
             if record_composites:
                 for name, animal in env.animals.items():

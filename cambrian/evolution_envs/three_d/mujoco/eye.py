@@ -3,7 +3,6 @@ import time
 from typing import Tuple, Dict
 import warnings
 import numpy as np
-from cambrian.evolution_envs.three_d.mujoco.optics import MjCambrianNonDifferentiableOptics
 
 import mujoco as mj
 from gymnasium import spaces
@@ -11,6 +10,9 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 
+# from cambrian.evolution_envs.three_d.mujoco.optics import (
+#     MjCambrianNonDifferentiableOptics,
+# )
 from cambrian.evolution_envs.three_d.mujoco.cambrian_xml import MjCambrianXML
 from cambrian.evolution_envs.three_d.mujoco.config import (
     MjCambrianEyeConfig,
@@ -18,9 +20,6 @@ from cambrian.evolution_envs.three_d.mujoco.config import (
 )
 from cambrian.evolution_envs.three_d.mujoco.renderer import MjCambrianRenderer
 
-
-# plt.rcParams['figure.figsize'] = [16, 3]
-# plt.rcParams['figure.dpi'] = 100
 
 class MjCambrianEye:
     """Defines an eye for the cambrian environment. It essentially wraps a mujoco Camera
@@ -38,7 +37,7 @@ class MjCambrianEye:
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
         self._last_obs: np.ndarray = None
-        self.optics = MjCambrianNonDifferentiableOptics()
+        # self.optics = MjCambrianNonDifferentiableOptics()
 
         self._renderer = MjCambrianRenderer(config.renderer_config)
         self._render_depth = "depth_array" in config.renderer_config.render_modes
@@ -106,12 +105,18 @@ class MjCambrianEye:
             if config.sensorsize is None:
                 warnings.warn("Need to set sensorsize if optics is enabled")
             else:
-                config.setdefault("sensorsize", [0.03 * scale_factor_width, 0.03 * scale_factor_height])
+                config.setdefault(
+                    "sensorsize",
+                    [0.03 * scale_factor_width, 0.03 * scale_factor_height],
+                )
 
-            focalx = config.sensorsize[0] / float(2 * np.tan(np.radians(fovx) / 2) * scale_factor_width)
-            focaly = config.sensorsize[1] / float(2 * np.tan(np.radians(fovy) / 2) * scale_factor_height)
+            focalx = config.sensorsize[0] / float(
+                2 * np.tan(np.radians(fovx) / 2) * scale_factor_width
+            )
+            focaly = config.sensorsize[1] / float(
+                2 * np.tan(np.radians(fovy) / 2) * scale_factor_height
+            )
             config.focal = [focalx, focaly]
-
 
         # Set the height/width of the renderer equal to the resolution of the image
         config.renderer_config.width, config.renderer_config.height = config.resolution
@@ -203,13 +208,12 @@ class MjCambrianEye:
 
         _DEBUG = False
         if _DEBUG:
-            try: 
+            try:
                 self.count += 1
             except AttributeError:
                 self.count = 0
 
         if self.config.enable_optics and self._render_depth:
-
             if _DEBUG and bool(self.count > 50):
                 _rgb, _depth = rgb
                 rs = np.linspace(0, 1.0, 20)
@@ -219,42 +223,52 @@ class MjCambrianEye:
 
                     downsampled_rgb_sanspsf = self._downsample(deepcopy(rgb))
 
-                    f, axarr = plt.subplots(4,2)
-                    f.suptitle("Aperture Radius: {}".format(self.config.aperture_radius))
-                    axarr[0,0].imshow(rgb)
-                    axarr[0,0].title.set_text("rgb")
-                    axarr[0,1].imshow(depth)
-                    axarr[0,1].title.set_text("depth")
+                    f, axarr = plt.subplots(4, 2)
+                    f.suptitle(
+                        "Aperture Radius: {}".format(self.config.aperture_radius)
+                    )
+                    axarr[0, 0].imshow(rgb)
+                    axarr[0, 0].title.set_text("rgb")
+                    axarr[0, 1].imshow(depth)
+                    axarr[0, 1].title.set_text("depth")
                     # Apply PSF here
-                    rgb = rgb.astype(np.float32)/255.
+                    rgb = rgb.astype(np.float32) / 255.0
                     rgb, psf = self.optics.render_aperture_only(rgb, depth, self.config)
-                    axarr[1,1].imshow(rgb)
-                    axarr[1,1].title.set_text("rgb with psf")
-                    psf = (psf*255).astype(np.uint8)
-                    axarr[1,0].imshow(psf)
-                    axarr[1,0].title.set_text("psf")
+                    axarr[1, 1].imshow(rgb)
+                    axarr[1, 1].title.set_text("rgb with psf")
+                    psf = (psf * 255).astype(np.uint8)
+                    axarr[1, 0].imshow(psf)
+                    axarr[1, 0].title.set_text("psf")
 
                     # convert to uint8
-                    rgb = (rgb*255).astype(np.uint8)
+                    rgb = (rgb * 255).astype(np.uint8)
                     downsampled_rgb = self._downsample(rgb)
-                    axarr[2,0].imshow(downsampled_rgb)
-                    axarr[2,0].title.set_text("downsampled rgb with psf")
-                    axarr[2,1].imshow(downsampled_rgb_sanspsf)
-                    axarr[2,1].title.set_text("downsampled rgb without psf")
-                    axarr[3,0].imshow(np.abs(downsampled_rgb_sanspsf - downsampled_rgb))
-                    axarr[3,0].title.set_text(f"difference-{np.mean(np.abs(downsampled_rgb_sanspsf/255.-downsampled_rgb/255.))}")
-                    axarr[3,1].imshow(self.optics.A)
-                    axarr[3,1].title.set_text("Aperture")
+                    axarr[2, 0].imshow(downsampled_rgb)
+                    axarr[2, 0].title.set_text("downsampled rgb with psf")
+                    axarr[2, 1].imshow(downsampled_rgb_sanspsf)
+                    axarr[2, 1].title.set_text("downsampled rgb without psf")
+                    axarr[3, 0].imshow(
+                        np.abs(downsampled_rgb_sanspsf - downsampled_rgb)
+                    )
+                    axarr[3, 0].title.set_text(
+                        f"difference-{np.mean(np.abs(downsampled_rgb_sanspsf/255.-downsampled_rgb/255.))}"
+                    )
+                    axarr[3, 1].imshow(self.optics.A)
+                    axarr[3, 1].title.set_text("Aperture")
                     # format aperture radius to 2 decimal places
-                    plt.savefig('./exps/3eyes2x2/60s_40apres_aperture_open_{:.2f}_{:.4f}.png'.format(i, self.config.aperture_radius))
+                    plt.savefig(
+                        "./exps/3eyes2x2/60s_40apres_aperture_open_{:.2f}_{:.4f}.png".format(
+                            i, self.config.aperture_radius
+                        )
+                    )
                     plt.close()
-                
+
                 raise Exception("Done")
             else:
                 rgb, depth = rgb
-                rgb = rgb.astype(np.float32)/255.
+                rgb = rgb.astype(np.float32) / 255.0
                 rgb, _ = self.optics.render_aperture_only(rgb, depth, self.config)
-                rgb = (rgb*255).astype(np.uint8)
+                rgb = (rgb * 255).astype(np.uint8)
 
         return self._downsample(rgb).astype(np.uint8)
 
@@ -269,7 +283,7 @@ class MjCambrianEye:
         bl = (image.shape[0] // 2 - cw + ox, image.shape[1] // 2 - ch + oy)
         tr = (image.shape[0] // 2 + cw, image.shape[1] // 2 + ch)
         return image[bl[0] : tr[0], bl[1] : tr[1]]
-    
+
     def _downsample(self, image: np.ndarray) -> np.ndarray:
         """Downsample the image to the resolution specified in the config."""
         d_image = Image.fromarray(image).resize(self.resolution)
@@ -469,7 +483,9 @@ if __name__ == "__main__":
     print("Min time:", np.min(times))
 
     images = np.array(images)
-    composite_image = np.vstack([np.hstack(image_row) for image_row in reversed(images)])
+    composite_image = np.vstack(
+        [np.hstack(image_row) for image_row in reversed(images)]
+    )
 
     if args.plot or args.save:
         plt.title(args.title)

@@ -17,9 +17,10 @@ env_config:
       hide_targets: False 
       use_target_light_sources: False
 
-evo_config:
-  spawning_config:
-    default_animal_config:
+  animal_configs:
+    animal_0:
       # keeping false for now bc it gives away local movements
       use_init_pos_obs: False
       use_current_pos_obs: false
+
+      disable_intensity_sensor: True

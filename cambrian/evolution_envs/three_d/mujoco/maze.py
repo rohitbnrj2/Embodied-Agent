@@ -200,13 +200,14 @@ class MjCambrianMaze:
 
         # Add the goal/adversary sites
         # Set their positions as placeholders, we'll update them later
-        target_tex = "maze_textures/vertical_20.png"  # TODO add to config
+        target_tex = "maze_textures/vertical_square_20.png"  # TODO add to config
         tex_kw = dict(file=target_tex) if self.config.use_adversary else None
         self._add_target(
             xml, self.goal_name, tex_kw=tex_kw, top_mat_kw=dict(rgba="0 1 0 1")
         )
         if self.config.use_adversary:
             self._add_target(
+                xml,
                 self.adversary_name,
                 tex_kw=tex_kw,
                 site_kw=dict(
@@ -271,16 +272,15 @@ class MjCambrianMaze:
         )
 
         if tex_kw is not None:
+            tex_kw.setdefault("type", "2d")
             xml.add(
                 assets,
                 "texture",
                 name=f"{name}_tex",
-                type="2d",
                 **tex_kw,
             )
             mat.attrib.setdefault("texture", f"{name}_tex")
 
-        print(self.config.name, self.config.use_target_light_sources)
         if self.config.use_target_light_sources:
             xml.add(
                 targetbody,
@@ -293,7 +293,7 @@ class MjCambrianMaze:
 
         # And each target has a small site on top so we can differentiate between
         # the different targets in the birds-eye view
-        xml.add(
+        top_mat = xml.add(
             assets,
             "material",
             name=f"{name}_top_mat",
@@ -310,6 +310,12 @@ class MjCambrianMaze:
             pos=f"0 0 {0.2 * self.size_scaling}",
             group="3",  # any group > 2 will be hidden to the agents
         )
+
+        if self.config.hide_targets:
+            # If hide targets is true, set the target and top site's mat to be 
+            # transparent
+            mat.attrib["rgba"] = "0 0 0 0"
+            top_mat.attrib["rgba"] = "0 0 0 0"
 
     def reset(self, model: mj.MjModel, *, active: bool = True):
         """Resets the maze. Will generate a goal and update the site/geom in mujoco."""
@@ -372,10 +378,6 @@ class MjCambrianMaze:
 
             # Set the light to be active or not
             model.light_active[light_id] = active
-
-        if self.config.hide_targets:
-            # Put the target under the maze
-            model.body_pos[body_id][2] = -self.size_scaling
 
     def _generate_pos(
         self, locations: List[np.ndarray], *, tries: int = 20

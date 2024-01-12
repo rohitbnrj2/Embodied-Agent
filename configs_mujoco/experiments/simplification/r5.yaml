@@ -3,10 +3,10 @@ extend:
 
 env_config:
   extend: 
-    mazes: ${extend:${include:configs_mujoco/experiments/simplification/m1.yaml},False}
+    mazes: ${extend:${include:configs_mujoco/experiments/simplification/m2.yaml},False}
 
   use_ambient_light: True
-  ambient_light_intensity: [0.7, 0.7, 0.7]
+  ambient_light_intensity: [0.3, 0.3, 0.3]
 
   reward_fn_type: intensity_and_at_goal
 
@@ -18,9 +18,8 @@ env_config:
       hide_targets: False 
       use_target_light_sources: True
 
-evo_config:
-  spawning_config:
-    default_animal_config:
+  animal_configs:
+    animal_0:
       # keeping false for now bc it gives away local movements
       use_init_pos_obs: False
       use_current_pos_obs: false
