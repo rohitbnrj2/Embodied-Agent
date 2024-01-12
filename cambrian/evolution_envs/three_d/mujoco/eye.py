@@ -97,6 +97,8 @@ class MjCambrianEye:
                 float(2 * focalx * np.tan(np.radians(fovx) / 2) * scale_factor_width),
                 float(2 * focaly * np.tan(np.radians(fovy) / 2) * scale_factor_height),
             ]
+            # render modes must be set to rgb_array and depth_array
+            self._render_depth = True
         else:
             # if optics is setup we will use the sensor size and use fov to calculate
             # the focal length
@@ -206,7 +208,7 @@ class MjCambrianEye:
             except AttributeError:
                 self.count = 0
 
-        if self._render_depth:
+        if self.config.enable_optics and self._render_depth:
 
             if _DEBUG and bool(self.count > 50):
                 _rgb, _depth = rgb
@@ -315,8 +317,8 @@ class MjCambrianEye:
         call should use this resolution instead and the cropped after the psf is
         applied."""
         return (
-            60, # self.resolution[0] + int(self.resolution[0] * 4),
-            1 # self.resolution[1] + int(self.resolution[1] * 4),
+            self.resolution[0] + int(self.resolution[0] * 2),
+            self.resolution[1] + int(self.resolution[1] * 2),
         )
         # psf_filter_size = self.config.psf_filter_size
         # return (

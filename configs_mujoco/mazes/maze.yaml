@@ -4,6 +4,7 @@ xml: ${include:models/maze.xml,str}
 size_scaling: 4.0
 height: 0.5
 
+hide_targets: false
 use_target_light_sources: True
 
 wall_texture_map:

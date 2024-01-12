@@ -100,6 +100,8 @@ class MjCambrianNatureCNN(BaseFeaturesExtractor):
                 torch.nn.Flatten(),
             )
         else:
+            # receptive field is the same here 
+            # can't do optic flow with this
             self.cnn = torch.nn.Sequential(
                 torch.nn.Conv2d(n_input_channels, 32, kernel_size=1),
                 torch.nn.ReLU(),

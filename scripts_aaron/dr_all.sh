@@ -27,7 +27,7 @@ remove_arg_and_value() {
     echo "${new_args[@]}"
 }
 
-configs="dr dr_random_textures"
+configs="domain_randomization/domain_randomization domain_randomization/domain_randomization_random_textures"
 experiments="point_2eyes_10x10 point_16eyes_10x10 point_2eyes_2x2 point_16eyes_2x2"
 n_temporal_obs="1 5 10"
 dry_run=false

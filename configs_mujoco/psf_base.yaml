@@ -24,10 +24,14 @@ training_config:
 
 env_config:
   xml: ${include:models/scene.xml,str}
-  use_directional_light: False
+  use_ambient_light: True
+  ambient_light_intensity: [0.2, 0.2, 0.2]
+
   use_headlight: False
 
   reward_fn_type: intensity_and_at_goal
+  reward_options:
+    gamma: 2.0
 
   use_goal_obs: False
   terminate_at_goal: False
@@ -53,16 +57,35 @@ env_config:
 
   maze_selection_criteria:
     mode: NAMED
-    name: OPTIC_FLOW_SNAKE_SMALL
+    # name: OPTIC_FLOW_STRAIGHT
+    # name: S_MAZE_DIVERSE
+    name: OPTIC_FLOW_TUNNEL
+    # name: S_MAZE_STATIC
   maze_configs:
-    - OPTIC_FLOW_SNAKE_SMALL
+    - OPTIC_FLOW_STRAIGHT
+    - S_MAZE_DIVERSE
+    - S_MAZE_STATIC
+    - OPTIC_FLOW_TUNNEL
+  eval_maze_configs:
+    # - OPTIC_FLOW_STRAIGHT
+    # - S_MAZE_DIVERSE
+    # - S_MAZE_STATIC 
+    - OPTIC_FLOW_TUNNEL
   maze_configs_store:
+    S_MAZE_STATIC: 
+      extend: ${extend:${include:configs_mujoco/mazes/dr/S_MAZE_STATIC.yaml}}
+    S_MAZE_DIVERSE:
+      extend: ${extend:${include:configs_mujoco/mazes/dr/S_MAZE_DIVERSE.yaml}}
+    OPTIC_FLOW_STRAIGHT:
+      extend: ${extend:${include:configs_mujoco/mazes/eval/OPTIC_FLOW_STRAIGHT.yaml}}
     G_MAZE_DIVERSE:
       extend: ${extend:${include:configs_mujoco/mazes/train/G_MAZE_DIVERSE.yaml}}
     M_MAZE_DIVERSE:
       extend: ${extend:${include:configs_mujoco/mazes/train/M_MAZE_DIVERSE.yaml}}
     OPTIC_FLOW_SNAKE_SMALL:
       extend: ${extend:${include:configs_mujoco/mazes/eval/OPTIC_FLOW_SNAKE_SMALL.yaml}}
+    OPTIC_FLOW_TUNNEL:
+      extend: ${extend:${include:configs_mujoco/mazes/eval/OPTIC_FLOW_TUNNEL.yaml}}
 
 evo_config:
   max_n_envs: 10
@@ -103,6 +126,7 @@ evo_config:
     default_eye_config:
       name: ${parent:} # will be replaced with parent key. evaluated after extend.
       mode: fixed
+      # enable_optics: False
       enable_optics: True
       aperture_open: 1.0 
       psf_filter_size: [0, 0]
@@ -111,6 +135,7 @@ evo_config:
       fov: [-1, -1] # Placeholder
 
       renderer_config:
+        # render_modes: ["rgb_array"]
         render_modes: ["rgb_array", "depth_array"]
 
         use_shared_context: True

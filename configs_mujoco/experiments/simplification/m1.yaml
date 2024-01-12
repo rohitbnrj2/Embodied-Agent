@@ -1,0 +1,62 @@
+maze_selection_criteria:
+  mode: CYCLE
+maze_configs:
+  # Only statics for training
+  - I_MAZE_STATIC
+  - L_MAZE_STATIC
+  - U_MAZE_STATIC
+  - S_MAZE_STATIC
+eval_maze_configs:
+  - I_MAZE_STATIC
+  - I_MAZE_DIVERSE
+  - L_MAZE_STATIC
+  - L_MAZE_DIVERSE
+  - U_MAZE_STATIC
+  - U_MAZE_DIVERSE
+  - S_MAZE_STATIC
+  - S_MAZE_DIVERSE
+maze_configs_store:
+  BASE:
+    extend: 
+      base: ${extend:${include:configs_mujoco/mazes/maze.yaml}}
+    wall_texture_map:
+      default: [vertical_10]
+      L: [vertical_10] # left
+      R: [vertical_10] # right
+      E: [vertical_10] # end
+  I_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/I_MAZE_STATIC.yaml}}
+  I_MAZE_DIVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/I_MAZE_DIVERSE.yaml}}
+    ref: I_MAZE_STATIC
+  L_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/L_MAZE_STATIC.yaml}}
+  L_MAZE_DIVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/L_MAZE_DIVERSE.yaml}}
+    ref: L_MAZE_STATIC
+  U_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/U_MAZE_STATIC.yaml}}
+  U_MAZE_DIVERSE:
+    extend:
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/U_MAZE_DIVERSE.yaml}}
+    ref: U_MAZE_STATIC
+  S_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/S_MAZE_STATIC.yaml}}
+  S_MAZE_DIVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/S_MAZE_DIVERSE.yaml}}
+    ref: S_MAZE_STATIC

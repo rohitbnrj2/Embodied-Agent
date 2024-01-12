@@ -1,21 +1,6 @@
 <mujoco name="maze">
     <asset>
-        <!-- <texture name="checker_tex_2d_${parent:}" file="checker_texture.png" type="2d" /> -->
         <material name="floor_mat_${parent:}" rgba="0.1 0.1 0.1 1.0" shininess="0.0" specular="0.0" />
-
-        <!-- <material name="black_mat_${parent:}" /> -->
-
-        <!-- <texture name="checker_tex_cube_${parent:}" file="checker_texture.png" type="cube" />
-        <material name="block_mat_${parent:}" texture="checker_tex_cube_${parent:}" /> -->
-
-        <!-- <texture name="vertical_pattern_${parent:}" file="vertical_pattern.png" type="2d" />
-        <texture name="vertical_pattern_${parent:}_cube" fileright="horizontal_pattern.png" fileleft="horizontal_pattern.png" filedown="vertical_pattern.png" fileup="vertical_pattern.png" type="cube" /> -->
-        <!-- <texture name="vertical_pattern_${parent:}_cube" file="vertical_pattern.png" type="cube" /> -->
-
-        <!-- <texture name="block_tex_${parent:}" builtin="checker" width="100" height="100" type="skybox"/> -->
-        <!-- <material name="block_mat_${parent:}" texture="vertical_pattern_${parent:}_cube" texrepeat="10 10" texuniform="true" /> -->
-
-        <!-- <material name="block_mat_${parent:}" texuniform="true" /> -->
     </asset>
     <default>
         <default class="maze_block_${parent:}">

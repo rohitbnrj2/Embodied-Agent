@@ -348,6 +348,12 @@ class MjCambrianAnimal:
             assert action is not None, "Action expected."
             obs["action"] = action.astype(np.float32)
 
+        if self.config.use_init_pos_obs:
+            obs["init_pos"] = self.init_pos
+
+        if self.config.use_current_pos_obs:
+            obs["current_pos"] = self.pos
+
         return obs
 
     def create_composite_image(self) -> np.ndarray | None:
@@ -486,6 +492,16 @@ class MjCambrianAnimal:
             acthigh = np.array([act.high for act in self._actuators])
             observation_space["action"] = spaces.Box(
                 low=actlow, high=acthigh, shape=(self._numctrl,), dtype=np.float32
+            )
+
+        if self.config.use_init_pos_obs:
+            observation_space["init_pos"] = spaces.Box(
+                low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
+            )
+
+        if self.config.use_current_pos_obs:
+            observation_space["current_pos"] = spaces.Box(
+                low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
             )
 
         return spaces.Dict(observation_space)

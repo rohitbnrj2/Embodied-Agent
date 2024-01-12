@@ -280,6 +280,7 @@ class MjCambrianMaze:
             )
             mat.attrib.setdefault("texture", f"{name}_tex")
 
+        print(self.config.name, self.config.use_target_light_sources)
         if self.config.use_target_light_sources:
             xml.add(
                 targetbody,
@@ -371,6 +372,10 @@ class MjCambrianMaze:
 
             # Set the light to be active or not
             model.light_active[light_id] = active
+
+        if self.config.hide_targets:
+            # Put the target under the maze
+            model.body_pos[body_id][2] = -self.size_scaling
 
     def _generate_pos(
         self, locations: List[np.ndarray], *, tries: int = 20

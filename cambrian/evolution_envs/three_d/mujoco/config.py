@@ -16,42 +16,34 @@ from cambrian.evolution_envs.three_d.mujoco.utils import get_include_path
 
 def extend(
     interpolation: DictConfig,
-    key: Optional[str] = None,
+    override_with_parent: Optional[bool] = True,
     *,
-    _root_: DictConfig,
     _parent_: DictConfig,
     _node_: Node,
 ):
     """This resolver is used to extend a config with another config. To use, set the
     value to ${extend: ${<dotlist>.<key>}}. This will extend the current config with the
-    config at the given dotlist. It also accepts multiple configs to extend with, just
-    separate with a comma.
+    config at the given dotlist. However, although the above is supported, it is 
+    intended for the user to use the following syntax:
 
-    If key is not None, the interpolation will be merged with the specified key. The
-    key can be relative to the current config or absolute. The key may end in a .*,
-    which specifies that the interpolation should be merged with all keys that start
-    with the given key.
+    extend:
+        <key>: ${extend: ${<dotlist>.<key>}}
+        <key2>: ${extend: ${<dotlist>.<key2>}}
+
+    If extend is not found to be the parent's key, the interpolation will be merged
+    with the parent. Otherwise, it will merge with the parent's parent.
     """
     # Explicitly set extend to None so it doesn't get resolved again when merging
     _parent_[_node_._key()] = None
 
-    if key is None:
-        interpolation = deepcopy(interpolation)
-        # First move overrides from _parent_ to interpolation since parent is higher
-        # priority. Then move interpolation back into parent to get all the defaults.
-        # TODO: too many merges, too slow
-        parent = _parent_._parent if _node_._key() != "extend" else _parent_
+    interpolation = deepcopy(interpolation)
+    # First move overrides from _parent_ to interpolation since parent is higher
+    # priority. Then move interpolation back into parent to get all the defaults.
+    # TODO: too many merges, too slow
+    parent = _parent_._parent if _node_._key() != "extend" else _parent_
+    if override_with_parent:
         OmegaConf.unsafe_merge(interpolation, parent)
-        OmegaConf.unsafe_merge(parent, interpolation, interpolation)
-    else:
-        if key.endswith(".*"):
-            key = key[:-2]
-            root: DictConfig = OmegaConf.select(_root_, key, throw_on_missing=True)
-            for parent in root.values():
-                OmegaConf.unsafe_merge(parent, interpolation)
-        else:
-            parent: DictConfig = OmegaConf.select(_root_, key, throw_on_missing=True)
-            OmegaConf.unsafe_merge(parent, interpolation)
+    OmegaConf.unsafe_merge(parent, interpolation, interpolation)
 
     return None
 
@@ -208,7 +200,7 @@ class MjCambrianBaseConfig:
             config = OmegaConf.merge(cls, config)
             OmegaConf.resolve(config)
 
-        OmegaConf.unsafe_merge(config, overrides, overrides)
+        # OmegaConf.unsafe_merge(config, overrides, overrides)
 
         if instantiate:
             assert resolve, "Cannot instantiate without resolving"
@@ -245,6 +237,10 @@ class MjCambrianBaseConfig:
         if not hasattr(self, key) or getattr(self, key) is None:
             setattr(self, key, default)
         return getattr(self, key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get the value of the key. Like `dict.get`."""
+        return getattr(self, key, default)
 
     def __contains__(self: T, key: str) -> bool:
         """Check if the dataclass contains a key with the given name."""
@@ -361,6 +357,8 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
             MuJoCo simulation.
         height (float): The height of the walls in the MuJoCo simulation.
 
+        hide_targets (bool): Whether to hide the target or not. If True, the target
+            will be hidden.
         use_target_light_sources (bool): Whether to use a target light sources or not.
             If False, the colored target sites will be used (e.g. a red sphere).
             Otherwise, a light source will be used. The light source is simply a spot
@@ -392,7 +390,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
     name: str
     ref: Optional[str] = None
 
-    map: List[List]
+    map: Optional[List[List]] = None
     xml: str
 
     difficulty: float | int
@@ -400,6 +398,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
     size_scaling: float
     height: float
 
+    hide_targets: bool
     use_target_light_sources: bool
 
     wall_texture_map: Dict[str, List[str]]
@@ -674,6 +673,9 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
         use_qvel_obs (bool): Whether to use the qvel observation or not.
         use_intensity_obs (bool): Whether to use the intensity sensor observation.
         use_action_obs (bool): Whether to use the action observation or not.
+        use_init_pos_obs (bool): Whether to use the initial position observation or not.
+        use_current_pos_obs (bool): Whether to use the current position observation or
+            not.
         n_temporal_obs (int): The number of temporal observations to use.
 
         mutation_options (List[str]): The mutation options to use for the animal. See
@@ -702,6 +704,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     use_qvel_obs: bool
     use_intensity_obs: bool
     use_action_obs: bool
+    use_init_pos_obs: bool
+    use_current_pos_obs: bool
     n_temporal_obs: int
 
     mutation_options: List[str]
@@ -721,6 +725,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     Attributes:
         xml (str): The xml for the scene. This is the xml that will be used to
             create the environment.
+
         use_headlight (bool): Whether to use a headlight or not. The headlight in
             mujoco is basically a first-person light that illuminates the scene directly
             in front of the camera. If False (the default), no headlight is used. This
@@ -740,7 +745,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
         reward_fn_type (str): The reward function type to use. See
             `MjCambrianEnv._RewardType` for options.
-        reward_options (Dict[str, Any]): The options to use for the reward function.
+        reward_options (Optional[Dict[str, Any]]): The options to use for the reward 
+            function.
 
         use_goal_obs (bool): Whether to use the goal observation or not.
         terminate_at_goal (bool): Whether to terminate the episode when the animal
@@ -749,7 +755,6 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             makes contact with an object or not.
         distance_to_target_threshold (float): The distance to the target at which the
             animal is assumed to be "at the target".
-        energy_per_step (float): The energy penalty per step.
         contact_penalty (float): The contact penalty when it contacts the wall.
         adversary_penalty (float): The adversary penalty when it goes to the wrong target.
         reward_at_goal (float): The reward to give when the animal reaches the goal.
@@ -788,18 +793,18 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     """
 
     xml: str
+
     use_headlight: bool
     use_ambient_light: bool
     ambient_light_intensity: Optional[Tuple[float, float, float]] = None
 
     reward_fn_type: str
-    reward_options: Dict[str, Any]
+    reward_options: Optional[Dict[str, Any]] = None
 
     use_goal_obs: bool
     terminate_at_goal: bool
     truncate_on_contact: bool
     distance_to_target_threshold: float
-    energy_per_step: float
     contact_penalty: float
     adversary_penalty: float
     reward_at_goal: float
