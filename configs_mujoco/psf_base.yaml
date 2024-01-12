@@ -31,7 +31,7 @@ env_config:
 
   reward_fn_type: intensity_and_at_goal
   reward_options:
-    gamma: 2.0
+    gamma: 4.0
 
   use_goal_obs: False
   terminate_at_goal: False
@@ -44,7 +44,6 @@ env_config:
   add_overlays: True
   overlay_width: 0.5
   overlay_height: 0.35
-  energy_per_step: -0.01
   contact_penalty: -1.0
   adversary_penalty: -1.0
   reward_at_goal: 1.0
@@ -55,37 +54,10 @@ env_config:
 
     use_shared_context: True
 
-  maze_selection_criteria:
-    mode: NAMED
-    # name: OPTIC_FLOW_STRAIGHT
-    # name: S_MAZE_DIVERSE
-    name: OPTIC_FLOW_TUNNEL
-    # name: S_MAZE_STATIC
-  maze_configs:
-    - OPTIC_FLOW_STRAIGHT
-    - S_MAZE_DIVERSE
-    - S_MAZE_STATIC
-    - OPTIC_FLOW_TUNNEL
-  eval_maze_configs:
-    # - OPTIC_FLOW_STRAIGHT
-    # - S_MAZE_DIVERSE
-    # - S_MAZE_STATIC 
-    - OPTIC_FLOW_TUNNEL
-  maze_configs_store:
-    S_MAZE_STATIC: 
-      extend: ${extend:${include:configs_mujoco/mazes/dr/S_MAZE_STATIC.yaml}}
-    S_MAZE_DIVERSE:
-      extend: ${extend:${include:configs_mujoco/mazes/dr/S_MAZE_DIVERSE.yaml}}
-    OPTIC_FLOW_STRAIGHT:
-      extend: ${extend:${include:configs_mujoco/mazes/eval/OPTIC_FLOW_STRAIGHT.yaml}}
-    G_MAZE_DIVERSE:
-      extend: ${extend:${include:configs_mujoco/mazes/train/G_MAZE_DIVERSE.yaml}}
-    M_MAZE_DIVERSE:
-      extend: ${extend:${include:configs_mujoco/mazes/train/M_MAZE_DIVERSE.yaml}}
-    OPTIC_FLOW_SNAKE_SMALL:
-      extend: ${extend:${include:configs_mujoco/mazes/eval/OPTIC_FLOW_SNAKE_SMALL.yaml}}
-    OPTIC_FLOW_TUNNEL:
-      extend: ${extend:${include:configs_mujoco/mazes/eval/OPTIC_FLOW_TUNNEL.yaml}}
+  # maze_selection_criteria:
+  # maze_configs:
+  # eval_maze_configs:
+  # maze_configs_store:
 
 evo_config:
   max_n_envs: 10
@@ -105,6 +77,8 @@ evo_config:
       use_qpos_obs: False
       use_qvel_obs: False
       use_intensity_obs: False
+      use_init_pos_obs: False
+      use_current_pos_obs: False
       use_action_obs: True
       n_temporal_obs: 10
 

@@ -132,7 +132,7 @@ class MjCambrianEnv(gym.Env):
         for maze_config in self.env_config.maze_configs_store.values():
             if ref := maze_config.ref:
                 assert ref in self._maze_store, (
-                    f"Unrecognized maze name {ref}. "
+                    f"Unrecognized maze name {ref} for {maze_config.name}. "
                     "Must be one of the following: "
                     f"{[m for m in self._maze_store]}"
                 )
