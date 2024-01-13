@@ -27,4 +27,4 @@ SCRIPT=$1
 shift
 
 cd $REPO
-MUJOCO_GL=egl bash $SCRIPT
+MUJOCO_GL=egl bash $SCRIPT -o extend.sc='${extend:${include:configs_mujoco/overlays/sc.yaml}}'

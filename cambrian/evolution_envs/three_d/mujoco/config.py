@@ -844,6 +844,11 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
                 based on the passed `schedule` method. Current support methods are
                 `logistic`, `linear`, `exponential`. See the
                 `MjCambrianEnv._choose_maze` for more details.
+            CURRICULUM (str): Choose a maze based on a curriculum. This is similar to
+                DIFFICULTY, but CURRICULUM will schedule the maze changes based on the
+                current reward. As the reward nears 
+                `maze_selection_criteria["factor"] * max_episode_steps`, the maze
+                selection will lean towards more difficult mazes.
             NAMED (str): Choose a maze based on name. `name` must be passed as a kwarg
                 to the selection method.
             CYCLE (str): Cycle through the mazes. The mazes are cycled through in
@@ -855,6 +860,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
         RANDOM: str = "random"
         DIFFICULTY: str = "difficulty"
+        CURRICULUM: str = "curriculum"
         NAMED: str = "named"
         CYCLE: str = "cycle"
 

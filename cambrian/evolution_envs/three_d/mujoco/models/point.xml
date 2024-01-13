@@ -17,7 +17,7 @@
   <actuator>
     <!-- These are just dummy actuators for providing ranges -->
     <motor name="act_x_${..name}" joint="ball_x_${..name}" ctrlrange="-1.0 1.0" ctrllimited="true" gear= "100"/>
-    <!-- <motor name="act_y_${..name}" joint="ball_y_${..name}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="100"/> -->
+    <motor name="act_y_${..name}" joint="ball_y_${..name}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="100"/>
 
     <motor name="act_z_${..name}" joint="ball_z_${..name}" ctrlrange="-1.0 1.0" ctrllimited="true" gear="1"/>
   </actuator>

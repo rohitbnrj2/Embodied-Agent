@@ -227,6 +227,7 @@ class MjCambrianMaze:
         floor = xml.find(f".//geom[@name='{floor_name}']")
         assert floor is not None, f"`{floor_name}` not found"
         floor.attrib["size"] = f"{self.map_width_scaled} {self.map_length_scaled} 0.1"
+        floor.attrib["pos"] = f"{self.x_map_center} {self.y_map_center} -0.05"
 
         return xml
 

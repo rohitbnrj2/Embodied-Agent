@@ -91,6 +91,7 @@ class MjCambrianEnv(gym.Env):
         self._max_episode_steps = self.config.training_config.max_episode_steps
         self._num_timesteps = 0
         self._num_resets = 0
+        self._cumulative_reward = 0
 
         self._record: bool = False
         self._rollout: Dict[str, Any] = {}
@@ -286,6 +287,7 @@ class MjCambrianEnv(gym.Env):
             self.renderer.reset(self.model, self.data)
 
         self._episode_step = 0
+        self._cumulative_reward = 0
         self._num_resets += 1
         if not self.record:
             self._overlays.clear()
@@ -332,6 +334,16 @@ class MjCambrianEnv(gym.Env):
                 # Prob is proportional to the difficulty of the maze
                 p = sorted_difficulty
             return np.random.choice(sorted_mazes, p=p / p.sum())
+        elif mode == MjCambrianEnvConfig.MazeSelectionMode.CURRICULUM:
+            # Sort mazes based on current reward (higher reward = harder maze)
+            # We'll assume the max cumulative reward is max_episode_steps
+            normalized_reward = min(self._cumulative_reward / self._max_episode_steps, 1)
+
+            # calc probs for each maze
+            difficulties = np.array([m.config.difficulty for m in training_mazes])
+            p = np.exp(-np.abs(difficulties / 100 - normalized_reward))
+
+            return np.random.choice(training_mazes, p=p / p.sum())
         elif mode == MjCambrianEnvConfig.MazeSelectionMode.NAMED:
             assert "name" in kwargs, "Must specify `name` if using NAMED selection mode"
             assert kwargs["name"] in self._training_mazes, (
@@ -408,9 +420,11 @@ class MjCambrianEnv(gym.Env):
 
         self._episode_step += 1
         self._num_timesteps += 1
+        self._cumulative_reward += sum(reward.values())
 
         if self.config.env_config.add_overlays:
             self._overlays["Step"] = self._episode_step
+            self._overlays["Cumulative Reward"] = self._cumulative_reward
 
         if self.record:
             self._rollout.setdefault("actions", [])
@@ -765,7 +779,16 @@ class MjCambrianEnv(gym.Env):
         """Rewards the change in distance to the goal from the previous step."""
         current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
         previous_distance_to_goal = np.linalg.norm(info["prev_pos"] - self.maze.goal)
-        return np.clip(previous_distance_to_goal - current_distance_to_goal, 0, 0.5)
+        return np.clip(previous_distance_to_goal - current_distance_to_goal, -0.5, 0.5)
+
+    def _reward_fn_delta_euclidean_and_at_goal(
+        self,
+        animal: MjCambrianAnimal,
+        info: bool,
+    ) -> float:
+        """This reward combines `reward_fn_delta_euclidean` and `reward_fn_sparse`."""
+        delta_euclidean_reward = self._reward_fn_delta_euclidean(animal, info)
+        return 1 if self._is_at_goal(animal) else delta_euclidean_reward
 
     def _reward_fn_euclidean_delta_from_init(
         self,
@@ -776,7 +799,7 @@ class MjCambrianEnv(gym.Env):
         init_pos = animal.init_pos
         distance_from_start = np.linalg.norm(animal.pos - init_pos)
         previous_distance_from_start = np.linalg.norm(info["prev_pos"] - init_pos)
-        return np.clip(distance_from_start - previous_distance_from_start, 0, 0.5)
+        return np.clip(distance_from_start - previous_distance_from_start, -0.5, 0.5)
 
     def _reward_fn_delta_euclidean_and_at_goal(
         self,
@@ -1001,9 +1024,6 @@ if __name__ == "__main__":
             name: np.zeros_like(animal.action_space.sample())
             for name, animal in env.animals.items()
         }
-        for n in action:
-            # action[n][0] = 0.5
-            action[n][-1] = 0.5
 
         t0 = time.time()
         step = 0
