@@ -3,19 +3,18 @@ extend:
 
 env_config:
   extend: 
-    mazes: ${extend:${include:configs_mujoco/experiments/simplification/m2.yaml},False}
+    mazes: ${extend:${include:configs_mujoco/experiments/simplification/m3.yaml},False}
 
   use_ambient_light: True
   ambient_light_intensity: [0.7, 0.7, 0.7]
 
-  reward_fn_type: delta_euclidean
+  reward_fn_type: euclidean_delta_from_init
 
   truncate_on_contact: True
 
   maze_configs_store:
     BASE:
-      use_adversary: True
-      hide_targets: False 
+      hide_targets: True
       use_target_light_sources: False
 
   animal_configs:
@@ -23,3 +22,5 @@ env_config:
       # keeping false for now bc it gives away local movements
       use_init_pos_obs: False
       use_current_pos_obs: false
+
+      disable_intensity_sensor: True

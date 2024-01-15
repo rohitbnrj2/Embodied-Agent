@@ -1,0 +1,17 @@
+maze_selection_criteria:
+  mode: CYCLE
+maze_configs:
+  - I_MAZE_STATIC
+maze_configs_store:
+  BASE:
+    extend: 
+      base: ${extend:${include:configs_mujoco/mazes/maze.yaml}}
+    wall_texture_map:
+      default: [vertical_10]
+      L: [vertical_10] # left
+      R: [vertical_10] # right
+      E: [vertical_10] # end
+  I_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs_mujoco/mazes/dr/I_MAZE_STATIC.yaml}}

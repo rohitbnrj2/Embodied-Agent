@@ -1,5 +1,5 @@
 import argparse
-from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable
+from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable, Dict
 from pathlib import Path
 from dataclasses import dataclass
 import contextlib
@@ -154,22 +154,25 @@ def merge_dicts(d1: dict, d2: dict) -> dict:
 
 
 @contextlib.contextmanager
-def setattrs_temporary(obj: Any, **kwargs: Any) -> None:
+def setattrs_temporary(*args: Tuple[Any, Dict[str, Any]]) -> None:
     """Temporarily set attributes of an object."""
-    prev_values = {}
-    for attr, value in kwargs.items():
-        if isinstance(obj, dict):
-            prev_values[attr] = obj[attr]
-            obj[attr] = value
-        else:
-            prev_values[attr] = getattr(obj, attr)
-            setattr(obj, attr, value)
+    prev_values = []
+    for obj, kwargs in args:
+        prev_values.append({})
+        for attr, value in kwargs.items():
+            if isinstance(obj, dict):
+                prev_values[-1][attr] = obj[attr]
+                obj[attr] = value
+            else:
+                prev_values[-1][attr] = getattr(obj, attr)
+                setattr(obj, attr, value)
     yield
-    for attr, value in prev_values.items():
-        if isinstance(obj, dict):
-            obj[attr] = value
-        else:
-            setattr(obj, attr, value)
+    for (obj, _), kwargs in zip(args, prev_values):
+        for attr, value in kwargs.items():
+            if isinstance(obj, dict):
+                obj[attr] = value
+            else:
+                setattr(obj, attr, value)
 
 
 # =============

@@ -11,7 +11,9 @@
 
 source /etc/profile
 module load cuda/11.8
+
 module load anaconda/2023b
+source "/state/partition1/llgrid/pkg/anaconda/anaconda3-2023b/etc/profile.d/conda.sh"
 /state/partition1/llgrid/pkg/anaconda/anaconda3-2023b/condabin/conda activate /home/gridsan/ayoung/Pseudos/bees/.conda/envs/bees 
 
 export TF_CPP_MIN_LOG_LEVEL=2
@@ -27,4 +29,5 @@ SCRIPT=$1
 shift
 
 cd $REPO
-MUJOCO_GL=egl bash $SCRIPT -o extend.sc='${extend:${include:configs_mujoco/overlays/sc.yaml}}'
+>&2 echo "Running script..."
+MUJOCO_GL=egl bash $SCRIPT -o extend.sc='${extend:${include:configs_mujoco/overlays/supercloud.yaml}}'

@@ -16,7 +16,10 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy
 from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
 from cambrian.evolution_envs.three_d.mujoco.env import MjCambrianEnv
 from cambrian.evolution_envs.three_d.mujoco.renderer import MjCambrianRenderer
-from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy, setattrs_temporary
+from cambrian.evolution_envs.three_d.mujoco.utils import (
+    evaluate_policy,
+    setattrs_temporary,
+)
 
 
 class PlotEvaluationCallback(BaseCallback):
@@ -124,7 +127,10 @@ class SaveVideoCallback(BaseCallback):
         maze_selection_criteria = env_config.maze_selection_criteria
         num_runs = len(eval_maze_configs) if eval_maze_configs else 1
         mode = "EVAL" if eval_maze_configs else maze_selection_criteria["mode"]
-        with setattrs_temporary(maze_selection_criteria, mode=mode):
+        with setattrs_temporary(
+            (env_config, dict(truncate_on_contact=False)),
+            (maze_selection_criteria, dict(mode=mode)),
+        ):
             filename = Path("latest")
             evaluate_policy(
                 self.env,
@@ -138,6 +144,7 @@ class SaveVideoCallback(BaseCallback):
             shutil.copy(f, f.with_stem(f"vis_{self.n_calls}"))
 
         return True
+
 
 class MjCambrianSavePolicyCallback(BaseCallback):
     """Should be used with an EvalCallback to save the policy.

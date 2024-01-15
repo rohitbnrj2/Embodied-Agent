@@ -1,5 +1,5 @@
 extend:
-  base: ${extend:${include:configs_mujoco/experiments/point_2eyes_10x10.yaml}}
+  base: ${extend:${include:configs_mujoco/experiments/point_2eyes_10x1.yaml}}
 
 env_config:
   extend: 

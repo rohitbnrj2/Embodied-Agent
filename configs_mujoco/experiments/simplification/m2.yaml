@@ -1,7 +1,6 @@
 maze_selection_criteria:
   mode: CYCLE
 maze_configs:
-  # Only statics for training
   - I_MAZE_DIVERSE
   - L_MAZE_DIVERSE
   - U_MAZE_DIVERSE
