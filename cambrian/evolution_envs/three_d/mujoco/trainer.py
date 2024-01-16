@@ -74,6 +74,8 @@ class MjCambrianTrainer:
         Path(self.logdir / "finished").touch()
 
     def eval(self, record: bool = False):
+        self.config.save(self.logdir / "eval_config.yaml")
+
         # Set the maze selection mode to eval
         if self.config.env_config.eval_maze_configs is not None:
             self.config.env_config.maze_selection_criteria["mode"] = "EVAL"

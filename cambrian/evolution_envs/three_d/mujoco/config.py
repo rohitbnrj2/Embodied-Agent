@@ -4,16 +4,40 @@ from dataclasses import dataclass, replace, field
 from pathlib import Path
 from copy import deepcopy
 from enum import Flag, auto, Enum
-import numpy as np
+import contextlib
 
 import yaml
 from omegaconf import OmegaConf, DictConfig, Node
+from omegaconf.basecontainer import BaseContainer
 
 from cambrian.evolution_envs.three_d.mujoco.utils import get_include_path
 
 # ==================== Global Config ====================
 
+# TODO: I would guess hydra does the extend/include part with defaults
 
+CUSTOM_RESOLVERS = dict()
+def register_new_resolver(func=None, /, *args, **kwargs):
+    kwargs.setdefault("replace", True)
+
+    def wrapper(func):
+        CUSTOM_RESOLVERS[func.__name__] = func
+        return OmegaConf.register_new_resolver(func.__name__, func, *args, **kwargs)
+
+    if func is None:
+        return wrapper
+    return wrapper(func)
+
+@contextlib.contextmanager
+def clear_resolvers():
+    OmegaConf.clear_resolvers()
+    yield
+    for name, func in CUSTOM_RESOLVERS.items():
+        OmegaConf.register_new_resolver(name, func, replace=True)
+
+register_new_resolver(eval)
+
+@register_new_resolver
 def extend(
     interpolation: DictConfig,
     override_with_parent: Optional[bool] = True,
@@ -52,6 +76,7 @@ def extend(
     return None
 
 
+@register_new_resolver
 def include(interpolation: DictConfig, type: Optional[str] = "DictConfig"):
     """This resolver takes a filepath and returns the config at that filepath.
     See `get_include_path` for info on how the path is resolved."""
@@ -70,6 +95,7 @@ def include(interpolation: DictConfig, type: Optional[str] = "DictConfig"):
         raise ValueError(f"Unknown type {type}")
 
 
+@register_new_resolver
 def parent(type: Optional[str] = "key", *, _parent_: DictConfig):
     """This resolver is used to access a parent config. To use, set the value to
     ${parent: ${<dotlist>.<key>}}. This will access the parent config at the given
@@ -80,6 +106,7 @@ def parent(type: Optional[str] = "key", *, _parent_: DictConfig):
         raise ValueError(f"Unknown type {type}")
 
 
+@register_new_resolver
 def override_required(_node_: Node, _parent_: DictConfig):
     """This resolver is used as a placeholder to indicate that a field must be
     overridden. To use, set the value to ${override_required:}."""
@@ -93,14 +120,6 @@ def override_required(_node_: Node, _parent_: DictConfig):
         msg=str(e),
         cause=e,
     )
-
-
-# TODO: I would guess hydra does the extend/include part with defaults
-OmegaConf.register_new_resolver("eval", eval, replace=True)
-OmegaConf.register_new_resolver("extend", extend, replace=True)
-OmegaConf.register_new_resolver("include", include, replace=True)
-OmegaConf.register_new_resolver("parent", parent, replace=True)
-OmegaConf.register_new_resolver("override_required", override_required, replace=True)
 
 list_repr = "tag:yaml.org,2002:seq"
 yaml.add_representer(list, lambda d, seq: d.represent_sequence(list_repr, seq, True))
@@ -185,12 +204,13 @@ class MjCambrianBaseConfig:
                 will be an object of type T. Otherwise, it will be a
                 `OmegaConf.DictConfig` duck typed to a T.
         """
-        filename = Path(config)
-        config: MjCambrianConfig = OmegaConf.load(filename)  # duck typed; DictConfig
-        config.filename = str(filename.stem)  # overrides the filename
 
-        overrides = OmegaConf.from_dotlist(overrides)
-        config.merge_with(overrides)
+        with clear_resolvers():
+            filename = Path(config)
+            config: MjCambrianConfig = OmegaConf.load(filename)  # duck typed; DictConfig
+            config.filename = str(filename.stem)  # overrides the filename
+
+            config = OmegaConf.unsafe_merge(config, OmegaConf.from_dotlist(overrides))
 
         if resolve:
             # We need to merge config in twice so that extend will work properly
@@ -200,11 +220,9 @@ class MjCambrianBaseConfig:
             # OmegaConf version. The second merge is then to apply the strucutred
             # config. The last resolve then resolves the included strings (like
             # ${...} resolutions in strings).
-            OmegaConf.unsafe_merge(config, config)
+            config = OmegaConf.unsafe_merge(config, config)
             config = OmegaConf.merge(cls, config)
             OmegaConf.resolve(config)
-
-        # OmegaConf.unsafe_merge(config, overrides, overrides)
 
         if instantiate:
             assert resolve, "Cannot instantiate without resolving"
@@ -1037,15 +1055,15 @@ if __name__ == "__main__":
         instantiate=not args.no_instantiate and not args.no_resolve,
         resolve=not args.no_resolve,
     )
-    animal_configs = config.env_config.animal_configs
-    for animal_name, animal_config in animal_configs.items():
-        animal_config = animal_config.merge_with_dotlist(args.animal_overrides)
+    if animal_configs := config.env_config.animal_configs:
+        for animal_name, animal_config in animal_configs.items():
+            animal_config = animal_config.merge_with_dotlist(args.animal_overrides)
 
-        eye_configs = animal_config.eye_configs
-        for eye_name, eye_config in eye_configs.items():
-            eye_config = eye_config.merge_with_dotlist(args.eye_overrides)
-            eye_configs[eye_name] = eye_config
-        animal_configs[animal_name] = animal_config
+            if animal_config and (eye_configs := animal_config.eye_configs):
+                for eye_name, eye_config in eye_configs.items():
+                    eye_config = eye_config.merge_with_dotlist(args.eye_overrides)
+                    eye_configs[eye_name] = eye_config
+                animal_configs[animal_name] = animal_config
     t1 = time.time()
 
     print(f"Loaded config in {t1 - t0:.4f} seconds")
