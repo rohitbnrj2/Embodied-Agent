@@ -127,43 +127,49 @@ class MjCambrianEnv(gym.Env):
             self.animals[animal_config.name] = MjCambrianAnimal(animal_config)
 
     def _create_mazes(self):
-        """Helper method to create the mazes."""
+        """Helper method to create the mazes.
+        
+        NOTE: The keys for self._training_mazes and self._eval_mazes are f"{name}_{i}",
+        not the actual name of the maze. This is to ensure that the keys are unique.
+        """
         self._maze_store: Dict[str, MjCambrianMaze] = {}
-        mazes_to_create = self.env_config.maze_configs + self.env_config.get(
-            "eval_maze_configs", []
-        )
-        for maze_config in self.env_config.maze_configs_store.values():
+        mazes_to_create = self.env_config.maze_configs
+        if (eval_maze_configs := self.env_config.eval_maze_configs) is not None:
+            mazes_to_create += eval_maze_configs
+        for maze_name in mazes_to_create:
+            if maze_name in self._maze_store:
+                continue
+
+            assert maze_name in self.env_config.maze_configs_store, (
+                f"Unrecognized maze name {maze_name}. "
+                "Must be one of the following: "
+                f"{[m for m in self.env_config.maze_configs_store]}"
+            )
+
+            maze_config = self.env_config.maze_configs_store[maze_name]
             if ref := maze_config.ref:
-                assert ref in self._maze_store, (
-                    f"Unrecognized maze name {ref} for {maze_config.name}. "
-                    "Must be one of the following: "
-                    f"{[m for m in self._maze_store]}"
-                )
+                if ref not in self._maze_store:
+                    assert ref in self.env_config.maze_configs_store, (
+                        f"Unrecognized ref maze name {ref} for {maze_config.name}. "
+                        "Must be one of the following: "
+                        f"{[m for m in self.env_config.maze_configs_store]}"
+                    )
+                    self._maze_store[ref] = MjCambrianMaze(
+                        self.env_config.maze_configs_store[ref]
+                    )
                 ref = self._maze_store[ref]
 
-            if maze_config.name in mazes_to_create or ref:
-                self._maze_store[maze_config.name] = MjCambrianMaze(
-                    maze_config, ref=ref
-                )
+            self._maze_store[maze_name] = MjCambrianMaze(maze_config, ref=ref)
 
-        self._training_mazes: Dict[str, MjCambrianMaze] = {}
-        for name in self.env_config.maze_configs:
-            assert name in self._maze_store, (
-                f"Unrecognized maze name {name}. "
-                "Must be one of the following: "
-                f"{[m for m in self._maze_store]}"
-            )
-            self._training_mazes[name] = self._maze_store[name]
+        self._training_mazes: Dict[str, MjCambrianMaze] = {
+            f"{n}_{i}": self._maze_store[n] for i, n in enumerate(self.env_config.maze_configs)
+        }
 
         self._eval_mazes: Dict[str, MjCambrianMaze] = {}
         if (eval_maze_configs := self.env_config.eval_maze_configs) is not None:
-            for name in eval_maze_configs:
-                assert name in self._maze_store, (
-                    f"Unrecognized maze name {name}. "
-                    "Must be one of the following: "
-                    f"{[m for m in self._maze_store]}"
-                )
-                self._eval_mazes[name] = self._maze_store[name]
+            self._eval_mazes: Dict[str, MjCambrianMaze] = {
+                f"{n}_{i}": self._maze_store[n] for i,n in enumerate(eval_maze_configs)
+            }
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
@@ -304,6 +310,7 @@ class MjCambrianEnv(gym.Env):
         """Chooses a maze from the list of mazes base on the selection mode."""
         mode = MjCambrianEnvConfig.MazeSelectionMode[mode]
         training_mazes = list(self._training_mazes.values())
+        training_maze_names = [m.name for m in training_mazes]
 
         if mode == MjCambrianEnvConfig.MazeSelectionMode.RANDOM:
             return np.random.choice(training_mazes)
@@ -337,7 +344,9 @@ class MjCambrianEnv(gym.Env):
         elif mode == MjCambrianEnvConfig.MazeSelectionMode.CURRICULUM:
             # Sort mazes based on current reward (higher reward = harder maze)
             # We'll assume the max cumulative reward is max_episode_steps
-            normalized_reward = min(self._cumulative_reward / self._max_episode_steps, 1)
+            normalized_reward = min(
+                self._cumulative_reward / self._max_episode_steps, 1
+            )
 
             # calc probs for each maze
             difficulties = np.array([m.config.difficulty for m in training_mazes])
@@ -346,12 +355,12 @@ class MjCambrianEnv(gym.Env):
             return np.random.choice(training_mazes, p=p / p.sum())
         elif mode == MjCambrianEnvConfig.MazeSelectionMode.NAMED:
             assert "name" in kwargs, "Must specify `name` if using NAMED selection mode"
-            assert kwargs["name"] in self._training_mazes, (
+            assert kwargs["name"] in training_maze_names, (
                 f"Unrecognized maze name {kwargs['name']}. "
                 "Must be one of the following: "
-                f"{[m for m in self._training_mazes]}"
+                f"{training_maze_names}"
             )
-            return self._training_mazes[kwargs["name"]]
+            return training_mazes[training_maze_names.index(kwargs["name"])]
         elif mode == MjCambrianEnvConfig.MazeSelectionMode.CYCLE:
             # Will cycle through the mazes in the order they were defined in the config
             # If maze is unset, will choose the first maze
@@ -721,7 +730,9 @@ class MjCambrianEnv(gym.Env):
     @property
     def maze_names(self) -> List[str]:
         """Returns the maze names as a list."""
-        return [*self._training_mazes.keys(), *self._eval_mazes.keys()]
+        training_maze_names = [m.name for m in self._training_mazes.values()]
+        eval_maze_names = [m.name for m in self._eval_mazes.values()]
+        return training_maze_names + eval_maze_names
 
     def save(self, path: str | Path):
         """Saves the simulation output to the given path."""
@@ -795,20 +806,14 @@ class MjCambrianEnv(gym.Env):
         animal: MjCambrianAnimal,
         info: bool,
     ) -> float:
-        """Rewards the change in distance to the goal from the previous step."""
+        """
+        Rewards the change in distance over the previos step scaled by the timestep.
+        """
+        timestep = self.model.opt.timestep * self.env_config.frame_skip
         init_pos = animal.init_pos
         distance_from_start = np.linalg.norm(animal.pos - init_pos)
         previous_distance_from_start = np.linalg.norm(info["prev_pos"] - init_pos)
-        return np.clip(distance_from_start - previous_distance_from_start, -0.5, 0.5)
-
-    def _reward_fn_delta_euclidean_and_at_goal(
-        self,
-        animal: MjCambrianAnimal,
-        info: bool,
-    ) -> float:
-        """This reward combines `reward_fn_delta_euclidean` and `reward_fn_sparse`."""
-        delta_euclidean_reward = self._reward_fn_delta_euclidean(animal, info)
-        return 1 if self._is_at_goal(animal) else delta_euclidean_reward
+        return (distance_from_start - previous_distance_from_start) / timestep
 
     def _reward_fn_delta_euclidean_w_movement(
         self,

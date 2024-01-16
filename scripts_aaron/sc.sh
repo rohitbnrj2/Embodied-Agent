@@ -30,4 +30,4 @@ shift
 
 cd $REPO
 >&2 echo "Running script..."
-MUJOCO_GL=egl bash $SCRIPT -o extend.sc='${extend:${include:configs_mujoco/overlays/supercloud.yaml}}'
+MUJOCO_GL=egl bash $SCRIPT "$@" 

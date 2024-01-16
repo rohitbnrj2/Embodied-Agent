@@ -496,12 +496,12 @@ class MjCambrianAnimal:
 
         if self.config.use_init_pos_obs:
             observation_space["init_pos"] = spaces.Box(
-                low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
+                low=-np.inf, high=np.inf, shape=(2,), dtype=np.float64
             )
 
         if self.config.use_current_pos_obs:
             observation_space["current_pos"] = spaces.Box(
-                low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
+                low=-np.inf, high=np.inf, shape=(2,), dtype=np.float64
             )
 
         return spaces.Dict(observation_space)

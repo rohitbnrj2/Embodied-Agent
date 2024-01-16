@@ -1,10 +1,8 @@
 extend:
-  base: ${extend:${include:configs_mujoco/experiments/point_2eyes_10x1.yaml}}
+  mazes: ${extend:${include:configs_mujoco/experiments/simplification/m2.yaml}}
+  base: ${extend:${include:configs_mujoco/experiments/simplification/base.yaml}}
 
 env_config:
-  extend: 
-    mazes: ${extend:${include:configs_mujoco/experiments/simplification/m2.yaml},False}
-
   use_ambient_light: True
   ambient_light_intensity: [0.7, 0.7, 0.7]
 
@@ -14,7 +12,6 @@ env_config:
 
   maze_configs_store:
     BASE:
-      use_adversary: True
       hide_targets: False 
       use_target_light_sources: False
 

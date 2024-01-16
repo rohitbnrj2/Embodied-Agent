@@ -76,6 +76,7 @@ evo_config:
 
   spawning_config:
     init_num_mutations: 100
+    num_mutations: 1
     replication_type: MUTATION
 
     default_animal_config:

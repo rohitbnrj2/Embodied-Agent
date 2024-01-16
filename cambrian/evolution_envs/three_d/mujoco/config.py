@@ -32,6 +32,10 @@ def extend(
 
     If extend is not found to be the parent's key, the interpolation will be merged
     with the parent. Otherwise, it will merge with the parent's parent.
+
+    Extends are processed in the REVERSE order they appear in the config. As in, in the
+    above example, key2 is actually processed first and then key, which means key
+    will override key2.
     """
     # Explicitly set extend to None so it doesn't get resolved again when merging
     _parent_[_node_._key()] = None
@@ -688,10 +692,6 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
         disable_intensity_sensor (bool): Whether to disable the intensity sensor or not.
         intensity_sensor_config (MjCambrianEyeConfig): The eye config to use for the
             intensity sensor.
-
-        parent_generation_config (Optional[MjCambrianGenerationConfig]): The config for
-            the parent generation. Will be set by the evolution runner. If None, that
-            means that the current generation is the first generation (i.e. no parent).
     """
 
     name: str
@@ -714,8 +714,6 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
     disable_intensity_sensor: bool
     intensity_sensor_config: MjCambrianEyeConfig
-
-    parent_generation_config: Optional[MjCambrianGenerationConfig] = None
 
 
 @dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
@@ -895,15 +893,19 @@ class MjCambrianSpawningConfig(MjCambrianBaseConfig):
     """Config for spawning. Used for type hinting.
 
     Attributes:
-        num_mutations (int): The number of mutations to perform on the
+        init_num_mutations (int): The number of mutations to perform on the
             default config to generate the initial population. The actual number of
             mutations is calculated using random.randint(1, init_num_mutations).
+        num_mutations (int): The number of mutations to perform on the parent
+            generation to generate the new generation. The actual number of mutations
+            is calculated using random.randint(1, num_mutations). 
 
         replication_type (str): The type of replication to use. See
             `ReplicationType` for options.
     """
 
     init_num_mutations: int
+    num_mutations: int
 
     class ReplicationType(Flag):
         """Use as bitmask to specify which type of replication to perform on the animal.
@@ -936,13 +938,13 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
         num_generations (int): The number of generations to run for.
 
         population_config (MjCambrianPopulationConfig): The config for the population.
+        spawning_config (MjCambrianSpawningConfig): The config for the spawning process.
 
         generation_config (Optional[MjCambrianGenerationConfig]): The config for the
             current generation. Will be set by the evolution runner.
-        parent_generation_config (Optional[MjCambrianGenerationConfig]): The config
-            for the parent generation. Will be set by the evolution runner. If None,
-            that means that the current generation is the first generation (i.e. no
-            parent).
+        parent_generation_config (Optional[MjCambrianGenerationConfig]): The config for
+            the parent generation. Will be set by the evolution runner. If None, that
+            means that the current generation is the first generation (i.e. no parent).
 
         environment_variables (Optional[Dict[str, str]]): The environment variables to
             set for the training process.
@@ -956,6 +958,7 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
     spawning_config: MjCambrianSpawningConfig
 
     generation_config: Optional[MjCambrianGenerationConfig] = None
+    parent_generation_config: Optional[MjCambrianGenerationConfig] = None
 
     environment_variables: Dict[str, str]
 
@@ -967,7 +970,6 @@ class MjCambrianConfig(MjCambrianBaseConfig):
     Attributes:
         training_config (MjCambrianTrainingConfig): The config for the training process.
         env_config (MjCambrianEnvConfig): The config for the environment.
-        animal_config (MjCambrianAnimalConfig): The config for the animal.
         evo_config (Optional[MjCambrianEvoConfig]): The config for the evolution
             process. If None, the environment will not be run in evolution mode.
     """

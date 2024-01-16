@@ -49,12 +49,12 @@ class MjCambrianTrainer:
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
 
-        self.config.save(self.logdir / "config.yaml")
-
         set_random_seed(self._calc_seed(0))
 
     def train(self):
         """Train the animal."""
+        self.config.save(self.logdir / "config.yaml")
+
         env = self._make_env(self.config.training_config.n_envs)
         eval_env = self._make_env(1, use_monitor=False)
         callback = self._make_callback(env, eval_env)
