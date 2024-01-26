@@ -98,6 +98,22 @@ evo_config:
         fov: [120, 10]
         psf_filter_size: [0, 0]
 
+        enable_optics: False
+        enable_aperture: False
+        enable_lens: False
+        enable_phase_mask: False
+
+        aperture_open: 1.0
+        aperture_radius: 1
+        wavelengths: ["${eval:'610.0 * 1e-9'}", "${eval:'530.0 * 1e-9'}", "${eval:'470.0 * 1e-9'}"]
+        depth_bins: 11
+
+        load_height_mask_from_file: False
+        randomize_psf_init: False
+        refractive_index: 1.5
+        min_phi_defocus: -10
+        max_phi_defocus: 10
+
         renderer_config:
           render_modes: [rgb_array]
 
@@ -110,6 +126,22 @@ evo_config:
 
       resolution: [-1, -1] # Placeholder
       fov: [-1, -1] # Placeholder
+
+      enable_optics: False
+      enable_aperture: True
+      enable_lens: False
+      enable_phase_mask: False
+
+      aperture_open: 1.0
+      aperture_radius: 1
+      wavelengths: ["${eval:'610.0 * 1e-9'}", "${eval:'530.0 * 1e-9'}", "${eval:'470.0 * 1e-9'}"]
+      depth_bins: 11
+
+      load_height_mask_from_file: False
+      randomize_psf_init: False
+      refractive_index: 1.5
+      min_phi_defocus: -10
+      max_phi_defocus: 10
 
       renderer_config:
         render_modes: [rgb_array]
