@@ -108,25 +108,31 @@ class MjCambrianEvoRunner:
         # TODO: move all of this to another class
 
         # Get the spawning config
-        config: MjCambrianConfig # the parent config, going to mutate
-        num_mutations: int # number of mutations to perform
-        replication_type: ReplicationType # type of replication
+        config: MjCambrianConfig  # the parent config, going to mutate
+        num_mutations: int  # number of mutations to perform
+        replication_type: ReplicationType  # type of replication
         if generation == 0:
             # If it's the first generation, we'll mutate the original config n number of
             # times to facilitate a diverse initial population.
             config = self.config.copy()
-            num_mutations = random.randint(1, spawning_config.init_num_mutations)
+            num_mutations = random.randint(
+                1, config.evo_config.spawning_config.init_num_mutations
+            )
             replication_type = ReplicationType.MUTATION
         else:
             config = self.population.select_animal()
-            num_mutations = random.randint(1, spawning_config.num_mutations)
+            num_mutations = random.randint(
+                1, config.evo_config.spawning_config.num_mutations
+            )
             replication_type = ReplicationType[
                 config.evo_config.spawning_config.replication_type
             ]
 
         # Mutate the config
         if self.verbose > 1:
-            print(f"Mutating child of parent with rank {config.evo_config.generation_config.rank} {num_mutations} times.")
+            print(
+                f"Mutating child of parent with rank {config.evo_config.generation_config.rank} {num_mutations} times."
+            )
         animal_configs = config.env_config.animal_configs
         spawning_config = config.evo_config.spawning_config
         for _ in range(num_mutations):
