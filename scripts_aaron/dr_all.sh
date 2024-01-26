@@ -68,7 +68,7 @@ for config in $configs; do
 
             # Only run if not dry run. Check if NOT dry run
             if ! $dry_run; then
-                cmd="MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py \
+                cmd="MUJOCO_GL=egl python cambrian/rl/trainer.py \
                     configs_mujoco/experiments/${config}.yaml --train \
                     -o extend.experiment='${include}' \
                     -o training_config.total_timesteps=5_000_000 \
