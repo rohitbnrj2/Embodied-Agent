@@ -7,7 +7,7 @@ Make sure you clone and install using `pip install -e .`.
 Run a simple environment and save the run as a gif/mp4.
 
 ```bash
-MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/env.py configs_mujoco/point_1lat1lon_1x1.yaml --record-path test -t 200
+MUJOCO_GL=egl python cambrian/env.py configs_mujoco/point_1lat1lon_1x1.yaml --record-path test -t 200
 ```
 
 ## Visualizing the world/environment
@@ -17,16 +17,16 @@ There is a runner in `env.py` that will visualize the world. You have a few run 
 ```bash
 # Interactive + Display 
 # Run with the custom visualization viewer in birds-eye view mode. This is interactive, so you can move around.
-python cambrian/evolution_envs/three_d/mujoco/env.py <CONFIG_PATH> -o env_config.renderer_config.render_modes="[human, rgb_array]"
+python cambrian/env.py <CONFIG_PATH> -o env_config.renderer_config.render_modes="[human, rgb_array]"
 
 # Noninteractive + headless
 # Run the custom viewer but headless and save the output
 # NOTE: This is non-interactive and should probably be run headless
-python cambrian/evolution_envs/three_d/mujoco/env.py <CONFIG_PATH> --record-path <OUTPUT> -t <TOTAL_TIMESTEPS>
+python cambrian/env.py <CONFIG_PATH> --record-path <OUTPUT> -t <TOTAL_TIMESTEPS>
 
 # Noninteractive + headless
 # Run with builtin mujoco viewer
-python cambrian/evolution_envs/three_d/mujoco/env.py <CONFIG_PATH> --mj-viewer
+python cambrian/env.py <CONFIG_PATH> --mj-viewer
 ```
 
 You can pass `-h` to see all options. For more details on the mujoco viewer, [see below](#mujoco-viewer).
@@ -41,7 +41,7 @@ Hover over an option on the left side and right click to show all the shortcuts.
 ## Running training
 
 ```bash
-MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py CONFIG_PATH --train
+MUJOCO_GL=egl python cambrian/rl/trainer.py CONFIG_PATH --train
 ```
 
 > [!TIP]
@@ -53,7 +53,7 @@ MUJOCO_GL=egl python cambrian/evolution_envs/three_d/mujoco/trainer.py CONFIG_PA
 ## Running evo
 
 ```bash
-python cambrian/evolution_envs/three_d/mujoco/evo.py CONFIG_PATH
+python cambrian/rl/evo.py CONFIG_PATH
 ```
 
 > [!NOTE]
