@@ -493,11 +493,15 @@ class MjCambrianEnv(gym.Env):
             # Call reward_fn
             rewards[name] = self._reward_fn(animal, info[name])
 
-            # Add a -1 to the reward if the animal has contacts and truncate_on_contact
-            # is False. We'll assume that the truncation value corresponds correctly to
-            # whether contacts have been recorded, so no need to check the truncate
+            # Add a penalty to the reward if the animal has contacts and 
+            # truncate_on_contact is False. We'll assume that the truncation value 
+            # corresponds correctly to whether contacts have been recorded, so no 
+            # need to check the truncate
             if animal.has_contacts:
-                rewards[name] += self.env_config.contact_penalty
+                if self.env_config.force_exclusive_contact_penalty:
+                    reward[name] = self.env_config.contact_penalty
+                else:
+                    rewards[name] += self.env_config.contact_penalty
 
             # If we're using an adversarial target and we're at the adversary, then
             # give a reward of -1. We'll assume that the truncation value corresponds
@@ -789,9 +793,10 @@ class MjCambrianEnv(gym.Env):
         info: bool,
     ) -> float:
         """Rewards the change in distance to the goal from the previous step."""
+        timestep = self.model.opt.timestep * self.env_config.frame_skip
         current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
         previous_distance_to_goal = np.linalg.norm(info["prev_pos"] - self.maze.goal)
-        return np.clip(previous_distance_to_goal - current_distance_to_goal, -0.5, 0.5)
+        return (previous_distance_to_goal - current_distance_to_goal) / timestep
 
     def _reward_fn_delta_euclidean_and_at_goal(
         self,
@@ -811,10 +816,9 @@ class MjCambrianEnv(gym.Env):
         Rewards the change in distance over the previos step scaled by the timestep.
         """
         timestep = self.model.opt.timestep * self.env_config.frame_skip
-        init_pos = animal.init_pos
-        distance_from_start = np.linalg.norm(animal.pos - init_pos)
-        previous_distance_from_start = np.linalg.norm(info["prev_pos"] - init_pos)
-        return (distance_from_start - previous_distance_from_start) / timestep
+        distance_from_start = np.linalg.norm(animal.pos - animal.init_pos)
+        prev_distance_from_start = np.linalg.norm(info["prev_pos"] - animal.init_pos)
+        return (distance_from_start - prev_distance_from_start) / timestep
 
     def _reward_fn_delta_euclidean_w_movement(
         self,

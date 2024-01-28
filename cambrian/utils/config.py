@@ -795,6 +795,10 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         distance_to_target_threshold (float): The distance to the target at which the
             animal is assumed to be "at the target".
         contact_penalty (float): The contact penalty when it contacts the wall.
+        force_exclusive_contact_penalty (bool): Whether to force exclusive contact
+            penalty or not. If True, the contact penalty will be used exclusively for
+            the reward. If False, the contact penalty will be used in addition to the
+            calculated reward.
         adversary_penalty (float): The adversary penalty when it goes to the wrong target.
         reward_at_goal (float): The reward to give when the animal reaches the goal.
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
@@ -845,6 +849,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     truncate_on_contact: bool
     distance_to_target_threshold: float
     contact_penalty: float
+    force_exclusive_contact_penalty: bool
     adversary_penalty: float
     reward_at_goal: float
 

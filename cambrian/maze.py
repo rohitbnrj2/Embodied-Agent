@@ -106,7 +106,7 @@ class MjCambrianMaze:
         if ref is not None:
             assert np.array_equal(
                 self._wall_locations, ref._wall_locations
-            ), "Wall locations must be the same with reference."
+            ), f"Wall locations for {self.name} must be the same with reference {ref.name}."
 
     def _update_locations(self):
         def _is_wall(struct: str) -> bool:

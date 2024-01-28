@@ -45,6 +45,7 @@ env_config:
   overlay_width: 0.5
   overlay_height: 0.35
   contact_penalty: -1.0
+  force_exclusive_contact_penalty: False
   adversary_penalty: -1.0
   reward_at_goal: 1.0
   renderer_config:
