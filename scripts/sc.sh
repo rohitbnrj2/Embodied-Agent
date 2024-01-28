@@ -10,21 +10,15 @@
 #SBATCH --error=out/R-%x.%j_%a.err
 
 source /etc/profile
-module load cuda/11.8
 
-module load anaconda/2023b
-source "/state/partition1/llgrid/pkg/anaconda/anaconda3-2023b/etc/profile.d/conda.sh"
-/state/partition1/llgrid/pkg/anaconda/anaconda3-2023b/condabin/conda activate /home/gridsan/ayoung/Pseudos/bees/.conda/envs/bees 
+[ -z "${CONDA_PREFIX}" ] && { echo "CONDA_PREFIX must be set"; exit 1; }
+[ $# -eq 0 ] && (echo "Please provide the script" && return 0)
+SCRIPT=$1
 
 export TF_CPP_MIN_LOG_LEVEL=2
 export OPENBLAS_NUM_THREADS=1
 export PMIX_MCA_gds=hash
 ulimit -u unlimited
-
-REPO=/home/gridsan/ayoung/Pseudos/bees/EyesOfCambrian
-
-[ $# -eq 0 ] && (echo "Please provide the script" && return 0)
-SCRIPT=$1
 
 shift
 

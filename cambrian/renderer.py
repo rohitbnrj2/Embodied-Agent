@@ -9,7 +9,8 @@ import mujoco as mj
 import OpenGL.GL as GL
 import cv2
 
-from cambrian.utils import get_camera_id, get_body_id, MjCambrianRendererConfig
+from cambrian.utils import get_camera_id, get_body_id
+from cambrian.utils.config import MjCambrianRendererConfig
 
 TEXT_HEIGHT = 20
 TEXT_MARGIN = 5

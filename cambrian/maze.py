@@ -7,13 +7,13 @@ import numpy as np
 import mujoco as mj
 
 from cambrian.utils import (
-    MjCambrianXML,
-    MjCambrianMazeConfig,
     get_geom_id,
     get_body_id,
     get_site_id,
     get_light_id,
 )
+from cambrian.utils.cambrian_xml import MjCambrianXML
+from cambrian.utils.config import MjCambrianMazeConfig
 
 # ================
 

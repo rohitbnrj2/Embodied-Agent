@@ -5,15 +5,13 @@ import threading
 from pathlib import Path
 import random
 
-from cambrian.utils import (
+from cambrian.population import MjCambrianPopulation
+from cambrian.animal import MjCambrianAnimal
+from cambrian.utils.config import (
     MjCambrianConfig,
     MjCambrianGenerationConfig,
     MjCambrianSpawningConfig,
 )
-from cambrian.population import (
-    MjCambrianPopulation,
-)
-from cambrian.animal import MjCambrianAnimal
 
 ReplicationType = MjCambrianSpawningConfig.ReplicationType
 

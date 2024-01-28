@@ -9,9 +9,8 @@ import mujoco as mj
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
 
+from cambrian.eye import MjCambrianEye
 from cambrian.utils import (
-    MjCambrianXML,
-    MjCambrianEyeConfig,
     get_include_path,
     get_body_id,
     get_body_name,
@@ -21,10 +20,9 @@ from cambrian.utils import (
     MjCambrianJoint,
     MjCambrianActuator,
     MjCambrianGeometry,
-    MjCambrianAnimalConfig,
 )
-
-from cambrian.eye import MjCambrianEye
+from cambrian.utils.cambrian_xml import MjCambrianXML
+from cambrian.utils.config import MjCambrianAnimalConfig, MjCambrianEyeConfig
 
 
 class MjCambrianAnimal:
@@ -348,7 +346,7 @@ class MjCambrianAnimal:
 
         if self.config.use_action_obs:
             assert action is not None, "Action expected."
-            obs["action"] = action.astype(np.float32)
+            obs["action"] = np.array(action).astype(np.float32)
 
         if self.config.use_init_pos_obs:
             obs["init_pos"] = self.init_pos
@@ -367,9 +365,7 @@ class MjCambrianAnimal:
             ML M MR
             BL B BR
         """
-        from cambrian.evolution_envs.three_d.mujoco.renderer import (
-            resize_with_aspect_fill,
-        )
+        from cambrian.renderer import resize_with_aspect_fill
 
         max_res = (
             max([eye.config.resolution[0] for eye in self.eyes.values()]),
@@ -380,7 +376,7 @@ class MjCambrianAnimal:
         num_horizontal = np.ceil(np.sqrt(len(self.eyes))).astype(int)
         num_vertical = np.ceil(len(self.eyes) / num_horizontal).astype(int)
 
-        images = []
+        images: List[List[np.ndarray]] = []
         for i in range(num_vertical):
             images.append([])
             for j in reversed(range(num_horizontal)):
@@ -671,6 +667,44 @@ class MjCambrianAnimal:
     ) -> MjCambrianAnimalConfig:
         raise NotImplementedError("Crossover not implemented.")
 
+
+class MjCambrianAnimalPoint(MjCambrianAnimal):
+    """
+    This is a hardcoded class which implements the animal as actuated by a forward 
+    velocity and a rotational position. In mujoco, to the best of my knowledge, all 
+    translational joints are actuated in reference to the _global_ frame rather than
+    the local frame. This means a velocity actuator applied along the x-axis will move
+    the agent along the global x-axis rather than the local x-axis. Therefore, the
+    agent will have 3 actuators: two for x and y global velocities and one for
+    rotational position. From the perspective the calling class (i.e. MjCambrianEnv),
+    this animal has two actuators: a forward velocity and a rotational position. We will
+    calculate the global velocities and rotational position from these two "actuators".
+
+    TODO: Will create an issue on mujoco and see if it's possible to implement this 
+    in xml.
+
+    NOTE: The action obs is still the global velocities and rotational position.
+    """
+
+    def apply_action(self, action: List[float]):
+        """This differs from the base implementation as action only has two elements,
+        but the model has three actuators. Calculate the global velocities here."""
+        assert len(action) == 2, "Action must have two elements."
+
+        v, theta = action
+        vx, vy = v * np.cos(theta), v * np.sin(theta)
+        self._data.ctrl[self._actadrs] = [vx, vy, theta]
+
+    @property
+    def action_space(self) -> spaces.Space:
+        """Overrides the base implementation to only have two elements. We'll use the 
+        bounds of the first actuator."""
+        # Assumes the first actuator is velocity and the last is rotational position
+        actuators = [self._actuators[0], self._actuators[-1]]
+
+        actlow = np.array([act.low for act in actuators])
+        acthigh = np.array([act.high for act in actuators])
+        return spaces.Box(low=actlow, high=acthigh, dtype=np.float32)
 
 if __name__ == "__main__":
     import time

@@ -14,18 +14,18 @@ from stable_baselines3.common.callbacks import (
 )
 from stable_baselines3.common.utils import set_random_seed
 
-from cambrian.rl.feature_extractors import (
-    MjCambrianCombinedExtractor,
-)
-from cambrian.utils import MjCambrianConfig, make_single_env, evaluate_policy
-from cambrian.rl.callbacks import (
+from cambrian.env import make_single_env
+from cambrian.ml.feature_extractors import MjCambrianCombinedExtractor
+from cambrian.ml.callbacks import (
     PlotEvaluationCallback,
     SaveVideoCallback,
     MjCambrianSavePolicyCallback,
     CallbackListWithSharedParent,
     MjCambrianProgressBarCallback,
 )
-from cambrian.rl.model import MjCambrianModel
+from cambrian.ml.model import MjCambrianModel
+from cambrian.utils import evaluate_policy
+from cambrian.utils.config import MjCambrianConfig
 
 
 class MjCambrianTrainer:

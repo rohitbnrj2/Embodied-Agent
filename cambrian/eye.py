@@ -9,9 +9,9 @@ from gymnasium import spaces
 from PIL import Image
 import matplotlib.pyplot as plt
 
-
-from cambrian.utils import MjCambrianXML, MjCambrianEyeConfig, MjCambrianRendererConfig
 from cambrian.renderer import MjCambrianRenderer
+from cambrian.utils.config import MjCambrianEyeConfig, MjCambrianRendererConfig
+from cambrian.utils.cambrian_xml import MjCambrianXML
 
 
 class MjCambrianEye:

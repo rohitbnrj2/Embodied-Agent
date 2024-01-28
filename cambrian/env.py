@@ -8,14 +8,11 @@ import mujoco as mj
 from gymnasium import spaces
 from stable_baselines3.common.utils import set_random_seed
 
-from cambrian.animal import MjCambrianAnimal
+from cambrian.animal import MjCambrianAnimal, MjCambrianAnimalPoint
 from cambrian.maze import MjCambrianMaze
-from cambrian.utils import (
-    MjCambrianXML,
-    MjCambrianConfig,
-    MjCambrianEnvConfig,
-    get_include_path,
-)
+from cambrian.utils import get_include_path
+from cambrian.utils.config import MjCambrianConfig, MjCambrianEnvConfig
+from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.renderer import (
     MjCambrianRenderer,
     MjCambrianViewerOverlay,
@@ -121,10 +118,12 @@ class MjCambrianEnv(gym.Env):
             - load the base xml to MjModel
             - parse the geometry and place eyes at the appropriate locations
             - create the action/observation spaces
+
+        TODO: Hardcoded to use MjCambrianAnimalPoint for now!!
         """
         for animal_config in self.env_config.animal_configs.values():
             assert animal_config.name not in self.animals
-            self.animals[animal_config.name] = MjCambrianAnimal(animal_config)
+            self.animals[animal_config.name] = MjCambrianAnimalPoint(animal_config)
 
     def _create_mazes(self):
         """Helper method to create the mazes.
@@ -210,7 +209,7 @@ class MjCambrianEnv(gym.Env):
         # Update the assert path to point to the fully resolved path
         compiler = xml.find(".//compiler")
         assert compiler is not None
-        model_dir = Path(__file__).parent / "models"  # TODO: make config attr
+        model_dir = Path("models")  # TODO: make config attr
         if (texturedir := compiler.attrib.get("texturedir")) is not None:
             texturedir = str(get_include_path(model_dir / texturedir))
             compiler.attrib["texturedir"] = texturedir

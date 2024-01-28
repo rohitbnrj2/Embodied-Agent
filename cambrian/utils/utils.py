@@ -9,7 +9,7 @@ import mujoco as mj
 import numpy as np
 
 if TYPE_CHECKING:
-    from cambrian.rl.model import MjCambrianModel
+    from cambrian.ml.model import MjCambrianModel
 
 
 def safe_index(list_to_index: List[Any], value: Any) -> int:
@@ -32,18 +32,18 @@ def get_include_path(
     If the file can't be found, a FileNotFoundError is raised if throw_error is True. If
     throw_error is False, None is returned.
     """
-    model_path = Path(model_path)
-    if model_path.exists():
+    path = Path(model_path)
+    if path.exists():
         pass
-    elif (rel_model_path := Path(__file__).parent / model_path).exists():
-        model_path = rel_model_path
+    elif (rel_path := Path(__file__).parent / path).exists():
+        path = rel_path
     else:
         if throw_error:
-            raise FileNotFoundError(f"Could not find model file {model_path}.")
+            raise FileNotFoundError(f"Could not find path `{model_path}`.")
         else:
             return None
 
-    return model_path
+    return path
 
 
 # ============
