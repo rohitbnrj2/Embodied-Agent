@@ -1,7 +1,5 @@
-from copy import deepcopy
 import time
 from typing import Tuple, Dict
-import warnings
 import numpy as np
 
 import cv2

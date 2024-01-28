@@ -1004,7 +1004,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
-    config.env_config.use_renderer = not args.mj_viewer
+    if args.mj_viewer:
+        config.env_config.use_renderer = False
     env = MjCambrianEnv(config)
     env.reset(seed=config.training_config.seed)
     # env.xml.write("test.xml")

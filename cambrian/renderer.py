@@ -250,12 +250,14 @@ class MjCambrianViewer(ABC):
         mj.mjr_render(self.viewport, self.scene, self._mjr_context)
         self.draw_overlays(overlays)
 
-    def read_pixels(self) -> Tuple[np.ndarray, np.ndarray]:
+    def read_pixels(self, read_depth: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         width, height = self.viewport.width, self.viewport.height
         rgb = np.zeros((height, width, 3), dtype=np.uint8)
-        depth = np.zeros((height, width), dtype=np.float32)
+        depth = np.zeros((height, width), dtype=np.float32) if read_depth else None
+
         mj.mjr_readPixels(rgb, depth, self.viewport, self._mjr_context)
-        return np.flipud(rgb), np.flipud(depth)
+
+        return np.flipud(rgb), np.flipud(depth) if read_depth else None
 
     def draw_overlays(self, overlays: List[MjCambrianViewerOverlay]):
         # Required for some reason to allow overlays to be placed correctly
@@ -542,7 +544,7 @@ class MjCambrianRenderer:
         if not any(mode in self.render_modes for mode in ["rgb_array", "depth_array"]):
             return
 
-        rgb, depth = self.viewer.read_pixels()
+        rgb, depth = self.viewer.read_pixels("depth_array" in self.render_modes)
         if self._record and not resetting:
             self._rgb_buffer.append(rgb)
 
