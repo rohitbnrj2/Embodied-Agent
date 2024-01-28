@@ -11,17 +11,14 @@
 
 source /etc/profile
 
-[ -z "${CONDA_PREFIX}" ] && { echo "CONDA_PREFIX must be set"; exit 1; }
 [ $# -eq 0 ] && (echo "Please provide the script" && return 0)
 SCRIPT=$1
 
 export TF_CPP_MIN_LOG_LEVEL=2
 export OPENBLAS_NUM_THREADS=1
 export PMIX_MCA_gds=hash
-ulimit -u unlimited
 
 shift
 
-cd $REPO
->&2 echo "Running script..."
+>&2 echo "Running script $PWD..."
 MUJOCO_GL=egl bash $SCRIPT "$@" 
