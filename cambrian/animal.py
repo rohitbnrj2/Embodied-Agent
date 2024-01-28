@@ -484,7 +484,9 @@ class MjCambrianAnimal:
             )
 
         if self.config.use_action_obs:
-            observation_space["action"] = self.action_space
+            observation_space["action"] = spaces.Box(
+                low=-1, high=1, shape=(self._numctrl,), dtype=np.float32
+            )
 
         if self.config.use_init_pos_obs:
             observation_space["init_pos"] = spaces.Box(

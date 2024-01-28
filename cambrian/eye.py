@@ -203,7 +203,7 @@ class MjCambrianEye:
 
     def _downsample(self, image: np.ndarray) -> np.ndarray:
         """Downsample the image to the resolution specified in the config."""
-        return cv2.resize(image, self.resolution[::-1])
+        return cv2.resize(image, self.resolution)
 
     @property
     def name(self) -> str:
@@ -219,7 +219,7 @@ class MjCambrianEye:
         """
 
         observation_space = spaces.Box(
-            0, 1, shape=(*self.resolution[::-1], 3), dtype=np.float32
+            0., 1., shape=(*self.resolution[::-1], 3), dtype=np.float32
         )
         return observation_space
 
