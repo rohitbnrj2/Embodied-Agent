@@ -15,13 +15,10 @@ import matplotlib.ticker as tkr
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from cambrian.evolution_envs.three_d.mujoco.config import (
-    MjCambrianConfig,
-    convert_overrides_to_dict,
-)
-from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
-from cambrian.evolution_envs.three_d.mujoco.wrappers import make_single_env
-from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
+from cambrian.utils import evaluate_policy
+from cambrian.utils.wrappers import make_single_env
+from cambrian.utils.config import MjCambrianConfig
+from cambrian.ml.model import MjCambrianModel
 
 mpl.rcParams["image.cmap"] = "jet"
 

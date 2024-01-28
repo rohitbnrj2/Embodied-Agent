@@ -68,6 +68,7 @@ class MjCambrianAnimal:
 
         self._eye_obs: Dict[str, Deque[np.ndarray]] = None
         self._init_pos: np.ndarray = None
+        self._extent: float = None
 
     def _check_config(self, config: MjCambrianAnimalConfig) -> MjCambrianAnimalConfig:
         """Run some checks/asserts on the config to make sure everything's there. Also,
@@ -248,6 +249,9 @@ class MjCambrianAnimal:
         self._model = model
         self._data = data
 
+        # Update the environment extent. Used to normalize the observations.
+        self._extent = model.stat.extent
+
         # Parse actuators
         self._parse_actuators(model)
 
@@ -278,7 +282,7 @@ class MjCambrianAnimal:
         if self._responsible_for_intensity_sensor:
             self._intensity_sensor.reset(model, data)
 
-        return self._get_obs(np.zeros(self._numctrl, dtype=np.float32))
+        return self._get_obs()
 
     def _reset_adrs(self, model: mj.MjModel):
         """Resets the adrs for the animal. This is used when the model is reloaded."""
@@ -309,11 +313,17 @@ class MjCambrianAnimal:
         self._actadrs = [act.adr for act in self._actuators]
         assert len(self._actadrs) == self._numctrl
 
-    def apply_action(self, action: List[float]):
-        """Applies the action to the animal."""
-        self._data.ctrl[self._actadrs] = action
+    def apply_action(self, actions: List[float]):
+        """Applies the action to the animal.
+        
+        It is assumed that the actions are normalized between -1 and 1.
+        """
+        for action, actuator in zip(actions, self._actuators):
+            # Interpolate from old range to -1, 1
+            action = -1 + 2 * (action - actuator.low) / actuator.ctrlrange
+            self._data.ctrl[actuator.adr] = action
 
-    def step(self, action: List[float]) -> Dict[str, Any]:
+    def step(self) -> Dict[str, Any]:
         """Steps the eyes, updates the ctrl inputs, and returns the observation.
 
         NOTE: the action isn't actually applied here, it's simply passed to be stored
@@ -327,32 +337,24 @@ class MjCambrianAnimal:
         if self._responsible_for_intensity_sensor:
             self._intensity_sensor.step()
 
-        return self._get_obs(action)
+        return self._get_obs()
 
-    def _get_obs(self, action: Optional[List[float]] = None) -> Dict[str, Any]:
+    def _get_obs(self) -> Dict[str, Any]:
         """Creates the entire obs dict."""
         obs: Dict[str, Any] = {}
 
         for name in self.eyes.keys():
             obs[name] = np.array(self._eye_obs[name])
 
-        if self.config.use_qpos_obs:
-            qpos = self._data.qpos[self._qposadrs]
-            obs["qpos"] = qpos.flat.copy()
-
-        if self.config.use_qvel_obs:
-            qvel = self._data.qvel[self._qveladrs]
-            obs["qvel"] = qvel.flat.copy()
-
         if self.config.use_action_obs:
-            assert action is not None, "Action expected."
-            obs["action"] = np.array(action).astype(np.float32)
+            action: np.ndarray = self._data.ctrl[self._actadrs]
+            obs["action"] = action.astype(np.float32)
 
         if self.config.use_init_pos_obs:
-            obs["init_pos"] = self.init_pos
+            obs["init_pos"] = self.init_pos / self._extent
 
         if self.config.use_current_pos_obs:
-            obs["current_pos"] = self.pos
+            obs["current_pos"] = self.pos / self._extent
 
         return obs
 
@@ -470,39 +472,28 @@ class MjCambrianAnimal:
 
         n_temporal_obs = self.config.n_temporal_obs
         for name, eye in self.eyes.items():
-            # NOTE: The input resolution in the yaml file is (W, H) but the eye output is (H, W, 3) so we flip the order here.
+            eye_observation_space = eye.observation_space
+
+            # The eye observation space is actually a queue of n_temporal_obs number
+            # of observations
             observation_space[name] = spaces.Box(
-                0,
-                255,
-                shape=(n_temporal_obs, eye.resolution[1], eye.resolution[0], 3),
-                dtype=np.uint8,
-            )
-
-        if self.config.use_qpos_obs:
-            observation_space["qpos"] = spaces.Box(
-                low=-np.inf, high=np.inf, shape=(self._numqpos,), dtype=np.float32
-            )
-
-        if self.config.use_qvel_obs:
-            observation_space["qvel"] = spaces.Box(
-                low=-np.inf, high=np.inf, shape=(self._numqvel,), dtype=np.float32
+                low=eye_observation_space.low.min(),
+                high=eye_observation_space.high.max(),
+                shape=(n_temporal_obs, *eye_observation_space.shape),
+                dtype=eye_observation_space.dtype,
             )
 
         if self.config.use_action_obs:
-            actlow = np.array([act.low for act in self._actuators])
-            acthigh = np.array([act.high for act in self._actuators])
-            observation_space["action"] = spaces.Box(
-                low=actlow, high=acthigh, shape=(self._numctrl,), dtype=np.float32
-            )
+            observation_space["action"] = self.action_space
 
         if self.config.use_init_pos_obs:
             observation_space["init_pos"] = spaces.Box(
-                low=-np.inf, high=np.inf, shape=(2,), dtype=np.float64
+                low=-1, high=1, shape=(2,), dtype=np.float64
             )
 
         if self.config.use_current_pos_obs:
             observation_space["current_pos"] = spaces.Box(
-                low=-np.inf, high=np.inf, shape=(2,), dtype=np.float64
+                low=-1, high=1, shape=(2,), dtype=np.float64
             )
 
         return spaces.Dict(observation_space)
@@ -510,9 +501,7 @@ class MjCambrianAnimal:
     @property
     def action_space(self) -> spaces.Space:
         """The action space is simply the controllable actuators of the animal."""
-        actlow = np.array([act.low for act in self._actuators])
-        acthigh = np.array([act.high for act in self._actuators])
-        return spaces.Box(low=actlow, high=acthigh, dtype=np.float32)
+        return spaces.Box(low=-1, high=1, shape=self._numctrl, dtype=np.float32)
 
     @property
     def eyes(self) -> Dict[str, MjCambrianEye]:
@@ -520,13 +509,10 @@ class MjCambrianAnimal:
 
     @property
     def num_pixels(self) -> int:
-        try:
-            return self._num_pixels
-        except AttributeError:
-            self._num_pixels = 0
-            for eye in self._eyes.values():
-                self._num_pixels += prod(eye.resolution)
-            return self._num_pixels
+        self._num_pixels = 0
+        for eye in self._eyes.values():
+            self._num_pixels += prod(eye.resolution)
+        return self._num_pixels
 
     @property
     def intensity_sensor(self) -> MjCambrianEye:
@@ -538,7 +524,7 @@ class MjCambrianAnimal:
 
     @property
     def pos(self) -> np.ndarray:
-        """Sets the freejoint position of the animal. The freejoint should be at the
+        """Gets the freejoint position of the animal. The freejoint should be at the
         root of the body of the animal. A free joint in mujoco is capable of being
         explicitly positioned using the `qpos` attribute (which is actually pos and
         quat). This property is for accessing. See the setter.
@@ -693,18 +679,12 @@ class MjCambrianAnimalPoint(MjCambrianAnimal):
 
         v, theta = action
         vx, vy = v * np.cos(theta), v * np.sin(theta)
-        self._data.ctrl[self._actadrs] = [vx, vy, theta]
+        super().apply_action([vx, vy, theta])
 
     @property
     def action_space(self) -> spaces.Space:
-        """Overrides the base implementation to only have two elements. We'll use the 
-        bounds of the first actuator."""
-        # Assumes the first actuator is velocity and the last is rotational position
-        actuators = [self._actuators[0], self._actuators[-1]]
-
-        actlow = np.array([act.low for act in actuators])
-        acthigh = np.array([act.high for act in actuators])
-        return spaces.Box(low=actlow, high=acthigh, dtype=np.float32)
+        """Overrides the base implementation to only have two elements."""
+        return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
 
 if __name__ == "__main__":
     import time

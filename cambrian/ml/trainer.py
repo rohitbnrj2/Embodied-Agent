@@ -14,7 +14,6 @@ from stable_baselines3.common.callbacks import (
 )
 from stable_baselines3.common.utils import set_random_seed
 
-from cambrian.env import make_single_env
 from cambrian.ml.feature_extractors import MjCambrianCombinedExtractor
 from cambrian.ml.callbacks import (
     PlotEvaluationCallback,
@@ -26,6 +25,7 @@ from cambrian.ml.callbacks import (
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy
 from cambrian.utils.config import MjCambrianConfig
+from cambrian.utils.wrappers import make_single_env
 
 
 class MjCambrianTrainer:

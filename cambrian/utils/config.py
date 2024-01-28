@@ -714,8 +714,6 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
         model_config (MjCambrianAnimalModelConfig): The config for the animal model.
 
-        use_qpos_obs (bool): Whether to use the qpos observation or not.
-        use_qvel_obs (bool): Whether to use the qvel observation or not.
         use_intensity_obs (bool): Whether to use the intensity sensor observation.
         use_action_obs (bool): Whether to use the action observation or not.
         use_init_pos_obs (bool): Whether to use the initial position observation or not.
@@ -741,8 +739,6 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
     init_pos: Optional[Tuple[float, float]] = None
 
-    use_qpos_obs: bool
-    use_qvel_obs: bool
     use_intensity_obs: bool
     use_action_obs: bool
     use_init_pos_obs: bool

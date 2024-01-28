@@ -82,8 +82,6 @@ evo_config:
 
     default_animal_config:
       name: ${parent:} # will be replaced with parent key. evaluated after extend.
-      use_qpos_obs: False
-      use_qvel_obs: False
       use_intensity_obs: False
       use_action_obs: True
       use_init_pos_obs: False

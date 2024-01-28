@@ -5,7 +5,7 @@ import gymnasium as gym
 from stable_baselines3.common.env_checker import check_env
 
 from cambrian.env import MjCambrianEnv
-from cambrian.utils import MjCambrianConfig
+from cambrian.utils.config import MjCambrianConfig
 
 
 class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):

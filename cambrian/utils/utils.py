@@ -25,9 +25,9 @@ def get_include_path(
     model_path: str | Path, *, throw_error: bool = True
 ) -> Path | None:
     """Tries to find the model path. `model_path` can either be relative to the
-    execution file, absolute, or relative to cambrian.evolution_envs.three_d.mujoco. The
+    execution file, absolute, or relative to the path of the cambrian folder. The
     latter is the typical method, where `assets/<model>.xml` specifies the model path
-    located in cambrian/evolution_envs/three_d/mujoco/assets/<model>.xml.
+    located in REPO_PATH/models/assets/<model>.xml.
 
     If the file can't be found, a FileNotFoundError is raised if throw_error is True. If
     throw_error is False, None is returned.
@@ -71,7 +71,7 @@ def evaluate_policy(
             see that method for more details.
     """
     # To avoid circular imports
-    from cambrian.evolution_envs.three_d.mujoco.env import MjCambrianEnv
+    from cambrian.env import MjCambrianEnv
 
     cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
     if record_path is not None:
@@ -290,6 +290,10 @@ class MjCambrianActuator:
     adr: int
     low: float
     high: float
+
+    @property
+    def ctrlrange(self) -> float:
+        return self.high - self.low
 
 
 @dataclass

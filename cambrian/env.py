@@ -392,7 +392,8 @@ class MjCambrianEnv(gym.Env):
 
         Args:
             action (Dict[str, Any]): The action to take for each animal. The keys
-            define the animal name, and the values define the action for that animal.
+                define the animal name, and the values define the action for that 
+                animal.
 
         Returns:
             Dict[str, Any]: The observations for each animal.
@@ -412,7 +413,7 @@ class MjCambrianEnv(gym.Env):
 
         obs: Dict[str, Any] = {}
         for name, animal in self.animals.items():
-            obs[name] = animal.step(action[name])
+            obs[name] = animal.step()
             if self.env_config.use_goal_obs:
                 obs[name]["goal"] = self.maze.goal.copy()
 

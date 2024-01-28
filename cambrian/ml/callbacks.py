@@ -13,13 +13,10 @@ from stable_baselines3.common.callbacks import (
 )
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
-from cambrian.evolution_envs.three_d.mujoco.env import MjCambrianEnv
-from cambrian.evolution_envs.three_d.mujoco.renderer import MjCambrianRenderer
-from cambrian.evolution_envs.three_d.mujoco.utils import (
-    evaluate_policy,
-    setattrs_temporary,
-)
+from cambrian.env import MjCambrianEnv
+from cambrian.renderer import MjCambrianRenderer
+from cambrian.ml.model import MjCambrianModel
+from cambrian.utils import evaluate_policy, setattrs_temporary
 
 
 class PlotEvaluationCallback(BaseCallback):

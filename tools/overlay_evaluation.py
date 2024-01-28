@@ -6,19 +6,12 @@ import numpy as np
 import mujoco as mj
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from cambrian.evolution_envs.three_d.mujoco.renderer import (
-    MjCambrianImageViewerOverlay,
-    MjCambrianTextViewerOverlay,
-    MjCambrianCursor,
-)
-from cambrian.evolution_envs.three_d.mujoco.env import MjCambrianEnv
-from cambrian.evolution_envs.three_d.mujoco.wrappers import make_single_env
-from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
-from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
-from cambrian.evolution_envs.three_d.mujoco.config import (
-    MjCambrianConfig,
-    convert_overrides_to_dict,
-)
+from cambrian.renderer import MjCambrianImageViewerOverlay, MjCambrianCursor
+from cambrian.env import MjCambrianEnv
+from cambrian.utils.wrappers import make_single_env
+from cambrian.ml.model import MjCambrianModel
+from cambrian.utils import evaluate_policy
+from cambrian.utils.config import MjCambrianConfig
 
 def natural_sort(lst):
     """ Sort the given list in the way that humans expect."""

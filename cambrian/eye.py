@@ -4,10 +4,9 @@ from typing import Tuple, Dict
 import warnings
 import numpy as np
 
+import cv2
 import mujoco as mj
 from gymnasium import spaces
-from PIL import Image
-import matplotlib.pyplot as plt
 
 from cambrian.renderer import MjCambrianRenderer
 from cambrian.utils.config import MjCambrianEyeConfig, MjCambrianRendererConfig
@@ -30,10 +29,11 @@ class MjCambrianEye:
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
         self._last_obs: np.ndarray = None
-        # self.optics = MjCambrianNonDifferentiableOptics()
 
         self._renderer = MjCambrianRenderer(config.renderer_config)
         self._render_depth = "depth_array" in config.renderer_config.render_modes
+        if self.config.enable_optics:
+            assert self._render_depth, "Must render depth if optics is enabled"
 
     def _check_config(self, config: MjCambrianEyeConfig) -> MjCambrianEyeConfig:
         """This will automatically set some of the config values if they are not
@@ -70,18 +70,17 @@ class MjCambrianEye:
             assert config.sensorsize is None, "Cannot set both fov and sensorsize"
 
             config.setdefault("focal", [0.1, 0.1])
-        # Adjust the FOV based on the padded resolution
-        original_width, original_height = config.resolution
-        padded_width, padded_height = (
-            original_width + config.psf_filter_size[0],
-            original_height + config.psf_filter_size[1],
-        )
 
-        scale_factor_width = padded_width / original_width
-        scale_factor_height = padded_height / original_height
+            # Adjust the FOV based on the padded resolution
+            original_width, original_height = config.resolution
+            padded_width, padded_height = (
+                original_width + config.psf_filter_size[0],
+                original_height + config.psf_filter_size[1],
+            )
 
-        ENABLE_DYNAMIC_SENSOR_SIZE = True
-        if not config.enable_optics or ENABLE_DYNAMIC_SENSOR_SIZE:
+            scale_factor_width = padded_width / original_width
+            scale_factor_height = padded_height / original_height
+
             # sensorsize = 2 * focal * tan(fov / 2)
             fovx, fovy = config.fov
             focalx, focaly = config.focal
@@ -89,27 +88,6 @@ class MjCambrianEye:
                 float(2 * focalx * np.tan(np.radians(fovx) / 2) * scale_factor_width),
                 float(2 * focaly * np.tan(np.radians(fovy) / 2) * scale_factor_height),
             ]
-            # render modes must be set to rgb_array and depth_array
-            self._render_depth = True
-        else:
-            # if optics is setup we will use the sensor size and use fov to calculate
-            # the focal length
-            # assert config.sensorsize is not None, "Need to set sensorsize if optics is enabled"
-            if config.sensorsize is None:
-                warnings.warn("Need to set sensorsize if optics is enabled")
-            else:
-                config.setdefault(
-                    "sensorsize",
-                    [0.03 * scale_factor_width, 0.03 * scale_factor_height],
-                )
-
-            focalx = config.sensorsize[0] / float(
-                2 * np.tan(np.radians(fovx) / 2) * scale_factor_width
-            )
-            focaly = config.sensorsize[1] / float(
-                2 * np.tan(np.radians(fovy) / 2) * scale_factor_height
-            )
-            config.focal = [focalx, focaly]
 
         # Set the height/width of the renderer equal to the resolution of the image
         config.renderer_config.width, config.renderer_config.height = config.resolution
@@ -199,71 +177,17 @@ class MjCambrianEye:
 
         rgb = self._renderer.render()
 
-        _DEBUG = False
-        if _DEBUG:
-            try:
-                self.count += 1
-            except AttributeError:
-                self.count = 0
+        if self.config.enable_optics:
+            rgb, depth = rgb
+            rgb = rgb.astype(np.float32) / 255.0
+            rgb, _ = self.optics.render_aperture_only(rgb, depth, self.config)
+            rgb = (rgb * 255).astype(np.uint8)
 
-        if self.config.enable_optics and self._render_depth:
-            if _DEBUG and bool(self.count > 50):
-                _rgb, _depth = rgb
-                rs = np.linspace(0, 1.0, 20)
-                for i in rs:
-                    rgb, depth = deepcopy(_rgb), deepcopy(_depth)
-                    self.config.aperture_open = i
+        return self._postprocess(rgb)
 
-                    downsampled_rgb_sanspsf = self._downsample(deepcopy(rgb))
-
-                    f, axarr = plt.subplots(4, 2)
-                    f.suptitle(
-                        "Aperture Radius: {}".format(self.config.aperture_radius)
-                    )
-                    axarr[0, 0].imshow(rgb)
-                    axarr[0, 0].title.set_text("rgb")
-                    axarr[0, 1].imshow(depth)
-                    axarr[0, 1].title.set_text("depth")
-                    # Apply PSF here
-                    rgb = rgb.astype(np.float32) / 255.0
-                    rgb, psf = self.optics.render_aperture_only(rgb, depth, self.config)
-                    axarr[1, 1].imshow(rgb)
-                    axarr[1, 1].title.set_text("rgb with psf")
-                    psf = (psf * 255).astype(np.uint8)
-                    axarr[1, 0].imshow(psf)
-                    axarr[1, 0].title.set_text("psf")
-
-                    # convert to uint8
-                    rgb = (rgb * 255).astype(np.uint8)
-                    downsampled_rgb = self._downsample(rgb)
-                    axarr[2, 0].imshow(downsampled_rgb)
-                    axarr[2, 0].title.set_text("downsampled rgb with psf")
-                    axarr[2, 1].imshow(downsampled_rgb_sanspsf)
-                    axarr[2, 1].title.set_text("downsampled rgb without psf")
-                    axarr[3, 0].imshow(
-                        np.abs(downsampled_rgb_sanspsf - downsampled_rgb)
-                    )
-                    axarr[3, 0].title.set_text(
-                        f"difference-{np.mean(np.abs(downsampled_rgb_sanspsf/255.-downsampled_rgb/255.))}"
-                    )
-                    axarr[3, 1].imshow(self.optics.A)
-                    axarr[3, 1].title.set_text("Aperture")
-                    # format aperture radius to 2 decimal places
-                    plt.savefig(
-                        "./exps/3eyes2x2/60s_40apres_aperture_open_{:.2f}_{:.4f}.png".format(
-                            i, self.config.aperture_radius
-                        )
-                    )
-                    plt.close()
-
-                raise Exception("Done")
-            else:
-                rgb, depth = rgb
-                rgb = rgb.astype(np.float32) / 255.0
-                rgb, _ = self.optics.render_aperture_only(rgb, depth, self.config)
-                rgb = (rgb * 255).astype(np.uint8)
-
-        return self._downsample(rgb).astype(np.uint8)
+    def _postprocess(self, image: np.ndarray) -> np.ndarray:
+        """Downsamples image and normalizes it to [0, 1]."""
+        return self._downsample(image).astype(np.float32) / 255.0
 
     def _crop(self, image: np.ndarray) -> np.ndarray:
         """Crop the image to the resolution specified in the config."""
@@ -279,8 +203,7 @@ class MjCambrianEye:
 
     def _downsample(self, image: np.ndarray) -> np.ndarray:
         """Downsample the image to the resolution specified in the config."""
-        d_image = Image.fromarray(image).resize(self.resolution)
-        return np.array(d_image)
+        return cv2.resize(image, self.resolution[::-1])
 
     @property
     def name(self) -> str:
@@ -290,11 +213,13 @@ class MjCambrianEye:
     def observation_space(self) -> spaces.Box:
         """The observation space is just the rgb image.
 
-        Fmt: Height, Width
+        NOTE: 
+        - The input resolution in the yaml file is (W, H) but the eye output is 
+            (H, W, 3) so we flip the order here.
         """
 
         observation_space = spaces.Box(
-            0, 255, shape=(*self.resolution[::-1], 3), dtype=np.uint8
+            0, 1, shape=(*self.resolution[::-1], 3), dtype=np.float32
         )
         return observation_space
 
@@ -315,8 +240,6 @@ class MjCambrianEye:
         parse the config to get the resolution
         """
         self.config.resolution = value
-        if self._model is not None:
-            self._set_mj_attr(self.padded_resolution, self._model, "cam_resolution")
 
     @property
     def padded_resolution(self) -> Tuple[int, int]:
@@ -327,11 +250,6 @@ class MjCambrianEye:
             self.resolution[0] + int(self.resolution[0] * 2),
             self.resolution[1] + int(self.resolution[1] * 2),
         )
-        # psf_filter_size = self.config.psf_filter_size
-        # return (
-        #     self.resolution[0] + int(psf_filter_size[0]/2),
-        #     self.resolution[1] + int(psf_filter_size[1]/2),
-        # )
 
     @property
     def last_obs(self) -> np.ndarray:
