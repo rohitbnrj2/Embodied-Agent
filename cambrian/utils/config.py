@@ -740,9 +740,6 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             constant_actions = [None, 0, None]. If None, no constant action will be
             applied.
 
-        mutation_options (List[str]): The mutation options to use for the animal. See
-            `MjCambrianAnimal.MutationType` for options.
-
         eye_configs (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
             The key will be used as the default name for the eye, unless explicitly
             set in the eye config.
@@ -765,8 +762,6 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     n_temporal_obs: int
 
     constant_actions: Optional[List[float | None]] = None
-
-    mutation_options: List[str]
 
     eye_configs: Dict[str, MjCambrianEyeConfig] = field(default_factory=dict)
 
