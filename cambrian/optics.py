@@ -79,10 +79,10 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
             return np.exp(1j*k*np.sqrt(X1**2+Y1**2+z1**2)) 
                 
         # Create Sensor Plane
-        Mx = config.resolution[0] * 3 # 40 works well  
-        My = config.resolution[1] * 3 # 40 works well  
-        Mx = 40 
-        My = 1 #40 
+        Mx = config.resolution[0] * 2 # 40 works well  
+        My = config.resolution[1] * 2 # 40 works well  
+        # Mx = 40 
+        # My = 1 #40 
         # id mx and my are even, then change to odd
         # odd length is better for performance
         if Mx % 2 == 0:

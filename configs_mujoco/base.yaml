@@ -11,7 +11,8 @@ training_config:
   learning_rate: 0.001
   n_epochs: 8
   gae_lambda: 0.95
-  batch_size: ${eval:'${.n_steps} * ${.n_envs} // ${.n_epochs}'}
+  batch_size: ${eval:'${.n_steps} * ${.n_envs}'}
+  # batch_size: ${eval:'${.n_steps} * ${.n_envs} // ${.n_epochs}'}
   n_envs: 10
 
   eval_freq: 10000
@@ -68,6 +69,7 @@ env_config:
 
 evo_config:
   max_n_envs: 10
+  max_n_timesteps: 1_000_000
 
   num_generations: 200
 
@@ -76,8 +78,9 @@ evo_config:
     num_top_performers: 2
 
   spawning_config:
-    init_num_mutations: 100
+    init_num_mutations: 1
     num_mutations: 1
+    mutation_options: [] #[ADD_EYE, REMOVE_EYE, EDIT_EYE]
     replication_type: MUTATION
 
     default_animal_config:
@@ -87,8 +90,6 @@ evo_config:
       use_init_pos_obs: False
       use_current_pos_obs: False
       n_temporal_obs: 10
-
-      mutation_options: [ADD_EYE, REMOVE_EYE, EDIT_EYE]
 
       disable_intensity_sensor: False
       intensity_sensor_config:

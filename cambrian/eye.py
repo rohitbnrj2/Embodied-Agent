@@ -7,6 +7,7 @@ import mujoco as mj
 from gymnasium import spaces
 
 from cambrian.renderer import MjCambrianRenderer
+from cambrian.optics import MjCambrianNonDifferentiableOptics
 from cambrian.utils.config import MjCambrianEyeConfig, MjCambrianRendererConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
 
@@ -27,6 +28,8 @@ class MjCambrianEye:
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
         self._last_obs: np.ndarray = None
+
+        self._optics = MjCambrianNonDifferentiableOptics()
 
         self._renderer = MjCambrianRenderer(config.renderer_config)
         self._render_depth = "depth_array" in config.renderer_config.render_modes
@@ -178,7 +181,7 @@ class MjCambrianEye:
         if self.config.enable_optics:
             rgb, depth = rgb
             rgb = rgb.astype(np.float32) / 255.0
-            rgb, _ = self.optics.render_aperture_only(rgb, depth, self.config)
+            rgb, _ = self._optics.render_aperture_only(rgb, depth, self.config)
             rgb = (rgb * 255).astype(np.uint8)
 
         return self._postprocess(rgb)
@@ -245,8 +248,8 @@ class MjCambrianEye:
         call should use this resolution instead and the cropped after the psf is
         applied."""
         return (
-            self.resolution[0] + int(self.resolution[0] * 2),
-            self.resolution[1] + int(self.resolution[1] * 2),
+            self.resolution[0] + int(self.resolution[0] * 3),
+            self.resolution[1] + int(self.resolution[1] * 3),
         )
 
     @property

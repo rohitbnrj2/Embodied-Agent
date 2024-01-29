@@ -1,0 +1,30 @@
+extend: ${extend:${include:configs_mujoco/mazes/maze.yaml}}
+map: [
+    [1:L, 1:E, 1:E,   0],
+    [1:L,   R, 1:R,   0],
+    [1:L,   0, 1:R,   0],
+    [1:L,   0, 1:R,   0],
+    [1:L,   0,   0, 1:R],
+    [1:L,   0,   0, 1:R],
+    [1:L, 1:L,   0, 1:R],
+    [1:L, 1:L,   0, 1:R],
+    [1:L,   0,   0, 1:R],
+    [1:L,   0,   0, 1:R],
+    [1:L,   0, 1:R,   0],
+    [1:L,   0, 1:R,   0],
+    [1:L,   0, 1:R,   0],
+    [1:L,   0,   0, 1:R],
+    [1:L,   0,   0, 1:R],
+    [1:L, 1:L,   0, 1:R],
+    [1:L, 1:L,   0, 1:R],
+    [1:L, 1:L,   T, 1:R],
+    [1:L, 1:E, 1:R,   0],
+  ]
+
+wall_texture_map:
+  K: [vertical_60] # key
+  L: [vertical_10] # left
+  R: [vertical_10] # right
+  E: [vertical_10] # end
+
+difficulty: 1

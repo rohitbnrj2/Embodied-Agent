@@ -96,6 +96,23 @@ class MjCambrianEnv(gym.Env):
 
         self._reward_fn = self._get_reward_fn(self.env_config.reward_fn_type)
 
+        if self.config.env_config.use_timestep:
+            self._timestep = self.model.opt.timestep * self.env_config.frame_skip
+            self.apply_timestep = lambda r : r / self._timestep
+        else:
+            self.apply_timestep = lambda r : r 
+
+        if self.config.env_config.use_action_penalty:
+            self.apply_action_penalty = lambda reward, action: \
+                reward - (self.config.env_config.action_penalty_weight * np.sum(np.square(action)))
+        else: 
+            self.apply_action_penalty = lambda reward, action: reward
+
+        if self.config.env_config.clip_reward:
+            self.clip_reward_range = lambda reward : np.clip(reward, *self.config.env_config.reward_clip_range)
+        else: 
+            self.clip_reward_range = lambda reward : reward
+
         # Used to store the optimal path for each animal in the maze
         # Each animal has a different start position so optimal path is different
         # Tuple[List, List] = [path, accumulated_path_lengths]
@@ -491,17 +508,17 @@ class MjCambrianEnv(gym.Env):
                 continue
 
             # Call reward_fn
-            rewards[name] = self._reward_fn(animal, info[name])
+            _r = self._reward_fn(animal, info[name])
+            _r = self.apply_timestep(_r)
+            _r = self.clip_reward_range(_r)
+            rewards[name] = self.apply_action_penalty(_r, info[name]["action"])
 
             # Add a penalty to the reward if the animal has contacts and 
             # truncate_on_contact is False. We'll assume that the truncation value 
             # corresponds correctly to whether contacts have been recorded, so no 
             # need to check the truncate
             if animal.has_contacts:
-                if self.env_config.force_exclusive_contact_penalty:
-                    reward[name] = self.env_config.contact_penalty
-                else:
-                    rewards[name] += self.env_config.contact_penalty
+                rewards[name] += self.apply_timestep(self.env_config.contact_penalty)
 
             # If we're using an adversarial target and we're at the adversary, then
             # give a reward of -1. We'll assume that the truncation value corresponds
@@ -806,7 +823,7 @@ class MjCambrianEnv(gym.Env):
         """This reward combines `reward_fn_delta_euclidean` and `reward_fn_sparse`."""
         delta_euclidean_reward = self._reward_fn_delta_euclidean(animal, info)
         return 1 if self._is_at_goal(animal) else delta_euclidean_reward
-
+    
     def _reward_fn_euclidean_delta_from_init(
         self,
         animal: MjCambrianAnimal,

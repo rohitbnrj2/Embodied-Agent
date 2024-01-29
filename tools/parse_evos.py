@@ -7,6 +7,7 @@ import pickle
 import os
 import yaml
 from dataclasses import dataclass, field
+from omegaconf import OmegaConf, DictConfig, Node
 
 import numpy as np
 import matplotlib as mpl
@@ -15,10 +16,20 @@ import matplotlib.ticker as tkr
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
+<<<<<<< HEAD
 from cambrian.utils import evaluate_policy
 from cambrian.utils.wrappers import make_single_env
 from cambrian.utils.config import MjCambrianConfig
 from cambrian.ml.model import MjCambrianModel
+=======
+from cambrian.evolution_envs.three_d.mujoco.config import (
+    MjCambrianConfig,
+    # convert_overrides_to_dict,
+)
+from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
+from cambrian.evolution_envs.three_d.mujoco.wrappers import make_single_env
+from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
+>>>>>>> 982cd42 (evo-aperture+bug-fixes)
 
 mpl.rcParams["image.cmap"] = "jet"
 
@@ -239,13 +250,11 @@ def plot(
             if (config := rank_data.config) is not None:
                 # Plot the rank-over-rank config data
                 def _config_plot(attr, *args, **kwargs):
-                    y = config.copy()
-                    for k in attr.split("."):
-                        if not hasattr(y, k):
-                            raise ValueError(
-                                f"Could not find {attr} in config ({rank_data.path})."
-                            )
-                        y = getattr(y, k)
+                    # TODO: (ktiwary) this can only plot floats right now
+                    if not (y := OmegaConf.select(OmegaConf.create(config), attr)):
+                        raise ValueError(
+                            f"Could not find {attr} in config ({rank_data.path})."
+                        )
                     y = np.average(np.abs(y)) if isinstance(y, list) else y
                     if not dry_run:
                         _plot(
@@ -256,7 +265,7 @@ def plot(
                             label=f"Rank {rank}",
                             title=attr,
                             xlabel="generation",
-                            ylabel=k,
+                            ylabel=attr.split(".")[-1].replace("_", " ").title(),
                             **kwargs,
                         )
                     data.accumulated_data.setdefault("config", dict())
@@ -264,10 +273,15 @@ def plot(
                     data.accumulated_data["config"][attr].setdefault(generation, [])
                     data.accumulated_data["config"][attr][generation].append(y)
 
-                _config_plot("animal_config.num_eyes_lat")
-                _config_plot("animal_config.num_eyes_lon")
-                _config_plot("animal_config.default_eye_config.fov")
-                _config_plot("animal_config.default_eye_config.resolution")
+                # _config_plot("animal_config.num_eyes_lat")
+                # _config_plot("animal_config.num_eyes_lon")
+                _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_open")
+                _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_radius")
+                # _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.fov")
+                # _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_1.aperture_open")
+                # _config_plot("evo_config.spawning_config.default_eye_config.aperture_open")
+                # _config_plot("evo_config.spawning_config.default_eye_config.fov")
+                # _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.resolution")
                 _config_plot("evo_config.generation_config.generation")
                 _config_plot("evo_config.generation_config.rank")
                 _config_plot("evo_config.parent_generation_config.rank")
@@ -314,12 +328,12 @@ def plot(
 
                     if not dry_run and (config := rank_data.config) is not None:
                         node = rank // config.evo_config.population_config.size
-                        num_eyes = (
-                            config.animal_config.num_eyes_lat
-                            * config.animal_config.num_eyes_lon
-                        )
-                        res = config.animal_config.default_eye_config.resolution
-                        num_pixels = res[0] * res[1]
+                        # num_eyes = (
+                        #     config.animal_config.num_eyes_lat
+                        #     * config.animal_config.num_eyes_lon
+                        # )
+                        # res = config.animal_config.default_eye_config.resolution
+                        # num_pixels = res[0] * res[1]
                         _plot(
                             generation,
                             t[-1],
@@ -330,21 +344,43 @@ def plot(
                             ylabel="walltime (min)",
                             override_use_legend=True,
                         )
+                        # _plot(
+                        #     generation,
+                        #     t[-1],
+                        #     RANK_FORMAT_MAP[num_eyes % len(RANK_FORMAT_MAP)],
+                        #     label=f"Num Eyes: {num_eyes}",
+                        #     title="monitor_walltime_by_eye",
+                        #     xlabel="generation",
+                        #     ylabel="walltime (min)",
+                        #     override_use_legend=True,
+                        # )
+                        # _plot(
+                        #     generation,
+                        #     t[-1],
+                        #     RANK_FORMAT_MAP[(num_pixels) % len(RANK_FORMAT_MAP)],
+                        #     label=f"Num Pixels: {num_pixels}",
+                        #     title="monitor_walltime_by_num_pixels",
+                        #     xlabel="generation",
+                        #     ylabel="walltime (min)",
+                        #     override_use_legend=True,
+                        # )
+                        aperture_open = config.evo_config.spawning_config.default_eye_config.aperture_open
                         _plot(
                             generation,
                             t[-1],
-                            RANK_FORMAT_MAP[num_eyes % len(RANK_FORMAT_MAP)],
-                            label=f"Num Eyes: {num_eyes}",
-                            title="monitor_walltime_by_eye",
+                            RANK_FORMAT_MAP[(aperture_open) % len(RANK_FORMAT_MAP)],
+                            label=f"Aperture Open Percentage: {aperture_open}",
+                            title="monitor_walltime_by_num_pixels",
                             xlabel="generation",
                             ylabel="walltime (min)",
                             override_use_legend=True,
                         )
+                        aperture_radius = config.evo_config.spawning_config.default_eye_config.aperture_radius
                         _plot(
                             generation,
                             t[-1],
-                            RANK_FORMAT_MAP[(num_pixels) % len(RANK_FORMAT_MAP)],
-                            label=f"Num Pixels: {num_pixels}",
+                            RANK_FORMAT_MAP[(aperture_radius) % len(RANK_FORMAT_MAP)],
+                            label=f"Aperture Open Percentage: {aperture_radius}",
                             title="monitor_walltime_by_num_pixels",
                             xlabel="generation",
                             ylabel="walltime (min)",
@@ -493,7 +529,8 @@ def main(args):
     evals_folder.mkdir(parents=True, exist_ok=True)
 
     if args.force or (data := try_load_pickle_data(folder)) is None:
-        data = load_data(folder, check_finished=not args.no_check_finished, overrides=convert_overrides_to_dict(args.overrides))
+        data = load_data(folder, check_finished=not args.no_check_finished, overrides=args.overrides)
+        # data = load_data(folder, check_finished=not args.no_check_finished, overrides=convert_overrides_to_dict(args.overrides))
 
         if not args.no_save:
             save_data(data, folder)

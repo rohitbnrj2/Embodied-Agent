@@ -568,34 +568,39 @@ class MjCambrianAnimal:
         ADD_EYE = auto()
         REMOVE_EYE = auto()
         EDIT_EYE = auto()
+        UPDATE_APERTURE = auto()
 
     @staticmethod
     def mutate(
         config: MjCambrianAnimalConfig,
         default_eye_config: MjCambrianEyeConfig,
         *,
-        mutations: Optional[MutationType] = None,
+        mutations: Optional[MutationType],
         verbose: int = 0,
     ) -> MjCambrianAnimalConfig:
         """Mutates the animal config."""
         if verbose > 1:
             print("Mutating animal...")
 
-        if not mutations:
-            # The mutation options are all the possible mutations
-            mutation_options = [
-                MjCambrianAnimal.MutationType[m] for m in config.mutation_options
-            ]
 
-            # Randomly select the number of mutations to perform with a skewed dist
-            # This will lean towards less total mutations generally
-            p = np.exp(-np.arange(len(mutation_options)))
-            num_of_mutations = np.random.choice(np.arange(1, len(p) + 1), p=p / p.sum())
-            mutations = np.random.choice(mutation_options, num_of_mutations, False)
-            mutations = reduce(lambda x, y: x | y, mutations)
+        # The mutation options are all the possible mutations
+        mutation_options = [
+            MjCambrianAnimal.MutationType[m] for m in mutations
+        ]
 
-            if verbose > 1:
-                print(f"Number of mutations: {num_of_mutations}")
+        # Randomly select the number of mutations to perform with a skewed dist
+        # This will lean towards less total mutations generally
+        p = np.exp(-np.arange(len(mutation_options)))
+        num_of_mutations = np.random.choice(np.arange(1, len(p) + 1), p=p / p.sum())
+        mutations = np.random.choice(mutation_options, num_of_mutations, False)
+        mutations = reduce(lambda x, y: x | y, mutations)
+
+        if not (len(mutation_options) > 0):
+            print("WARNING: No mutations specified. Returning original config.")
+            raise ValueError("No mutations specified.")
+
+        if verbose > 1:
+            print(f"Number of mutations: {num_of_mutations}")
 
         if verbose > 1:
             print(f"Mutations: {mutations}")
@@ -641,8 +646,31 @@ class MjCambrianAnimal:
             eye_config.resolution = edit(eye_config.resolution)
             eye_config.fov = edit(eye_config.fov)
 
+        if MjCambrianAnimal.MutationType.UPDATE_APERTURE in mutations:
+            verbose = 2
+            if verbose > 1:
+                print("Updating aperture.")
+            
+            # edit all eyes with the same aperture
+            allowed_apertures = np.array([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], dtype=np.float32)
+            aperture = np.random.choice(allowed_apertures)
+            if verbose > 1:
+                print("Updated all eyes with aperture: ", aperture)
+                for key in config.eye_configs.keys():
+                    print(f"aperture_open before: {config.eye_configs[key].aperture_open}")
+
+            # allowed_apertures = np.array([-0.2, 0.1])
+            # d_aperture = np.random.choice(allowed_apertures)
+            for key in config.eye_configs.keys():
+                config.eye_configs[key].aperture_open = aperture
+                # config.eye_configs[key].aperture_open += d_aperture
+                config.eye_configs[key].aperture_open = float(np.clip(config.eye_configs[key].aperture_open, 0.0, 1.0))
+
         if verbose > 2:
             print(f"Mutated animal: \n{config}")
+        if verbose > 1:
+            for key in config.eye_configs.keys():
+                print(f"aperture_open after: {config.eye_configs[key].aperture_open}")
 
         return config
 
