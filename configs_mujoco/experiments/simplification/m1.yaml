@@ -6,16 +6,4 @@ env_config:
     mode: CYCLE
   maze_configs:
     # Only statics for training
-    - I_MAZE_STATIC
-    - L_MAZE_STATIC
-    - U_MAZE_STATIC
-    - S_MAZE_STATIC
-  eval_maze_configs:
-    - I_MAZE_STATIC
-    - I_MAZE_DIVERSE
-    - L_MAZE_STATIC
-    - L_MAZE_DIVERSE
-    - U_MAZE_STATIC
-    - U_MAZE_DIVERSE
-    - S_MAZE_STATIC
-    - S_MAZE_DIVERSE
+    - Y_MAZE_STATIC

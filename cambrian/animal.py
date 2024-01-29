@@ -20,6 +20,7 @@ from cambrian.utils import (
     MjCambrianJoint,
     MjCambrianActuator,
     MjCambrianGeometry,
+    setattrs_temporary
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import MjCambrianAnimalConfig, MjCambrianEyeConfig
@@ -315,12 +316,24 @@ class MjCambrianAnimal:
 
     def apply_action(self, actions: List[float]):
         """Applies the action to the animal.
-        
+
         It is assumed that the actions are normalized between -1 and 1.
         """
+        if self.config.constant_actions:
+            assert len(actions) == self.config.constant_actions, (
+                f"Number of actions ({len(actions)}) does not match "
+                f"constant_actions ({self.config.constant_actions})."
+            )
+            actions = [
+                constant_action or action
+                for action, constant_action in zip(
+                    actions, self.config.constant_actions
+                )
+            ]
+
         for action, actuator in zip(actions, self._actuators):
-            # Interpolate from old range to -1, 1
-            action = -1 + 2 * (action - actuator.low) / actuator.ctrlrange
+            # Map from -1, 1 to ctrlrange
+            action = np.interp(action, [-1, 1], [actuator.low, actuator.high])
             self._data.ctrl[actuator.adr] = action
 
     def step(self) -> Dict[str, Any]:
@@ -347,7 +360,12 @@ class MjCambrianAnimal:
             obs[name] = np.array(self._eye_obs[name])
 
         if self.config.use_action_obs:
-            action: np.ndarray = self._data.ctrl[self._actadrs]
+            action: np.ndarray = self._data.ctrl[self._actadrs].copy()
+            # convert back to original range
+            for actuator, act in zip(self._actuators, action):
+                action[actuator.adr] = np.interp(
+                    act, [actuator.low, actuator.high], [-1, 1]
+                )
             obs["action"] = action.astype(np.float32)
 
         if self.config.use_init_pos_obs:
@@ -684,10 +702,10 @@ class MjCambrianAnimal:
         raise NotImplementedError("Crossover not implemented.")
 
 
-class MjCambrianAnimalPoint(MjCambrianAnimal):
+class MjCambrianPointAnimal(MjCambrianAnimal):
     """
-    This is a hardcoded class which implements the animal as actuated by a forward 
-    velocity and a rotational position. In mujoco, to the best of my knowledge, all 
+    This is a hardcoded class which implements the animal as actuated by a forward
+    velocity and a rotational position. In mujoco, to the best of my knowledge, all
     translational joints are actuated in reference to the _global_ frame rather than
     the local frame. This means a velocity actuator applied along the x-axis will move
     the agent along the global x-axis rather than the local x-axis. Therefore, the
@@ -696,7 +714,7 @@ class MjCambrianAnimalPoint(MjCambrianAnimal):
     this animal has two actuators: a forward velocity and a rotational position. We will
     calculate the global velocities and rotational position from these two "actuators".
 
-    TODO: Will create an issue on mujoco and see if it's possible to implement this 
+    TODO: Will create an issue on mujoco and see if it's possible to implement this
     in xml.
 
     NOTE: The action obs is still the global velocities and rotational position.
@@ -705,16 +723,38 @@ class MjCambrianAnimalPoint(MjCambrianAnimal):
     def apply_action(self, action: List[float]):
         """This differs from the base implementation as action only has two elements,
         but the model has three actuators. Calculate the global velocities here."""
-        assert len(action) == 2, "Action must have two elements."
+        assert len(action) == 2, f"Action must have two elements, got {len(action)}."
 
-        v, theta = action
-        vx, vy = v * np.cos(theta), v * np.sin(theta)
-        super().apply_action([vx, vy, theta])
+        # Apply the constant actions if they exist
+        if self.config.constant_actions:
+            assert len(action) == 2, (
+                f"Number of actions ({len(action)}) does not match "
+                f"constant_actions ({self.config.constant_actions})."
+            )
+            action = [
+                constant_action or action
+                for action, constant_action in zip(
+                    action, self.config.constant_actions
+                )
+            ]
+
+
+        # Calculate the global velocities
+        theta = self._data.qpos[self._joint_qposadr + 2]
+        v = action[0] * np.array([np.cos(theta), np.sin(theta)])
+        action = [*v, action[1]]
+
+        # Update the constant actions to be None so that they're not applied again
+        with setattrs_temporary((self.config, dict(constant_actions=None))):
+            super().apply_action(action)
 
     @property
     def action_space(self) -> spaces.Space:
         """Overrides the base implementation to only have two elements."""
-        return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
+        low = np.array([0, -1])
+        high = np.array([1, 1])
+        return spaces.Box(low, high, dtype=np.float32)
+
 
 if __name__ == "__main__":
     import time

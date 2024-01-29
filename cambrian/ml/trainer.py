@@ -53,22 +53,26 @@ class MjCambrianTrainer:
         """Train the animal."""
         self.config.save(self.logdir / "config.yaml")
 
+        # Setup the environment, model, and callbacks
         env = self._make_env(self.config.training_config.n_envs)
         eval_env = self._make_env(1, use_monitor=False)
         callback = self._make_callback(env, eval_env)
         model = self._make_model(env)
 
+        # Start training
         total_timesteps = self.config.training_config.total_timesteps
         model.learn(total_timesteps=total_timesteps, callback=callback)
         if self.verbose > 1:
             print("Finished training the animal...")
 
+        # Save the policy
         if self.verbose > 1:
             print(f"Saving model to {self.logdir}...")
         model.save_policy(self.logdir)
         if self.verbose > 1:
             print(f"Saved model to {self.logdir}...")
 
+        # The finished file indicates to the evo script that the animal is done
         Path(self.logdir / "finished").touch()
 
     def eval(self, record: bool = False):

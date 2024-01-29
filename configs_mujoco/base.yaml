@@ -1,6 +1,6 @@
 training_config:
-  logdir: logs-mujoco/
-  exp_name: ${..filename}
+  logdir: logs-mujoco/${now:%Y-%m-%d}/
+  exp_name: ${filename}
   checkpoint_path: null # Will train from scratch if unset
   policy_path: null # Will train from scratch if unset
 
@@ -46,7 +46,7 @@ env_config:
   overlay_width: 0.5
   overlay_height: 0.35
   contact_penalty: -1.0
-  force_exclusive_contact_penalty: False
+  force_exclusive_contact_penalty: True
   adversary_penalty: -1.0
   reward_at_goal: 1.0
   renderer_config:
@@ -66,6 +66,7 @@ env_config:
       extend: ${extend:${include:configs_mujoco/mazes/train/G_MAZE_DIVERSE.yaml}}
     M_MAZE_DIVERSE:
       extend: ${extend:${include:configs_mujoco/mazes/train/M_MAZE_DIVERSE.yaml}}
+  compute_optimal_path: False
 
 evo_config:
   max_n_envs: 10
@@ -89,7 +90,7 @@ evo_config:
       use_action_obs: True
       use_init_pos_obs: False
       use_current_pos_obs: False
-      n_temporal_obs: 10
+      n_temporal_obs: 1
 
       disable_intensity_sensor: False
       intensity_sensor_config:
@@ -105,7 +106,7 @@ evo_config:
 
         aperture_open: 1.0
         aperture_radius: 1
-        wavelengths: ["${eval:'610.0 * 1e-9'}", "${eval:'530.0 * 1e-9'}", "${eval:'470.0 * 1e-9'}"]
+        wavelengths: [610e-9, 530e-9, 470e-9]
         depth_bins: 11
 
         load_height_mask_from_file: False
@@ -134,7 +135,7 @@ evo_config:
 
       aperture_open: 1.0
       aperture_radius: 1
-      wavelengths: ["${eval:'610.0 * 1e-9'}", "${eval:'530.0 * 1e-9'}", "${eval:'470.0 * 1e-9'}"]
+      wavelengths: [610e-9, 530e-9, 470e-9]
       depth_bins: 11
 
       load_height_mask_from_file: False

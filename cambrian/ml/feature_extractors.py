@@ -140,7 +140,7 @@ class MjCambrianNatureCNN(BaseFeaturesExtractor):
         T = observations.shape[1]
         encoding_list = [] # [B, self.features_dim, T]
         for t in range(T):
-            obs_ = observations[:, t, :, :, :].permute(0, 3, 1, 2) / 255.
+            obs_ = observations[:, t, :, :, :].permute(0, 3, 1, 2)
             encoding = self.linear(self.cnn(obs_))
             encoding_list.append(encoding)
         # output should be of shape [B, self.features_dim]

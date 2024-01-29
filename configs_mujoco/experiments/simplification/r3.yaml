@@ -1,6 +1,6 @@
 extend:
   mazes: ${extend:${include:configs_mujoco/experiments/simplification/m1.yaml}}
-  base: ${extend:${include:configs_mujoco/experiments/simplification/base.yaml}}
+  exp: ${extend:${include:configs_mujoco/experiments/simplification/exp.yaml}}
 
 env_config:
   use_ambient_light: True

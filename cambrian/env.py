@@ -8,7 +8,7 @@ import mujoco as mj
 from gymnasium import spaces
 from stable_baselines3.common.utils import set_random_seed
 
-from cambrian.animal import MjCambrianAnimal, MjCambrianAnimalPoint
+from cambrian.animal import MjCambrianAnimal, MjCambrianPointAnimal
 from cambrian.maze import MjCambrianMaze
 from cambrian.utils import get_include_path
 from cambrian.utils.config import MjCambrianConfig, MjCambrianEnvConfig
@@ -136,11 +136,11 @@ class MjCambrianEnv(gym.Env):
             - parse the geometry and place eyes at the appropriate locations
             - create the action/observation spaces
 
-        TODO: Hardcoded to use MjCambrianAnimalPoint for now!!
+        TODO: Hardcoded to use MjCambrianPointAnimal for now!!
         """
         for animal_config in self.env_config.animal_configs.values():
             assert animal_config.name not in self.animals
-            self.animals[animal_config.name] = MjCambrianAnimalPoint(animal_config)
+            self.animals[animal_config.name] = MjCambrianPointAnimal(animal_config)
 
     def _create_mazes(self):
         """Helper method to create the mazes.
@@ -281,9 +281,10 @@ class MjCambrianEnv(gym.Env):
             if self.env_config.use_goal_obs:
                 obs[name]["goal"] = self.maze.goal.copy()
 
-            path = self.maze.compute_optimal_path(animal.pos, self.maze.goal)
-            accum_path_len = np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))
-            self._optimal_animal_paths[name] = (path, accum_path_len)
+            if self.env_config.compute_optimal_path:
+                path = self.maze.compute_optimal_path(animal.pos, self.maze.goal)
+                accum_path_len = np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))
+                self._optimal_animal_paths[name] = (path, accum_path_len)
 
             info[name]["pos"] = animal.pos
 
@@ -304,7 +305,10 @@ class MjCambrianEnv(gym.Env):
             if self.renderer.config.camera_config.lookat is None:
                 self.renderer.viewer.camera.lookat[:] = self.maze.lookat
             if self.renderer.config.camera_config.distance is None:
-                distance = self.renderer.ratio * self.maze.min_dim
+                if self.maze.ratio < 2:
+                    distance = self.renderer.ratio * self.maze.min_dim
+                else:
+                    distance = self.maze.max_dim / self.renderer.ratio
                 self.renderer.viewer.camera.distance = distance
 
             self.renderer.reset(self.model, self.data)
@@ -316,7 +320,7 @@ class MjCambrianEnv(gym.Env):
             self._overlays.clear()
             self._rollout.clear()
 
-        if self.config.env_config.add_overlays:
+        if self.env_config.add_overlays:
             self._overlays["Exp"] = self.config.training_config.exp_name
 
         return obs, info
@@ -426,8 +430,10 @@ class MjCambrianEnv(gym.Env):
             animal.apply_action(action[name])
             info[name]["prev_pos"] = animal.pos
 
+        # Then, step the mujooc simulation
         self._step_mujoco_simulation(self.env_config.frame_skip)
 
+        # We'll then step each animal to render it's current state and get the obs
         obs: Dict[str, Any] = {}
         for name, animal in self.animals.items():
             obs[name] = animal.step()
@@ -449,9 +455,9 @@ class MjCambrianEnv(gym.Env):
         self._num_timesteps += 1
         self._cumulative_reward += sum(reward.values())
 
-        if self.config.env_config.add_overlays:
+        if self.env_config.add_overlays:
             self._overlays["Step"] = self._episode_step
-            self._overlays["Cumulative Reward"] = self._cumulative_reward
+            self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
 
         if self.record:
             self._rollout.setdefault("actions", [])
@@ -590,7 +596,7 @@ class MjCambrianEnv(gym.Env):
                 cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
                 overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
 
-        if not self.config.env_config.add_overlays:
+        if not self.env_config.add_overlays:
             return self.renderer.render(overlays=overlays)
 
         cursor = MjCambrianCursor(0, 0)
@@ -604,10 +610,10 @@ class MjCambrianEnv(gym.Env):
             composite = animal.create_composite_image()
             if composite is None:
                 # Make the composite image black so we can still render other overlays
-                composite = np.zeros((*overlay_size, 3), dtype=np.uint8)
+                composite = np.zeros((*overlay_size, 3), dtype=np.float32)
             if animal.config.disable_intensity_sensor:
                 # Make the intensity image black so we can still render other overlays
-                intensity = np.zeros(composite.shape, dtype=np.uint8)
+                intensity = np.zeros(composite.shape, dtype=np.float32)
             else:
                 intensity = animal.intensity_sensor.last_obs
 
@@ -617,7 +623,7 @@ class MjCambrianEnv(gym.Env):
             new_composite = np.flipud(resize_with_aspect_fill(composite, *overlay_size))
             new_intensity = np.flipud(resize_with_aspect_fill(intensity, *overlay_size))
 
-            overlays.append(MjCambrianImageViewerOverlay(new_composite, cursor))
+            overlays.append(MjCambrianImageViewerOverlay(new_composite * 255., cursor))
 
             cursor.x -= TEXT_MARGIN
             cursor.y -= TEXT_MARGIN
@@ -637,7 +643,7 @@ class MjCambrianEnv(gym.Env):
             cursor.x += overlay_width
             cursor.y = 0
 
-            overlays.append(MjCambrianImageViewerOverlay(new_intensity, cursor))
+            overlays.append(MjCambrianImageViewerOverlay(new_intensity * 255., cursor))
             if not animal.config.disable_intensity_sensor:
                 overlay_text = str(intensity.shape[:2])
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
@@ -788,7 +794,7 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_euclidean(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """Rewards the euclidean distance to the goal."""
         current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
@@ -798,7 +804,7 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_euclidean_and_at_goal(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """This reward combines `reward_fn_euclidean` and `reward_fn_sparse`."""
         euclidean_reward = self._reward_fn_euclidean(animal, info)
@@ -807,17 +813,15 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_delta_euclidean(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """Rewards the change in distance to the goal from the previous step."""
-        current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
-        previous_distance_to_goal = np.linalg.norm(info["prev_pos"] - self.maze.goal)
-        return (previous_distance_to_goal - current_distance_to_goal)
+        return -self._calc_delta_pos(animal, info, self.maze.goal)
 
     def _reward_fn_delta_euclidean_and_at_goal(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """This reward combines `reward_fn_delta_euclidean` and `reward_fn_sparse`."""
         delta_euclidean_reward = self._reward_fn_delta_euclidean(animal, info)
@@ -826,32 +830,28 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_euclidean_delta_from_init(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """
-        Rewards the change in distance over the previos step scaled by the timestep.
+        Rewards the change in distance over the previous step scaled by the timestep.
         """
-        distance_from_start = np.linalg.norm(animal.pos - animal.init_pos)
-        prev_distance_from_start = np.linalg.norm(info["prev_pos"] - animal.init_pos)
-        return (distance_from_start - prev_distance_from_start) 
+        return self._calc_delta_pos(animal, info, animal.init_pos)
 
     def _reward_fn_delta_euclidean_w_movement(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """Same as delta_euclidean, but also rewards movement away from the initial
         position"""
-        current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
-        previous_distance_to_goal = np.linalg.norm(info["prev_pos"] - self.maze.goal)
-        delta_distance_to_goal = current_distance_to_goal - previous_distance_to_goal
+        delta_distance_to_goal = self._calc_delta_pos(animal, info, self.maze.goal)
         delta_distance_from_init = np.linalg.norm(animal.init_pos - animal.pos)
         return np.clip(delta_distance_to_goal + delta_distance_from_init, 0, 1)
 
     def _reward_fn_distance_along_path(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """Rewards the distance along the optimal path to the goal."""
         path, accum_path_len = self._optimal_animal_paths[animal.name]
@@ -861,7 +861,7 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_delta_distance_along_path(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """Rewards the distance along the optimal path to the goal."""
         path, accum_path_len = self._optimal_animal_paths[animal.name]
@@ -872,7 +872,7 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_intensity_sensor(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """The reward is the grayscaled intensity of the a intensity sensor taken to
         the power of some gamma value multiplied by a
@@ -893,7 +893,7 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_intensity_and_velocity(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """This reward combines `reward_fn_intensity_sensor` and
         `reward_fn_delta_euclidean`."""
@@ -904,7 +904,7 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_intensity_euclidean_and_at_goal(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """This reward combines `reward_fn_intensity_sensor`,
         `reward_fn_euclidean`, and `reward_fn_sparse`."""
@@ -916,7 +916,7 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_energy_per_step_and_at_goal(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """This reward combines `reward_fn_energy_per_step` and `reward_fn_intensity_sensor`."""
         if self._num_resets == 1:
@@ -934,7 +934,7 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_intensity_and_at_goal(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """The reward is the intensity whenever the animal is outside some threshold
         in terms of euclidean distance to the goal. But if it's within this threshold,
@@ -945,7 +945,7 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_intensity_and_euclidean(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """This reward combines `reward_fn_intensity_sensor` and
         `reward_fn_euclidean`."""
@@ -956,10 +956,23 @@ class MjCambrianEnv(gym.Env):
     def _reward_fn_sparse(
         self,
         animal: MjCambrianAnimal,
-        info: bool,
+        info: Dict[str, Any],
     ) -> float:
         """This reward is 1 if the animal is at the goal, -0.1 otherwise."""
         return 1 if self._is_at_goal(animal) else -0.1
+
+    # Helpers
+
+    def _calc_delta_pos(self, animal: MjCambrianAnimal, info: Dict[str, Any], point: Optional[np.ndarray] = None) -> np.ndarray:
+        """Calculates the delta position of the animal.
+        
+        NOTE: returns delta position of current pos from prev pos (i.e. current - prev)
+        """
+        if point is None:
+            point = np.array([0, 0])
+        current_distance = np.linalg.norm(animal.pos - point)
+        prev_distance = np.linalg.norm(info["prev_pos"] - point)
+        return current_distance - prev_distance
 
 
 def make_single_env(
@@ -1025,6 +1038,11 @@ if __name__ == "__main__":
     env.reset(seed=config.training_config.seed)
     # env.xml.write("test.xml")
 
+    action = {
+        name: np.zeros_like(animal.action_space.sample())
+        for name, animal in env.animals.items()
+    }
+
     print("Running...")
     if args.mj_viewer:
         import mujoco.viewer
@@ -1033,7 +1051,7 @@ if __name__ == "__main__":
             env.model, env.data  # , show_left_ui=False, show_right_ui=False
         ) as viewer:
             while viewer.is_running():
-                mj.mj_step(env.model, env.data)
+                env.step(action)
                 viewer.sync()
     else:
         record_composites = False
@@ -1046,14 +1064,20 @@ if __name__ == "__main__":
                 record_composites = True
                 composites = {k: [] for k in env.animals}
 
-        action = {
-            name: np.zeros_like(animal.action_space.sample())
-            for name, animal in env.animals.items()
+        action_map = {
+            0: np.array([0, -0.5]),
+            10: np.array([1, -0.5])
         }
+
 
         t0 = time.time()
         step = 0
         while env.renderer.is_running() and step < args.total_timesteps:
+            if step in action_map:
+                action = {
+                    name: action_map[step] for name, animal in env.animals.items()
+                }
+
             _, reward, _, _, _ = env.step(action)
             env.overlays["Step Reward"] = f"{reward['animal_0']:.2f}"
 

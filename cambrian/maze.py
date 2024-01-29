@@ -560,6 +560,11 @@ class MjCambrianMaze:
         return min(self.map_length_scaled, self.map_width_scaled)
 
     @property
+    def ratio(self) -> float:
+        """Returns the ratio."""
+        return self.map_length_scaled / self.map_width_scaled
+
+    @property
     def x_map_center(self) -> float:
         """Returns the x map center."""
         return self.map_width_scaled / 2 + self._x_center

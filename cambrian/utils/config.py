@@ -36,6 +36,14 @@ def clear_resolvers():
 
 register_new_resolver(eval)
 
+@register_new_resolver(use_cache=True)
+def now(pattern: str) -> str:
+    """Returns the current time in the given pattern. The pattern is the same as
+    strftime. See https://strftime.org/ for more info."""
+    from datetime import datetime
+    return datetime.now().strftime(pattern)
+
+
 @register_new_resolver
 def extend(
     interpolation: DictConfig,
@@ -262,6 +270,10 @@ class MjCambrianBaseConfig:
     def get(self, key: str, default: Any = None) -> Any:
         """Get the value of the key. Like `dict.get`."""
         return getattr(self, key, default)
+
+    def select(self, key: str) -> Any:
+        """Select the value of the key."""
+        return OmegaConf.select(OmegaConf.create(self), key)
 
     def __contains__(self: T, key: str) -> bool:
         """Check if the dataclass contains a key with the given name."""
@@ -721,6 +733,16 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             not.
         n_temporal_obs (int): The number of temporal observations to use.
 
+        constant_actions (Optional[List[float | None]]): The constant velocity to use for 
+            the animal. If not None, the len(constant_actions) must equal number of 
+            actuators defined in the model. For instance, if there are 3 actuators
+            defined and it's desired to have the 2nd actuator be constant, then
+            constant_actions = [None, 0, None]. If None, no constant action will be
+            applied.
+
+        mutation_options (List[str]): The mutation options to use for the animal. See
+            `MjCambrianAnimal.MutationType` for options.
+
         eye_configs (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
             The key will be used as the default name for the eye, unless explicitly
             set in the eye config.
@@ -741,6 +763,10 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     use_init_pos_obs: bool
     use_current_pos_obs: bool
     n_temporal_obs: int
+
+    constant_actions: Optional[List[float | None]] = None
+
+    mutation_options: List[str]
 
     eye_configs: Dict[str, MjCambrianEyeConfig] = field(default_factory=dict)
 
@@ -820,6 +846,9 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         eval_maze_configs (Optional[Dict[str, MjCambrianMazeConfig]]): The
             configs for the evaluation mazes. If unset, the one evaluation maze will
             be chosen using the maze selection criteria.
+        compute_optimal_path (bool): Whether to compute the optimal path or not. 
+            Improves performance if set to False. Should be true if the optimal path
+            is needed for the reward fn.
 
         animal_configs (Dict[str, MjCambrianAnimalConfig]): The configs for the animals.
             The key will be used as the default name for the animal, unless explicitly
@@ -910,6 +939,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     maze_configs: List[str]
     eval_maze_configs: Optional[List[str]] = None
     maze_configs_store: Dict[str, MjCambrianMazeConfig]
+    compute_optimal_path: bool
 
     animal_configs: Dict[str, MjCambrianAnimalConfig] = field(default_factory=dict)
 
