@@ -810,10 +810,9 @@ class MjCambrianEnv(gym.Env):
         info: bool,
     ) -> float:
         """Rewards the change in distance to the goal from the previous step."""
-        timestep = self.model.opt.timestep * self.env_config.frame_skip
         current_distance_to_goal = np.linalg.norm(animal.pos - self.maze.goal)
         previous_distance_to_goal = np.linalg.norm(info["prev_pos"] - self.maze.goal)
-        return (previous_distance_to_goal - current_distance_to_goal) / timestep
+        return (previous_distance_to_goal - current_distance_to_goal)
 
     def _reward_fn_delta_euclidean_and_at_goal(
         self,
@@ -832,7 +831,6 @@ class MjCambrianEnv(gym.Env):
         """
         Rewards the change in distance over the previos step scaled by the timestep.
         """
-        timestep = self.model.opt.timestep * self.env_config.frame_skip
         distance_from_start = np.linalg.norm(animal.pos - animal.init_pos)
         prev_distance_from_start = np.linalg.norm(info["prev_pos"] - animal.init_pos)
         return (distance_from_start - prev_distance_from_start) / timestep
