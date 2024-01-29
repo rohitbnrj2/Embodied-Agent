@@ -4,9 +4,9 @@ import torch
 
 from scipy import signal
 
-from cambrian.utils import (
-    MjCambrianEyeConfig
-)
+# from cambrian.eye import MjCambrianEye
+from cambrian.utils.config import MjCambrianEyeConfig
+
 
 def prep_buffer(x):
     if isinstance(x, np.ndarray):

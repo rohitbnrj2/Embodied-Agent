@@ -16,20 +16,10 @@ import matplotlib.ticker as tkr
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-<<<<<<< HEAD
 from cambrian.utils import evaluate_policy
 from cambrian.utils.wrappers import make_single_env
 from cambrian.utils.config import MjCambrianConfig
 from cambrian.ml.model import MjCambrianModel
-=======
-from cambrian.evolution_envs.three_d.mujoco.config import (
-    MjCambrianConfig,
-    # convert_overrides_to_dict,
-)
-from cambrian.evolution_envs.three_d.mujoco.model import MjCambrianModel
-from cambrian.evolution_envs.three_d.mujoco.wrappers import make_single_env
-from cambrian.evolution_envs.three_d.mujoco.utils import evaluate_policy
->>>>>>> 982cd42 (evo-aperture+bug-fixes)
 
 mpl.rcParams["image.cmap"] = "jet"
 
@@ -483,7 +473,7 @@ def eval(
         env = DummyVecEnv([make_single_env(config, config.training_config.seed)])
 
         import sys
-        from cambrian.evolution_envs.three_d.mujoco import feature_extractors
+        from cambrian.ml import feature_extractors
 
         sys.modules["feature_extractors"] = feature_extractors
         model = MjCambrianModel.load(logdir / config.training_config.checkpoint_path)

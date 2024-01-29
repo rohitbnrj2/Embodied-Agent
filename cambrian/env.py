@@ -833,7 +833,7 @@ class MjCambrianEnv(gym.Env):
         """
         distance_from_start = np.linalg.norm(animal.pos - animal.init_pos)
         prev_distance_from_start = np.linalg.norm(info["prev_pos"] - animal.init_pos)
-        return (distance_from_start - prev_distance_from_start) / timestep
+        return (distance_from_start - prev_distance_from_start) 
 
     def _reward_fn_delta_euclidean_w_movement(
         self,
