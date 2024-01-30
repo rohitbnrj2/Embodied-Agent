@@ -18,6 +18,6 @@
     <!-- These are just dummy actuators for providing ranges -->
     <velocity name="act_x_${..name}" joint="ball_x_${..name}" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100"/>
     <velocity name="act_y_${..name}" joint="ball_y_${..name}" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100"/>
-    <position name="act_z_${..name}" joint="ball_z_${..name}" ctrlrange="-3.14 3.14" ctrllimited="true" gear="10"/>
+    <position name="act_z_${..name}" joint="ball_z_${..name}" ctrlrange="-3.14 3.14" ctrllimited="true" gear="1"/>
   </actuator>
 </mujoco>

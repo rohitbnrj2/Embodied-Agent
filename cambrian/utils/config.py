@@ -559,7 +559,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
         fov (Tuple[float, float]): Independent of the `fovy` field in the MJCF
             xml. Used to calculate the sensorsize field. Specified in degrees. Mutually
             exclusive with `fovy`. If `focal` is unset, it is set to 1, 1. Will override
-            `sensorsize`, if set.
+            `sensorsize`, if set. Fmt: fovx fovy.
         coord (Optional[Tuple[float, float]]): The x and y coordinates of the eye.
             This is used to determine the placement of the eye on the animal.
             Specified in degrees. Mutually exclusive with `pos` and `quat`. This attr

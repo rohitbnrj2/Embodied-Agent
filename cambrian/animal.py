@@ -600,12 +600,7 @@ class MjCambrianAnimal:
         if verbose > 1:
             print("Mutating animal...")
 
-        if mutation_options:
-            mutation_options = [MjCambrianAnimal.MutationType[m] for m in mutations]
-        else:
-            # The mutation options are all the possible mutations
-            # mutation_options = list(MjCambrianAnimal.MutationType)
-            raise ValueError("No mutation options specified.")
+        mutation_options = [MjCambrianAnimal.MutationType[m] for m in mutations]
 
         # Randomly select the number of mutations to perform with a skewed dist
         # This will lean towards less total mutations generally
@@ -737,10 +732,12 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
                 for action, constant_action in zip(action, self.config.constant_actions)
             ]
 
+        # map the v action to be between 0 and 1
+        v = np.interp(action[0], [-1, 1], [0, 1])
+
         # Calculate the global velocities
         theta = self._data.qpos[self._joint_qposadr + 2]
-        v = action[0] * np.array([np.cos(theta), np.sin(theta)])
-        action = [*v, action[1]]
+        action = [v * np.cos(theta), v * np.sin(theta), action[1]]
 
         # Update the constant actions to be None so that they're not applied again
         with setattrs_temporary((self.config, dict(constant_actions=None))):
@@ -749,9 +746,7 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
     @property
     def action_space(self) -> spaces.Space:
         """Overrides the base implementation to only have two elements."""
-        low = np.array([0, -1])
-        high = np.array([1, 1])
-        return spaces.Box(low, high, dtype=np.float32)
+        return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
 
 
 if __name__ == "__main__":
