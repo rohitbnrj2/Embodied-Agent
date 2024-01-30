@@ -1,0 +1,2 @@
+extend:
+  base: ${extend:${include:configs/experiments/point_2eyes_10x1.yaml}}

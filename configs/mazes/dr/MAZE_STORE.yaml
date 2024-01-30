@@ -1,0 +1,111 @@
+maze_configs_store:
+  BASE:
+    extend: 
+      base: ${extend:${include:configs/mazes/maze.yaml}}
+    wall_texture_map:
+      default: [vertical_10]
+      L: [vertical_10] # left
+      R: [vertical_10] # right
+      E: [vertical_10] # end
+  I_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/I_MAZE_STATIC.yaml}}
+  I_MAZE_INVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/I_MAZE_INVERSE.yaml}}
+    ref: I_MAZE_STATIC
+  I_MAZE_STATIC_SWITCH:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/I_MAZE_STATIC_SWITCH.yaml}}
+  I_MAZE_DIVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/I_MAZE_DIVERSE.yaml}}
+    ref: I_MAZE_STATIC
+  L_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/L_MAZE_STATIC.yaml}}
+  L_MAZE_CHOICE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/L_MAZE_CHOICE.yaml}}
+    ref: L_MAZE_STATIC
+  L_MAZE_INVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/L_MAZE_INVERSE.yaml}}
+    ref: L_MAZE_STATIC
+  L_MAZE_DIVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/L_MAZE_DIVERSE.yaml}}
+    ref: L_MAZE_STATIC
+  U_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/U_MAZE_STATIC.yaml}}
+  U_MAZE_INVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/U_MAZE_INVERSE.yaml}}
+    ref: U_MAZE_STATIC
+  U_MAZE_DIVERSE:
+    extend:
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/U_MAZE_DIVERSE.yaml}}
+    ref: U_MAZE_STATIC
+  S_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/S_MAZE_STATIC.yaml}}
+  S_MAZE_VARIABLE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/S_MAZE_VARIABLE.yaml}}
+    ref: S_MAZE_STATIC
+  S_MAZE_INVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/S_MAZE_INVERSE.yaml}}
+    ref: S_MAZE_STATIC
+  S_MAZE_DIVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/S_MAZE_DIVERSE.yaml}}
+    ref: S_MAZE_STATIC
+  X_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/X_MAZE_STATIC.yaml}}
+  X_MAZE_CHOICE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/X_MAZE_CHOICE.yaml}}
+    ref: X_MAZE_STATIC
+  Y_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/Y_MAZE_STATIC.yaml}}
+  Y_MAZE_CHOICE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/Y_MAZE_CHOICE.yaml}}
+    ref: Y_MAZE_STATIC
+  Y_MAZE_CHOICE_FLIPPED:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/Y_MAZE_CHOICE_FLIPPED.yaml}}
+  Y_MAZE_OPTION:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/Y_MAZE_OPTION.yaml}}
+    ref: Y_MAZE_STATIC
+  Y_MAZE_DIVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/Y_MAZE_DIVERSE.yaml}}
+    ref: Y_MAZE_STATIC

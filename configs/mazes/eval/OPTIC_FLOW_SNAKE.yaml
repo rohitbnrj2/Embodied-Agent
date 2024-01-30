@@ -1,0 +1,27 @@
+extend: ${extend:${include:configs/mazes/maze.yaml}}
+map: [
+  [1, 1, 1, 1, 1, 1, 1],
+  [1, R, 0, 0, 0, 0, 1],
+  [1, R, 0, 0, 0, 0, 1],
+  [1, 1, 1, 1, 0, 0, 1],
+  [1, 1, 1, 1, 0, 0, 1],
+  [1, T, T, 0, 0, 0, 1],
+  [1, T, T, 0, 0, 0, 1],
+  [1, 0, 0, 1, 1, 1, 1],
+  [1, 0, 0, 1, 1, 1, 1],
+  [1, T, T, 0, 0, 0, 1],
+  [1, 0, 0, 0, 0, 0, 1],
+  [1, 1, 1, 1, T, T, 1],
+  [1, 1, 1, 1, T, T, 1],
+  [1, 0, T, 0, 0, 0, 1],
+  [1, 0, T, 0, 0, 0, 1],
+  [1, 0, 0, 1, 1, 1, 1],
+  [1, 0, 0, 1, 1, 1, 1],
+  [1, T, T, T, T, T, 1],
+  [1, T, T, T, T, T, 1],
+  [1, 1, 1, 1, 1, 1, 1],
+]
+difficulty: 10
+
+# add attentuation here so that the light reaches the start
+# might have to move the light source furhter away once it reaches/have many others in the scene (dies after reaching one)

@@ -331,11 +331,15 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig):
         n_envs (int): The number of environments to use for training.
 
         eval_freq (int): The frequency at which to evaluate the model.
-        reward_threshold (float): The reward threshold at which to stop training.
+        no_improvement_reward_threshold (float): The reward threshold at which to stop 
+            training.
         max_no_improvement_evals (int): The maximum number of evals to take without
             improvement before stopping training.
         min_no_improvement_evals (int): The minimum number of evaluations to perform
             before stopping training if max_no_improvement_steps is reached.
+
+        features_extractor_activation (str): The activation function to use for the
+            features extractor.
 
         seed (int): The seed to use for training.
         verbose (int): The verbosity level for the training process.
@@ -357,9 +361,11 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig):
     n_envs: int
 
     eval_freq: int
-    reward_threshold: float
+    no_improvement_reward_threshold: float
     max_no_improvement_evals: int
     min_no_improvement_evals: int
+
+    features_extractor_activation: str
 
     seed: int
     verbose: int
@@ -511,6 +517,10 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
 
         camera_config (Optional[MjCambrianCameraConfig]): The camera config to use for
             the renderer.
+        scene_options (Optional[Dict[str, Any]]): The scene options to use for the 
+            renderer. Keys are the name of the option as defined in MjvOption. For 
+            array options (like `flags`), the value should be another dict where the 
+            keys are the indices/mujoco enum keys and the values are the values to set.
 
         use_shared_context (bool): Whether to use a shared context or not.
             If True, the renderer will share a context with other renderers. This is
@@ -529,6 +539,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
     fullscreen: Optional[bool] = None
 
     camera_config: Optional[MjCambrianCameraConfig] = None
+    scene_options: Optional[Dict[str, Any]] = None
 
     use_shared_context: bool
 

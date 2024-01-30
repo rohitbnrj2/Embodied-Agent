@@ -1,0 +1,9 @@
+extend: ${extend:${include:configs/mazes/maze.yaml}}
+map: [
+    [1:L, 1:L, 1:L, 1:L, 1:L],
+    [1:R,   T,   0,   0, 1:L],
+    [1:R, 1:R, 1:R,   0, 1:L],
+    [1:R,   R,   0,   0, 1:L],
+    [1:L, 1:L, 1:L, 1:L, 1:L],
+  ]
+difficulty: 7.5

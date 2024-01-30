@@ -1,0 +1,33 @@
+extend: ${extend:${include:configs/mazes/maze.yaml}}
+map: [
+    [1:L, 1:E, 1:E],
+    [1:L,   R, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:K,   0, 1:R],
+    [1:K,   0, 1:R],
+    [1:K,   0, 1:R],
+    [1:K,   0, 1:R],
+    [1:K,   0, 1:R],
+    [1:K,   0, 1:R],
+    [1:K,   0, 1:R],
+    [1:K,   0, 1:R],
+    [1:L,   0, 1:K],
+    [1:L,   0, 1:K],
+    [1:L,   0, 1:K],
+    [1:L,   0, 1:K],
+    [1:L,   0, 1:K],
+    [1:L,   T, 1:K],
+    [1:L, 1:E, 1:L],
+  ]
+
+wall_texture_map:
+  K: [vertical_10] # key
+  L: [vertical_40] # left
+  R: [vertical_40] # right
+  E: [vertical_10] # end
+
+difficulty: 1

@@ -10,6 +10,7 @@ from stable_baselines3.common.callbacks import (
     BaseCallback,
     EvalCallback,
     StopTrainingOnNoModelImprovement,
+    StopTrainingOnRewardThreshold,
     CallbackList,
 )
 from stable_baselines3.common.utils import set_random_seed
@@ -130,20 +131,26 @@ class MjCambrianTrainer:
                 settings. This is provided by Stable Baselines.
         """
         callbacks_on_new_best = []
-        # callbacks_on_new_best.append(
-        #     SaveVideoCallback(
-        #         eval_env,
-        #         self.logdir,
-        #         self.config.training_config.max_episode_steps,
-        #         verbose=self.verbose,
-        #     )
-        # )
+        callbacks_on_new_best.append(
+            SaveVideoCallback(
+                eval_env,
+                self.logdir,
+                self.config.training_config.max_episode_steps,
+                verbose=self.verbose,
+            )
+        )
         callbacks_on_new_best.append(
             StopTrainingOnNoModelImprovement(
                 self.config.training_config.max_no_improvement_evals,
                 self.config.training_config.min_no_improvement_evals,
                 verbose=self.verbose,
             )
+        )
+        callbacks_on_new_best.append(
+           StopTrainingOnRewardThreshold( 
+                self.config.training_config.no_improvement_reward_threshold,
+                verbose=self.verbose,
+              )
         )
         callbacks_on_new_best.append(
             MjCambrianSavePolicyCallback(self.logdir, verbose=self.verbose)
@@ -154,14 +161,14 @@ class MjCambrianTrainer:
         callbacks_after_eval.append(
             PlotEvaluationCallback(self.logdir, verbose=self.verbose)
         )
-        callbacks_after_eval.append(
-            SaveVideoCallback(
-                eval_env,
-                self.logdir,
-                self.config.training_config.max_episode_steps,
-                verbose=self.verbose,
-            )
-        )
+        # callbacks_after_eval.append(
+        #     SaveVideoCallback(
+        #         eval_env,
+        #         self.logdir,
+        #         self.config.training_config.max_episode_steps,
+        #         verbose=self.verbose,
+        #     )
+        # )
         callbacks_after_eval = CallbackListWithSharedParent(callbacks_after_eval)
 
         eval_cb = EvalCallback(
@@ -188,6 +195,9 @@ class MjCambrianTrainer:
         """
         policy_kwargs = dict(
             features_extractor_class=MjCambrianCombinedExtractor,
+            features_extractor_kwargs=dict(
+                activation=self.config.training_config.features_extractor_activation
+            )
         )
 
         if (checkpoint_path := self.config.training_config.checkpoint_path) is not None:

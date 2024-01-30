@@ -1,0 +1,609 @@
+extend: ${extend:${include:configs/base.yaml}}
+env_config:
+  animal_configs:
+    animal_0:
+      extend: ${extend:${evo_config.spawning_config.default_animal_config}}
+      model_config:
+        extend: ${extend:${include:configs/animals/point.yaml}}
+      eye_configs:
+        animal_0_eye_0:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-5.0, -60.0]
+          name: animal_0_eye_0
+        animal_0_eye_1:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-5.0, -46.666666666666664]
+          name: animal_0_eye_1
+        animal_0_eye_2:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-5.0, -33.33333333333333]
+          name: animal_0_eye_2
+        animal_0_eye_3:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-5.0, -20.0]
+          name: animal_0_eye_3
+        animal_0_eye_4:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-5.0, -6.666666666666664]
+          name: animal_0_eye_4
+        animal_0_eye_5:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-5.0, 6.666666666666671]
+          name: animal_0_eye_5
+        animal_0_eye_6:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-5.0, 20.0]
+          name: animal_0_eye_6
+        animal_0_eye_7:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-5.0, 33.33333333333334]
+          name: animal_0_eye_7
+        animal_0_eye_8:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-5.0, 46.66666666666667]
+          name: animal_0_eye_8
+        animal_0_eye_9:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-5.0, 60.0]
+          name: animal_0_eye_9
+        animal_0_eye_10:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-1.6666666666666665, -60.0]
+          name: animal_0_eye_10
+        animal_0_eye_11:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-1.6666666666666665, -46.666666666666664]
+          name: animal_0_eye_11
+        animal_0_eye_12:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-1.6666666666666665, -33.33333333333333]
+          name: animal_0_eye_12
+        animal_0_eye_13:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-1.6666666666666665, -20.0]
+          name: animal_0_eye_13
+        animal_0_eye_14:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-1.6666666666666665, -6.666666666666664]
+          name: animal_0_eye_14
+        animal_0_eye_15:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-1.6666666666666665, 6.666666666666671]
+          name: animal_0_eye_15
+        animal_0_eye_16:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-1.6666666666666665, 20.0]
+          name: animal_0_eye_16
+        animal_0_eye_17:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-1.6666666666666665, 33.33333333333334]
+          name: animal_0_eye_17
+        animal_0_eye_18:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-1.6666666666666665, 46.66666666666667]
+          name: animal_0_eye_18
+        animal_0_eye_19:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [-1.6666666666666665, 60.0]
+          name: animal_0_eye_19
+        animal_0_eye_20:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [1.666666666666667, -60.0]
+          name: animal_0_eye_20
+        animal_0_eye_21:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [1.666666666666667, -46.666666666666664]
+          name: animal_0_eye_21
+        animal_0_eye_22:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [1.666666666666667, -33.33333333333333]
+          name: animal_0_eye_22
+        animal_0_eye_23:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [1.666666666666667, -20.0]
+          name: animal_0_eye_23
+        animal_0_eye_24:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [1.666666666666667, -6.666666666666664]
+          name: animal_0_eye_24
+        animal_0_eye_25:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [1.666666666666667, 6.666666666666671]
+          name: animal_0_eye_25
+        animal_0_eye_26:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [1.666666666666667, 20.0]
+          name: animal_0_eye_26
+        animal_0_eye_27:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [1.666666666666667, 33.33333333333334]
+          name: animal_0_eye_27
+        animal_0_eye_28:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [1.666666666666667, 46.66666666666667]
+          name: animal_0_eye_28
+        animal_0_eye_29:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [1.666666666666667, 60.0]
+          name: animal_0_eye_29
+        animal_0_eye_30:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [5.0, -60.0]
+          name: animal_0_eye_30
+        animal_0_eye_31:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [5.0, -46.666666666666664]
+          name: animal_0_eye_31
+        animal_0_eye_32:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [5.0, -33.33333333333333]
+          name: animal_0_eye_32
+        animal_0_eye_33:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [5.0, -20.0]
+          name: animal_0_eye_33
+        animal_0_eye_34:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [5.0, -6.666666666666664]
+          name: animal_0_eye_34
+        animal_0_eye_35:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [5.0, 6.666666666666671]
+          name: animal_0_eye_35
+        animal_0_eye_36:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [5.0, 20.0]
+          name: animal_0_eye_36
+        animal_0_eye_37:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [5.0, 33.33333333333334]
+          name: animal_0_eye_37
+        animal_0_eye_38:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [5.0, 46.66666666666667]
+          name: animal_0_eye_38
+        animal_0_eye_39:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [5.0, 60.0]
+          name: animal_0_eye_39
+        animal_0_eye_40:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [8.333333333333334, -60.0]
+          name: animal_0_eye_40
+        animal_0_eye_41:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [8.333333333333334, -46.666666666666664]
+          name: animal_0_eye_41
+        animal_0_eye_42:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [8.333333333333334, -33.33333333333333]
+          name: animal_0_eye_42
+        animal_0_eye_43:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [8.333333333333334, -20.0]
+          name: animal_0_eye_43
+        animal_0_eye_44:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [8.333333333333334, -6.666666666666664]
+          name: animal_0_eye_44
+        animal_0_eye_45:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [8.333333333333334, 6.666666666666671]
+          name: animal_0_eye_45
+        animal_0_eye_46:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [8.333333333333334, 20.0]
+          name: animal_0_eye_46
+        animal_0_eye_47:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [8.333333333333334, 33.33333333333334]
+          name: animal_0_eye_47
+        animal_0_eye_48:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [8.333333333333334, 46.66666666666667]
+          name: animal_0_eye_48
+        animal_0_eye_49:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [8.333333333333334, 60.0]
+          name: animal_0_eye_49
+        animal_0_eye_50:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [11.666666666666668, -60.0]
+          name: animal_0_eye_50
+        animal_0_eye_51:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [11.666666666666668, -46.666666666666664]
+          name: animal_0_eye_51
+        animal_0_eye_52:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [11.666666666666668, -33.33333333333333]
+          name: animal_0_eye_52
+        animal_0_eye_53:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [11.666666666666668, -20.0]
+          name: animal_0_eye_53
+        animal_0_eye_54:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [11.666666666666668, -6.666666666666664]
+          name: animal_0_eye_54
+        animal_0_eye_55:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [11.666666666666668, 6.666666666666671]
+          name: animal_0_eye_55
+        animal_0_eye_56:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [11.666666666666668, 20.0]
+          name: animal_0_eye_56
+        animal_0_eye_57:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [11.666666666666668, 33.33333333333334]
+          name: animal_0_eye_57
+        animal_0_eye_58:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [11.666666666666668, 46.66666666666667]
+          name: animal_0_eye_58
+        animal_0_eye_59:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [11.666666666666668, 60.0]
+          name: animal_0_eye_59
+        animal_0_eye_60:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [15.0, -60.0]
+          name: animal_0_eye_60
+        animal_0_eye_61:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [15.0, -46.666666666666664]
+          name: animal_0_eye_61
+        animal_0_eye_62:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [15.0, -33.33333333333333]
+          name: animal_0_eye_62
+        animal_0_eye_63:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [15.0, -20.0]
+          name: animal_0_eye_63
+        animal_0_eye_64:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [15.0, -6.666666666666664]
+          name: animal_0_eye_64
+        animal_0_eye_65:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [15.0, 6.666666666666671]
+          name: animal_0_eye_65
+        animal_0_eye_66:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [15.0, 20.0]
+          name: animal_0_eye_66
+        animal_0_eye_67:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [15.0, 33.33333333333334]
+          name: animal_0_eye_67
+        animal_0_eye_68:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [15.0, 46.66666666666667]
+          name: animal_0_eye_68
+        animal_0_eye_69:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [15.0, 60.0]
+          name: animal_0_eye_69
+        animal_0_eye_70:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [18.333333333333336, -60.0]
+          name: animal_0_eye_70
+        animal_0_eye_71:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [18.333333333333336, -46.666666666666664]
+          name: animal_0_eye_71
+        animal_0_eye_72:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [18.333333333333336, -33.33333333333333]
+          name: animal_0_eye_72
+        animal_0_eye_73:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [18.333333333333336, -20.0]
+          name: animal_0_eye_73
+        animal_0_eye_74:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [18.333333333333336, -6.666666666666664]
+          name: animal_0_eye_74
+        animal_0_eye_75:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [18.333333333333336, 6.666666666666671]
+          name: animal_0_eye_75
+        animal_0_eye_76:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [18.333333333333336, 20.0]
+          name: animal_0_eye_76
+        animal_0_eye_77:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [18.333333333333336, 33.33333333333334]
+          name: animal_0_eye_77
+        animal_0_eye_78:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [18.333333333333336, 46.66666666666667]
+          name: animal_0_eye_78
+        animal_0_eye_79:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [18.333333333333336, 60.0]
+          name: animal_0_eye_79
+        animal_0_eye_80:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [21.666666666666668, -60.0]
+          name: animal_0_eye_80
+        animal_0_eye_81:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [21.666666666666668, -46.666666666666664]
+          name: animal_0_eye_81
+        animal_0_eye_82:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [21.666666666666668, -33.33333333333333]
+          name: animal_0_eye_82
+        animal_0_eye_83:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [21.666666666666668, -20.0]
+          name: animal_0_eye_83
+        animal_0_eye_84:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [21.666666666666668, -6.666666666666664]
+          name: animal_0_eye_84
+        animal_0_eye_85:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [21.666666666666668, 6.666666666666671]
+          name: animal_0_eye_85
+        animal_0_eye_86:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [21.666666666666668, 20.0]
+          name: animal_0_eye_86
+        animal_0_eye_87:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [21.666666666666668, 33.33333333333334]
+          name: animal_0_eye_87
+        animal_0_eye_88:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [21.666666666666668, 46.66666666666667]
+          name: animal_0_eye_88
+        animal_0_eye_89:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [21.666666666666668, 60.0]
+          name: animal_0_eye_89
+        animal_0_eye_90:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [25.0, -60.0]
+          name: animal_0_eye_90
+        animal_0_eye_91:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [25.0, -46.666666666666664]
+          name: animal_0_eye_91
+        animal_0_eye_92:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [25.0, -33.33333333333333]
+          name: animal_0_eye_92
+        animal_0_eye_93:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [25.0, -20.0]
+          name: animal_0_eye_93
+        animal_0_eye_94:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [25.0, -6.666666666666664]
+          name: animal_0_eye_94
+        animal_0_eye_95:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [25.0, 6.666666666666671]
+          name: animal_0_eye_95
+        animal_0_eye_96:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [25.0, 20.0]
+          name: animal_0_eye_96
+        animal_0_eye_97:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [25.0, 33.33333333333334]
+          name: animal_0_eye_97
+        animal_0_eye_98:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [25.0, 46.66666666666667]
+          name: animal_0_eye_98
+        animal_0_eye_99:
+          extend: ${extend:${evo_config.spawning_config.default_eye_config}}
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [25.0, 60.0]
+          name: animal_0_eye_99
+      name: animal_0

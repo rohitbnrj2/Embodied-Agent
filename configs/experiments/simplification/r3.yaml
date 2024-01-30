@@ -1,0 +1,22 @@
+extend:
+  mazes: ${extend:${include:configs/experiments/simplification/m1.yaml}}
+  exp: ${extend:${include:configs/experiments/simplification/exp.yaml}}
+
+env_config:
+  use_ambient_light: True
+  ambient_light_intensity: [0.3, 0.3, 0.3]
+
+  reward_fn_type: intensity_and_at_goal
+
+  truncate_on_contact: True
+
+  maze_configs_store:
+    BASE:
+      hide_targets: False 
+      use_target_light_sources: True
+
+  animal_configs:
+    animal_0:
+      # keeping false for now bc it gives away local movements
+      use_init_pos_obs: False
+      use_current_pos_obs: false

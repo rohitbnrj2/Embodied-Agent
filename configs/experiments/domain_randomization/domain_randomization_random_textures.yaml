@@ -1,0 +1,31 @@
+extend:
+  base: ${extend:${include:configs/experiments/domain_randomization/domain_randomization.yaml}}
+
+env_config:
+  maze_configs_store:
+    BASE:
+      extend: ${extend:${include:configs/mazes/maze.yaml}}
+      wall_texture_map:
+        default: [vertical_10]
+        L:
+          - vertical_2
+          - vertical_4
+          - vertical_6
+          - vertical_8
+          - vertical_10
+          - vertical_20
+          - vertical_30
+          - vertical_40
+          - vertical_60
+        R:
+          - vertical_2
+          - vertical_4
+          - vertical_6
+          - vertical_8
+          - vertical_10
+          - vertical_20
+          - vertical_30
+          - vertical_40
+          - vertical_60
+        E: 
+          - vertical_10 # end

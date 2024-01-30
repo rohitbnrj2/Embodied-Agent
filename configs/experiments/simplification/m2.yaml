@@ -1,0 +1,15 @@
+env_config:
+  extend:
+    maze_store: ${extend:${include:configs/mazes/dr/MAZE_STORE.yaml}}
+
+  maze_selection_criteria:
+    mode: CYCLE
+  maze_configs:
+    - I_MAZE_DIVERSE
+    - L_MAZE_DIVERSE
+    - U_MAZE_DIVERSE
+  eval_maze_configs:
+    - S_MAZE_DIVERSE
+  maze_configs_store:
+    BASE:
+      use_adversary: True

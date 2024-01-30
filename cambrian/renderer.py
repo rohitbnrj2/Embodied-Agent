@@ -132,9 +132,33 @@ class MjCambrianViewer(ABC):
         self.model: mj.MjModel = None
         self.data: mj.MjData = None
         self.scene: mj.MjvScene = None
-        self.scene_option = mj.MjvOption()
         self.camera: mj.MjvCamera = mj.MjvCamera()
         self.viewport: mj.MjrRect = None
+
+        self.scene_option = mj.MjvOption()
+        # Scene options is a dict where options either are keys directly or if the 
+        # mujoco option is an array, the key is a dict with the keys of the dict as
+        # the indices of the mujoco array.
+        self.config.setdefault("scene_options", {})
+        for option, value in self.config.scene_options.items():
+            assert hasattr(self.scene_option, option), f"Invalid scene option {option}."
+            if isinstance(getattr(self.scene_option, option), np.ndarray):
+                assert isinstance(value, dict), (
+                    f"Invalid type for scene option {option}. "
+                    f"Expected dict, got {type(value)}."
+                )
+                for index, val in value.items():
+                    if isinstance(index, str):
+                        # Special case where the option is "flags" and the index is a 
+                        # str representing the mjtVisFlag enum
+                        assert hasattr(mj.mjtVisFlag, index), (
+                            "Index is expected to be a valid mjtVisFlag enum, "
+                            f"but got {index}."
+                        )
+                        index = getattr(mj.mjtVisFlag, index)
+                    getattr(self.scene_option, option)[index] = val
+            else:
+                setattr(self.scene_option, option, value)
 
         self._gl_context: mj.gl_context.GLContext = None
         self._mjr_context: mj.MjrContext = None

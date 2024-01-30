@@ -53,7 +53,7 @@ done
 
 for config in $configs; do
     for experiment in $experiments; do
-        include='${extend:${include:configs_mujoco/experiments/'${experiment}'.yaml}}'
+        include='${extend:${include:configs/experiments/'${experiment}'.yaml}}'
         for n_temporal_obs in $n_temporal_obs; do
             exp_name="${config}_2_${experiment}_n${n_temporal_obs}"
 
@@ -69,7 +69,7 @@ for config in $configs; do
             # Only run if not dry run. Check if NOT dry run
             if ! $dry_run; then
                 cmd="MUJOCO_GL=egl python cambrian/rl/trainer.py \
-                    configs_mujoco/experiments/${config}.yaml --train \
+                    configs/experiments/${config}.yaml --train \
                     -o extend.experiment='${include}' \
                     -o training_config.total_timesteps=5_000_000 \
                     -ao n_temporal_obs=${n_temporal_obs} \

@@ -1063,7 +1063,7 @@ if __name__ == "__main__":
 
         t0 = time.time()
         step = 0
-        while env.renderer.is_running() and step < args.total_timesteps:
+        while step < args.total_timesteps:
             if step in action_map:
                 action = {
                     name: action_map[step] for name, animal in env.animals.items()
@@ -1072,7 +1072,10 @@ if __name__ == "__main__":
             _, reward, _, _, _ = env.step(action)
             env.overlays["Step Reward"] = f"{reward['animal_0']:.2f}"
 
-            env.render()
+            if env.config.env_config.use_renderer:
+                if not env.renderer.is_running():
+                    break
+                env.render()
             if record_composites:
                 for name, animal in env.animals.items():
                     composite = animal.create_composite_image()

@@ -7,7 +7,7 @@ Make sure you clone and install using `pip install -e .`.
 Run a simple environment and save the run as a gif/mp4.
 
 ```bash
-MUJOCO_GL=egl python cambrian/env.py configs_mujoco/point_1lat1lon_1x1.yaml --record-path test -t 200
+MUJOCO_GL=egl python cambrian/env.py configs/point_1lat1lon_1x1.yaml --record-path test -t 200
 ```
 
 ## Visualizing the world/environment
@@ -69,4 +69,4 @@ You also can pass `--record-path` to the `env.py` script to set the path that an
 
 ### Configs/Overrides
 
-All configs should be put under `configs_mujoco`. We will transition to use `omegaconf` soon, but for now, you can either edit the config directly in `configs_mujoco` (probably don't want to commit those changes) or use `-o <dot.separated.path>=<value>` as used [above](#visualizing-the-worldenvironment).
+All configs should be put under `configs`. We will transition to use `omegaconf` soon, but for now, you can either edit the config directly in `configs` (probably don't want to commit those changes) or use `-o <dot.separated.path>=<value>` as used [above](#visualizing-the-worldenvironment).

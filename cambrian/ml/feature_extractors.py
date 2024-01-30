@@ -15,13 +15,18 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
     def __init__(
         self,
         observation_space: spaces.Dict,
-        cnn_output_dim: int = 256,
-        normalized_image: bool = False,
-        features_dim=128,
+        output_dim: int = 256,
+        normalized_image: bool = True,
+        features_dim: int = 128,
+        activation: nn.Module | str = nn.Tanh,
     ) -> None:
         # TODO we do not know features-dim here before going over all the items, so put
         # something there. This is dirty!
         super().__init__(observation_space, features_dim=features_dim)
+
+        if isinstance(activation, str):
+            assert hasattr(nn, activation), f"{activation} is not an activation"
+            activation = getattr(nn, activation)
 
         extractors: Dict[str, torch.nn.Module] = {}
 
@@ -32,11 +37,11 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
             ):
                 extractors[key] = MjCambrianMLP(
                     subspace,
-                    features_dim=cnn_output_dim,
-                    activation=nn.Tanh,
+                    features_dim=output_dim,
+                    activation=activation,
                     normalized_image=normalized_image,
                 )
-                total_concat_size += cnn_output_dim
+                total_concat_size += output_dim
             else:
                 # The observation key is a vector, flatten it if needed
                 extractors[key] = torch.nn.Flatten()
@@ -45,21 +50,22 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
         self.extractors = torch.nn.ModuleDict(extractors)
 
         # Update the features dim manually
-        self._features_dim = 256
-        self._features_processing = nn.Sequential(
-            nn.Linear(total_concat_size, 256),
-            nn.Tanh(),
-            nn.Linear(256, self._features_dim),
-            nn.Tanh(),
-        )
+        self._features_dim = total_concat_size
+        # self._features_processing = nn.Sequential(
+        #     nn.Linear(total_concat_size, 256),
+        #     nn.Tanh(),
+        #     nn.Linear(256, self._features_dim),
+        #     nn.Tanh(),
+        # )
 
     def forward(self, observations: TensorDict) -> torch.Tensor:
         encoded_tensor_list = []
         for key, extractor in self.extractors.items():
             encoded_tensor_list.append(extractor(observations[key]))
-        initial_features = torch.cat(encoded_tensor_list, dim=1)
-        processed_features = self._features_processing(initial_features)
-        return processed_features
+        # initial_features = torch.cat(encoded_tensor_list, dim=1)
+        # processed_features = self._features_processing(initial_features)
+        # return processed_features
+        return torch.cat(encoded_tensor_list, dim=1)
 
 
 class MjCambrianNatureCNN(BaseFeaturesExtractor):
@@ -219,7 +225,7 @@ class MjCambrianMLP(BaseFeaturesExtractor):
         T = observations.shape[1]
         encoding_list = []  # [B, self.features_dim, T]
         for t in range(T):
-            obs_ = observations[:, t, :, :, :].permute(0, 3, 1, 2) / 255.0
+            obs_ = observations[:, t, :, :, :].permute(0, 3, 1, 2)
             encoding = self.linear(self.mlp(obs_))
             encoding_list.append(encoding)
         # output should be of shape [B, self.features_dim]
