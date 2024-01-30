@@ -283,6 +283,11 @@ class MjCambrianAnimal:
         if self._responsible_for_intensity_sensor:
             self._intensity_sensor.reset(model, data)
 
+        # set the action so that the animal faces left 
+        # init_v = 0.25
+        # heading = 0.5 # animal is pointing down so we add +90 degrees (pi/2) -> 0.5
+        # self.apply_action([init_v, heading])
+
         return self._get_obs()
 
     def _reset_adrs(self, model: mj.MjModel):
@@ -757,7 +762,7 @@ if __name__ == "__main__":
 
     parser = MjCambrianArgumentParser(description="Animal Test")
 
-    parser.add_argument("title", type=str, help="Title of the demo.")
+    parser.add_argument("--title", type=str, help="Title of the demo.", default="Animal Test Demo")
 
     parser.add_argument("--save", action="store_true", help="Save the demo")
     parser.add_argument("--mutate", action="store_true", help="Mutate the animal")
@@ -783,7 +788,7 @@ if __name__ == "__main__":
             mutations=mutations,
             verbose=2,
         )
-    animal = MjCambrianAnimal(animal_config)
+    animal = MjCambrianPointAnimal(animal_config)
 
     env_xml = MjCambrianXML(get_include_path("models/test.xml"))
     model = mj.MjModel.from_xml_string(str(env_xml + animal.generate_xml(0)))

@@ -12,6 +12,7 @@ env_config:
       extend: ${extend:${evo_config.spawning_config.default_animal_config}}
       model_config:
         extend: ${extend:${include:configs/animals/point.yaml}}
+      constant_actions: [null, null]
       eye_configs:
         animal_0_eye_0:
           extend: ${extend:${evo_config.spawning_config.default_eye_config}}
@@ -40,6 +41,11 @@ env_config:
         # default: [vertical_10]
         L: [vertical_10] #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # left
         R: [vertical_10] #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # right
-        K: [vertical_8] #[vertical_8]  #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # key
+        K: [vertical_8]  #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # key
         E: [vertical_10] #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # end
       map: [] # placeholder
+
+evo_config: 
+  spawning_config:
+    default_animal_config:
+      constant_actions: [null, null]

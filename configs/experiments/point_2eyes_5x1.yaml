@@ -50,9 +50,9 @@ env_config:
     mode: DIFFICULTY
     schedule: RANDOM
   maze_configs:
-    - Y_MAZE_CHOICE
+    - Y_MAZE_OPTION
   eval_maze_configs:
-    - Y_MAZE_CHOICE
+    - Y_MAZE_OPTION
     - OPTIC_FLOW_STRAIGHT_TURN
     - OPTIC_FLOW_STRAIGHT_TEXTURE
 
@@ -69,7 +69,7 @@ env_config:
         E: [vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # end
       map: [] # placeholder
 
-    Y_MAZE_CHOICE: 
+    Y_MAZE_OPTION: 
       use_target_light_sources: False
       hide_targets: True
       extend: 
@@ -110,6 +110,9 @@ evo_config:
       use_current_pos_obs: False
       use_action_obs: True
       n_temporal_obs: 5
+
+      constant_actions: [0.25, null]
+      # constant_actions: [null, null]
 
       disable_intensity_sensor: True
 
