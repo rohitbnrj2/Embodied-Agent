@@ -35,7 +35,7 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
             if len(subspace.shape) == 4 or is_image_space(
                 subspace, normalized_image=normalized_image
             ):
-                extractors[key] = MjCambrianMLP(
+                extractors[key] = MjCambrianLowLevel(
                     subspace,
                     features_dim=output_dim,
                     activation=activation,
@@ -68,7 +68,7 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
         return torch.cat(encoded_tensor_list, dim=1)
 
 
-class MjCambrianNatureCNN(BaseFeaturesExtractor):
+class MjCambrianLowLevel(BaseFeaturesExtractor):
     """This class overrides the default CNN feature extractor of Stable Baselines 3.
 
     The default feature extractor doesn't support images smaller than 36x36 because of
@@ -136,9 +136,8 @@ class MjCambrianNatureCNN(BaseFeaturesExtractor):
         else:
             # receptive field is the same here can't do optic flow with this
             nn_output_dim = 128
-
             self.nn = torch.nn.Sequential(
-                activation(),
+                nn.Flatten(),
                 torch.nn.Linear(observation_space.shape[1] * observation_space.shape[2] * n_input_channels, 64),
                 activation(), 
                 torch.nn.Linear(64, nn_output_dim),
