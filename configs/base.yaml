@@ -19,7 +19,7 @@ training_config:
   max_no_improvement_evals: 10 # check_freq * max_no_improvement_evals steps
   min_no_improvement_evals: 10 # check_freq * min_no_improvement_evals steps
 
-  features_extractor_activation: Tanh
+  features_extractor_activation: ReLU
 
   seed: 424242
   verbose: 2
