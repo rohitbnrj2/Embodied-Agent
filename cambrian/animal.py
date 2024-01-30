@@ -604,7 +604,8 @@ class MjCambrianAnimal:
             mutation_options = [MjCambrianAnimal.MutationType[m] for m in mutations]
         else:
             # The mutation options are all the possible mutations
-            mutation_options = list(MjCambrianAnimal.MutationType)
+            # mutation_options = list(MjCambrianAnimal.MutationType)
+            raise ValueError("No mutation options specified.")
 
         # Randomly select the number of mutations to perform with a skewed dist
         # This will lean towards less total mutations generally

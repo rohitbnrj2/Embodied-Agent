@@ -343,13 +343,16 @@ class MjCambrianMaze:
             return
 
         # create a dict from wall to texture
+        _wall_to_dict: Dict = {}
         for i, t in zip(range(len(self._wall_locations)), self._wall_textures):
             wall_name = f"block_{self._name}_{i}"
             geom_id = get_geom_id(model, wall_name)
             assert geom_id != -1, f"`{wall_name}` geom not found"
 
             # Randomly select a texture for the wall
-            texture = np.random.choice(self.config.wall_texture_map[t])
+            if t not in _wall_to_dict:
+                _wall_to_dict[t] = np.random.choice(self.config.wall_texture_map[t])
+            texture = _wall_to_dict[t]
             material_name = f"wall_{self._name}_{t}_{texture}_mat"
             material_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_MATERIAL, material_name)
             assert material_id != -1, f"`{material_name}` material not found"
