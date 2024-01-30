@@ -1,4 +1,5 @@
 extend: ${extend:${include:configs_mujoco/base.yaml}}
+
 env_config:
   animal_configs:
     animal_0:
