@@ -89,74 +89,80 @@ class MjCambrianNatureCNN(BaseFeaturesExtractor):
             "NatureCNN must be used with a gym.spaces.Box ",
             f"observation space, not {observation_space}",
         )
+        # We assume TxHxWxC images (channels last as input)
         super().__init__(observation_space, features_dim)
-        # We assume CxHxW images (channels first)
-        # Re-ordering will be done by pre-preprocessing or wrapper
-        # assert is_image_space(
-        #     observation_space, check_channels=False, normalized_image=normalized_image
-        # ), (
-        #     "You should use NatureCNN "
-        #     f"only with images not with {observation_space}\n"
-        #     "(you are probably using `CnnPolicy` instead of `MlpPolicy` "
-        #     "or `MultiInputPolicy`)\n"
-        #     "If you are using a custom environment,\n"
-        #     "please check it using our env checker:\n"
-        #     "https://stable-baselines3.readthedocs.io/en/master/common/env_checker.html.\n"
-        #     "If you are using `VecNormalize` or already normalized "
-        #     "channel-first images you should pass `normalize_images=False`: \n"
-        #     "https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html"
-        # )
         time_steps = observation_space.shape[0]
         n_input_channels = observation_space.shape[3]
-        if min(observation_space.shape[1:]) > 36:
-            self.cnn = torch.nn.Sequential(
-                torch.nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4),
-                activation(),
-                torch.nn.Conv2d(32, 64, kernel_size=4, stride=2),
-                activation(),
-                torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
-                activation(),
-                torch.nn.Flatten(),
+        self._USE_MLP = True
+
+        if not self._USE_MLP:
+            if min(observation_space.shape[1:]) > 36:
+                self.cnn = torch.nn.Sequential(
+                    torch.nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4),
+                    activation(),
+                    torch.nn.Conv2d(32, 64, kernel_size=4, stride=2),
+                    activation(),
+                    torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
+                    activation(),
+                    torch.nn.Flatten(),
+                )
+            else: 
+                assert observation_space.shape[2] > 4, "Image height must be > 4 pixels for USE_MLP=False"
+                self.cnn = torch.nn.Sequential(
+                    torch.nn.Conv2d(n_input_channels, 32, kernel_size=[1, 3]),
+                    activation(),
+                    torch.nn.Conv2d(32, 64, kernel_size=[1, 3]),
+                    activation(),
+                    torch.nn.Conv2d(64, 64, kernel_size=[1, 3]),
+                    activation(),
+                    torch.nn.Flatten(),
+                )
+
+            # Compute shape by doing one forward pass
+            with torch.no_grad():
+                n_flatten = self.cnn(
+                    torch.as_tensor(observation_space.sample()[None][:, 0, :, :, :]).float().permute(0, 3, 1, 2)
+                ).shape[1]
+
+            self.linear = torch.nn.Sequential(
+                torch.nn.Linear(n_flatten, features_dim), 
+                activation()
+            )
+
+            self.temporal_linear = torch.nn.Sequential(
+                torch.nn.Linear(features_dim * time_steps, features_dim), 
+                activation()
             )
         else:
-            self.cnn = torch.nn.Sequential(
-                torch.nn.Conv2d(n_input_channels, 32, kernel_size=1),
+            # receptive field is the same here can't do optic flow with this
+            nn_output_dim = 128
+
+            self.nn = torch.nn.Sequential(
                 activation(),
-                torch.nn.Conv2d(32, 64, kernel_size=1),
+                torch.nn.Linear(observation_space.shape[1] * observation_space.shape[2] * n_input_channels, 64),
+                activation(), 
+                torch.nn.Linear(64, nn_output_dim),
                 activation(),
-                torch.nn.Conv2d(64, 64, kernel_size=1),
-                activation(),
-                torch.nn.Flatten(),
             )
 
-        # Compute shape by doing one forward pass
-        with torch.no_grad():
-            n_flatten = self.cnn(
-                torch.as_tensor(observation_space.sample()[None][:, 0, :, :, :])
-                .float()
-                .permute(0, 3, 1, 2)
-            ).shape[1]
-
-        self.linear = torch.nn.Sequential(
-            torch.nn.Linear(n_flatten, features_dim), activation()
-        )
-
-        self.temporal_linear = torch.nn.Sequential(
-            torch.nn.Linear(features_dim * time_steps, features_dim), activation()
-        )
+            self.temporal_linear = torch.nn.Sequential(
+                torch.nn.Linear(nn_output_dim * time_steps, features_dim), 
+                activation(),
+            )
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         B = observations.shape[0]
         T = observations.shape[1]
-        encoding_list = []  # [B, self.features_dim, T]
+        encoding_list = [] # [B, self.features_dim, T]
         for t in range(T):
             obs_ = observations[:, t, :, :, :].permute(0, 3, 1, 2)
-            encoding = self.linear(self.cnn(obs_))
+            if self._USE_MLP:
+                encoding = self.nn(obs_)
+            else:
+                encoding = self.linear(self.cnn(obs_))
             encoding_list.append(encoding)
         # output should be of shape [B, self.features_dim]
-        return self.temporal_linear(
-            torch.cat(encoding_list, dim=1).reshape(B, -1)
-        ).reshape(B, -1)
+        return self.temporal_linear(torch.cat(encoding_list, dim=1).reshape(B, -1)).reshape(B, -1)
 
 
 class MjCambrianMLP(BaseFeaturesExtractor):
