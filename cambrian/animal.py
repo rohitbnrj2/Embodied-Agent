@@ -20,7 +20,7 @@ from cambrian.utils import (
     MjCambrianJoint,
     MjCambrianActuator,
     MjCambrianGeometry,
-    setattrs_temporary
+    setattrs_temporary,
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import MjCambrianAnimalConfig, MjCambrianEyeConfig
@@ -593,18 +593,18 @@ class MjCambrianAnimal:
         config: MjCambrianAnimalConfig,
         default_eye_config: MjCambrianEyeConfig,
         *,
-        mutations: Optional[MutationType],
+        mutation_options: MutationType,
         verbose: int = 0,
     ) -> MjCambrianAnimalConfig:
         """Mutates the animal config."""
         if verbose > 1:
             print("Mutating animal...")
 
-
-        # The mutation options are all the possible mutations
-        mutation_options = [
-            MjCambrianAnimal.MutationType[m] for m in mutations
-        ]
+        if mutation_options:
+            mutation_options = [MjCambrianAnimal.MutationType[m] for m in mutations]
+        else:
+            # The mutation options are all the possible mutations
+            mutation_options = list(MjCambrianAnimal.MutationType)
 
         # Randomly select the number of mutations to perform with a skewed dist
         # This will lean towards less total mutations generally
@@ -613,14 +613,8 @@ class MjCambrianAnimal:
         mutations = np.random.choice(mutation_options, num_of_mutations, False)
         mutations = reduce(lambda x, y: x | y, mutations)
 
-        if not (len(mutation_options) > 0):
-            print("WARNING: No mutations specified. Returning original config.")
-            raise ValueError("No mutations specified.")
-
         if verbose > 1:
             print(f"Number of mutations: {num_of_mutations}")
-
-        if verbose > 1:
             print(f"Mutations: {mutations}")
 
         if MjCambrianAnimal.MutationType.REMOVE_EYE in mutations:
@@ -668,21 +662,27 @@ class MjCambrianAnimal:
             verbose = 2
             if verbose > 1:
                 print("Updating aperture.")
-            
+
             # edit all eyes with the same aperture
-            allowed_apertures = np.array([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], dtype=np.float32)
+            allowed_apertures = np.array(
+                [0.0, 0.2, 0.4, 0.6, 0.8, 1.0], dtype=np.float32
+            )
             aperture = np.random.choice(allowed_apertures)
             if verbose > 1:
                 print("Updated all eyes with aperture: ", aperture)
                 for key in config.eye_configs.keys():
-                    print(f"aperture_open before: {config.eye_configs[key].aperture_open}")
+                    print(
+                        f"aperture_open before: {config.eye_configs[key].aperture_open}"
+                    )
 
             # allowed_apertures = np.array([-0.2, 0.1])
             # d_aperture = np.random.choice(allowed_apertures)
             for key in config.eye_configs.keys():
                 config.eye_configs[key].aperture_open = aperture
                 # config.eye_configs[key].aperture_open += d_aperture
-                config.eye_configs[key].aperture_open = float(np.clip(config.eye_configs[key].aperture_open, 0.0, 1.0))
+                config.eye_configs[key].aperture_open = float(
+                    np.clip(config.eye_configs[key].aperture_open, 0.0, 1.0)
+                )
 
         if verbose > 2:
             print(f"Mutated animal: \n{config}")
@@ -733,11 +733,8 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
             )
             action = [
                 constant_action or action
-                for action, constant_action in zip(
-                    action, self.config.constant_actions
-                )
+                for action, constant_action in zip(action, self.config.constant_actions)
             ]
-
 
         # Calculate the global velocities
         theta = self._data.qpos[self._joint_qposadr + 2]

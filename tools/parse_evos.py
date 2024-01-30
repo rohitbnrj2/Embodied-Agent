@@ -125,7 +125,9 @@ def get_generation_file_paths(folder: Path) -> Data:
     return Data(path=folder, generations=generations)
 
 
-def load_data(folder: Path, check_finished: bool = True, *, overrides: Dict[str, Any] = {}) -> Data:
+def load_data(
+    folder: Path, check_finished: bool = True, *, overrides: Dict[str, Any] = {}
+) -> Data:
     print(f"Loading data from {folder}...")
     data = get_generation_file_paths(folder)
 
@@ -207,7 +209,7 @@ def plot(
     ):
         fig = plt.figure(title)
 
-        handle, = plt.plot(*args, **kwargs)
+        (handle,) = plt.plot(*args, **kwargs)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.suptitle(title)
@@ -265,8 +267,12 @@ def plot(
 
                 # _config_plot("animal_config.num_eyes_lat")
                 # _config_plot("animal_config.num_eyes_lon")
-                _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_open")
-                _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_radius")
+                _config_plot(
+                    "env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_open"
+                )
+                _config_plot(
+                    "env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_radius"
+                )
                 # _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.fov")
                 # _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_1.aperture_open")
                 # _config_plot("evo_config.spawning_config.default_eye_config.aperture_open")
@@ -311,7 +317,6 @@ def plot(
                 x, y = ts2xy(monitor, "timesteps")
                 t = ts2xy(monitor, "walltime_hrs")[0] * 60  # convert to minutes
                 if len(y) > window:
-
                     y = moving_average(y, window)
                     x = x[window - 1 :].astype(np.int64)
                     t = t[window - 1 :]
@@ -354,7 +359,9 @@ def plot(
                         #     ylabel="walltime (min)",
                         #     override_use_legend=True,
                         # )
-                        aperture_open = config.evo_config.spawning_config.default_eye_config.aperture_open
+                        aperture_open = (
+                            config.evo_config.spawning_config.default_eye_config.aperture_open
+                        )
                         _plot(
                             generation,
                             t[-1],
@@ -365,7 +372,9 @@ def plot(
                             ylabel="walltime (min)",
                             override_use_legend=True,
                         )
-                        aperture_radius = config.evo_config.spawning_config.default_eye_config.aperture_radius
+                        aperture_radius = (
+                            config.evo_config.spawning_config.default_eye_config.aperture_radius
+                        )
                         _plot(
                             generation,
                             t[-1],
@@ -402,7 +411,9 @@ def plot(
                             locator=tkr.AutoLocator(),
                         )
                         # plot vertical bar
-                        fig.gca().axvline(x=x[-1], color="C3", linestyle="--", label="Agent Evolution")
+                        fig.gca().axvline(
+                            x=x[-1], color="C3", linestyle="--", label="Agent Evolution"
+                        )
                         _legend(fig)
                         x_prev = x[-1]
 
@@ -519,7 +530,9 @@ def main(args):
     evals_folder.mkdir(parents=True, exist_ok=True)
 
     if args.force or (data := try_load_pickle_data(folder)) is None:
-        data = load_data(folder, check_finished=not args.no_check_finished, overrides=args.overrides)
+        data = load_data(
+            folder, check_finished=not args.no_check_finished, overrides=args.overrides
+        )
         # data = load_data(folder, check_finished=not args.no_check_finished, overrides=convert_overrides_to_dict(args.overrides))
 
         if not args.no_save:
@@ -592,8 +605,16 @@ if __name__ == "__main__":
     parser.add_argument("--plot", action="store_true", help="Plot the data.")
     parser.add_argument("--legend", action="store_true", help="Use a legend.")
     parser.add_argument("--locator", action="store_true", help="Use a locator.")
-    parser.add_argument("--plot-all-generations-monitor", action="store_true", help="Plot all generations monitor.")
-    parser.add_argument("--no-check-finished", action="store_true", help="Don't check if a file called `finished` has been written.")
+    parser.add_argument(
+        "--plot-all-generations-monitor",
+        action="store_true",
+        help="Plot all generations monitor.",
+    )
+    parser.add_argument(
+        "--no-check-finished",
+        action="store_true",
+        help="Don't check if a file called `finished` has been written.",
+    )
 
     args = parser.parse_args()
 

@@ -98,7 +98,6 @@ env_config:
 
 evo_config:
   max_n_envs: 10
-  max_n_timesteps: 1_000_000 
   num_generations: 25
   population_config:
     size: 4

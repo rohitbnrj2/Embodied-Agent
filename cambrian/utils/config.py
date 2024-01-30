@@ -858,11 +858,6 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
     reward_fn_type: str
     reward_options: Optional[Dict[str, Any]] = None
-    use_timestep: bool = True
-    use_action_penalty: bool = False
-    action_penalty_weight: float = 0.01
-    clip_reward: bool = False
-    reward_clip_range: Optional[Tuple[float, float]] = (-1.0, 1.0)
 
     use_goal_obs: bool
     terminate_at_goal: bool
@@ -1005,9 +1000,6 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
         max_n_envs (int): The maximum number of environments to use for
             parallel training. Will set `n_envs` for each training process to
             `max_n_envs // population size`.
-        max_n_timesteps (int): The maximum number of timesteps to train for.
-            eg. max_n_envs=10 then run sim for max_n_timesteps=1mil. 
-            `n_envs * max_n_timesteps // n_envs`
 
         num_generations (int): The number of generations to run for.
 
@@ -1025,7 +1017,6 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
     """
 
     max_n_envs: int
-    max_n_timesteps: int
 
     num_generations: int
 

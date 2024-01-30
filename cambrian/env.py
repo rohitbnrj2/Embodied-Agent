@@ -96,23 +96,6 @@ class MjCambrianEnv(gym.Env):
 
         self._reward_fn = self._get_reward_fn(self.env_config.reward_fn_type)
 
-        if self.config.env_config.use_timestep:
-            self._timestep = self.model.opt.timestep * self.env_config.frame_skip
-            self.apply_timestep = lambda r : r / self._timestep
-        else:
-            self.apply_timestep = lambda r : r 
-
-        if self.config.env_config.use_action_penalty:
-            self.apply_action_penalty = lambda reward, action: \
-                reward - (self.config.env_config.action_penalty_weight * np.sum(np.square(action)))
-        else: 
-            self.apply_action_penalty = lambda reward, action: reward
-
-        if self.config.env_config.clip_reward:
-            self.clip_reward_range = lambda reward : np.clip(reward, *self.config.env_config.reward_clip_range)
-        else: 
-            self.clip_reward_range = lambda reward : reward
-
         # Used to store the optimal path for each animal in the maze
         # Each animal has a different start position so optimal path is different
         # Tuple[List, List] = [path, accumulated_path_lengths]
@@ -283,7 +266,9 @@ class MjCambrianEnv(gym.Env):
 
             if self.env_config.compute_optimal_path:
                 path = self.maze.compute_optimal_path(animal.pos, self.maze.goal)
-                accum_path_len = np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))
+                accum_path_len = np.cumsum(
+                    np.linalg.norm(np.diff(path, axis=0), axis=1)
+                )
                 self._optimal_animal_paths[name] = (path, accum_path_len)
 
             info[name]["pos"] = animal.pos
@@ -413,7 +398,7 @@ class MjCambrianEnv(gym.Env):
 
         Args:
             action (Dict[str, Any]): The action to take for each animal. The keys
-                define the animal name, and the values define the action for that 
+                define the animal name, and the values define the action for that
                 animal.
 
         Returns:
@@ -514,17 +499,22 @@ class MjCambrianEnv(gym.Env):
                 continue
 
             # Call reward_fn
-            _r = self._reward_fn(animal, info[name])
-            _r = self.apply_timestep(_r)
-            _r = self.clip_reward_range(_r)
-            rewards[name] = self.apply_action_penalty(_r, info[name]["action"])
+            rewards[name] = self._reward_fn(animal, info[name])
 
-            # Add a penalty to the reward if the animal has contacts and 
-            # truncate_on_contact is False. We'll assume that the truncation value 
-            # corresponds correctly to whether contacts have been recorded, so no 
+            # Add a penalty for each action taken
+            rewards[name] -= self.env_config.reward_options.get(
+                "action_penalty", 0
+            ) * np.sum(np.square(info[name]["action"]))
+
+            # Add a penalty to the reward if the animal has contacts and
+            # truncate_on_contact is False. We'll assume that the truncation value
+            # corresponds correctly to whether contacts have been recorded, so no
             # need to check the truncate
             if animal.has_contacts:
-                rewards[name] += self.apply_timestep(self.env_config.contact_penalty)
+                if self.env_config.force_exclusive_contact_penalty:
+                    rewards[name] = self.env_config.contact_penalty
+                else:
+                    rewards[name] += self.env_config.contact_penalty
 
             # If we're using an adversarial target and we're at the adversary, then
             # give a reward of -1. We'll assume that the truncation value corresponds
@@ -623,7 +613,7 @@ class MjCambrianEnv(gym.Env):
             new_composite = np.flipud(resize_with_aspect_fill(composite, *overlay_size))
             new_intensity = np.flipud(resize_with_aspect_fill(intensity, *overlay_size))
 
-            overlays.append(MjCambrianImageViewerOverlay(new_composite * 255., cursor))
+            overlays.append(MjCambrianImageViewerOverlay(new_composite * 255.0, cursor))
 
             cursor.x -= TEXT_MARGIN
             cursor.y -= TEXT_MARGIN
@@ -643,7 +633,7 @@ class MjCambrianEnv(gym.Env):
             cursor.x += overlay_width
             cursor.y = 0
 
-            overlays.append(MjCambrianImageViewerOverlay(new_intensity * 255., cursor))
+            overlays.append(MjCambrianImageViewerOverlay(new_intensity * 255.0, cursor))
             if not animal.config.disable_intensity_sensor:
                 overlay_text = str(intensity.shape[:2])
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
@@ -826,7 +816,7 @@ class MjCambrianEnv(gym.Env):
         """This reward combines `reward_fn_delta_euclidean` and `reward_fn_sparse`."""
         delta_euclidean_reward = self._reward_fn_delta_euclidean(animal, info)
         return 1 if self._is_at_goal(animal) else delta_euclidean_reward
-    
+
     def _reward_fn_euclidean_delta_from_init(
         self,
         animal: MjCambrianAnimal,
@@ -963,9 +953,14 @@ class MjCambrianEnv(gym.Env):
 
     # Helpers
 
-    def _calc_delta_pos(self, animal: MjCambrianAnimal, info: Dict[str, Any], point: Optional[np.ndarray] = None) -> np.ndarray:
+    def _calc_delta_pos(
+        self,
+        animal: MjCambrianAnimal,
+        info: Dict[str, Any],
+        point: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
         """Calculates the delta position of the animal.
-        
+
         NOTE: returns delta position of current pos from prev pos (i.e. current - prev)
         """
         if point is None:
@@ -1064,11 +1059,7 @@ if __name__ == "__main__":
                 record_composites = True
                 composites = {k: [] for k in env.animals}
 
-        action_map = {
-            0: np.array([0, -0.5]),
-            10: np.array([1, -0.5])
-        }
-
+        action_map = {0: np.array([0, -0.5]), 10: np.array([1, -0.5])}
 
         t0 = time.time()
         step = 0

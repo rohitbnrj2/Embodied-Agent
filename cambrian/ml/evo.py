@@ -133,14 +133,13 @@ class MjCambrianEvoRunner:
             )
         animal_configs = config.env_config.animal_configs
         spawning_config = config.evo_config.spawning_config
-        print(f"mutation_options: {spawning_config.mutation_options}")
         for _ in range(num_mutations):
             for animal_config in animal_configs.values():
                 if ReplicationType.MUTATION in replication_type:
                     animal_configs[animal_config.name] = MjCambrianAnimal.mutate(
                         animal_config,
                         spawning_config.default_eye_config,
-                        mutations = spawning_config.mutation_options,
+                        mutations=spawning_config.mutation_options,
                         verbose=self.config.training_config.verbose,
                     )
                 elif ReplicationType.CROSSOVER in replication_type:
@@ -168,11 +167,6 @@ class MjCambrianEvoRunner:
         if self.verbose > 1:
             print(f"Setting n_envs to {n_envs}")
         config.training_config.n_envs = n_envs
-        
-        # if self.verbose > 1:
-        #     print(f"Setting total_timesteps to {n_timesteps}")
-        # n_timesteps = n_envs * (config.evo_config.max_n_timesteps // config.evo_config.max_n_envs)
-        # config.training_config.total_timesteps = n_timesteps
 
         # Save the config
         config.save(generation_logdir / "config.yaml")
