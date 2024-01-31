@@ -4,7 +4,7 @@ extend:
 
 training_config:
 
-  features_extractor_activation: ReLU
+  features_extractor_activation: Tanh
 
 env_config:
   animal_configs:
@@ -12,21 +12,22 @@ env_config:
       extend: ${extend:${evo_config.spawning_config.default_animal_config}}
       model_config:
         extend: ${extend:${include:configs/animals/point.yaml}}
+      constant_actions: [null, null]
       eye_configs:
         animal_0_eye_0:
           extend: ${extend:${evo_config.spawning_config.default_eye_config}}
           resolution: [20, 1]
           fov: [60, 5]
-          aperture_open: 0.2
-          # aperture_open: 1.0
+          # aperture_open: 0.2
+          aperture_open: 1.0
           coord: [10.0, -60.0]
           name: animal_0_eye_0
         animal_0_eye_1:
           extend: ${extend:${evo_config.spawning_config.default_eye_config}}
           resolution: [20, 1]
           fov: [60, 5]
-          # aperture_open: 1.0
-          aperture_open: 0.2
+          aperture_open: 1.0
+          # aperture_open: 0.2
           coord: [10.0, 60.0]
           name: animal_0_eye_1
       name: animal_0
@@ -38,8 +39,8 @@ env_config:
       hide_targets: True
       wall_texture_map:
         # default: [vertical_10]
-        L: [vertical_10] #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # left
-        R: [vertical_10] #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # right
-        K: [vertical_8] #[vertical_8]  #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # key
+        L: [vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # left
+        R: [vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # right
+        K: [vertical_8]  #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # key
         E: [vertical_10] #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # end
       map: [] # placeholder

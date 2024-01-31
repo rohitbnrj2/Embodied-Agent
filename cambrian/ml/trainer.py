@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 
 from stable_baselines3.common.vec_env import (
     VecEnv,
@@ -77,6 +78,10 @@ class MjCambrianTrainer:
         Path(self.logdir / "finished").touch()
 
     def eval(self, record: bool = False):
+        # copy monitor.csv to monitor_train.csv since it overwrites the real monitor.csv
+        if (self.logdir / "monitor.csv").exists() and not (self.logdir / "monitor_train.csv").exists():
+            shutil.copy(self.logdir / "monitor.csv", self.logdir / "monitor_train.csv")
+
         self.config.save(self.logdir / "eval_config.yaml")
 
         # Set the maze selection mode to eval
@@ -87,7 +92,7 @@ class MjCambrianTrainer:
             self.config.env_config.maze_selection_criteria["mode"] = "CYCLE"
             num_runs = len(self.config.env_config.maze_configs)
 
-        env = self._make_env(1)
+        env = self._make_env(1, use_monitor=False)
         model = self._make_model(env)
 
         record_path = self.logdir / "eval" if record else None
