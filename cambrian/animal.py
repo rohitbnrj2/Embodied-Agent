@@ -598,7 +598,7 @@ class MjCambrianAnimal:
         config: MjCambrianAnimalConfig,
         default_eye_config: MjCambrianEyeConfig,
         *,
-        mutation_options: MutationType,
+        mutations: List[MutationType],
         verbose: int = 0,
     ) -> MjCambrianAnimalConfig:
         """Mutates the animal config."""

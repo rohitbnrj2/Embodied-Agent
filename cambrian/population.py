@@ -5,7 +5,7 @@ import os
 import numpy as np
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from cambrian.utils import MjCambrianPopulationConfig, MjCambrianConfig
+from cambrian.utils.config import MjCambrianPopulationConfig, MjCambrianConfig
 
 Fitness = float
 
