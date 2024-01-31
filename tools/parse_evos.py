@@ -244,9 +244,10 @@ def plot(
                 def _config_plot(attr, *args, **kwargs):
                     # TODO: (ktiwary) this can only plot floats right now
                     if not (y := OmegaConf.select(OmegaConf.create(config), attr)):
-                        raise ValueError(
-                            f"Could not find {attr} in config ({rank_data.path})."
+                        print(
+                            f"Warning: Could not find {attr} in config ({rank_data.path})."
                         )
+                        return 
                     y = np.average(np.abs(y)) if isinstance(y, list) else y
                     if not dry_run:
                         _plot(
@@ -278,10 +279,10 @@ def plot(
                 # _config_plot("evo_config.spawning_config.default_eye_config.aperture_open")
                 # _config_plot("evo_config.spawning_config.default_eye_config.fov")
                 # _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.resolution")
-                _config_plot("evo_config.generation_config.generation")
+                # _config_plot("evo_config.generation_config.generation")
                 _config_plot("evo_config.generation_config.rank")
                 _config_plot("evo_config.parent_generation_config.rank")
-                _config_plot("evo_config.parent_generation_config.generation")
+                # _config_plot("evo_config.parent_generation_config.generation")
 
             # ======
             # EVALS
@@ -359,32 +360,35 @@ def plot(
                         #     ylabel="walltime (min)",
                         #     override_use_legend=True,
                         # )
-                        aperture_open = (
-                            config.evo_config.spawning_config.default_eye_config.aperture_open
-                        )
-                        _plot(
-                            generation,
-                            t[-1],
-                            RANK_FORMAT_MAP[(aperture_open) % len(RANK_FORMAT_MAP)],
-                            label=f"Aperture Open Percentage: {aperture_open}",
-                            title="monitor_walltime_by_num_pixels",
-                            xlabel="generation",
-                            ylabel="walltime (min)",
-                            override_use_legend=True,
-                        )
-                        aperture_radius = (
-                            config.evo_config.spawning_config.default_eye_config.aperture_radius
-                        )
-                        _plot(
-                            generation,
-                            t[-1],
-                            RANK_FORMAT_MAP[(aperture_radius) % len(RANK_FORMAT_MAP)],
-                            label=f"Aperture Open Percentage: {aperture_radius}",
-                            title="monitor_walltime_by_num_pixels",
-                            xlabel="generation",
-                            ylabel="walltime (min)",
-                            override_use_legend=True,
-                        )
+                        try: 
+                            aperture_open = (
+                                config.env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_open
+                            )
+                            _plot(
+                                generation,
+                                aperture_open,
+                                RANK_FORMAT_MAP[(aperture_open) % len(RANK_FORMAT_MAP)],
+                                label=f"Aperture Open Percentage: {aperture_open}",
+                                title=f"Aperture Open Percentage",
+                                xlabel="generation",
+                                ylabel="walltime (min)",
+                                override_use_legend=True,
+                            )
+                        except AttributeError as e:
+                            print("Warning: Could not find aperture_open in config.")
+                        # aperture_radius = (
+                        #     config.env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_open
+                        # )
+                        # _plot(
+                        #     generation,
+                        #     t[-1],
+                        #     RANK_FORMAT_MAP[(aperture_radius) % len(RANK_FORMAT_MAP)],
+                        #     label=f"Aperture Open Percentage: {aperture_radius}",
+                        #     title="Aperture Radius",
+                        #     xlabel="generation",
+                        #     ylabel="walltime (min)",
+                        #     override_use_legend=True,
+                        # )
 
                     # Accumulate the data from all ranks
                     data.accumulated_data.setdefault("monitor", dict())
