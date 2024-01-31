@@ -55,6 +55,7 @@ env_config:
     - Y_MAZE_OPTION
     - OPTIC_FLOW_STRAIGHT_TURN
     - OPTIC_FLOW_STRAIGHT_TEXTURE
+    - OPTIC_FLOW_STRAIGHT_VAR_TEXTURE
 
   maze_configs_store:
     BASE:
@@ -63,10 +64,10 @@ env_config:
       hide_targets: True
       wall_texture_map:
         # default: [vertical_10]
-        L: [vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # left
-        R: [vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # right
-        K: [vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # key
-        E: [vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # end
+        L: [vertical_2, vertical_4, vertical_8, vertical_10, vertical_20, vertical_40, vertical_60] # left
+        R: [vertical_2, vertical_4, vertical_8, vertical_10, vertical_20, vertical_40, vertical_60] # right
+        K: [vertical_2, vertical_4, vertical_8, vertical_10, vertical_20, vertical_40, vertical_60] # key
+        E: [vertical_2, vertical_4, vertical_8, vertical_10, vertical_20, vertical_40, vertical_60] # end
       map: [] # placeholder
 
     Y_MAZE_OPTION: 
@@ -88,6 +89,13 @@ env_config:
       hide_targets: True
       extend: 
         base: ${extend:${include:configs/mazes/eval/OPTIC_FLOW_STRAIGHT_TEXTURE.yaml}}
+        ref: ${extend:${...BASE}}
+
+    OPTIC_FLOW_STRAIGHT_VAR_TEXTURE: 
+      use_target_light_sources: False
+      hide_targets: True
+      extend: 
+        base: ${extend:${include:configs/mazes/eval/OPTIC_FLOW_STRAIGHT_VAR_TEXTURE.yaml}}
         ref: ${extend:${...BASE}}
 
 evo_config:

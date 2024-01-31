@@ -32,6 +32,16 @@ env_config:
           name: animal_0_eye_1
       name: animal_0
 
+  maze_selection_criteria:
+    mode: DIFFICULTY
+    schedule: RANDOM
+  maze_configs:
+    - Y_COMPLEX_MAZE_OPTION
+  eval_maze_configs:
+    - Y_COMPLEX_MAZE_OPTION
+    - OPTIC_FLOW_STRAIGHT_TURN
+    - OPTIC_FLOW_STRAIGHT_TEXTURE
+
   maze_configs_store:
     BASE:
       extend: ${extend:${include:configs/mazes/maze.yaml}}
@@ -41,9 +51,16 @@ env_config:
         # default: [vertical_10]
         L: [vertical_10] #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # left
         R: [vertical_10] #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # right
-        K: [vertical_8]  #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # key
+        K: [vertical_8]  #[vertical_8]  #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # key
         E: [vertical_10] #[vertical_6, vertical_8, vertical_10, vertical_20, vertical_30, vertical_40, vertical_60] # end
       map: [] # placeholder
+
+    Y_COMPLEX_MAZE_OPTION: 
+      use_target_light_sources: False
+      hide_targets: True
+      extend: 
+        base: ${extend:${include:configs/mazes/dr/Y_COMPLEX_MAZE_OPTION.yaml}}
+        ref: ${extend:${...BASE}}
 
 evo_config: 
   spawning_config:
