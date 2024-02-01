@@ -74,6 +74,8 @@ env_config:
       extend: ${extend:${include:configs/mazes/train/M_MAZE_DIVERSE.yaml}}
   compute_optimal_path: False
 
+  num_animals: ${eval:'len(${oc.dict.keys:.animal_configs})'}
+
 evo_config:
   max_n_envs: 10
 
@@ -130,6 +132,8 @@ evo_config:
           render_modes: [rgb_array]
 
           use_shared_context: True
+
+      num_eyes: ${eval:'len(${oc.dict.keys:.eye_configs})'}
 
     default_eye_config:
       name: ${parent:} # will be replaced with parent key. evaluated after extend.

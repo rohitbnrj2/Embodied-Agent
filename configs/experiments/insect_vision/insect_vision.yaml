@@ -17,12 +17,6 @@ env_config:
     mode: CYCLE
   maze_configs:
     - Y_MAZE_OPTION
-  eval_maze_configs:
-    - Y_MAZE_OPTION
-    - I_MAZE_STATIC
-    - I_MAZE_STATIC_SWITCH
-    - Y_COMPLEX_MAZE_OPTION
-    - X_MAZE_STATIC
 
   maze_configs_store:
     BASE:

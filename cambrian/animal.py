@@ -619,19 +619,28 @@ class MjCambrianAnimal:
             print(f"Mutations: {mutations}")
 
         if MjCambrianAnimal.MutationType.REMOVE_EYE in mutations:
+            # NOTE: We assume here the animal's eyes are symmetric, as in when we remove
+            # an eye, we remove the reflected eye. Reflected eye's have even indices.
             if verbose > 1:
-                print("Removing a eye.")
+                print("Removing an eye.")
 
-            if len(config.eye_configs) <= 1:
+            if len(config.eye_configs) <= 2:
                 print("Cannot remove the last eye. Adding one instead.")
                 mutations |= MjCambrianAnimal.MutationType.ADD_EYE
             else:
-                eye_config = np.random.choice(list(config.eye_configs.values()))
-                del config.eye_configs[eye_config.name]
+                # Select an eye at random
+                eye_keys = list(config.eye_configs.keys())
+                assert len(eye_keys) % 2 == 0, "Number of eyes must be even."
+                eye_key1 = np.random.choice(eye_keys[::2])
+                eye_key2 = eye_keys[eye_keys.index(eye_key1) + 1]
+                del config.eye_configs[eye_key1]
+                del config.eye_configs[eye_key2]
 
         if MjCambrianAnimal.MutationType.ADD_EYE in mutations:
+            # NOTE: We assume here the animal's eyes are symmetric, as in when we add an
+            # eye, we add the reflected eye, i.e. negate the longitudinal coord. 
             if verbose > 1:
-                print("Adding a eye.")
+                print("Adding an eye.")
 
             new_eye_config: MjCambrianEyeConfig = default_eye_config.copy()
             new_eye_config.name = f"{config.name}_eye_{len(config.eye_configs)}"
@@ -640,6 +649,11 @@ class MjCambrianAnimal:
                 np.random.uniform(*config.model_config.eyes_lon_range),
             ]
             config.eye_configs[new_eye_config.name] = new_eye_config
+
+            new_eye_config2 = new_eye_config.copy()
+            new_eye_config2.name = f"{config.name}_eye_{len(config.eye_configs)}"
+            new_eye_config2.coord[1] = -new_eye_config2.coord[1]
+            config.eye_configs[new_eye_config2.name] = new_eye_config2
 
         if MjCambrianAnimal.MutationType.EDIT_EYE in mutations:
             if verbose > 1:

@@ -100,10 +100,16 @@ class MjCambrianEvoRunner:
             thread.join()
 
     def spawn_animal(self, generation: int, rank: int) -> MjCambrianConfig:
+        """Spawns a new animal.
+        
+        NOTE: The default eye config is selected randomly from the animal's eye configs.
+
+        # TODO: move all of the mutation logic to MjCambrianPopulation or some other
+        # class.
+        """
         if self.verbose > 1:
             print(f"Spawning animal with generation {generation} and rank {rank}.")
 
-        # TODO: move all of this to another class
 
         # Get the spawning config
         config: MjCambrianConfig  # the parent config, going to mutate
@@ -138,7 +144,7 @@ class MjCambrianEvoRunner:
                 if ReplicationType.MUTATION in replication_type:
                     animal_configs[animal_config.name] = MjCambrianAnimal.mutate(
                         animal_config,
-                        spawning_config.default_eye_config,
+                        random.choice(list(animal_config.eye_configs.values())),
                         mutations=spawning_config.mutation_options,
                         verbose=self.config.training_config.verbose,
                     )

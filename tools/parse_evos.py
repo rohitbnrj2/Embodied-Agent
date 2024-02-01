@@ -1,13 +1,23 @@
-"""This script will a saved evolution folder."""
+"""This script will a saved evolution folder.
+
+This file works as follows:
+1. Parse the evolution folder. The evolution folder consists of many generations, each
+    with many ranks. Parsing involves walking through the folder heirarchy and loading
+    each config, evaluations, monitor and/or other available data.
+2. Save the parsed data to a pickle file for easy loading. Walking through the folder
+    heirarchy can be slow, so this is useful for quick loading. NOTE: If a pickle file
+    already exists, it will be loaded instead of parsing the data again (unless
+    `--force` is passed).
+3. Plot the parsed data. This involves plotting the evaluations, monitor and/or other
+    available data. This is useful for visualizing the evolution of the population.
+"""
 
 import argparse
-from typing import Dict, Union, Optional, Any
+from typing import Dict, Union, Optional, Any, List
 from pathlib import Path
 import pickle
 import os
-import yaml
 from dataclasses import dataclass, field
-from omegaconf import OmegaConf, DictConfig, Node
 
 import numpy as np
 import matplotlib as mpl
@@ -21,57 +31,59 @@ from cambrian.utils.wrappers import make_single_env
 from cambrian.utils.config import MjCambrianConfig
 from cambrian.ml.model import MjCambrianModel
 
-mpl.rcParams["image.cmap"] = "jet"
-
 
 def moving_average(values, window):
     weights = np.repeat(1.0, window) / window
     return np.convolve(values, weights, "valid")
 
 
-def np_float32_representer(dumper: yaml.Dumper, value: np.float32) -> yaml.Node:
-    return dumper.represent_float(float(value))
+# =======================================================
+# Dataclasses
 
 
-yaml.add_representer(np.float32, np_float32_representer)
-
-
-def np_float64_representer(dumper: yaml.Dumper, value: np.float64) -> yaml.Node:
-    return dumper.represent_float(float(value))
-
-
-yaml.add_representer(np.float32, np_float32_representer)
-yaml.add_representer(np.float64, np_float64_representer)
-
-dataclass = dataclass(kw_only=True)
-
-
-@dataclass
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class Rank:
+    """A rank is a single run of an inner training loop. Like in a generation, you have
+    many ranks which in themselves have many parallel environments to speed up training.
+    The terminology comes from MPI.
+    """
+
     path: Path
 
-    rank: int
+    num: int
 
-    config: MjCambrianConfig = None
-    evaluations: Dict[str, Any] = None
-    monitor: Dict[str, Any] = None
+    config: Optional[MjCambrianConfig] = None
+    evaluations: Optional[Dict[str, Any]] = None
+    monitor: Optional[Dict[str, Any]] = None
 
 
-@dataclass
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class Generation:
+    """A generation is a collection of ranks. Throughout evolution (outer loop), you
+    have many generations where each generation consists of many ranks which
+    train (inner loop) in parallel."""
+
     path: Path
 
-    generation: int
+    num: int
     ranks: Dict[int, Rank] = field(default_factory=dict)
 
 
-@dataclass
+@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
 class Data:
+    """This is the primary data storage class. It contains all the generations and ranks
+    and is used to store the parsed data. It also can accumulated arbitrary data
+    which is used for plotting."""
+
     path: Path
 
-    generations: Dict[int, Generation] = field(default_factory=dict)
+    generations: Dict[int, Generation]
 
     accumulated_data: Dict[str, Any] = field(default_factory=dict)
+
+
+# =======================================================
+# Data loaders
 
 
 def save_data(generations: Dict, folder: Path):
@@ -98,29 +110,50 @@ def try_load_pickle_data(folder: Path) -> Union[None, Dict]:
 
 def get_generation_file_paths(folder: Path) -> Data:
     """Create the initial storage dict for parsing and get the paths to all the
-    generation/rank folders."""
+    generation/rank folders.
+
+    The generation data is stored as follows:
+    - <exp_name>
+        - generation_0
+            - rank_0
+            - rank_1
+            - ...
+        - generation_1
+            - rank_0
+            - rank_1
+            - ...
+        - ...
+
+    This function will parse the folder heirarchy as a preprocessing step and returns
+    the file paths to all the generation/rank folders.
+    """
+
     generations = dict()
     for root, dirs, files in os.walk(folder):
         root = Path(root)
+        # Only parse the generation folders
         if not root.stem.startswith("generation_"):
             continue
 
+        # Grab the generation number
         generation = int(root.stem.split("generation_", 1)[1])
 
         ranks = dict()
         for dir in dirs:
             dir = Path(dir)
+            # Only parse the rank folders
             if not dir.stem.startswith("rank_"):
                 continue
 
+            # Grab the rank number
             rank = int(dir.stem.split("rank_", 1)[1])
-            ranks[rank] = Rank(path=root / dir, rank=rank)
+            ranks[rank] = Rank(path=root / dir, num=rank)
 
+        # Sort the ranks by rank number
         ranks = dict(sorted(ranks.items()))
-        generations[generation] = Generation(
-            path=root, generation=generation, ranks=ranks
-        )
+        generations[generation] = Generation(path=root, num=generation, ranks=ranks)
 
+    # Sort the generations by generation number
     generations = dict(sorted(generations.items()))
     return Data(path=folder, generations=generations)
 
@@ -128,9 +161,15 @@ def get_generation_file_paths(folder: Path) -> Data:
 def load_data(
     folder: Path, check_finished: bool = True, *, overrides: Dict[str, Any] = {}
 ) -> Data:
+    """Load the data from the generation/rank folders. This function will walk through
+    the folder heirarchy and load the config, evaluations and monitor data for each
+    rank."""
     print(f"Loading data from {folder}...")
+    # Get the file paths to all the generation/rank folders
     data = get_generation_file_paths(folder)
 
+    # Walk through each generation/rank and parse the config, evaluations and monitor
+    # data
     for generation, generation_data in data.generations.items():
         print(f"Loading generation {generation}...")
 
@@ -165,305 +204,246 @@ def load_data(
     return data
 
 
+# =======================================================
+# Plotters
+
+
+def plot_helper(
+    *args, title: str, xlabel: str, ylabel: str, dry_run: bool = False, **kwargs
+) -> plt.Figure | None:
+    """This is a helper method that will be used to plot the data.
+
+    NOTE: Saving the plots at the end depends on each plt figure having a unique name,
+    which this method sets to the passed `title`.
+
+    Keyword arguments:
+        **kwargs -- Additional keyword arguments to pass to plt.plot.
+    """
+    if dry_run:
+        return
+
+    fig = plt.figure(title)
+    plt.plot(*args, **kwargs)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.suptitle(title)
+
+    return fig
+
+
+def plot_config(
+    config: MjCambrianConfig,
+    xvalues: Any,
+    pattern: str,
+    *,
+    dry_run: bool = False,
+    **kwargs,
+):
+    """Plot the config data."""
+
+    def plot_config_helper(attr: str, values: Any):
+        # if values is a list, we'll average it
+        if isinstance(values, list):
+            values = np.average(values)
+
+        # Plot the values
+        title = f"{attr}_vs_{kwargs.get('xlabel')}"  # xlabel required by plot_helper
+        ylabel = attr.split(".")[-1].replace("_", " ").title()
+        plot_helper(
+            xvalues,
+            values,
+            title=title,
+            ylabel=ylabel,
+            dry_run=dry_run,
+            **kwargs,
+        )
+
+    # Get the config attributes to plot
+    data = config.glob(pattern, flatten=True)
+
+    # Now loop through each key and plot the values
+    for attr, values in data.items():
+        plot_config_helper(attr, values)
+
+
+def plot_evaluations(
+    evaluations: Dict[str, Any],
+    xvalues: Any,
+    *,
+    dry_run: bool = False,
+    **kwargs,
+):
+    """Plot the evaluations data."""
+
+    plot_helper(
+        xvalues,
+        np.average(evaluations["results"]),
+        title="average_eval_rewards",
+        ylabel="rewards",
+        dry_run=dry_run,
+        **kwargs,
+    )
+
+
+def plot_monitor(
+    monitor: Dict[str, Any],
+    xvalues: Any,
+    *,
+    dry_run: bool = False,
+    window: int = 100,
+    **kwargs,
+):
+    """Plot the monitor data."""
+
+    # Grab the data sorted by timesteps
+    x, y = ts2xy(monitor, "timesteps")
+    if len(y) < window:
+        # Early exit if not enought data was recorded yet
+        return
+
+    # Calculate the moving average
+    y = moving_average(y, window)
+    x = x[window - 1 :].astype(np.int64)  # adjust the length of x to match y
+
+    # Now plot the data
+    plot_helper(
+        xvalues,
+        y[-1],
+        ylabel="rewards",
+        dry_run=dry_run,
+        **kwargs,
+    )
+
+
+def plot_monitor_and_config(
+    monitor: Dict[str, Any],
+    config: MjCambrianConfig,
+    xkeys: List[str],
+    *,
+    dry_run: bool = False,
+    window: int = 100,
+    **kwargs,
+):
+    """Plot the monitor data."""
+
+    for xkey in xkeys:
+        # Grab the xvalue from the config; the xvalue should be a list
+        xvalues = config.glob(xkey, flatten=True)
+        assert len(xvalues) == 1, f"Expected 1 value for {xkey}, got {len(xvalues)}."
+        xlabel, xvalues = next(iter(xvalues.items()))
+
+        # If xvalues is a list, we'll average it
+        if isinstance(xvalues, list):
+            xvalues = np.average(xvalues)
+
+        # Now plot the monitor data
+        title = f"monitor_rewards_vs_{xlabel}"
+        plot_monitor(
+            monitor,
+            xvalues,
+            dry_run=dry_run,
+            window=window,
+            xlabel=xlabel,
+            title=title,
+            **kwargs,
+        )
+
+
 def plot(
     data: Data,
     output_folder: Path,
     *,
     rank_to_use: Optional[int] = None,
     generation_to_use: Optional[int] = None,
-    use_legend: bool = False,
-    use_locator: bool = False,
-    plot_all_generations_monitor: bool = False,
-    verbose: int = 0,
     dry_run: bool = False,
+    verbose: int = 0,
+    **kwargs,
 ):
-    print("Parsing data...")
+    if verbose > 0:
+        print("Plotting data...")
 
-    RANK_FORMAT_MAP = {
-        0: ".C0",
-        1: ".C1",
-        2: "sC2",
-        3: "^C3",
-        4: "xC4",
-        5: "vC5",
-        6: "8C6",
-    }
-
-    def _legend(fig=None):
-        handles, labels = plt.gca().get_legend_handles_labels()
-        by_label = dict(sorted(zip(labels, handles), key=lambda t: t[0]))
-        if fig is not None:
-            fig.legend(by_label.values(), by_label.keys())
-        else:
-            plt.legend(by_label.values(), by_label.keys())
-
-    def _plot(
-        *args,
-        title,
-        xlabel,
-        ylabel,
-        locator=tkr.MultipleLocator(1),
-        override_use_legend=False,
-        override_use_locator=False,
-        **kwargs,
-    ):
-        fig = plt.figure(title)
-
-        (handle,) = plt.plot(*args, **kwargs)
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
-        plt.suptitle(title)
-
-        if use_legend or override_use_legend:
-            _legend(fig)
-
-        ax = fig.gca()
-        if use_locator or override_use_locator:
-            ax.xaxis.set_major_locator(locator)
-
-        return fig
+    # First, create a matplotlib colormap so each rank has a unique color + marker
+    num_ranks = max(len(generation.ranks) for generation in data.generations.values())
+    colors = plt.cm.viridis(np.linspace(0, 1, num_ranks))
+    markers = [".", ",", "o", "v", "^", "<", ">", "s", "p", "*", "h", "+", "x"]
 
     output_folder.mkdir(parents=True, exist_ok=True)
     for generation, generation_data in data.generations.items():
+        # Only plot the generation we want, if specified
         if generation_to_use is not None and generation != generation_to_use:
             continue
 
-        print(f"Parsing generation {generation}...")
+        if verbose > 0:
+            print(f"Plotting generation {generation}...")
 
         for rank, rank_data in generation_data.ranks.items():
+            # Only plot the rank we want, if specified
             if rank_to_use is not None and rank != rank_to_use:
                 continue
 
-            print(f"\tParsing rank {rank}...")
+            if verbose > 0:
+                print(f"\tPlotting rank {rank}...")
 
-            # ======
-            # CONFIG
-            # ======
-            if (config := rank_data.config) is not None:
-                # Plot the rank-over-rank config data
-                def _config_plot(attr, *args, **kwargs):
-                    # TODO: (ktiwary) this can only plot floats right now
-                    if not (y := OmegaConf.select(OmegaConf.create(config), attr)):
-                        print(
-                            f"Warning: Could not find {attr} in config ({rank_data.path})."
-                        )
-                        return 
-                    y = np.average(np.abs(y)) if isinstance(y, list) else y
-                    if not dry_run:
-                        _plot(
-                            generation,
-                            y,
-                            f"{RANK_FORMAT_MAP[rank % len(RANK_FORMAT_MAP)]}",
-                            *args,
-                            label=f"Rank {rank}",
-                            title=attr,
-                            xlabel="generation",
-                            ylabel=attr.split(".")[-1].replace("_", " ").title(),
-                            **kwargs,
-                        )
-                    data.accumulated_data.setdefault("config", dict())
-                    data.accumulated_data["config"].setdefault(attr, {})
-                    data.accumulated_data["config"][attr].setdefault(generation, [])
-                    data.accumulated_data["config"][attr][generation].append(y)
+            # The color + marker of each rank is unique
+            color = colors[rank % len(colors)]
+            marker = markers[rank % len(markers)]
 
-                # _config_plot("animal_config.num_eyes_lat")
-                # _config_plot("animal_config.num_eyes_lon")
-                _config_plot(
-                    "env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_open"
+            # Plot config data
+            if rank_data.config is not None:
+                # Build the glob pattern for the config attributes
+                # * indicates anything (like names which we don't know beforehand) and (|) indicates
+                # an OR operation (i.e. (resolution|fov) matches either resolution or fov)
+                pattern = "env_config.(animal_configs|num_animals).*.(eye_configs|num_eyes).*.(resolution|fov)"
+                plot_config(
+                    rank_data.config,
+                    generation,
+                    pattern,
+                    color=color,
+                    marker=marker,
+                    xlabel="generation",
+                    dry_run=dry_run,
                 )
-                _config_plot(
-                    "env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_radius"
+
+            # Plot evaluations data
+            if rank_data.evaluations is not None:
+                plot_evaluations(
+                    rank_data.evaluations,
+                    generation,
+                    color=color,
+                    marker=marker,
+                    xlabel="generation",
+                    label=f"Rank {rank}",
+                    dry_run=dry_run,
                 )
-                # _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.fov")
-                # _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_1.aperture_open")
-                # _config_plot("evo_config.spawning_config.default_eye_config.aperture_open")
-                # _config_plot("evo_config.spawning_config.default_eye_config.fov")
-                # _config_plot("env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.resolution")
-                # _config_plot("evo_config.generation_config.generation")
-                _config_plot("evo_config.generation_config.rank")
-                _config_plot("evo_config.parent_generation_config.rank")
-                # _config_plot("evo_config.parent_generation_config.generation")
 
-            # ======
-            # EVALS
-            # ======
-            # TODO: we should try to see how performance improves over the course of
-            # training
-            if (evaluations := rank_data.evaluations) is not None:
-                if not dry_run:
-                    _plot(
-                        generation,
-                        np.average(evaluations["results"]),
-                        f"{RANK_FORMAT_MAP[rank % len(RANK_FORMAT_MAP)]}",
-                        label=f"Rank {rank}",
-                        title="average_eval_rewards",
-                        xlabel="generation",
-                        ylabel="rewards",
-                    )
+            # Plot monitor data
+            if rank_data.monitor is not None:
+                plot_monitor(
+                    rank_data.monitor,
+                    generation,
+                    color=color,
+                    marker=marker,
+                    xlabel="generation",
+                    title="monitor_rewards",
+                    dry_run=dry_run,
+                )
 
-                    data.accumulated_data.setdefault("evals", dict())
-                    data.accumulated_data["evals"].setdefault(generation, [])
-                    data.accumulated_data["evals"][generation].append(
-                        np.average(evaluations["results"])
-                    )
+            # Also plot with some different x values
+            if rank_data.monitor is not None and rank_data.config is not None:
+                xkeys = [
+                    "env_config.animal_configs.*.eye_configs.*.aperture_open",
+                    "env_config.animal_configs.*.eye_configs.*.aperture_radius",
+                ]
+                plot_monitor_and_config(
+                    rank_data.monitor,
+                    rank_data.config,
+                    xkeys,
+                    color=color,
+                    marker=marker,
+                    dry_run=dry_run,
+                )
 
-            # =======
-            # MONITOR
-            # =======
-
-            # Get the data and delete it from the dict. We'll write the parsed data back
-            # under the same key.
-            if (monitor := rank_data.monitor) is not None:
-                window = 100
-                x, y = ts2xy(monitor, "timesteps")
-                t = ts2xy(monitor, "walltime_hrs")[0] * 60  # convert to minutes
-                if len(y) > window:
-                    y = moving_average(y, window)
-                    x = x[window - 1 :].astype(np.int64)
-                    t = t[window - 1 :]
-
-                    if not dry_run and (config := rank_data.config) is not None:
-                        node = rank // config.evo_config.population_config.size
-                        # num_eyes = (
-                        #     config.animal_config.num_eyes_lat
-                        #     * config.animal_config.num_eyes_lon
-                        # )
-                        # res = config.animal_config.default_eye_config.resolution
-                        # num_pixels = res[0] * res[1]
-                        _plot(
-                            generation,
-                            t[-1],
-                            RANK_FORMAT_MAP[node % len(RANK_FORMAT_MAP)],
-                            label=f"Node {node}",
-                            title="monitor_walltime",
-                            xlabel="generation",
-                            ylabel="walltime (min)",
-                            override_use_legend=True,
-                        )
-                        # _plot(
-                        #     generation,
-                        #     t[-1],
-                        #     RANK_FORMAT_MAP[num_eyes % len(RANK_FORMAT_MAP)],
-                        #     label=f"Num Eyes: {num_eyes}",
-                        #     title="monitor_walltime_by_eye",
-                        #     xlabel="generation",
-                        #     ylabel="walltime (min)",
-                        #     override_use_legend=True,
-                        # )
-                        # _plot(
-                        #     generation,
-                        #     t[-1],
-                        #     RANK_FORMAT_MAP[(num_pixels) % len(RANK_FORMAT_MAP)],
-                        #     label=f"Num Pixels: {num_pixels}",
-                        #     title="monitor_walltime_by_num_pixels",
-                        #     xlabel="generation",
-                        #     ylabel="walltime (min)",
-                        #     override_use_legend=True,
-                        # )
-                        try: 
-                            aperture_open = (
-                                config.env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_open
-                            )
-                            _plot(
-                                generation,
-                                aperture_open,
-                                RANK_FORMAT_MAP[(aperture_open) % len(RANK_FORMAT_MAP)],
-                                label=f"Aperture Open Percentage: {aperture_open}",
-                                title=f"Aperture Open Percentage",
-                                xlabel="generation",
-                                ylabel="walltime (min)",
-                                override_use_legend=True,
-                            )
-                        except AttributeError as e:
-                            print("Warning: Could not find aperture_open in config.")
-                        # aperture_radius = (
-                        #     config.env_config.animal_configs.animal_0.eye_configs.animal_0_eye_0.aperture_open
-                        # )
-                        # _plot(
-                        #     generation,
-                        #     t[-1],
-                        #     RANK_FORMAT_MAP[(aperture_radius) % len(RANK_FORMAT_MAP)],
-                        #     label=f"Aperture Open Percentage: {aperture_radius}",
-                        #     title="Aperture Radius",
-                        #     xlabel="generation",
-                        #     ylabel="walltime (min)",
-                        #     override_use_legend=True,
-                        # )
-
-                    # Accumulate the data from all ranks
-                    data.accumulated_data.setdefault("monitor", dict())
-                    data.accumulated_data["monitor"].setdefault(rank, [])
-                    data.accumulated_data["monitor"][rank].append((x, t, y))
-
-    # All generations plots
-    if "monitor" in data.accumulated_data:
-        for rank in data.accumulated_data["monitor"]:
-            x_prev = 0
-            for x, t, y in data.accumulated_data["monitor"][rank]:
-                x += x_prev
-                x_prev = x[-1]
-                if not dry_run:
-                    if plot_all_generations_monitor:
-                        fig = _plot(
-                            x,
-                            y,
-                            "-C7",
-                            label="All generations",
-                            title=f"monitor_all_generations_{rank}",
-                            xlabel="timesteps",
-                            ylabel="rewards",
-                            locator=tkr.AutoLocator(),
-                        )
-                        # plot vertical bar
-                        fig.gca().axvline(
-                            x=x[-1], color="C3", linestyle="--", label="Agent Evolution"
-                        )
-                        _legend(fig)
-                        x_prev = x[-1]
-
-    if "evals" in data.accumulated_data:
-        generations = list(data.accumulated_data["evals"].keys())
-        values = list(data.accumulated_data["evals"].values())
-        for i in range(len(values)):
-            median = np.median(values[i])
-            if i > 10:
-                median = np.abs(median)
-            median *= 1 + i / (i + 10)
-            values[i] = np.array(values[i]) + median
-
-        y = moving_average([np.median(y) for y in values], 4)
-        x = np.linspace(min(generations), max(generations), len(y))
-        if not dry_run:
-            plt.figure("evals")
-            plt.plot(x, y, "-C0")
-            for generation, (rank, value) in zip(generations, enumerate(values)):
-                color = RANK_FORMAT_MAP[rank % len(RANK_FORMAT_MAP)][-2:]
-                plt.plot([generation] * len(value), value, f".{color}", alpha=0.2)
-            plt.fill_between(x, y - y.std(), y + y.std(), facecolor="C0", alpha=0.2)
-            plt.xlabel("Generation", fontsize=18)
-            plt.ylabel("Fitness", fontsize=18)
-            plt.suptitle("Average Animal Fitness", fontsize=18)
-
-    if "config" in data.accumulated_data:
-        for attr, attr_values in data.accumulated_data["config"].items():
-            values = list(attr_values.values())
-            generations = list(attr_values.keys())
-            y = [np.average(y) for y in values]
-            y = moving_average([np.mean(y) for y in values], 4)
-            x = np.linspace(min(generations), max(generations), len(y))
-            if not dry_run:
-                plt.figure(f"curves_{attr}")
-                plt.plot(x, y, "-C0")
-                for generation, (rank, value) in zip(generations, enumerate(values)):
-                    color = RANK_FORMAT_MAP[rank % len(RANK_FORMAT_MAP)][-2:]
-                    plt.plot([generation] * len(value), value, f".{color}", alpha=0.2)
-                plt.fill_between(x, y - y.std(), y + y.std(), facecolor="C0", alpha=0.2)
-                plt.xlabel("Generation", fontsize=18)
-
-                attr = attr.split(".")[-1].replace("_", " ").title()
-                plt.ylabel(attr, fontsize=18)
-                plt.suptitle(f"{attr} Over Generations", fontsize=18)
-
+    # Now save the plots
     if not dry_run:
         for fig in plt.get_fignums():
             fig = plt.figure(fig)
@@ -471,6 +451,9 @@ def plot(
 
             filename = f"{fig._suptitle.get_text().lower().replace(' ', '_')}.png"
             plt.savefig(output_folder / filename, dpi=500)
+
+            if verbose > 1:
+                print(f"Saved plot to {output_folder / filename}.")
 
 
 def eval(
@@ -482,7 +465,8 @@ def eval(
     verbose: int = 0,
     dry_run: bool = False,
 ):
-    print("Evaluating model...")
+    if verbose > 0:
+        print("Evaluating model...")
 
     def _run_eval(logdir: Path, filename: Path, config: MjCambrianConfig):
         env = DummyVecEnv([make_single_env(config, config.training_config.seed)])
@@ -501,13 +485,15 @@ def eval(
         if generation_to_use is not None and generation != generation_to_use:
             continue
 
-        print(f"Evaluating generation {generation}...")
+        if verbose > 1:
+            print(f"Evaluating generation {generation}...")
 
         for rank, rank_data in generation_data.ranks.items():
             if rank_to_use is not None and rank != rank_to_use:
                 continue
 
-            print(f"\tEvaluating rank {rank}...")
+            if verbose > 1:
+                print(f"\tEvaluating rank {rank}...")
 
             if verbose > 1:
                 print(rank_data.config)
@@ -519,7 +505,8 @@ def eval(
                     rank_data.config,
                 )
 
-            print("\tDone.")
+            if verbose > 1:
+                print(f"\tDone.")
 
 
 def main(args):
@@ -537,7 +524,6 @@ def main(args):
         data = load_data(
             folder, check_finished=not args.no_check_finished, overrides=args.overrides
         )
-        # data = load_data(folder, check_finished=not args.no_check_finished, overrides=convert_overrides_to_dict(args.overrides))
 
         if not args.no_save:
             save_data(data, folder)
@@ -546,15 +532,11 @@ def main(args):
         data=data,
         rank_to_use=args.rank,
         generation_to_use=args.generation,
-        verbose=args.verbose,
-        dry_run=args.dry_run,
+        **vars(args),
     )
     if args.plot:
         plot(
             output_folder=plots_folder,
-            use_legend=args.legend,
-            use_locator=args.locator,
-            plot_all_generations_monitor=args.plot_all_generations_monitor,
             **kwargs,
         )
     if args.eval:

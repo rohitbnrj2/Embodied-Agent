@@ -60,13 +60,15 @@ class MjCambrianEye:
         ), "Must specify 'rgb_array' or 'depth_array' in the render modes for the renderer config."
 
         if config.fovy is not None:
-            assert 0 < config.fovy < 180, "Invalid fovy."
+            assert 0 < config.fovy < 180, f"Invalid fovy: {config.fovy=}"
             assert config.focal is None, "Cannot set both fovy and focal"
             assert config.sensorsize is None, "Cannot set both fovy and sensorsize"
             assert config.fov is None, "Cannot set both fovy and fov"
 
         if config.fov is not None:
-            assert 0 < config.fov[0] < 180 and 0 < config.fov[1] < 180, "Invalid fov."
+            assert (
+                0 < config.fov[0] < 180 and 0 < config.fov[1] < 180
+            ), f"Invalid fov: {config.fov=}."
             assert config.fovy is None, "Cannot set both fov and fovy"
             assert config.sensorsize is None, "Cannot set both fov and sensorsize"
 
@@ -215,13 +217,13 @@ class MjCambrianEye:
     def observation_space(self) -> spaces.Box:
         """The observation space is just the rgb image.
 
-        NOTE: 
-        - The input resolution in the yaml file is (W, H) but the eye output is 
+        NOTE:
+        - The input resolution in the yaml file is (W, H) but the eye output is
             (H, W, 3) so we flip the order here.
         """
 
         observation_space = spaces.Box(
-            0., 1., shape=(*self.resolution[::-1], 3), dtype=np.float32
+            0.0, 1.0, shape=(*self.resolution[::-1], 3), dtype=np.float32
         )
         return observation_space
 

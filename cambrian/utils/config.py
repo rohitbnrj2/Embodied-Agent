@@ -5,6 +5,7 @@ from pathlib import Path
 from copy import deepcopy
 from enum import Flag, auto, Enum
 import contextlib
+import re
 
 import yaml
 from omegaconf import OmegaConf, DictConfig, Node
@@ -274,6 +275,66 @@ class MjCambrianBaseConfig:
     def select(self, key: str) -> Any:
         """Select the value of the key."""
         return OmegaConf.select(OmegaConf.create(self), key)
+
+    def glob(self, key: str, *, flatten: bool = False) -> Dict[str, Any]:
+        """This is effectively select, but allows `*` to be used as a wildcard.
+        
+        This method works by finding all `*` in the key and then iterating over all
+        subsequent keys that match the globbed pattern. 
+        
+        NOTE: yaml files aren't necessarily built to support globbing (like xml), so 
+        this method is fairly slow and should be used sparingly.
+
+        Args:
+            key (str): The key to glob. This is a dotlist key, like `a.b.*`. Multiple
+                globs can be used, like `a.*.c.*.d.*`. Globs in keys can be used, as
+                well, such as `a.ab*.c`
+
+        Keyword Args:
+            flatten (bool): If true, the output will be a dict of the leaf keys and
+                the accumulated values if there are like leaf keys. If False, the
+                output will be a nested dict. Defaults to False.
+        """
+        # Early exit if no globs
+        if '*' not in key:
+            return self.select(key)
+
+        def recursive_glob(config: DictConfig, keys: List[str]) -> DictConfig:
+            if not keys:
+                return config
+
+            # Loop over all the keys and find each match with the passed key/pattern
+            result = DictConfig({})
+            current_key = keys[0].replace("*", ".*")
+            for sub_key, sub_value in config.items():
+                if sub_value is None: # Skip None values, probably optionals
+                    continue
+
+                if match := re.fullmatch(current_key, sub_key):
+                    # If it's a match, we'll recursively glob the next key
+                    matched_key = match.group()
+                    result[matched_key] = recursive_glob(sub_value, keys[1:])
+            return result
+
+        # Glob the key(s)
+        config = OmegaConf.create(self)
+        globbed = recursive_glob(config, key.split('.'))
+
+        if flatten:
+            # If flatten is True, we'll flatten the nested dict to a flat dict where
+            # each key is a leaf key of the nested dict and the value is a list of all
+            # the values that were accumulated to that leaf key.
+            def flatten_dict(data, values = {}) -> Dict[str, Any]:
+                for k, v in data.items():
+                    if isinstance(v, DictConfig):
+                        flatten_dict(v, values)
+                    else:
+                        values.setdefault(k, [])
+                        values[k].append(v)
+                return values
+            return flatten_dict(globbed)
+        return globbed
+
 
     def __contains__(self: T, key: str) -> bool:
         """Check if the dataclass contains a key with the given name."""
@@ -755,6 +816,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             constant_actions = [None, 0, None]. If None, no constant action will be
             applied.
 
+        num_eyes (Optional[int]): The number of eyes for this animal. Useful for 
+            debugging. Should be calculated in the config using resolvers.
         eye_configs (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
             The key will be used as the default name for the eye, unless explicitly
             set in the eye config.
@@ -778,6 +841,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
     constant_actions: Optional[List[float | None]] = None
 
+    num_eyes: Optional[int] = None
     eye_configs: Dict[str, MjCambrianEyeConfig] = field(default_factory=dict)
 
     disable_intensity_sensor: bool
@@ -860,6 +924,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             Improves performance if set to False. Should be true if the optimal path
             is needed for the reward fn.
 
+        num_animals (Optional[int]): The number of animals for this environment. Useful
+            for debugging. Should be calculated in the config using resolvers.
         animal_configs (Dict[str, MjCambrianAnimalConfig]): The configs for the animals.
             The key will be used as the default name for the animal, unless explicitly
             set in the animal config.
@@ -946,6 +1012,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     maze_configs_store: Dict[str, MjCambrianMazeConfig]
     compute_optimal_path: bool
 
+    num_animals: Optional[int] = None
     animal_configs: Dict[str, MjCambrianAnimalConfig] = field(default_factory=dict)
 
 
