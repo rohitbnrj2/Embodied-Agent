@@ -1,0 +1,3 @@
+extend:
+  insect_vision: ${extend:${include:configs/experiments/insect_vision/insect_vision.yaml}}
+  exp: ${extend:${include:configs/experiments/point_1eye_2x2.yaml}}

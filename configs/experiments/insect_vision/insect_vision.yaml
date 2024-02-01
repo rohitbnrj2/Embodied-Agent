@@ -1,0 +1,46 @@
+training_config:
+  total_timesteps: 2_000_000
+
+env_config:
+  extend:
+    maze_store: ${extend:${include:configs/mazes/dr/MAZE_STORE.yaml}}
+
+  use_ambient_light: True
+  ambient_light_intensity: [0.7, 0.7, 0.7]
+
+  reward_fn_type: euclidean_delta_from_init
+
+  truncate_on_contact: False
+  terminate_at_goal: True
+
+  maze_selection_criteria:
+    mode: CYCLE
+  maze_configs:
+    - Y_MAZE_OPTION
+  eval_maze_configs:
+    - Y_MAZE_OPTION
+    - I_MAZE_STATIC
+    - I_MAZE_STATIC_SWITCH
+    - Y_COMPLEX_MAZE_OPTION
+    - X_MAZE_STATIC
+
+  maze_configs_store:
+    BASE:
+      hide_targets: True
+      use_target_light_sources: False
+
+  animal_configs:
+    animal_0:
+      # keeping false for now bc it gives away local movements
+      use_init_pos_obs: False
+      use_current_pos_obs: false
+
+      disable_intensity_sensor: True
+
+evo_config:
+  spawning_config:
+    init_num_mutations: 5
+    mutation_options: [ADD_EYE, REMOVE_EYE]
+
+    default_animal_config:
+      constant_actions: null

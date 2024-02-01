@@ -10,13 +10,13 @@ env_config:
         animal_0_eye_0:
           extend: ${extend:${evo_config.spawning_config.default_eye_config}}
           resolution: [10, 1]
-          fov: [45, 1]
+          fov: [60, 1]
           coord: [10.0, -60.0]
           name: animal_0_eye_0
         animal_0_eye_1:
           extend: ${extend:${evo_config.spawning_config.default_eye_config}}
           resolution: [10, 1]
-          fov: [45, 1]
+          fov: [60, 1]
           coord: [10.0, 60.0]
           name: animal_0_eye_1
       name: animal_0

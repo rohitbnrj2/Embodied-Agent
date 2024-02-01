@@ -11,6 +11,10 @@ maze_configs_store:
     extend: 
       ref: ${extend:${...BASE}}
       base: ${extend:${include:configs/mazes/dr/I_MAZE_STATIC.yaml}}
+  I_MAZE_LARGE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/I_MAZE_LARGE_STATIC.yaml}}
   I_MAZE_INVERSE:
     extend: 
       ref: ${extend:${...BASE}}
@@ -20,6 +24,10 @@ maze_configs_store:
     extend: 
       ref: ${extend:${...BASE}}
       base: ${extend:${include:configs/mazes/dr/I_MAZE_STATIC_SWITCH.yaml}}
+  I_MAZE_LARGE_STATIC_SWITCH:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/I_MAZE_LARGE_STATIC_SWITCH.yaml}}
   I_MAZE_DIVERSE:
     extend: 
       ref: ${extend:${...BASE}}
@@ -109,3 +117,7 @@ maze_configs_store:
       ref: ${extend:${...BASE}}
       base: ${extend:${include:configs/mazes/dr/Y_MAZE_DIVERSE.yaml}}
     ref: Y_MAZE_STATIC
+  Y_COMPLEX_MAZE_OPTION:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/Y_COMPLEX_MAZE_OPTION.yaml}}
