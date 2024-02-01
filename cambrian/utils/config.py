@@ -645,6 +645,10 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     enable_lens: bool 
     enable_phase_mask: bool 
 
+    scene_resolution: Tuple[int, int]
+    sensor_resolution: Tuple[int, int]
+    add_noise: bool
+    noise_std: float
     aperture_open: float 
     aperture_radius: float 
     wavelengths: Tuple[float, float, float] 

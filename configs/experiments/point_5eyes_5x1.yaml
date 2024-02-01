@@ -19,7 +19,7 @@ env_config:
           resolution: [5, 1]
           aperture_open: 0.2
           fov: [45, 5]
-          coord: [10.0, -60.0]
+          coord: [10.0, -90.0]
           name: animal_0_eye_0
         animal_0_eye_1:
           extend: ${extend:${evo_config.spawning_config.default_eye_config}}
@@ -47,16 +47,20 @@ env_config:
           resolution: [5, 1]
           aperture_open: 0.2
           fov: [45, 5]
-          coord: [10.0, 60.0]
+          coord: [10.0, 90.0]
           name: animal_0_eye_4
       name: animal_0
 
   maze_selection_criteria:
-    mode: DIFFICULTY
-    schedule: RANDOM
+    mode: NAMED
+    name: Y_COMPLEX_MAZE_OPTION
   maze_configs:
     - Y_COMPLEX_MAZE_OPTION
-
+  eval_maze_configs:
+    - Y_COMPLEX_MAZE_OPTION
+    - OPTIC_FLOW_STRAIGHT_TURN
+    - OPTIC_FLOW_STRAIGHT_TEXTURE
+    - OPTIC_FLOW_STRAIGHT_VAR_TEXTURE
 
   maze_configs_store:
 
@@ -66,5 +70,3 @@ env_config:
       extend: 
         base: ${extend:${include:configs/mazes/dr/Y_COMPLEX_MAZE_OPTION.yaml}}
         ref: ${extend:${...BASE}}
-
-    

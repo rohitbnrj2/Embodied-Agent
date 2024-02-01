@@ -47,8 +47,8 @@ env_config:
     gamma: 2.0
 
   maze_selection_criteria:
-    mode: DIFFICULTY
-    schedule: RANDOM
+    mode: NAMED
+    name: Y_MAZE_OPTION
   maze_configs:
     - Y_MAZE_OPTION
   eval_maze_configs:

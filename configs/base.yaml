@@ -110,6 +110,10 @@ evo_config:
         enable_aperture: False
         enable_lens: False
         enable_phase_mask: False
+        scene_resolution: [80, 1]
+        sensor_resolution: [60, 1]
+        add_noise: False
+        noise_std: 0.01
 
         aperture_open: 1.0
         aperture_radius: 1
@@ -140,6 +144,10 @@ evo_config:
       enable_lens: False
       enable_phase_mask: False
 
+      scene_resolution: [80, 80]
+      sensor_resolution: [60, 60]
+      add_noise: False
+      noise_std: 0.01
       aperture_open: 1.0
       aperture_radius: 1
       wavelengths: [610e-9, 530e-9, 470e-9]

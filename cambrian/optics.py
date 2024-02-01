@@ -1,12 +1,14 @@
 import numpy as np
 from numpy.fft import fft2, fftshift, ifft2, ifftshift
 import torch
+from PIL import Image
 
 from scipy import signal
 
-# from cambrian.eye import MjCambrianEye
 from cambrian.utils.config import MjCambrianEyeConfig
 
+def electric_field(k, z1, X1, Y1):
+    return np.exp(1j*k*np.sqrt(X1**2+Y1**2+z1**2)) 
 
 def prep_buffer(x):
     if isinstance(x, np.ndarray):
@@ -26,63 +28,57 @@ def rs_prop (u1,z,FX,FY,lmbda):
     u2 = ifftshift(ifft2(U2))
     return u2
 
+def add_gaussian_noise(images: torch.Tensor, std: float = 0.01) -> torch.Tensor:
+    # add noise to the images with mean 0.5 and standard deviation std
+    noise = torch.normal(mean=0.0, std=std, size=images.shape)
+    return torch.clamp(images + noise, 0, 1)
+
 class MjCambrianNonDifferentiableOptics(torch.nn.Module):
 
-    def __init__(self):
+    def __init__(self, config: MjCambrianEyeConfig):
         super(MjCambrianNonDifferentiableOptics).__init__()
+        self.reset(config)
 
-        # aperture_radius: float = 1.0 
-        # self.register_buffer('input_field', prep_buffer(aperture_radius))
+    def reset(self, config: MjCambrianEyeConfig):
+        self.config = config
+        self.A, self.X1, self.Y1, self.FX, self.FY = self.define_simple_psf(config)
 
-
-    def render_aperture_only(self, image: np.ndarray, depth: np.ndarray, config: MjCambrianEyeConfig) -> np.ndarray:
+    def forward(self, image: np.ndarray, depth: np.ndarray, return_psf: bool = False) -> np.ndarray:
+        """Apply the depth invariant PSF to the image.
         """
-        image: (H, W, 3) should be dtype float32
-        """
-        psf = self.simple_psf(depth, config)
+        if self.config.add_noise:
+            image = add_gaussian_noise(image, self.config.noise_std)
+
+        psf = self.depth_invariant_psf(np.mean(depth), self.A, self.X1, self.Y1, self.FX, 
+                              self.FY, self.config.focal, self.config.wavelengths)
         
-        TORCH_EXECUTION=True
-        if TORCH_EXECUTION:
-            # switch channels to first dimension
-            image = torch.tensor(image).unsqueeze(0)
-            if torch.cuda.is_available():
-                image = image.cuda()
-                psf = psf.cuda()
+        image = torch.tensor(image)
+        if torch.cuda.is_available():
             # send to gpu
-            image = image.permute(0, 3, 1, 2)
-            psf = psf.permute(2, 0, 1).unsqueeze(0)
-            img = []
-            img.append(torch.nn.functional.conv2d(image[:, 0, :,:], psf[:, 0, None, :,:], padding='same'))
-            img.append(torch.nn.functional.conv2d(image[:, 1, :,:], psf[:, 1, None, :,:], padding='same'))
-            img.append(torch.nn.functional.conv2d(image[:, 2, :,:], psf[:, 2, None, :,:], padding='same'))
-            img = torch.cat(img, dim=0).permute(1, 2, 0).cpu().numpy()
+            image = image.cuda()
+            psf = psf.cuda()
+        
+        image = image.unsqueeze(0).permute(0, 3, 1, 2) # [H, W, C] -> [1, C, H, W]
+        psf = psf.permute(2, 0, 1).unsqueeze(0) # [H, W, C] -> [1, C, H, W]
+        img = []
+        img.append(torch.nn.functional.conv2d(image[:, 0, :,:], psf[:, 0, None, :,:], padding='same'))
+        img.append(torch.nn.functional.conv2d(image[:, 1, :,:], psf[:, 1, None, :,:], padding='same'))
+        img.append(torch.nn.functional.conv2d(image[:, 2, :,:], psf[:, 2, None, :,:], padding='same'))
+        img = torch.cat(img, dim=0).permute(1, 2, 0).cpu().numpy()
+        # img = torch.nn.functional.conv2d(image, psf, padding='same').cpu().numpy() # otherwise output is [1, 1, H, W]
+        if return_psf:
             psf = psf.squeeze(0).permute(1, 2, 0).cpu().numpy()
-        else:
-            psf = psf.numpy()
-            image[..., 0] = signal.convolve2d(image[..., 0], psf[..., 0], boundary='symm', mode='same')
-            image[..., 1] = signal.convolve2d(image[..., 1], psf[..., 1], boundary='symm', mode='same')
-            image[..., 2] = signal.convolve2d(image[..., 2], psf[..., 2], boundary='symm', mode='same')
-            return image, psf
-            
-        return img, psf 
+            return img, psf 
+        
+        return np.clip(img, 0, 1), None
 
-    def simple_psf(self, depth, config: MjCambrianEyeConfig) -> np.ndarray:
-        """
-        p -> z1 -> a/l/phase -> z2/focal -> s
-
-        choose where to place the lens such that focus is at z_focus
-        z_focus = 1.               
-        z2 = z_focus*f/(z_focus-f)   # distance between exit pupil and sensor plane
-        """
-
-        def electric_field(k, z1, X1, Y1):
-            return np.exp(1j*k*np.sqrt(X1**2+Y1**2+z1**2)) 
-                
+    def define_simple_psf(self, config: MjCambrianEyeConfig) -> torch.Tensor:
+        """Define a simple point spread function (PSF) for the eye.
+        """     
         # Create Sensor Plane
-        Mx = config.resolution[0] * 2 # 40 works well  
-        My = config.resolution[1] * 2 # 40 works well  
-        # Mx = 40 
-        # My = 1 #40 
+        Mx = config.sensor_resolution[0] 
+        My = config.sensor_resolution[1] 
+
         # id mx and my are even, then change to odd
         # odd length is better for performance
         if Mx % 2 == 0:
@@ -90,10 +86,10 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
         if My % 2 == 0:
             My += 1
         
-        Lx = config.sensorsize[0] #7.1e-3          # length of simulation plane (m) 
-        Ly = config.sensorsize[1] #7.1e-3          # length of simulation plane (m) 
-        dx = Lx/Mx #3.45e-6                        # pixel pitch of sensor (m)      
-        dy = Ly/My #3.45e-6                        # pixel pitch of sensor (m)
+        Lx = config.sensorsize[0] # length of simulation plane (m) 
+        Ly = config.sensorsize[1] # length of simulation plane (m) 
+        dx = Lx/Mx # pixel pitch of sensor (m)      
+        dy = Ly/My # pixel pitch of sensor (m)
 
         # Image plane coords                              
         x1 = np.linspace(-Lx/2.,Lx/2.,Mx) 
@@ -106,35 +102,113 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
         FX,FY = np.meshgrid(fx,fy)
         
         # Aperture
-        # import pdb; pdb.set_trace()
-        max_aperture_size = dx * int(Mx/2) # (m)
-        config.aperture_radius = np.clip(config.aperture_open, 0, 1) * max_aperture_size
-        # complete aperture size: aperture_size = dx * num_pixels
-        # aperture radius: aperture_radius = dx * {radius_in_pixels /in [0, num_pixels/2]}
-        self.A = (np.sqrt(X1**2+Y1**2)/(config.aperture_radius + 1.0e-7) <= 1.).astype(np.float32)
-        # self.A = (np.sqrt(X1**2+Y1**2) - config.aperture_radius).astype(np.float32)
+        max_aperture_size = dx * int(np.maximum(Mx, My) / 2) # (m)
+        aperture_radius = np.interp(np.clip(config.aperture_open, 0, 1), [0, 1], [0, max_aperture_size])
+        ZERO_CLOSE_ENABLED = False
+        if ZERO_CLOSE_ENABLED:
+            if config.aperture_open == 0:
+                aperture_radius = 0.
 
-        # average distance of point source
-        z1 = np.mean(depth)
+        A = (np.sqrt(X1**2+Y1**2)/(aperture_radius + 1.0e-7) <= 1.).astype(np.float32)
+        return A, X1, Y1, FX, FY
+
+    def depth_invariant_psf(self, mean_depth, A, X1, Y1, FX, FY, focal, wavelengths) -> torch.Tensor:
+        """
+        mean_depth: float, mean depth of the point source
+        """
+        z1 = mean_depth # z1 is average distance of point source
         psfs = []
-
-        for _lambda in config.wavelengths:
+        for _lambda in wavelengths:
             k = 2*np.pi/_lambda
             # electric field originating from point source
             u = electric_field(k, z1, X1, Y1)
-            
             # electric field at the aperture
-            u = u*self.A #*t_lens*t_mask
-            
+            u = u * A #*t_lens*t_mask
             # electric field at the sensor plane
-            u = rs_prop(u, config.focal[0], FX, FY, _lambda)
-            
+            u = rs_prop(u, focal[0], FX, FY, _lambda)
             psf = np.abs(u)**2
             # psf should sum to 1 because of energy 
-            # we dont divide by sum we are giving it more energy 
             psf /= (np.sum(psf) + 1.0e-7) 
-
-            # psf = psf / (np.linalg.norm(psf) + 1.0e-7) # (np.sum(psf) + 1.0e-7)
             psfs.append(torch.tensor(psf).unsqueeze(-1))
 
         return torch.cat(psfs, dim=-1).float()
+
+    
+if __name__ == "__main__":
+    
+    import os
+    import matplotlib.pyplot as plt
+    import imageio
+    from cambrian.utils.utils import MjCambrianArgumentParser
+    from cambrian.utils.config import MjCambrianConfig
+
+    # get config from argparse
+    parser = MjCambrianArgumentParser()
+    args = parser.parse_args()
+    config: MjCambrianEyeConfig = MjCambrianEyeConfig.load(
+        args.config, overrides=args.overrides
+    )
+
+    img_path = 'misc/psf1/animal_0_eye_1_GT_im_4.png'
+    depth_path = 'misc/psf1/animal_0_eye_1_GT_depth_4.npy'
+
+    # img_path = 'misc/psf1/animal_0_eye_0_GT_im_0.png'
+    # img_path = 'misc/psf1/animal_0_eye_1_GT_im_8.png'
+    # img_path = 'misc/res20/animal_0_eye_0_GT_im_10.png'
+    # img_path = 'misc/res20/animal_0_eye_0_GT_im_2.png'
+    # img_path = 'misc/flatland/animal_0_eye_0_GT_im_4.png'
+    # img_path = 'misc/res5/animal_0_eye_0_GT_im_2.png'
+
+    # depth_path = 'misc/psf1/animal_0_eye_0_GT_depth_0.npy'
+    # depth_path = 'misc/psf1/animal_0_eye_1_GT_depth_8.npy'
+    # depth_path = 'misc/res20/animal_0_eye_0_GT_depth_10.npy'
+    # depth_path = 'misc/res20/animal_0_eye_0_GT_depth_2.npy'
+    # depth_path = 'misc/flatland/animal_0_eye_0_GT_depth_4.npy'
+    # depth_path = 'misc/res5/animal_0_eye_0_GT_depth_2.npy'
+    
+    res = [[5, 5], [10, 10], [20, 20]]
+    optics = MjCambrianNonDifferentiableOptics(config)
+    for i in range(len(res)):
+        img = Image.open(img_path) #.resize((100,100))
+        img = np.array(img).astype(np.float32)[...,0:3]
+        print(f"img: {img.shape}")
+        img = img / 255.0
+        depth = np.load(depth_path)
+        _save_path = f'aps-debug-flatland-SceneRes{img.shape[0]}-ApRes{res[i][0]}'
+        os.makedirs(_save_path, exist_ok=True)
+        config.resolution = res[i]
+        config.aperture_open = 0 
+        # create a plot and save depth and image
+        fig, axs = plt.subplots(1, 2)
+        axs[0].imshow(img)
+        axs[0].set_title('Image')
+        # axs[0].axis('off')
+        axs[1].imshow(depth)
+        plt.colorbar(axs[1].imshow(depth), ax=axs[1])
+        axs[1].set_title(f'Depth min: {np.min(depth):.2f} max: {np.max(depth):.2f}')
+        # axs[1].axis('off')
+        fig.savefig(f'./{_save_path}//gt.png')
+
+        images = []
+        while config.aperture_open <= 1.0:
+            optics.reset(config)
+            img, psf = optics.forward(img, depth, return_psf=True)
+            print(f"Rendered img: {img.shape}")
+            #normalize psf to 0 and 1 for each channel
+            psf[:,:,0] = (psf[:,:,0] - np.min(psf[:,:,0])) / (np.max(psf[:,:,0]) - np.min(psf[:,:,0]))
+            psf[:,:,1] = (psf[:,:,1] - np.min(psf[:,:,1])) / (np.max(psf[:,:,1]) - np.min(psf[:,:,1]))
+            psf[:,:,2] = (psf[:,:,2] - np.min(psf[:,:,2])) / (np.max(psf[:,:,2]) - np.min(psf[:,:,2]))
+
+            fig, axs = plt.subplots(1, 2)
+            axs[0].imshow(img)
+            axs[0].set_title(f'Image After PSF Applied (Aperture: {config.aperture_open:2f})')
+            # axs[0].axis('off')
+            axs[1].imshow(psf)
+            axs[1].set_title('PSF')
+            # axs[1].axis('off')
+            filename = f'./{_save_path}//psf-im-{config.aperture_open:2f}.png'
+            fig.savefig(filename)
+            images.append(imageio.imread(filename))
+            config.aperture_open += 0.1
+
+        imageio.mimsave(f'./{_save_path}/psf-ims.gif', images, loop=4, duration = 1)

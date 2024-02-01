@@ -29,7 +29,7 @@ class MjCambrianEye:
         self._data: mj.MjData = None
         self._last_obs: np.ndarray = None
 
-        self._optics = MjCambrianNonDifferentiableOptics()
+        self._optics = MjCambrianNonDifferentiableOptics(self.config)
 
         self._renderer = MjCambrianRenderer(config.renderer_config)
         self._render_depth = "depth_array" in config.renderer_config.render_modes
@@ -147,6 +147,7 @@ class MjCambrianEye:
         self.config.renderer_config.width = self.padded_resolution[0]
         self.config.renderer_config.height = self.padded_resolution[1]
         self._renderer.reset(model, data)
+        self._optics.reset(config=self.config)
 
         # All animal geomgroups start at 2, and so we'll hide all them
         # We'll also hide all the sites after 2
@@ -181,7 +182,7 @@ class MjCambrianEye:
         if self.config.enable_optics:
             rgb, depth = rgb
             rgb = rgb.astype(np.float32) / 255.0
-            rgb, _ = self._optics.render_aperture_only(rgb, depth, self.config)
+            rgb, _ = self._optics.forward(rgb, depth)
             rgb = (rgb * 255).astype(np.uint8)
 
         return self._postprocess(rgb)
@@ -248,8 +249,8 @@ class MjCambrianEye:
         call should use this resolution instead and the cropped after the psf is
         applied."""
         return (
-            self.resolution[0] + int(self.resolution[0] * 3),
-            self.resolution[1] + int(self.resolution[1] * 3),
+            self.config.scene_resolution[0],
+            self.config.scene_resolution[1],
         )
 
     @property
