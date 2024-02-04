@@ -299,8 +299,8 @@ class MjCambrianBaseConfig:
         if '*' not in key:
             return self.select(key)
 
-        def recursive_glob(config: DictConfig, keys: List[str]) -> DictConfig:
-            if not keys:
+        def recursive_glob(config: DictConfig | Any, keys: List[str]) -> DictConfig:
+            if not keys or not isinstance(config, DictConfig):
                 return config
 
             # Loop over all the keys and find each match with the passed key/pattern

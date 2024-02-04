@@ -363,8 +363,8 @@ def plot(
         print("Plotting data...")
 
     # First, create a matplotlib colormap so each rank has a unique color + marker
-    num_ranks = max(len(generation.ranks) for generation in data.generations.values())
-    colors = plt.cm.viridis(np.linspace(0, 1, num_ranks))
+    num_ranks = max(len(generation.ranks) for generation in data.generations.values() if generation.ranks)
+    colors = plt.cm.jet(np.linspace(0, 1, num_ranks))
     markers = [".", ",", "o", "v", "^", "<", ">", "s", "p", "*", "h", "+", "x"]
 
     output_folder.mkdir(parents=True, exist_ok=True)
@@ -433,6 +433,7 @@ def plot(
                 xkeys = [
                     "env_config.animal_configs.*.eye_configs.*.aperture_open",
                     "env_config.animal_configs.*.eye_configs.*.aperture_radius",
+                    "env_config.animal_configs.*.num_eyes",
                 ]
                 plot_monitor_and_config(
                     rank_data.monitor,
@@ -551,10 +552,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o",
         "--override",
+        "--overrides",
         dest="overrides",
-        action="append",
-        nargs=2,
-        help="Override config values. Do <dot separated yaml config> <value>",
+        action="extend",
+        nargs="+",
+        type=str,
+        help="Override config values. Do <config>.<key>=<value>",
         default=[],
     )
 
