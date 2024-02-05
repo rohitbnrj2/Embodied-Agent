@@ -72,6 +72,7 @@ def evaluate_policy(
     """
     # To avoid circular imports
     from cambrian.env import MjCambrianEnv
+    from cambrian.utils.logger import get_logger
 
     cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
     if record_path is not None:
@@ -86,7 +87,7 @@ def evaluate_policy(
     run = 0
     cumulative_reward = 0
 
-    print(f"Starting {num_runs} evaluation run(s)...")
+    get_logger().info(f"Starting {num_runs} evaluation run(s)...")
     obs = env.reset()
     while run < num_runs:
         action, _ = model.predict(obs, deterministic=True)
@@ -94,7 +95,7 @@ def evaluate_policy(
         cumulative_reward += reward[0]
 
         if done:
-            print(f"Run {run} done. Cumulative reward: {cumulative_reward}")
+            get_logger().info(f"Run {run} done. Cumulative reward: {cumulative_reward}")
             cumulative_reward = 0
             run += 1
 

@@ -169,3 +169,6 @@ evo_config:
         use_shared_context: True
 
   environment_variables: {}
+
+logging_config:
+  extend: ${extend:${include:configs/logging/default_logger.yaml}}

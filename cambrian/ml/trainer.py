@@ -28,6 +28,7 @@ from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy
 from cambrian.utils.config import MjCambrianConfig
 from cambrian.utils.wrappers import make_single_env
+from cambrian.utils.logger import get_logger
 
 
 class MjCambrianTrainer:
@@ -41,18 +42,20 @@ class MjCambrianTrainer:
         self.config = config
         self.seed = self.config.training_config.seed
 
-        self.verbose = self.config.training_config.verbose
-
         self.logdir = Path(
             Path(self.config.training_config.logdir)
             / self.config.training_config.exp_name
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
 
+        self.logger = get_logger(self.config)
+
         set_random_seed(self._calc_seed(0))
 
     def train(self):
         """Train the animal."""
+        self.logger.debug(f"Training the animal in {self.logdir}...")
+
         self.config.save(self.logdir / "config.yaml")
 
         # Setup the environment, model, and callbacks
@@ -64,15 +67,12 @@ class MjCambrianTrainer:
         # Start training
         total_timesteps = self.config.training_config.total_timesteps
         model.learn(total_timesteps=total_timesteps, callback=callback)
-        if self.verbose > 1:
-            print("Finished training the animal...")
+        self.logger.info("Finished training the animal...")
 
         # Save the policy
-        if self.verbose > 1:
-            print(f"Saving model to {self.logdir}...")
+        self.logger.info(f"Saving model to {self.logdir}...")
         model.save_policy(self.logdir)
-        if self.verbose > 1:
-            print(f"Saved model to {self.logdir}...")
+        self.logger.debug(f"Saved model to {self.logdir}...")
 
         # The finished file indicates to the evo script that the animal is done
         Path(self.logdir / "finished").touch()
@@ -135,43 +135,42 @@ class MjCambrianTrainer:
             - EvalCallback: Evaluates the model every `eval_freq` steps. See config for
                 settings. This is provided by Stable Baselines.
         """
+        # Update the logger for the basecallback to use our logger
+        BaseCallback.logger = self.logger
+
         callbacks_on_new_best = []
         callbacks_on_new_best.append(
             SaveVideoCallback(
                 eval_env,
                 self.logdir,
                 self.config.training_config.max_episode_steps,
-                verbose=self.verbose,
             )
         )
         callbacks_on_new_best.append(
             StopTrainingOnNoModelImprovement(
                 self.config.training_config.max_no_improvement_evals,
                 self.config.training_config.min_no_improvement_evals,
-                verbose=self.verbose,
             )
         )
         callbacks_on_new_best.append(
            StopTrainingOnRewardThreshold( 
                 self.config.training_config.no_improvement_reward_threshold,
-                verbose=self.verbose,
               )
         )
         callbacks_on_new_best.append(
-            MjCambrianSavePolicyCallback(self.logdir, verbose=self.verbose)
+            MjCambrianSavePolicyCallback(self.logdir)
         )
         callbacks_on_new_best = CallbackListWithSharedParent(callbacks_on_new_best)
 
         callbacks_after_eval = []
         callbacks_after_eval.append(
-            PlotEvaluationCallback(self.logdir, verbose=self.verbose)
+            PlotEvaluationCallback(self.logdir)
         )
         # callbacks_after_eval.append(
         #     SaveVideoCallback(
         #         eval_env,
         #         self.logdir,
         #         self.config.training_config.max_episode_steps,
-        #         verbose=self.verbose,
         #     )
         # )
         callbacks_after_eval = CallbackListWithSharedParent(callbacks_after_eval)
@@ -206,7 +205,7 @@ class MjCambrianTrainer:
         )
 
         if (checkpoint_path := self.config.training_config.checkpoint_path) is not None:
-            model = MjCambrianModel.load(checkpoint_path, env=env, verbose=self.verbose)
+            model = MjCambrianModel.load(checkpoint_path, env=env)
         else:
             model = MjCambrianModel(
                 "MultiInputPolicy",
@@ -215,7 +214,6 @@ class MjCambrianTrainer:
                 batch_size=self.config.training_config.batch_size,
                 learning_rate=self.config.training_config.learning_rate,
                 policy_kwargs=policy_kwargs,
-                verbose=self.verbose,
             )
 
         if (policy_path := self.config.training_config.policy_path) is not None:
@@ -223,13 +221,13 @@ class MjCambrianTrainer:
             assert (
                 policy_path.exists()
             ), f"Checkpoint path {policy_path} does not exist."
-            print(f"Loading model weights from {policy_path}...")
+            self.logger.info(f"Loading model weights from {policy_path}...")
             model.load_policy(policy_path.parent)
         return model
 
 
 if __name__ == "__main__":
-    from cambrian.utils.utils import MjCambrianArgumentParser
+    from cambrian.utils import MjCambrianArgumentParser
 
     parser = MjCambrianArgumentParser()
 

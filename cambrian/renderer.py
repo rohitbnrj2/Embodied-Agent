@@ -11,6 +11,7 @@ import cv2
 
 from cambrian.utils import get_camera_id, get_body_id
 from cambrian.utils.config import MjCambrianRendererConfig
+from cambrian.utils.logger import get_logger
 
 TEXT_HEIGHT = 20
 TEXT_MARGIN = 5
@@ -128,6 +129,7 @@ class MjCambrianViewer(ABC):
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
         self.config.setdefault("max_geom", 1000)
+        self.logger = get_logger()
 
         self.model: mj.MjModel = None
         self.data: mj.MjData = None
@@ -136,7 +138,7 @@ class MjCambrianViewer(ABC):
         self.viewport: mj.MjrRect = None
 
         self.scene_option = mj.MjvOption()
-        # Scene options is a dict where options either are keys directly or if the 
+        # Scene options is a dict where options either are keys directly or if the
         # mujoco option is an array, the key is a dict with the keys of the dict as
         # the indices of the mujoco array.
         self.config.setdefault("scene_options", {})
@@ -149,7 +151,7 @@ class MjCambrianViewer(ABC):
                 )
                 for index, val in value.items():
                     if isinstance(index, str):
-                        # Special case where the option is "flags" and the index is a 
+                        # Special case where the option is "flags" and the index is a
                         # str representing the mjtVisFlag enum
                         assert hasattr(mj.mjtVisFlag, index), (
                             "Index is expected to be a valid mjtVisFlag enum, "
@@ -193,8 +195,8 @@ class MjCambrianViewer(ABC):
                 MJR_CONTEXT
                 and MJR_CONTEXT.currentBuffer != self.get_framebuffer_option()
             ):
-                print(
-                    "WARNING: Overriding use_shared_context. First buffer and current buffer don't match."
+                self.logger.warning(
+                    "Overriding use_shared_context. First buffer and current buffer don't match."
                 )
                 self.config.use_shared_context = False
 
@@ -404,10 +406,10 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
     def render(self, *, overlays: List[MjCambrianViewerOverlay] = []):
         if self.window is None:
-            print("WARNING: Tried to render destroyed window.")
+            self.logger.warning("Tried to render destroyed window.")
             return
         elif glfw.window_should_close(self.window):
-            print("WARNING: Tried to render closed or closing window.")
+            self.logger.warning("Tried to render closed or closing window.")
             return
 
         self.make_context_current()
@@ -441,7 +443,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
     def fullscreen(self, fullscreen: bool):
         if self.window is None:
-            print("WARNING: Tried to set fullscreen to destroyed window.")
+            self.logger.warning("Tried to set fullscreen to destroyed window.")
             return
 
         if fullscreen:
@@ -529,6 +531,7 @@ class MjCambrianRenderer:
 
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
+        self.logger = get_logger()
 
         assert all(
             mode in self.metadata["render.modes"] for mode in self.render_modes
@@ -605,7 +608,7 @@ class MjCambrianRenderer:
         assert self._record, "Cannot save without recording."
         assert len(self._rgb_buffer) > 0, "Cannot save empty buffer."
 
-        print(f"Saving visualizations at {path}...")
+        self.logger.info(f"Saving visualizations at {path}...")
 
         path = Path(path)
         rgb_buffer = np.array(self._rgb_buffer)
@@ -636,7 +639,7 @@ class MjCambrianRenderer:
 
             webp.mimwrite(path.with_suffix(".webp"), rgb_buffer, fps=fps, lossless=True)
 
-        print(f"Saved visualization at {path}")
+        self.logger.debug(f"Saved visualization at {path}")
 
     @property
     def record(self) -> bool:

@@ -24,6 +24,7 @@ from cambrian.utils import (
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import MjCambrianAnimalConfig, MjCambrianEyeConfig
+from cambrian.utils.logger import get_logger
 
 
 class MjCambrianAnimal:
@@ -47,14 +48,11 @@ class MjCambrianAnimal:
 
     Args:
         config (MjCambrianAnimalConfig): The configuration for the animal.
-
-    Keyword Args:
-        verbose (int): The verbosity level. Defaults to 0.
     """
 
-    def __init__(self, config: MjCambrianAnimalConfig, *, verbose: int = 0):
+    def __init__(self, config: MjCambrianAnimalConfig):
         self.config = self._check_config(config)
-        self.verbose = verbose
+        self.logger = get_logger()
 
         self._eyes: Dict[str, MjCambrianEye] = {}
         self._intensity_sensor: MjCambrianEye = None
@@ -415,8 +413,8 @@ class MjCambrianAnimal:
         images = np.array(images)
 
         if images.size == 0:
-            print(
-                f"WARNING: Animal `{self.name}` observations. "
+            self.logger.warning(
+                f"Animal `{self.name}` observations. "
                 "Maybe you forgot to call `render`?."
             )
             return None
@@ -455,25 +453,6 @@ class MjCambrianAnimal:
             groundbody = get_body_id(self._model, "floor")
             if otherrootbody == groundbody:
                 continue
-
-            if self.verbose > 1:
-                body_name = get_body_name(self._model, body)
-                rootbody_name = get_body_name(self._model, rootbody)
-                geom_name = get_geom_name(self._model, geom)
-
-                otherbody_name = get_body_name(self._model, otherbody)
-                otherrootbody_name = get_body_name(self._model, otherrootbody)
-                othergeom_name = get_geom_name(self._model, othergeom)
-
-                print("Detected contact:")
-                print(
-                    f"\t1 (body :: rootbody :: geom): "
-                    f"{body_name} :: {rootbody_name} :: {geom_name}"
-                )
-                print(
-                    f"\t2 (body :: rootbody :: geom): "
-                    f"{otherbody_name} :: {otherrootbody_name} :: {othergeom_name}"
-                )
 
             return True
 
@@ -599,11 +578,10 @@ class MjCambrianAnimal:
         default_eye_config: MjCambrianEyeConfig,
         *,
         mutations: List[MutationType],
-        verbose: int = 0,
     ) -> MjCambrianAnimalConfig:
         """Mutates the animal config."""
-        if verbose > 1:
-            print("Mutating animal...")
+        logger = get_logger()
+        logger.info("Mutating animal...")
 
         mutation_options = [MjCambrianAnimal.MutationType[m] for m in mutations]
 
@@ -614,18 +592,15 @@ class MjCambrianAnimal:
         mutations = np.random.choice(mutation_options, num_of_mutations, False)
         mutations = reduce(lambda x, y: x | y, mutations)
 
-        if verbose > 1:
-            print(f"Number of mutations: {num_of_mutations}")
-            print(f"Mutations: {mutations}")
+        logger.info(f"Mutations: {mutations}")
 
         if MjCambrianAnimal.MutationType.REMOVE_EYE in mutations:
             # NOTE: We assume here the animal's eyes are symmetric, as in when we remove
             # an eye, we remove the reflected eye. Reflected eye's have even indices.
-            if verbose > 1:
-                print("Removing an eye.")
+            logger.debug("Removing an eye.")
 
             if len(config.eye_configs) <= 2:
-                print("Cannot remove the last eye. Adding one instead.")
+                logger.info("Cannot remove the last eye. Adding one instead.")
                 mutations |= MjCambrianAnimal.MutationType.ADD_EYE
             else:
                 # Select an eye at random
@@ -636,11 +611,12 @@ class MjCambrianAnimal:
                 del config.eye_configs[eye_key1]
                 del config.eye_configs[eye_key2]
 
+                config.num_eyes -= 2
+
         if MjCambrianAnimal.MutationType.ADD_EYE in mutations:
             # NOTE: We assume here the animal's eyes are symmetric, as in when we add an
             # eye, we add the reflected eye, i.e. negate the longitudinal coord. 
-            if verbose > 1:
-                print("Adding an eye.")
+            logger.debug("Adding an eye.")
 
             new_eye_config: MjCambrianEyeConfig = default_eye_config.copy()
             new_eye_config.name = f"{config.name}_eye_{len(config.eye_configs)}"
@@ -655,9 +631,10 @@ class MjCambrianAnimal:
             new_eye_config2.coord[1] = -new_eye_config2.coord[1]
             config.eye_configs[new_eye_config2.name] = new_eye_config2
 
+            config.num_eyes += 2
+
         if MjCambrianAnimal.MutationType.EDIT_EYE in mutations:
-            if verbose > 1:
-                print("Editing an eye.")
+            logger.debug("Editing an eye.")
 
             # Randomly select an eye to edit
             eye_config: MjCambrianEyeConfig = np.random.choice(
@@ -674,36 +651,31 @@ class MjCambrianAnimal:
             eye_config.fov = edit(eye_config.fov)
 
         if MjCambrianAnimal.MutationType.UPDATE_APERTURE in mutations:
-            verbose = 2
-            if verbose > 1:
-                print("Updating aperture.")
+            logger.debug("Updating aperture.")
 
             # edit all eyes with the same aperture
             allowed_apertures = np.array(
                 [0.0, 0.2, 0.4, 0.6, 0.8, 1.0], dtype=np.float32
             )
             aperture = np.random.choice(allowed_apertures)
-            if verbose > 1:
-                print("Updated all eyes with aperture: ", aperture)
-                for key in config.eye_configs.keys():
-                    print(
-                        f"aperture_open before: {config.eye_configs[key].aperture_open}"
-                    )
 
             # allowed_apertures = np.array([-0.2, 0.1])
             # d_aperture = np.random.choice(allowed_apertures)
-            for key in config.eye_configs.keys():
-                config.eye_configs[key].aperture_open = aperture
+            for eye_config in config.eye_configs.values():
+                logger.debug(f"aperture_open before: {eye_config.aperture_open}")
+
+                eye_config.aperture_open = aperture
                 # config.eye_configs[key].aperture_open += d_aperture
-                config.eye_configs[key].aperture_open = float(
-                    np.clip(config.eye_configs[key].aperture_open, 0.0, 1.0)
+                eye_config.aperture_open = float(
+                    np.clip(eye_config.aperture_open, 0.0, 1.0)
                 )
 
-        if verbose > 2:
-            print(f"Mutated animal: \n{config}")
-        if verbose > 1:
-            for key in config.eye_configs.keys():
-                print(f"aperture_open after: {config.eye_configs[key].aperture_open}")
+                logger.debug(f"aperture_open after: {eye_config.aperture_open}")
+
+        logger.debug(f"Mutated animal: \n{config}")
+
+        # Store the mutations used to create this animal
+        config.mutations_from_parent = [m.name for m in mutation_options]
 
         return config
 
@@ -711,8 +683,6 @@ class MjCambrianAnimal:
     def crossover(
         parent1: MjCambrianAnimalConfig,
         parent2: MjCambrianAnimalConfig,
-        *,
-        verbose: int = 0,
     ) -> MjCambrianAnimalConfig:
         raise NotImplementedError("Crossover not implemented.")
 
@@ -790,18 +760,21 @@ if __name__ == "__main__":
     config: MjCambrianConfig = MjCambrianConfig.load(
         args.config, overrides=args.overrides
     )
+    logger = get_logger(config)
+
     animal_config: MjCambrianAnimalConfig = list(
         config.env_config.animal_configs.values()
     )[0]
 
     if args.mutate:
-        mutations = reduce(lambda x, y: x | y, MjCambrianAnimal.MutationType)
+        mutations = [m.name for m in MjCambrianAnimal.MutationType]
+        mutations = ["ADD_EYE"]
         animal_config = MjCambrianAnimal.mutate(
             animal_config,
-            config.evo_config.spawning_config.default_eye_config,
+            np.random.choice(list(animal_config.eye_configs.values())),
             mutations=mutations,
-            verbose=2,
         )
+        print(len(animal_config.eye_configs))
     animal = MjCambrianPointAnimal(animal_config)
 
     env_xml = MjCambrianXML(get_include_path("models/test.xml"))

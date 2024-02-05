@@ -47,8 +47,8 @@ class MjCambrianModel(PPO):
         policy_state_dict = self.policy.state_dict()
         for saved_state_dict_key in list(saved_state_dict.keys()):
             if saved_state_dict_key not in policy_state_dict:
-                print(
-                    f"WARNING: Key '{saved_state_dict_key}' not found in policy "
+                self.logger.warning(
+                    f"Key '{saved_state_dict_key}' not found in policy "
                     "state_dict. Deleting from saved state dict." 
                 )
                 del saved_state_dict[saved_state_dict_key]
@@ -58,7 +58,7 @@ class MjCambrianModel(PPO):
             policy_state_dict_var = policy_state_dict[saved_state_dict_key]
 
             if saved_state_dict_var.shape != policy_state_dict_var.shape:
-                print(f"WARNING: Shape mismatch for key '{saved_state_dict_key}'")
+                self.logger.warning(f"Shape mismatch for key '{saved_state_dict_key}'")
                 del saved_state_dict[saved_state_dict_key]
 
         self.policy.load_state_dict(saved_state_dict, strict=False)

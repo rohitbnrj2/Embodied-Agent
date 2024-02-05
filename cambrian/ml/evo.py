@@ -12,6 +12,7 @@ from cambrian.utils.config import (
     MjCambrianGenerationConfig,
     MjCambrianSpawningConfig,
 )
+from cambrian.utils.logger import get_logger
 
 ReplicationType = MjCambrianSpawningConfig.ReplicationType
 
@@ -40,11 +41,10 @@ class MjCambrianEvoRunner:
     ):
         self.config = config
         self.dry_run = dry_run
+        self.logger = get_logger(config)
 
         generation_config = MjCambrianGenerationConfig(generation=generation, rank=rank)
         self.config.evo_config.generation_config = generation_config
-
-        self.verbose = self.config.training_config.verbose
 
         self.logdir = Path(
             Path(self.config.training_config.logdir)
@@ -101,15 +101,15 @@ class MjCambrianEvoRunner:
 
     def spawn_animal(self, generation: int, rank: int) -> MjCambrianConfig:
         """Spawns a new animal.
-        
+
         NOTE: The default eye config is selected randomly from the animal's eye configs.
 
         # TODO: move all of the mutation logic to MjCambrianPopulation or some other
         # class.
         """
-        if self.verbose > 1:
-            print(f"Spawning animal with generation {generation} and rank {rank}.")
-
+        self.logger.info(
+            f"Spawning animal with generation {generation} and rank {rank}."
+        )
 
         # Get the spawning config
         config: MjCambrianConfig  # the parent config, going to mutate
@@ -133,10 +133,10 @@ class MjCambrianEvoRunner:
             ]
 
         # Mutate the config
-        if self.verbose > 1:
-            print(
-                f"Mutating child of parent with rank {config.evo_config.generation_config.rank} {num_mutations} times."
-            )
+        self.logger.info(
+            f"Mutating child of parent with rank "
+            f"{config.evo_config.generation_config.rank} {num_mutations} times."
+        )
         animal_configs = config.env_config.animal_configs
         spawning_config = config.evo_config.spawning_config
         for _ in range(num_mutations):
@@ -146,7 +146,6 @@ class MjCambrianEvoRunner:
                         animal_config,
                         random.choice(list(animal_config.eye_configs.values())),
                         mutations=spawning_config.mutation_options,
-                        verbose=self.config.training_config.verbose,
                     )
                 elif ReplicationType.CROSSOVER in replication_type:
                     raise NotImplementedError
@@ -170,8 +169,6 @@ class MjCambrianEvoRunner:
 
         # Set n_envs to be the max_n_envs divided by the population size
         n_envs = config.evo_config.max_n_envs // self.population.size
-        if self.verbose > 1:
-            print(f"Setting n_envs to {n_envs}")
         config.training_config.n_envs = n_envs
 
         # Save the config
@@ -183,15 +180,9 @@ class MjCambrianEvoRunner:
         config_yaml = Path(config.training_config.logdir) / "config.yaml"
         cmd = f"{self.python_cmd} {config_yaml} --train"
         env = dict(os.environ, **self.config.evo_config.environment_variables)
-        if self.verbose > 1:
-            print(f"Running command: {cmd}")
+        self.logger.debug(f"Running command: {cmd}")
         if not self.dry_run:
-            stdin = subprocess.PIPE if self.verbose <= 1 else None
-            stdout = subprocess.PIPE if self.verbose <= 1 else None
-            stderr = subprocess.PIPE if self.verbose <= 1 else None
-            return subprocess.Popen(
-                cmd.split(" "), env=env, stdin=stdin, stdout=stdout, stderr=stderr
-            )
+            return subprocess.Popen(cmd.split(" "), env=env)
 
     # ========
 

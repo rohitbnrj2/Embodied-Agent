@@ -13,6 +13,7 @@ from cambrian.maze import MjCambrianMaze
 from cambrian.utils import get_include_path
 from cambrian.utils.config import MjCambrianConfig, MjCambrianEnvConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
+from cambrian.utils.logger import get_logger
 from cambrian.renderer import (
     MjCambrianRenderer,
     MjCambrianViewerOverlay,
@@ -55,6 +56,7 @@ class MjCambrianEnv(gym.Env):
 
     def __init__(self, config: str | Path | MjCambrianConfig):
         self._setup_config(config)
+        self.logger = get_logger(self.config)
 
         self.animals: Dict[str, MjCambrianAnimal] = {}
         self._create_animals()
@@ -594,7 +596,7 @@ class MjCambrianEnv(gym.Env):
             cursor.x += 2 * i * overlay_width
             cursor.y = 0
             if cursor.x + overlay_width * 2 > renderer_width:
-                print("WARNING: Renderer width is too small!!")
+                self.logger.warning("Renderer width is too small!!")
                 continue
 
             composite = animal.create_composite_image()
@@ -756,10 +758,10 @@ class MjCambrianEnv(gym.Env):
         """Saves the simulation output to the given path."""
         self.renderer.save(path)
 
-        print(f"Saving rollout to {path.with_suffix('.pkl')}")
+        self.logger.info(f"Saving rollout to {path.with_suffix('.pkl')}")
         with open(path.with_suffix(".pkl"), "wb") as f:
             pickle.dump(self._rollout, f)
-        print(f"Saved rollout to {path.with_suffix('.pkl')}")
+        self.logger.debug(f"Saved rollout to {path.with_suffix('.pkl')}")
 
     def _is_at_target(self, animal: MjCambrianAnimal, target: np.ndarray) -> bool:
         """Returns whether the animal is at the target."""

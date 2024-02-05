@@ -17,6 +17,7 @@ from cambrian.env import MjCambrianEnv
 from cambrian.renderer import MjCambrianRenderer
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy, setattrs_temporary
+from cambrian.utils.logger import get_logger
 
 
 class PlotEvaluationCallback(BaseCallback):
@@ -31,24 +32,19 @@ class PlotEvaluationCallback(BaseCallback):
             evaluations.npz file is expected to be at `<logdir>/monitor.csv`. The
             resulting plot is going to be stored at
             `<logdir>/evaluations/monitor.png`.
-
-    Keyword Args:
-        verbose (int): The verbosity level. Defaults to 0.
     """
 
     parent: EvalCallback
 
-    def __init__(self, logdir: Path | str, *, verbose: int = 0):
+    def __init__(self, logdir: Path | str):
         self.logdir = Path(logdir)
         self.evaldir = self.logdir / "evaluations"
         self.evaldir.mkdir(parents=True, exist_ok=True)
 
-        self.verbose = verbose
         self.n_calls = 0
 
     def _on_step(self) -> bool:
-        if self.verbose > 0:
-            print(f"Plotting evaluation results at {self.evaldir}")
+        get_logger().info(f"Plotting evaluation results at {self.evaldir}")
 
         x, y = ts2xy(load_results(self.logdir), "timesteps")
 
@@ -91,10 +87,8 @@ class SaveVideoCallback(BaseCallback):
         env: DummyVecEnv,
         logdir: Path | str,
         max_episode_steps: int,
-        *,
-        verbose: int = 0,
     ):
-        super().__init__(verbose)
+        super().__init__()
 
         self.env = env
         self.cambrian_env: MjCambrianEnv = self.env.envs[0].unwrapped
@@ -106,8 +100,7 @@ class SaveVideoCallback(BaseCallback):
 
         # Delete all the existing renders
         for f in glob.glob(str(self.evaldir / "vis_*")):
-            if self.verbose > 0:
-                print(f"Deleting {f}")
+            get_logger().info(f"Deleting {f}")
             Path(f).unlink()
 
         self.max_episode_steps = max_episode_steps
@@ -178,9 +171,6 @@ class MjCambrianSavePolicyCallback(BaseCallback):
 
 class MjCambrianProgressBarCallback(ProgressBarCallback):
     """Overwrite the default progress bar callback to flush the pbar on deconstruct."""
-
-    def __init__(self):
-        super().__init__()
 
     def __del__(self):
         """This string will restore the terminal back to its original state."""

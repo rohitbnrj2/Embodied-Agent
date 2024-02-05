@@ -31,7 +31,6 @@ from cambrian.utils.wrappers import make_single_env
 from cambrian.utils.config import MjCambrianConfig
 from cambrian.ml.model import MjCambrianModel
 
-
 def moving_average(values, window):
     weights = np.repeat(1.0, window) / window
     return np.convolve(values, weights, "valid")
@@ -547,7 +546,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parse the evolution folder.")
 
-    parser.add_argument("-v", "--verbose", action="count", default=0)
+    parser.add_argument("-v", "--verbose", action="count", default=1)
     parser.add_argument("--dry-run", action="store_true", help="Dry run.")
     parser.add_argument(
         "-o",

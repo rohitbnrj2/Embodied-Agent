@@ -17,6 +17,8 @@ from cambrian.utils import get_include_path
 # TODO: I would guess hydra does the extend/include part with defaults
 
 CUSTOM_RESOLVERS = dict()
+
+
 def register_new_resolver(func=None, /, *args, **kwargs):
     kwargs.setdefault("replace", True)
 
@@ -28,6 +30,7 @@ def register_new_resolver(func=None, /, *args, **kwargs):
         return wrapper
     return wrapper(func)
 
+
 @contextlib.contextmanager
 def clear_resolvers():
     OmegaConf.clear_resolvers()
@@ -35,13 +38,16 @@ def clear_resolvers():
     for name, func in CUSTOM_RESOLVERS.items():
         OmegaConf.register_new_resolver(name, func, replace=True)
 
+
 register_new_resolver(eval)
+
 
 @register_new_resolver(use_cache=True)
 def now(pattern: str) -> str:
     """Returns the current time in the given pattern. The pattern is the same as
     strftime. See https://strftime.org/ for more info."""
     from datetime import datetime
+
     return datetime.now().strftime(pattern)
 
 
@@ -55,7 +61,7 @@ def extend(
 ):
     """This resolver is used to extend a config with another config. To use, set the
     value to ${extend: ${<dotlist>.<key>}}. This will extend the current config with the
-    config at the given dotlist. However, although the above is supported, it is 
+    config at the given dotlist. However, although the above is supported, it is
     intended for the user to use the following syntax:
 
     extend:
@@ -128,6 +134,7 @@ def override_required(_node_: Node, _parent_: DictConfig):
         msg=str(e),
         cause=e,
     )
+
 
 list_repr = "tag:yaml.org,2002:seq"
 yaml.add_representer(list, lambda d, seq: d.represent_sequence(list_repr, seq, True))
@@ -215,7 +222,9 @@ class MjCambrianBaseConfig:
 
         with clear_resolvers():
             filename = Path(config)
-            config: MjCambrianConfig = OmegaConf.load(filename)  # duck typed; DictConfig
+            config: MjCambrianConfig = OmegaConf.load(
+                filename
+            )  # duck typed; DictConfig
             config.filename = str(filename.stem)  # overrides the filename
 
             config = OmegaConf.unsafe_merge(config, OmegaConf.from_dotlist(overrides))
@@ -278,11 +287,11 @@ class MjCambrianBaseConfig:
 
     def glob(self, key: str, *, flatten: bool = False) -> Dict[str, Any]:
         """This is effectively select, but allows `*` to be used as a wildcard.
-        
+
         This method works by finding all `*` in the key and then iterating over all
-        subsequent keys that match the globbed pattern. 
-        
-        NOTE: yaml files aren't necessarily built to support globbing (like xml), so 
+        subsequent keys that match the globbed pattern.
+
+        NOTE: yaml files aren't necessarily built to support globbing (like xml), so
         this method is fairly slow and should be used sparingly.
 
         Args:
@@ -296,7 +305,7 @@ class MjCambrianBaseConfig:
                 output will be a nested dict. Defaults to False.
         """
         # Early exit if no globs
-        if '*' not in key:
+        if "*" not in key:
             return self.select(key)
 
         def recursive_glob(config: DictConfig | Any, keys: List[str]) -> DictConfig:
@@ -307,7 +316,7 @@ class MjCambrianBaseConfig:
             result = DictConfig({})
             current_key = keys[0].replace("*", ".*")
             for sub_key, sub_value in config.items():
-                if sub_value is None: # Skip None values, probably optionals
+                if sub_value is None:  # Skip None values, probably optionals
                     continue
 
                 if match := re.fullmatch(current_key, sub_key):
@@ -318,13 +327,13 @@ class MjCambrianBaseConfig:
 
         # Glob the key(s)
         config = OmegaConf.create(self)
-        globbed = recursive_glob(config, key.split('.'))
+        globbed = recursive_glob(config, key.split("."))
 
         if flatten:
             # If flatten is True, we'll flatten the nested dict to a flat dict where
             # each key is a leaf key of the nested dict and the value is a list of all
             # the values that were accumulated to that leaf key.
-            def flatten_dict(data, values = {}) -> Dict[str, Any]:
+            def flatten_dict(data, values={}) -> Dict[str, Any]:
                 for k, v in data.items():
                     if isinstance(v, DictConfig):
                         flatten_dict(v, values)
@@ -332,9 +341,9 @@ class MjCambrianBaseConfig:
                         values.setdefault(k, [])
                         values[k].append(v)
                 return values
+
             return flatten_dict(globbed)
         return globbed
-
 
     def __contains__(self: T, key: str) -> bool:
         """Check if the dataclass contains a key with the given name."""
@@ -392,7 +401,7 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig):
         n_envs (int): The number of environments to use for training.
 
         eval_freq (int): The frequency at which to evaluate the model.
-        no_improvement_reward_threshold (float): The reward threshold at which to stop 
+        no_improvement_reward_threshold (float): The reward threshold at which to stop
             training.
         max_no_improvement_evals (int): The maximum number of evals to take without
             improvement before stopping training.
@@ -578,9 +587,9 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
 
         camera_config (Optional[MjCambrianCameraConfig]): The camera config to use for
             the renderer.
-        scene_options (Optional[Dict[str, Any]]): The scene options to use for the 
-            renderer. Keys are the name of the option as defined in MjvOption. For 
-            array options (like `flags`), the value should be another dict where the 
+        scene_options (Optional[Dict[str, Any]]): The scene options to use for the
+            renderer. Keys are the name of the option as defined in MjvOption. For
+            array options (like `flags`), the value should be another dict where the
             keys are the indices/mujoco enum keys and the values are the values to set.
 
         use_shared_context (bool): Whether to use a shared context or not.
@@ -634,7 +643,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
 
         aperture_open (float): The aperture open value. This is the radius of the
             aperture. The aperture is a circle that is used to determine which light
-            rays to let through. Only used if `enable_aperture` is True. Must be 
+            rays to let through. Only used if `enable_aperture` is True. Must be
             between 0 and 1.
         aperture_radius (float): The aperture radius value.
         wavelengths (Tuple[float, float, float]): The wavelengths to use for the
@@ -702,27 +711,27 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     fov: Tuple[float, float]
 
     enable_optics: bool
-    enable_aperture: bool 
-    enable_lens: bool 
-    enable_phase_mask: bool 
+    enable_aperture: bool
+    enable_lens: bool
+    enable_phase_mask: bool
 
     scene_resolution: Tuple[int, int]
     sensor_resolution: Tuple[int, int]
     add_noise: bool
     noise_std: float
-    aperture_open: float 
-    aperture_radius: float 
-    wavelengths: Tuple[float, float, float] 
-    depth_bins: int 
+    aperture_open: float
+    aperture_radius: float
+    wavelengths: Tuple[float, float, float]
+    depth_bins: int
 
-    load_height_mask_from_file: bool 
+    load_height_mask_from_file: bool
     height_mask_from_file: Optional[str] = None
-    randomize_psf_init: bool 
+    randomize_psf_init: bool
     zernike_basis_path: Optional[str] = None
     psf_filter_size: Tuple[int, int]
-    refractive_index: float 
-    min_phi_defocus: float 
-    max_phi_defocus: float 
+    refractive_index: float
+    min_phi_defocus: float
+    max_phi_defocus: float
 
     pos: Optional[Tuple[float, float, float]] = None
     quat: Optional[Tuple[float, float, float, float]] = None
@@ -809,14 +818,14 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             not.
         n_temporal_obs (int): The number of temporal observations to use.
 
-        constant_actions (Optional[List[float | None]]): The constant velocity to use for 
-            the animal. If not None, the len(constant_actions) must equal number of 
+        constant_actions (Optional[List[float | None]]): The constant velocity to use for
+            the animal. If not None, the len(constant_actions) must equal number of
             actuators defined in the model. For instance, if there are 3 actuators
             defined and it's desired to have the 2nd actuator be constant, then
             constant_actions = [None, 0, None]. If None, no constant action will be
             applied.
 
-        num_eyes (Optional[int]): The number of eyes for this animal. Useful for 
+        num_eyes (Optional[int]): The number of eyes for this animal. Useful for
             debugging. Should be calculated in the config using resolvers.
         eye_configs (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
             The key will be used as the default name for the eye, unless explicitly
@@ -825,6 +834,10 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
         disable_intensity_sensor (bool): Whether to disable the intensity sensor or not.
         intensity_sensor_config (MjCambrianEyeConfig): The eye config to use for the
             intensity sensor.
+
+        mutations_from_parent (Optional[List[str]]): The mutations applied to the child
+            (this animal) from the parent. This is unused during mutation; it simply
+            is a record of the mutations that were applied to the parent.
     """
 
     name: str
@@ -846,6 +859,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
     disable_intensity_sensor: bool
     intensity_sensor_config: MjCambrianEyeConfig
+
+    mutations_from_parent: Optional[List[str]] = None
 
 
 @dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
@@ -869,13 +884,13 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             (this behavior can be overwritten using the `target_as_light_source` field
             in `MjCambrianMazeConfig`). To adjust the ambient value of the ambient
             light, use the `ambient_light_intensity` field.
-        ambient_light_intensity (Optional[Tuple[float, float, float]]): The intensity 
+        ambient_light_intensity (Optional[Tuple[float, float, float]]): The intensity
             value of the ambient light. This is only used if
             `ambient` is True.
 
         reward_fn_type (str): The reward function type to use. See
             `MjCambrianEnv._RewardType` for options.
-        reward_options (Optional[Dict[str, Any]]): The options to use for the reward 
+        reward_options (Optional[Dict[str, Any]]): The options to use for the reward
             function.
 
         use_goal_obs (bool): Whether to use the goal observation or not.
@@ -920,7 +935,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         eval_maze_configs (Optional[Dict[str, MjCambrianMazeConfig]]): The
             configs for the evaluation mazes. If unset, the one evaluation maze will
             be chosen using the maze selection criteria.
-        compute_optimal_path (bool): Whether to compute the optimal path or not. 
+        compute_optimal_path (bool): Whether to compute the optimal path or not.
             Improves performance if set to False. Should be true if the optimal path
             is needed for the reward fn.
 
@@ -986,7 +1001,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
                 `MjCambrianEnv._choose_maze` for more details.
             CURRICULUM (str): Choose a maze based on a curriculum. This is similar to
                 DIFFICULTY, but CURRICULUM will schedule the maze changes based on the
-                current reward. As the reward nears 
+                current reward. As the reward nears
                 `maze_selection_criteria["factor"] * max_episode_steps`, the maze
                 selection will lean towards more difficult mazes.
             NAMED (str): Choose a maze based on name. `name` must be passed as a kwarg
@@ -1042,7 +1057,7 @@ class MjCambrianSpawningConfig(MjCambrianBaseConfig):
             mutations is calculated using random.randint(1, init_num_mutations).
         num_mutations (int): The number of mutations to perform on the parent
             generation to generate the new generation. The actual number of mutations
-            is calculated using random.randint(1, num_mutations). 
+            is calculated using random.randint(1, num_mutations).
 
         mutation_options (List[str]): The mutation options to use for the animal. See
             `MjCambrianAnimal.MutationType` for options.
@@ -1120,16 +1135,20 @@ class MjCambrianConfig(MjCambrianBaseConfig):
         env_config (MjCambrianEnvConfig): The config for the environment.
         evo_config (Optional[MjCambrianEvoConfig]): The config for the evolution
             process. If None, the environment will not be run in evolution mode.
+        logging_config (Optional[Dict[str, Any]]): The config for the logging process.
+            Passed to `logging.config.dictConfig`.
     """
 
     training_config: MjCambrianTrainingConfig
     env_config: MjCambrianEnvConfig
     evo_config: Optional[MjCambrianEvoConfig] = None
+    logging_config: Optional[Dict[str, Any]] = None
 
 
 if __name__ == "__main__":
     import argparse
     import time
+    from cambrian.utils.logger import get_logger
 
     parser = argparse.ArgumentParser(description="Dataclass/YAML Tester")
 
@@ -1185,6 +1204,8 @@ if __name__ == "__main__":
         instantiate=not args.no_instantiate and not args.no_resolve,
         resolve=not args.no_resolve,
     )
+    logger = get_logger(config)
+
     if animal_configs := config.env_config.animal_configs:
         for animal_name, animal_config in animal_configs.items():
             animal_config = animal_config.merge_with_dotlist(args.animal_overrides)
@@ -1196,7 +1217,7 @@ if __name__ == "__main__":
                 animal_configs[animal_name] = animal_config
     t1 = time.time()
 
-    print(f"Loaded config in {t1 - t0:.4f} seconds")
+    logger.info(f"Loaded config in {t1 - t0:.4f} seconds")
 
     if not args.quiet:
         selection = OmegaConf.select(OmegaConf.create(config), args.select)
