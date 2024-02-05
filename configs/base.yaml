@@ -34,7 +34,6 @@ env_config:
   reward_fn_type: intensity_and_at_goal
   reward_options:
     gamma: 4.0
-    action_penalty: 0
 
   use_goal_obs: False
   terminate_at_goal: False
@@ -47,12 +46,15 @@ env_config:
   add_overlays: True
   overlay_width: 0.5
   overlay_height: 0.35
+  action_penalty: 0
   contact_penalty: -1.0
   force_exclusive_contact_penalty: False
   adversary_penalty: -1.0
   reward_at_goal: 1.0
   renderer_config:
     extend: ${extend:${include:configs/overlays/render_bev.yaml}}
+
+    maxgeom: 10000
 
     render_modes: [rgb_array]
 

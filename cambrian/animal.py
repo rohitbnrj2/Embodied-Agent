@@ -363,13 +363,7 @@ class MjCambrianAnimal:
             obs[name] = np.array(self._eye_obs[name])
 
         if self.config.use_action_obs:
-            action: np.ndarray = self._data.ctrl[self._actadrs].copy()
-            # convert back to original range
-            for actuator, act in zip(self._actuators, action):
-                action[actuator.adr] = np.interp(
-                    act, [actuator.low, actuator.high], [-1, 1]
-                )
-            obs["action"] = action.astype(np.float32)
+            obs["action"] = self.last_action
 
         if self.config.use_init_pos_obs:
             obs["init_pos"] = self.init_pos / self._extent
@@ -557,6 +551,17 @@ class MjCambrianAnimal:
         """Sets the initial position of the animal."""
         self._init_pos = value
 
+    @property
+    def last_action(self) -> np.ndarray:
+        """Returns the last action applied to the animal."""
+        action: np.ndarray = self._data.ctrl[self._actadrs].copy()
+        # convert back to original range
+        for actuator, act in zip(self._actuators, action):
+            action[actuator.adr] = np.interp(
+                act, [actuator.low, actuator.high], [-1, 1]
+            )
+        return action.astype(np.float32)
+
     # ==========================
 
     class MutationType(Flag):
@@ -734,6 +739,19 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
     def action_space(self) -> spaces.Space:
         """Overrides the base implementation to only have two elements."""
         return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
+
+    @property
+    def last_action(self) -> np.ndarray:
+        """Overrides the base implementation to only have two elements."""
+
+        vx, vy, theta = super().last_action
+
+        # Calculate the global velocities
+        theta = self._data.qpos[self._joint_qposadr + 2]
+        v = np.sqrt(vx ** 2 + vy ** 2)
+        theta = np.arctan2(vy, vx) - theta
+
+        return np.array([v, theta], dtype=np.float32)
 
 
 if __name__ == "__main__":

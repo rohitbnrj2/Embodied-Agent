@@ -60,30 +60,33 @@ def get_logger(
     if config is None:
         return logging.getLogger(name)
 
+    # Walk through the handlers and remove any that don't have a valid filepath.
     for handler_name, handler in config.select("logging_config.handlers").items():
-        if filename := handler.get("filename"):
-            filename = pathlib.Path(filename)
-            if filename.parent.exists():
-                # If the file exists, update the filepath to be the passed in filepath.
-                if overwrite_filepath:
-                    new_filename = overwrite_filepath / filename.name
-                    if overwrite_filename_suffix:
-                        new_filename = new_filename.with_name(
-                            new_filename.stem
-                            + overwrite_filename_suffix
-                            + new_filename.suffix
-                        )
-                    config.logging_config["handlers"][handler_name][
-                        "filename"
-                    ] = new_filename
-            else:
-                # If the file doesn't exist, remove the handler from the config.
-                logging.getLogger().warning(
-                    f"File {filename} does not exist. Removing handler {handler_name}."
+        filename = handler.get("filename", None)
+        if not filename:
+            continue
+
+        filename = pathlib.Path(filename)
+        if filename.parent.exists():
+            # Update the filename with the overwrite path and/or name.
+            new_filename = filename
+            if overwrite_filepath:
+                new_filename = overwrite_filepath / filename.name
+            if overwrite_filename_suffix:
+                # The suffix will be added before the file extension.
+                new_filename = new_filename.with_name(
+                    new_filename.stem
+                    + overwrite_filename_suffix
+                    + new_filename.suffix
                 )
-                del config.logging_config["handlers"][handler_name]
-                for logger in config.logging_config["loggers"].values():
-                    logger["handlers"].remove(handler_name)
+            config.logging_config["handlers"][handler_name][
+                "filename"
+            ] = new_filename
+        else:
+            # If the file doesn't exist, remove the handler from the config.
+            del config.logging_config["handlers"][handler_name]
+            for logger in config.logging_config["loggers"].values():
+                logger["handlers"].remove(handler_name)
 
     logging.config.dictConfig(config.logging_config)
 

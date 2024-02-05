@@ -19,6 +19,7 @@ from cambrian.renderer import (
     MjCambrianViewerOverlay,
     MjCambrianTextViewerOverlay,
     MjCambrianImageViewerOverlay,
+    MjCambrianSiteViewerOverlay,
     MjCambrianCursor,
     resize_with_aspect_fill,
     TEXT_HEIGHT,
@@ -417,7 +418,7 @@ class MjCambrianEnv(gym.Env):
             animal.apply_action(action[name])
             info[name]["prev_pos"] = animal.pos
 
-        # Then, step the mujooc simulation
+        # Then, step the mujoco simulation
         self._step_mujoco_simulation(self.env_config.frame_skip)
 
         # We'll then step each animal to render it's current state and get the obs
@@ -434,8 +435,9 @@ class MjCambrianEnv(gym.Env):
         info["maze"] = {}
         info["maze"]["goal"] = self.maze.goal
 
-        terminated = self.compute_terminated()
-        truncated = self.compute_truncated()
+        # Compute the reward, terminated, and truncated
+        terminated = self._compute_terminated()
+        truncated = self._compute_truncated()
         reward = self._compute_reward(terminated, truncated, info)
 
         self._episode_step += 1
@@ -445,6 +447,14 @@ class MjCambrianEnv(gym.Env):
         if self.env_config.add_overlays:
             self._overlays["Step"] = self._episode_step
             self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
+
+            # Add the position of each animal to the overlays
+            for animal in self.animals.values():
+                self._overlays[
+                    f"{animal.name}_pos_{self._episode_step}"
+                ] = MjCambrianSiteViewerOverlay(
+                    self.renderer.viewer.scene, [*animal.pos, 0.1]
+                )
 
         if self.record:
             self._rollout.setdefault("actions", [])
@@ -504,9 +514,9 @@ class MjCambrianEnv(gym.Env):
             rewards[name] = self._reward_fn(animal, info[name])
 
             # Add a penalty for each action taken
-            rewards[name] -= self.env_config.reward_options.get(
-                "action_penalty", 0
-            ) * np.sum(np.square(info[name]["action"]))
+            rewards[name] += self.env_config.action_penalty * np.sum(
+                np.square(info[name]["action"])
+            )
 
             # Add a penalty to the reward if the animal has contacts and
             # truncate_on_contact is False. We'll assume that the truncation value
@@ -529,7 +539,7 @@ class MjCambrianEnv(gym.Env):
 
         return rewards
 
-    def compute_terminated(self) -> Dict[str, bool]:
+    def _compute_terminated(self) -> Dict[str, bool]:
         """Compute whether the env has terminated. Termination indicates success,
         whereas truncated indicates failure."""
 
@@ -542,14 +552,14 @@ class MjCambrianEnv(gym.Env):
 
         return terminated
 
-    def compute_truncated(self) -> bool:
+    def _compute_truncated(self) -> bool:
         """Compute whether the env has terminated. Termination indicates success,
         whereas truncated indicates failure. Failure, for now, indicates that the
         animal has touched the wall."""
 
         truncated: Dict[str, bool] = {}
         for name, animal in self.animals.items():
-            over_max_steps = self._episode_step >= (self._max_episode_steps-1)
+            over_max_steps = self._episode_step >= (self._max_episode_steps - 1)
             if self.env_config.truncate_on_contact:
                 truncated[name] = animal.has_contacts or over_max_steps
             else:
@@ -630,6 +640,9 @@ class MjCambrianEnv(gym.Env):
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
             cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
             overlay_text = f"Animal: {name}"
+            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
+            overlay_text = f"Action: {[f'{a:0.3f}' for a in animal.last_action]}"
+            cursor.y -= TEXT_HEIGHT
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
 
             cursor.x += overlay_width

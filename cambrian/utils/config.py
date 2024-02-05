@@ -574,7 +574,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
         render_modes (List[str]): The render modes to use for the renderer. See
             `MjCambrianRenderer.metadata["render.modes"]` for options.
 
-        max_geom (Optional[int]): The maximum number of geoms to render.
+        maxgeom (Optional[int]): The maximum number of geoms to render.
 
         width (int): The width of the rendered image. For onscreen renderers, if this
             is set, the window cannot be resized. Must be set for offscreen renderers.
@@ -601,7 +601,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
 
     render_modes: List[str]
 
-    max_geom: Optional[int] = None
+    maxgeom: Optional[int] = None
 
     width: Optional[int] = None
     height: Optional[int] = None
@@ -900,6 +900,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             makes contact with an object or not.
         distance_to_target_threshold (float): The distance to the target at which the
             animal is assumed to be "at the target".
+        action_penalty (float): The action penalty when it moves.
         contact_penalty (float): The contact penalty when it contacts the wall.
         force_exclusive_contact_penalty (bool): Whether to force exclusive contact
             penalty or not. If True, the contact penalty will be used exclusively for
@@ -959,6 +960,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     terminate_at_goal: bool
     truncate_on_contact: bool
     distance_to_target_threshold: float
+    action_penalty: float
     contact_penalty: float
     force_exclusive_contact_penalty: bool
     adversary_penalty: float

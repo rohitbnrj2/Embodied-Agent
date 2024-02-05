@@ -90,20 +90,24 @@ class MjCambrianCursor:
         return replace(self)
 
 
-class MjCambrianViewerOverlay(ABC):
+class MjCambrianViewerOverlay:
     def __init__(
         self, obj: np.ndarray | str, cursor: Optional[MjCambrianCursor] = None
     ):
         self.obj = obj
         self.cursor = cursor.copy() if cursor is not None else None
 
-    @abstractmethod
-    def draw(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
+    def draw_before_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
+        """Called before rendering the scene."""
+        pass
+
+    def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
+        """Called after rendering the scene."""
         pass
 
 
 class MjCambrianTextViewerOverlay(MjCambrianViewerOverlay):
-    def draw(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
+    def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
         viewport = viewport if self.cursor is None else mj.MjrRect(*self.cursor, 1, 1)
         mj.mjr_overlay(
             mj.mjtFont.mjFONT_NORMAL,
@@ -116,9 +120,30 @@ class MjCambrianTextViewerOverlay(MjCambrianViewerOverlay):
 
 
 class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
-    def draw(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
+    def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
         viewport = mj.MjrRect(*self.cursor, self.obj.shape[1], self.obj.shape[0])
         mj.mjr_drawPixels(self.obj.ravel(), None, viewport, mjr_context)
+
+
+class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
+    def __init__(self, scene: mj.MjvScene, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scene = scene
+
+    def draw_before_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
+        assert self.scene.ngeom < self.scene.maxgeom, "Max geom reached."
+
+        self.scene.ngeom += 1
+        geom = self.scene.geoms[self.scene.ngeom - 1]
+
+        mj.mjv_initGeom(
+            geom,
+            mj.mjtGeom.mjGEOM_SPHERE,
+            [0.1, 0.1, 0.1],
+            self.obj,
+            np.eye(3).flatten(),
+            [1, 0, 0, 1],
+        )
 
 
 GL_CONTEXT: mj.gl_context.GLContext = None
@@ -128,7 +153,7 @@ MJR_CONTEXT: mj.MjrContext = None
 class MjCambrianViewer(ABC):
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
-        self.config.setdefault("max_geom", 1000)
+        self.config.setdefault("maxgeom", 1000)
         self.logger = get_logger()
 
         self.model: mj.MjModel = None
@@ -171,7 +196,7 @@ class MjCambrianViewer(ABC):
 
         self.reset_camera()
 
-        self.scene = mj.MjvScene(model=model, maxgeom=self.config.max_geom)
+        self.scene = mj.MjvScene(model=model, maxgeom=self.config.maxgeom)
 
         # Disable ~all mj flags
         self.scene.flags[mj.mjtRndFlag.mjRND_SHADOW] = False
@@ -270,11 +295,16 @@ class MjCambrianViewer(ABC):
         )
 
     def render(self, *, overlays: List[MjCambrianViewerOverlay] = []):
+        self.make_context_current()
         self.update(self.viewport.width, self.viewport.height)
 
-        self.make_context_current()
+        for overlay in overlays:
+            overlay.draw_before_render(self._mjr_context, self.viewport)
+
         mj.mjr_render(self.viewport, self.scene, self._mjr_context)
-        self.draw_overlays(overlays)
+
+        for overlay in overlays:
+            overlay.draw_after_render(self._mjr_context, self.viewport)
 
     def read_pixels(self, read_depth: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         width, height = self.viewport.width, self.viewport.height
@@ -284,13 +314,6 @@ class MjCambrianViewer(ABC):
         mj.mjr_readPixels(rgb, depth, self.viewport, self._mjr_context)
 
         return np.flipud(rgb), np.flipud(depth) if read_depth else None
-
-    def draw_overlays(self, overlays: List[MjCambrianViewerOverlay]):
-        # Required for some reason to allow overlays to be placed correctly
-        # GL.glDisable(GL.GL_DEPTH_TEST)
-
-        for overlay in overlays:
-            overlay.draw(self._mjr_context, self.viewport)
 
     @abstractmethod
     def make_context_current(self):

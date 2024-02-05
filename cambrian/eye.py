@@ -29,7 +29,9 @@ class MjCambrianEye:
         self._data: mj.MjData = None
         self._last_obs: np.ndarray = None
 
-        self._optics = MjCambrianNonDifferentiableOptics(self.config)
+        self._optics: MjCambrianNonDifferentiableOptics = None
+        if self.config.enable_optics:
+            self._optics = MjCambrianNonDifferentiableOptics(self.config)
 
         self._renderer = MjCambrianRenderer(config.renderer_config)
 
@@ -155,7 +157,8 @@ class MjCambrianEye:
             self.config.renderer_config.width, self.config.renderer_config.height = self.config.resolution
 
         self._renderer.reset(model, data)
-        self._optics.reset(config=self.config)
+        if self.config.enable_optics:
+            self._optics.reset(config=self.config)
 
         # All animal geomgroups start at 2, and so we'll hide all them
         # We'll also hide all the sites after 2
