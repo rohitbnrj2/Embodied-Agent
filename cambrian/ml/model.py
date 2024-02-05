@@ -5,12 +5,15 @@ import pickle
 import torch
 from stable_baselines3 import PPO
 
+from cambrian.utils.logger import get_logger
+
 
 class MjCambrianModel(PPO):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._rollout: List[Dict[str, Any]] = None
+        self.logger = get_logger()
 
     def save_policy(self, path: Path | str):
         """Overwrite the save method. Instead of saving the entire state, we'll

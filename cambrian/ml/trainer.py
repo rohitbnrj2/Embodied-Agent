@@ -48,7 +48,7 @@ class MjCambrianTrainer:
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
 
-        self.logger = get_logger(self.config)
+        self.logger = get_logger(self.config, overwrite_filepath=self.logdir)
 
         set_random_seed(self._calc_seed(0))
 
