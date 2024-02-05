@@ -672,8 +672,6 @@ class MjCambrianAnimal:
 
                 logger.debug(f"aperture_open after: {eye_config.aperture_open}")
 
-        logger.debug(f"Mutated animal: \n{config}")
-
         # Store the mutations used to create this animal
         config.mutations_from_parent = [m.name for m in mutation_options]
 

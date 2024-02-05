@@ -41,7 +41,6 @@ class MjCambrianEvoRunner:
     ):
         self.config = config
         self.dry_run = dry_run
-        self.logger = get_logger(config)
 
         generation_config = MjCambrianGenerationConfig(generation=generation, rank=rank)
         self.config.evo_config.generation_config = generation_config
@@ -51,6 +50,15 @@ class MjCambrianEvoRunner:
             / self.config.training_config.exp_name
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
+
+        # Get the logger _after_ creating the logdir. Also, overwrite the filepath
+        # only for this logger (subprocesses will use the default filepath).
+        (self.logdir / "logs").mkdir(parents=True, exist_ok=True)
+        self.logger = get_logger(
+            config,
+            overwrite_filepath=self.logdir / "logs",
+            overwrite_filename_suffix=f"_{rank}",
+        )
 
         population_config = self.config.evo_config.population_config
         self.population = MjCambrianPopulation(population_config, self.logdir)

@@ -182,6 +182,7 @@ class MjCambrianTrainer:
             eval_freq=self.config.training_config.eval_freq,
             deterministic=True,
             render=False,
+            verbose=0,
             callback_on_new_best=callbacks_on_new_best,
             callback_after_eval=callbacks_after_eval,
         )

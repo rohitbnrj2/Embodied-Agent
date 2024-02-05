@@ -17,6 +17,7 @@ LOGGER.debug("Debug")
 import logging
 import logging.config
 from typing import Optional
+import pathlib
 
 from cambrian.utils.config import MjCambrianConfig
 
@@ -48,19 +49,38 @@ class MjCambrianLoggerMaxLevelFilter(logging.Filter):
         return record.levelno <= self.max_level
 
 
-def get_logger(config: Optional[MjCambrianConfig] = None, *, name: str = "cambrian") -> logging.Logger:
+def get_logger(
+    config: Optional[MjCambrianConfig] = None,
+    *,
+    name: str = "cambrian",
+    overwrite_filepath: Optional[pathlib.Path] = None,
+    overwrite_filename_suffix: Optional[str] = None,
+) -> logging.Logger:
     """Get/configure the logger."""
     if config is None:
-        assert name in logging.root.manager.loggerDict, f"Logger {name} does not exist"
         return logging.getLogger(name)
-
-    assert name not in logging.root.manager.loggerDict, f"Logger {name} already exists"
 
     for handler_name, handler in config.select("logging_config.handlers").items():
         if filename := handler.get("filename"):
-            import pathlib
-
-            if not pathlib.Path(filename).parent.exists():
+            filename = pathlib.Path(filename)
+            if filename.parent.exists():
+                # If the file exists, update the filepath to be the passed in filepath.
+                if overwrite_filepath:
+                    new_filename = overwrite_filepath / filename.name
+                    if overwrite_filename_suffix:
+                        new_filename = new_filename.with_name(
+                            new_filename.stem
+                            + overwrite_filename_suffix
+                            + new_filename.suffix
+                        )
+                    config.logging_config["handlers"][handler_name][
+                        "filename"
+                    ] = new_filename
+            else:
+                # If the file doesn't exist, remove the handler from the config.
+                logging.getLogger().warning(
+                    f"File {filename} does not exist. Removing handler {handler_name}."
+                )
                 del config.logging_config["handlers"][handler_name]
                 for logger in config.logging_config["loggers"].values():
                     logger["handlers"].remove(handler_name)
