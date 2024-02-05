@@ -32,9 +32,6 @@ class MjCambrianEye:
         self._optics = MjCambrianNonDifferentiableOptics(self.config)
 
         self._renderer = MjCambrianRenderer(config.renderer_config)
-        self._render_depth = "depth_array" in config.renderer_config.render_modes
-        if self.config.enable_optics:
-            assert self._render_depth, "Must render depth if optics is enabled"
 
     def _check_config(self, config: MjCambrianEyeConfig) -> MjCambrianEyeConfig:
         """This will automatically set some of the config values if they are not
@@ -59,6 +56,10 @@ class MjCambrianEye:
             "rgb_array" or "depth_array" in config.renderer_config.render_modes
         ), "Must specify 'rgb_array' or 'depth_array' in the render modes for the renderer config."
 
+        self._render_depth = "depth_array" in config.renderer_config.render_modes
+        if config.enable_optics:
+            assert self._render_depth, "Must render depth if optics is enabled"
+
         if config.fovy is not None:
             assert 0 < config.fovy < 180, f"Invalid fovy: {config.fovy=}"
             assert config.focal is None, "Cannot set both fovy and focal"
@@ -72,28 +73,30 @@ class MjCambrianEye:
             assert config.fovy is None, "Cannot set both fov and fovy"
             assert config.sensorsize is None, "Cannot set both fov and sensorsize"
 
-            config.setdefault("focal", [0.1, 0.1])
+            # the rendering resolution must be set wrt the scene resoution not the 
+            # eye resolution
+            self.pixel_dx = 1e-3 # pixel size (m)
+            self.pixel_dy = 1e-3 # pixel size (m)
+            if self._render_depth:
+                # if optics is enabled, then render at the scene resolution
+                Lx = self.pixel_dx * config.scene_resolution[0]
+                Ly = self.pixel_dy * config.scene_resolution[1]
+            else:
+                # if optics is not enabled, then render at the eye resolution
+                Lx = self.pixel_dx * config.resolution[0]
+                Ly = self.pixel_dy * config.resolution[1]
 
-            # Adjust the FOV based on the padded resolution
-            original_width, original_height = config.resolution
-            padded_width, padded_height = (
-                original_width + config.psf_filter_size[0],
-                original_height + config.psf_filter_size[1],
-            )
-
-            scale_factor_width = padded_width / original_width
-            scale_factor_height = padded_height / original_height
-
-            # sensorsize = 2 * focal * tan(fov / 2)
+            config.sensorsize = [Lx, Ly]
+            
             fovx, fovy = config.fov
-            focalx, focaly = config.focal
-            config.sensorsize = [
-                float(2 * focalx * np.tan(np.radians(fovx) / 2) * scale_factor_width),
-                float(2 * focaly * np.tan(np.radians(fovy) / 2) * scale_factor_height),
-            ]
+            focalx = config.sensorsize[0] / (2 * np.tan(np.radians(fovx) / 2))
+            focaly = config.sensorsize[1] / (2 * np.tan(np.radians(fovy) / 2))
+            config.focal = [focalx, focaly]
 
-        # Set the height/width of the renderer equal to the resolution of the image
-        config.renderer_config.width, config.renderer_config.height = config.resolution
+        if self._render_depth:
+            config.renderer_config.width, config.renderer_config.height = config.sensor_resolution
+        else:
+            config.renderer_config.width, config.renderer_config.height = config.resolution
 
         return config
 
@@ -146,8 +149,11 @@ class MjCambrianEye:
         self._model = model
         self._data = data
 
-        self.config.renderer_config.width = self.padded_resolution[0]
-        self.config.renderer_config.height = self.padded_resolution[1]
+        if self._render_depth:
+            self.config.renderer_config.width, self.config.renderer_config.height = self.config.sensor_resolution
+        else:
+            self.config.renderer_config.width, self.config.renderer_config.height = self.config.resolution
+
         self._renderer.reset(model, data)
         self._optics.reset(config=self.config)
 
@@ -174,7 +180,7 @@ class MjCambrianEye:
         """Render the image from the camera. If `return_depth` is True, returns the
         both depth image and rgb, otherwise only rgb.
 
-        NOTE: The actual rendered resolution is `self.padded_resolution`. This is so
+        NOTE: The actual rendered resolution is `self.sensor_resolution`. This is so
         that the convolution with the psf filter doesn't cut off any of the image. After
         the psf is applied, the image will be cropped to `self.resolution`.
         """
@@ -244,16 +250,6 @@ class MjCambrianEye:
         parse the config to get the resolution
         """
         self.config.resolution = value
-
-    @property
-    def padded_resolution(self) -> Tuple[int, int]:
-        """This is the resolution padded with the filter size / 2. The actual render
-        call should use this resolution instead and the cropped after the psf is
-        applied."""
-        return (
-            self.config.scene_resolution[0],
-            self.config.scene_resolution[1],
-        )
 
     @property
     def last_obs(self) -> np.ndarray:

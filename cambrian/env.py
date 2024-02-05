@@ -549,7 +549,7 @@ class MjCambrianEnv(gym.Env):
 
         truncated: Dict[str, bool] = {}
         for name, animal in self.animals.items():
-            over_max_steps = self._episode_step >= self._max_episode_steps
+            over_max_steps = self._episode_step >= (self._max_episode_steps-1)
             if self.env_config.truncate_on_contact:
                 truncated[name] = animal.has_contacts or over_max_steps
             else:

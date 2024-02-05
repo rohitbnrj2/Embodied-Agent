@@ -38,6 +38,7 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
     def __init__(self, config: MjCambrianEyeConfig):
         super(MjCambrianNonDifferentiableOptics).__init__()
         self.reset(config)
+        # self._ct = None
 
     def reset(self, config: MjCambrianEyeConfig):
         self.config = config
@@ -51,7 +52,12 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
 
         psf = self.depth_invariant_psf(np.mean(depth), self.A, self.X1, self.Y1, self.FX, 
                               self.FY, self.config.focal, self.config.wavelengths)
-        
+
+        # if self._ct is not None and self._ct % 10 == 0:
+        #     # save image and psf to file for debugging
+        #     Image.fromarray((image * 255).astype(np.uint8)).save('image_80x80.png')
+        #     np.save(f"depth_80x80.npy", depth)
+            
         image = torch.tensor(image)
         if torch.cuda.is_available():
             # send to gpu
@@ -75,21 +81,17 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
     def define_simple_psf(self, config: MjCambrianEyeConfig) -> torch.Tensor:
         """Define a simple point spread function (PSF) for the eye.
         """     
-        # Create Sensor Plane
-        Mx = config.sensor_resolution[0] 
-        My = config.sensor_resolution[1] 
+        dx = 1e-3                           # pixel pitch of sensor (m)            
+        dy = 1e-3                           # pixel pitch of sensor (m)            
 
-        # id mx and my are even, then change to odd
-        # odd length is better for performance
-        if Mx % 2 == 0:
-            Mx += 1
-        if My % 2 == 0:
-            My += 1
-        
-        Lx = config.sensorsize[0] # length of simulation plane (m) 
-        Ly = config.sensorsize[1] # length of simulation plane (m) 
-        dx = Lx/Mx # pixel pitch of sensor (m)      
-        dy = Ly/My # pixel pitch of sensor (m)
+        Mx = config.sensor_resolution[1]    # number of pixels in x direction
+        My = config.sensor_resolution[0]    # number of pixels in y direction
+        assert (Mx > 2 or My > 2), f"Minimum resolution for sensor plane should be greater than 2 in x/y direction.: ({Mx}, {My})"
+        assert (Mx % 2 != 0 and My % 2 != 0), "Sensor resolution should be odd in both x and y direction. odd length is better for performance"
+
+
+        Lx = dx * Mx                        # length of simulation plane (m) 
+        Ly = dy * My                        # length of simulation plane (m) 
 
         # Image plane coords                              
         x1 = np.linspace(-Lx/2.,Lx/2.,Mx) 
@@ -102,13 +104,8 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
         FX,FY = np.meshgrid(fx,fy)
         
         # Aperture
-        max_aperture_size = dx * int(np.maximum(Mx, My) / 2) # (m)
+        max_aperture_size = dx * int(Mx / 2) # (m)
         aperture_radius = np.interp(np.clip(config.aperture_open, 0, 1), [0, 1], [0, max_aperture_size])
-        ZERO_CLOSE_ENABLED = False
-        if ZERO_CLOSE_ENABLED:
-            if config.aperture_open == 0:
-                aperture_radius = 0.
-
         A = (np.sqrt(X1**2+Y1**2)/(aperture_radius + 1.0e-7) <= 1.).astype(np.float32)
         return A, X1, Y1, FX, FY
 
@@ -121,12 +118,12 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
         for _lambda in wavelengths:
             k = 2*np.pi/_lambda
             # electric field originating from point source
-            u = electric_field(k, z1, X1, Y1)
-            # electric field at the aperture
-            u = u * A #*t_lens*t_mask
+            u1 = electric_field(k, z1, X1, Y1)
+            # electric field at the apertur
+            u2 = u1 * A 
             # electric field at the sensor plane
-            u = rs_prop(u, focal[0], FX, FY, _lambda)
-            psf = np.abs(u)**2
+            u3 = rs_prop(u2, focal[0], FX, FY, _lambda)
+            psf = np.abs(u3)**2
             # psf should sum to 1 because of energy 
             psf /= (np.sum(psf) + 1.0e-7) 
             psfs.append(torch.tensor(psf).unsqueeze(-1))
@@ -156,17 +153,24 @@ if __name__ == "__main__":
     # img_path = 'misc/psf1/animal_0_eye_1_GT_im_8.png'
     # img_path = 'misc/res20/animal_0_eye_0_GT_im_10.png'
     # img_path = 'misc/res20/animal_0_eye_0_GT_im_2.png'
-    # img_path = 'misc/flatland/animal_0_eye_0_GT_im_4.png'
     # img_path = 'misc/res5/animal_0_eye_0_GT_im_2.png'
 
     # depth_path = 'misc/psf1/animal_0_eye_0_GT_depth_0.npy'
     # depth_path = 'misc/psf1/animal_0_eye_1_GT_depth_8.npy'
     # depth_path = 'misc/res20/animal_0_eye_0_GT_depth_10.npy'
     # depth_path = 'misc/res20/animal_0_eye_0_GT_depth_2.npy'
-    # depth_path = 'misc/flatland/animal_0_eye_0_GT_depth_4.npy'
     # depth_path = 'misc/res5/animal_0_eye_0_GT_depth_2.npy'
+
+    img_path = 'misc/flatland/animal_0_eye_0_GT_im_4.png'
+    depth_path = 'misc/flatland/animal_0_eye_0_GT_depth_4.npy'
+    # img_path = 'image_80x80.png'
+    # depth_path = 'depth_80x80.npy'
+    # depth_path = 'depth_80x1.npy'
     
     res = [[5, 5], [10, 10], [20, 20]]
+    # res = [[25, 25], [40, 40]] #, [60, 60]]
+    res = [[25, 2]] #, [60, 60]]
+    res = [[60, 2], [25, 25], [200, 200]] #, [60, 60]]
     optics = MjCambrianNonDifferentiableOptics(config)
     for i in range(len(res)):
         img = Image.open(img_path) #.resize((100,100))
@@ -174,9 +178,9 @@ if __name__ == "__main__":
         print(f"img: {img.shape}")
         img = img / 255.0
         depth = np.load(depth_path)
-        _save_path = f'aps-debug-flatland-SceneRes{img.shape[0]}-ApRes{res[i][0]}'
+        _save_path = f'aps-debug-flatland-SceneRes{img.shape[0]}x{img.shape[1]}-ApRes{res[i][0]}x{res[i][1]}'
         os.makedirs(_save_path, exist_ok=True)
-        config.resolution = res[i]
+        config.sensor_resolution = res[i]
         config.aperture_open = 0 
         # create a plot and save depth and image
         fig, axs = plt.subplots(1, 2)
@@ -190,7 +194,11 @@ if __name__ == "__main__":
         fig.savefig(f'./{_save_path}//gt.png')
 
         images = []
-        while config.aperture_open <= 1.0:
+        SSNAME = 'dx1em3'
+        print(f"Saving images to: {_save_path}")
+        apertures = [0., 0.01, 0.1, 0.25, 0.5, 1.0]
+        for aperture in apertures:
+            config.aperture_open = aperture
             optics.reset(config)
             img, psf = optics.forward(img, depth, return_psf=True)
             print(f"Rendered img: {img.shape}")
@@ -206,9 +214,8 @@ if __name__ == "__main__":
             axs[1].imshow(psf)
             axs[1].set_title('PSF')
             # axs[1].axis('off')
-            filename = f'./{_save_path}//psf-im-{config.aperture_open:2f}.png'
+            filename = f'./{_save_path}//psf-im-{config.aperture_open:2f}-{SSNAME}.png'
             fig.savefig(filename)
             images.append(imageio.imread(filename))
-            config.aperture_open += 0.1
 
-        imageio.mimsave(f'./{_save_path}/psf-ims.gif', images, loop=4, duration = 1)
+        imageio.mimsave(f'./{_save_path}/psf-ims-{SSNAME}.gif', images, loop=4, duration = 1)

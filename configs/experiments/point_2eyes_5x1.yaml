@@ -119,8 +119,8 @@ evo_config:
       use_action_obs: True
       n_temporal_obs: 5
 
-      constant_actions: [0.25, null]
-      # constant_actions: [null, null]
+      # constant_actions: [0.25, null]
+      constant_actions: [null, null]
 
       disable_intensity_sensor: True
 

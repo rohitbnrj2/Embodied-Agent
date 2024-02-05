@@ -35,7 +35,7 @@ map: [
 wall_texture_map:
   K: [vertical_10] # key
   L: [vertical_40] # left
-  R: [vertical_40] # right
+  R: [vertical_10] # right
   E: [vertical_10] # end
 
 difficulty: 1

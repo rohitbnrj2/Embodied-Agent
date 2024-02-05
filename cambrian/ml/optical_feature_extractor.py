@@ -9,12 +9,15 @@ import torch.nn as nn
 
 import gymnasium as gym
 from gymnasium import spaces
+from collections import deque
+from typing import Deque
+
 from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim, is_image_space
 
 
-class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
+class MjCambrianOpticalFeatureExtractor(BaseFeaturesExtractor):
     """Overwrite of the default feature extractor of Stable Baselines 3."""
 
     def __init__(
