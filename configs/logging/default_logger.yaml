@@ -12,7 +12,7 @@ handlers:
     class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
     formatter: simple
     stream: ext://sys.stdout
-    level: INFO
+    level: DEBUG 
     filters: [max_level]
   stderr:
     class: cambrian.utils.logger.MjCambrianTqdmStreamHandler

@@ -75,10 +75,10 @@ class MjCambrianEye:
             assert config.fovy is None, "Cannot set both fov and fovy"
             assert config.sensorsize is None, "Cannot set both fov and sensorsize"
 
-            # the rendering resolution must be set wrt the scene resoution not the 
+            # the rendering resolution must be set wrt the scene resoution not the
             # eye resolution
-            self.pixel_dx = 1e-3 # pixel size (m)
-            self.pixel_dy = 1e-3 # pixel size (m)
+            self.pixel_dx = 1e-3  # pixel size (m)
+            self.pixel_dy = 1e-3  # pixel size (m)
             if self._render_depth:
                 # if optics is enabled, then render at the scene resolution
                 Lx = self.pixel_dx * config.scene_resolution[0]
@@ -89,16 +89,22 @@ class MjCambrianEye:
                 Ly = self.pixel_dy * config.resolution[1]
 
             config.sensorsize = [Lx, Ly]
-            
+
             fovx, fovy = config.fov
             focalx = config.sensorsize[0] / (2 * np.tan(np.radians(fovx) / 2))
             focaly = config.sensorsize[1] / (2 * np.tan(np.radians(fovy) / 2))
             config.focal = [focalx, focaly]
 
         if self._render_depth:
-            config.renderer_config.width, config.renderer_config.height = config.sensor_resolution
+            (
+                config.renderer_config.width,
+                config.renderer_config.height,
+            ) = config.sensor_resolution
         else:
-            config.renderer_config.width, config.renderer_config.height = config.resolution
+            (
+                config.renderer_config.width,
+                config.renderer_config.height,
+            ) = config.resolution
 
         return config
 
@@ -152,9 +158,15 @@ class MjCambrianEye:
         self._data = data
 
         if self._render_depth:
-            self.config.renderer_config.width, self.config.renderer_config.height = self.config.sensor_resolution
+            (
+                self.config.renderer_config.width,
+                self.config.renderer_config.height,
+            ) = self.config.sensor_resolution
         else:
-            self.config.renderer_config.width, self.config.renderer_config.height = self.config.resolution
+            (
+                self.config.renderer_config.width,
+                self.config.renderer_config.height,
+            ) = self.config.resolution
 
         self._renderer.reset(model, data)
         if self.config.enable_optics:

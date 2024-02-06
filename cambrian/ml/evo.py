@@ -4,6 +4,7 @@ import subprocess
 import threading
 from pathlib import Path
 import random
+import logging
 
 from cambrian.population import MjCambrianPopulation
 from cambrian.animal import MjCambrianAnimal
@@ -42,6 +43,7 @@ class MjCambrianEvoRunner:
         self.config = config
         self.dry_run = dry_run
 
+        self.real_rank = int(rank / self.config.evo_config.population_config.size)
         generation_config = MjCambrianGenerationConfig(generation=generation, rank=rank)
         self.config.evo_config.generation_config = generation_config
 
@@ -57,7 +59,7 @@ class MjCambrianEvoRunner:
         self.logger = get_logger(
             config,
             overwrite_filepath=self.logdir / "logs",
-            overwrite_filename_suffix=f"_{rank}",
+            overwrite_filename_suffix=f"_{self.real_rank}",
         )
 
         population_config = self.config.evo_config.population_config
@@ -90,9 +92,7 @@ class MjCambrianEvoRunner:
                 self.population.update()
 
                 config = self.spawn_animal(generation, rank)
-                process = self.train_animal(config)
-                if not self.dry_run:
-                    process.wait()
+                self.train_animal(config)
 
                 generation += 1
 
@@ -184,13 +184,39 @@ class MjCambrianEvoRunner:
 
         return config
 
-    def train_animal(self, config: MjCambrianConfig) -> subprocess.Popen | None:
+    def train_animal(self, config: MjCambrianConfig):
         config_yaml = Path(config.training_config.logdir) / "config.yaml"
         cmd = f"{self.python_cmd} {config_yaml} --train"
         env = dict(os.environ, **self.config.evo_config.environment_variables)
         self.logger.debug(f"Running command: {cmd}")
         if not self.dry_run:
-            return subprocess.Popen(cmd.split(" "), env=env)
+            process = subprocess.Popen(
+                cmd.split(" "),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
+                bufsize=1,
+                text=True,
+            )
+
+            threading.Thread(
+                target=self._log_subprocess_output,
+                args=(
+                    process.stdout,
+                    logging.INFO,
+                    config.evo_config.generation_config.rank,
+                ),
+            ).start()
+            threading.Thread(
+                target=self._log_subprocess_output,
+                args=(
+                    process.stderr,
+                    logging.ERROR,
+                    config.evo_config.generation_config.rank,
+                ),
+            ).start()
+
+            process.wait()
 
     # ========
 
@@ -209,6 +235,18 @@ class MjCambrianEvoRunner:
         )
         # fmt: on
 
+    def _log_subprocess_output(self, pipe, log_level: int, rank: int):
+        """Logs the output of a subprocess to the logger with the given log level.
+
+        The logged output will also be prepended with the rank of the process. The lines
+        will only be logged if they are not empty.
+        """
+        with pipe:
+            for line in iter(pipe.readline, b""):
+                line = line.strip()
+                if line:
+                    self.logger.log(log_level, f"[{rank}]: {line}")
+
 
 if __name__ == "__main__":
     from cambrian.utils.utils import MjCambrianArgumentParser
@@ -226,7 +264,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
+    config: MjCambrianConfig = MjCambrianConfig.load(
+        args.config, overrides=args.overrides
+    )
     config.training_config.setdefault("exp_name", Path(args.config).stem)
     config.evo_config.setdefault("environment_variables", {})
     if not args.no_egl:

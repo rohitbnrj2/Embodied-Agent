@@ -97,7 +97,7 @@ class MjCambrianViewerOverlay:
         self.obj = obj
         self.cursor = cursor.copy() if cursor is not None else None
 
-    def draw_before_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
+    def draw_before_render(self, scene: mj.MjvScene):
         """Called before rendering the scene."""
         pass
 
@@ -126,18 +126,23 @@ class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
 
 
 class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
-    def __init__(self, scene: mj.MjvScene, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.scene = scene
+    """TODO: make this an image overlay where the pos is converted to pixel 
+    coordinates.
+    
+    NOTE: This is applied only to the passed scene, so other scenes (i.e. ones for the 
+    eyes) will not be affected.
+    """
 
-    def draw_before_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
-        assert self.scene.ngeom < self.scene.maxgeom, "Max geom reached."
+    def draw_before_render(self, scene: mj.MjvScene):
+        if scene.ngeom >= scene.maxgeom:
+            get_logger().warning(
+                f"Max geom reached ({scene.maxgeom}). Cannot add more sites."
+            )
+            return
 
-        self.scene.ngeom += 1
-        geom = self.scene.geoms[self.scene.ngeom - 1]
-
+        scene.ngeom += 1
         mj.mjv_initGeom(
-            geom,
+            scene.geoms[scene.ngeom - 1],
             mj.mjtGeom.mjGEOM_SPHERE,
             [0.1, 0.1, 0.1],
             self.obj,
@@ -299,7 +304,7 @@ class MjCambrianViewer(ABC):
         self.update(self.viewport.width, self.viewport.height)
 
         for overlay in overlays:
-            overlay.draw_before_render(self._mjr_context, self.viewport)
+            overlay.draw_before_render(self.scene)
 
         mj.mjr_render(self.viewport, self.scene, self._mjr_context)
 

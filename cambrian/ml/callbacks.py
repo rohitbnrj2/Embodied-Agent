@@ -52,7 +52,7 @@ class PlotEvaluationCallback(BaseCallback):
             weights = np.repeat(1.0, window) / window
             return np.convolve(values, weights, "valid")
 
-        y = moving_average(y.astype(float), window=min(len(y) // 10, 1000))
+        y = moving_average(y.astype(float), window=min(len(y), 1000))
         x = x[len(x) - len(y) :]  # truncate x
 
         plt.plot(x, y)

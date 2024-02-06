@@ -281,11 +281,6 @@ class MjCambrianAnimal:
         if self._responsible_for_intensity_sensor:
             self._intensity_sensor.reset(model, data)
 
-        # set the action so that the animal faces left 
-        # init_v = 0.25
-        # heading = 0.5 # animal is pointing down so we add +90 degrees (pi/2) -> 0.5
-        # self.apply_action([init_v, heading])
-
         return self._get_obs()
 
     def _reset_adrs(self, model: mj.MjModel):
@@ -531,6 +526,11 @@ class MjCambrianAnimal:
         """
         return self._data.qpos[self._joint_qposadr : self._joint_qposadr + 2].copy()
 
+    @property
+    def xpos(self) -> np.ndarray:
+        """Gets the xyz position of the animal."""
+        return self._data.xpos[self._body_id]
+
     @pos.setter
     def pos(self, value: np.ndarray):
         """See the getter for more info. Sets the freejoint qpos of the animal. If you
@@ -734,6 +734,16 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
         # Update the constant actions to be None so that they're not applied again
         with setattrs_temporary((self.config, dict(constant_actions=None))):
             super().apply_action(action)
+
+    @property
+    def observation_space(self) -> spaces.Space:
+        """Overrides the base implementation so the action obs is only two elements."""
+        observation_space = super().observation_space
+        if "action" in observation_space.spaces:
+            observation_space["action"] = spaces.Box(
+                low=-1, high=1, shape=(2,), dtype=np.float32
+            )
+        return observation_space
 
     @property
     def action_space(self) -> spaces.Space:

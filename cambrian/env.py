@@ -304,8 +304,8 @@ class MjCambrianEnv(gym.Env):
         self._episode_step = 0
         self._cumulative_reward = 0
         self._num_resets += 1
+        self._overlays.clear()
         if not self.record:
-            self._overlays.clear()
             self._rollout.clear()
 
         if self.env_config.add_overlays:
@@ -449,12 +449,11 @@ class MjCambrianEnv(gym.Env):
             self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
 
             # Add the position of each animal to the overlays
+            # NOTE: the height is very high such that the animal won't see the overlay
+            #       this will only work for birds-eye view cameras
             for animal in self.animals.values():
-                self._overlays[
-                    f"{animal.name}_pos_{self._episode_step}"
-                ] = MjCambrianSiteViewerOverlay(
-                    self.renderer.viewer.scene, [*animal.pos, 0.1]
-                )
+                key = f"{animal.name}_pos_{self._episode_step}"
+                self._overlays[key] = MjCambrianSiteViewerOverlay(animal.xpos.copy())
 
         if self.record:
             self._rollout.setdefault("actions", [])

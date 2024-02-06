@@ -25,9 +25,6 @@ from cambrian.utils.config import MjCambrianConfig
 class MjCambrianTqdmStreamHandler(logging.StreamHandler):
     """A handler that uses tqdm.write to log messages."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def emit(self, record: logging.LogRecord) -> None:
         try:
             msg = self.format(record)

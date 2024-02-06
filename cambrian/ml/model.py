@@ -13,7 +13,6 @@ class MjCambrianModel(PPO):
         super().__init__(*args, **kwargs)
 
         self._rollout: List[Dict[str, Any]] = None
-        self.logger = get_logger()
 
     def save_policy(self, path: Path | str):
         """Overwrite the save method. Instead of saving the entire state, we'll
@@ -50,7 +49,7 @@ class MjCambrianModel(PPO):
         policy_state_dict = self.policy.state_dict()
         for saved_state_dict_key in list(saved_state_dict.keys()):
             if saved_state_dict_key not in policy_state_dict:
-                self.logger.warning(
+                get_logger().warning(
                     f"Key '{saved_state_dict_key}' not found in policy "
                     "state_dict. Deleting from saved state dict." 
                 )
@@ -61,7 +60,7 @@ class MjCambrianModel(PPO):
             policy_state_dict_var = policy_state_dict[saved_state_dict_key]
 
             if saved_state_dict_var.shape != policy_state_dict_var.shape:
-                self.logger.warning(f"Shape mismatch for key '{saved_state_dict_key}'")
+                get_logger().warning(f"Shape mismatch for key '{saved_state_dict_key}'")
                 del saved_state_dict[saved_state_dict_key]
 
         self.policy.load_state_dict(saved_state_dict, strict=False)

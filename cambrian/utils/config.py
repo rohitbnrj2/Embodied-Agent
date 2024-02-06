@@ -914,6 +914,9 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             `render` will never be called. Defaults to True. This is useful to reduce
             the amount of vram consumed by non-rendering environments.
         add_overlays (bool): Whether to add overlays or not.
+        add_position_tracking_overlay (bool): Whether to add the position
+            tracking overlay which adds a site to the world at each position an 
+            animal has been.
         overlay_width (Optional[float]): The width of _each_ rendered overlay that's
             placed on the render output. This is primarily for debugging. If unset,
             no overlay will be added. This is a percentage!! It's the percentage of
@@ -970,6 +973,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
     use_renderer: bool
     add_overlays: bool
+    add_position_tracking_overlay: bool
     overlay_width: Optional[float] = None
     overlay_height: Optional[float] = None
     renderer_config: MjCambrianRendererConfig
