@@ -52,6 +52,7 @@ def get_logger(
     name: str = "cambrian",
     overwrite_filepath: Optional[pathlib.Path] = None,
     overwrite_filename_suffix: Optional[str] = None,
+    allow_missing_filepath: bool = True,
 ) -> logging.Logger:
     """Get/configure the logger."""
     if config is None:
@@ -64,26 +65,23 @@ def get_logger(
             continue
 
         filename = pathlib.Path(filename)
+        if overwrite_filepath:
+            filename = overwrite_filepath / filename.name
+        if overwrite_filename_suffix:
+            # The suffix will be added before the file extension.
+            filename = filename.with_name(
+                filename.stem + overwrite_filename_suffix + filename.suffix
+            )
+
         if filename.parent.exists():
-            # Update the filename with the overwrite path and/or name.
-            new_filename = filename
-            if overwrite_filepath:
-                new_filename = overwrite_filepath / filename.name
-            if overwrite_filename_suffix:
-                # The suffix will be added before the file extension.
-                new_filename = new_filename.with_name(
-                    new_filename.stem
-                    + overwrite_filename_suffix
-                    + new_filename.suffix
-                )
-            config.logging_config["handlers"][handler_name][
-                "filename"
-            ] = new_filename
-        else:
+            config.logging_config["handlers"][handler_name]["filename"] = str(filename)
+        elif allow_missing_filepath:
             # If the file doesn't exist, remove the handler from the config.
             del config.logging_config["handlers"][handler_name]
             for logger in config.logging_config["loggers"].values():
                 logger["handlers"].remove(handler_name)
+        else:
+            raise FileNotFoundError(f"Directory {filename.parent} does not exist.")
 
     logging.config.dictConfig(config.logging_config)
 

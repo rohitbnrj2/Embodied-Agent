@@ -32,6 +32,6 @@ handlers:
     level: WARNING
     mode: w
 loggers:
-  root:
+  cambrian:
     level: DEBUG
     handlers: [stdout, stderr, file_out, file_err]

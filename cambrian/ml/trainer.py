@@ -48,7 +48,13 @@ class MjCambrianTrainer:
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
 
-        self.logger = get_logger(self.config, overwrite_filepath=self.logdir)
+        (self.logdir / "logs").mkdir(exist_ok=True)
+        self.logger = get_logger(
+            self.config,
+            overwrite_filepath=self.logdir / "logs",
+            allow_missing_filepath=False,
+        )
+        self.logger.info(f"Logging to {self.logdir / 'logs'}...")
 
         set_random_seed(self._calc_seed(0))
 
@@ -79,7 +85,9 @@ class MjCambrianTrainer:
 
     def eval(self, record: bool = False):
         # copy monitor.csv to monitor_train.csv since it overwrites the real monitor.csv
-        if (self.logdir / "monitor.csv").exists() and not (self.logdir / "monitor_train.csv").exists():
+        if (self.logdir / "monitor.csv").exists() and not (
+            self.logdir / "monitor_train.csv"
+        ).exists():
             shutil.copy(self.logdir / "monitor.csv", self.logdir / "monitor_train.csv")
 
         self.config.save(self.logdir / "eval_config.yaml")
@@ -153,19 +161,15 @@ class MjCambrianTrainer:
             )
         )
         callbacks_on_new_best.append(
-           StopTrainingOnRewardThreshold( 
+            StopTrainingOnRewardThreshold(
                 self.config.training_config.no_improvement_reward_threshold,
-              )
+            )
         )
-        callbacks_on_new_best.append(
-            MjCambrianSavePolicyCallback(self.logdir)
-        )
+        callbacks_on_new_best.append(MjCambrianSavePolicyCallback(self.logdir))
         callbacks_on_new_best = CallbackListWithSharedParent(callbacks_on_new_best)
 
         callbacks_after_eval = []
-        callbacks_after_eval.append(
-            PlotEvaluationCallback(self.logdir)
-        )
+        callbacks_after_eval.append(PlotEvaluationCallback(self.logdir))
         # callbacks_after_eval.append(
         #     SaveVideoCallback(
         #         eval_env,
@@ -202,7 +206,7 @@ class MjCambrianTrainer:
             features_extractor_class=MjCambrianCombinedExtractor,
             features_extractor_kwargs=dict(
                 activation=self.config.training_config.features_extractor_activation
-            )
+            ),
         )
 
         if (checkpoint_path := self.config.training_config.checkpoint_path) is not None:
