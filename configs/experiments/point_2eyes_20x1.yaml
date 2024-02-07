@@ -139,7 +139,7 @@ evo_config:
   spawning_config:
     init_num_mutations: 1
     num_mutations: 1
-    mutation_options: [UPDATE_APERTURE]
+    mutations: [UPDATE_APERTURE]
     replication_type: MUTATION
 
     default_animal_config:

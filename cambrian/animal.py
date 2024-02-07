@@ -1,8 +1,9 @@
 from math import prod
-from typing import Dict, Any, List, Optional, Deque
+from typing import Dict, Any, List, Deque
 from enum import Flag, auto
 from functools import reduce
 from collections import deque
+import uuid
 
 import numpy as np
 import mujoco as mj
@@ -21,6 +22,7 @@ from cambrian.utils import (
     MjCambrianActuator,
     MjCambrianGeometry,
     setattrs_temporary,
+    generate_sequence_from_range,
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import MjCambrianAnimalConfig, MjCambrianEyeConfig
@@ -580,63 +582,47 @@ class MjCambrianAnimal:
     @staticmethod
     def mutate(
         config: MjCambrianAnimalConfig,
-        default_eye_config: MjCambrianEyeConfig,
-        *,
-        mutations: List[MutationType],
+        mutations: List[str],
+        mutation_options: Dict[str, Any],
     ) -> MjCambrianAnimalConfig:
         """Mutates the animal config."""
         logger = get_logger()
         logger.info("Mutating animal...")
 
-        mutation_options = [MjCambrianAnimal.MutationType[m] for m in mutations]
+        # Store the mutations used to create this animal
+        config.mutations_from_parent = mutations
+
+        # Convert the strings to the enum
+        mutations = [MjCambrianAnimal.MutationType[m] for m in mutations]
 
         # Randomly select the number of mutations to perform with a skewed dist
         # This will lean towards less total mutations generally
-        p = np.exp(-np.arange(len(mutation_options)))
+        p = np.exp(-np.arange(len(mutations)))
         num_of_mutations = np.random.choice(np.arange(1, len(p) + 1), p=p / p.sum())
-        mutations = np.random.choice(mutation_options, num_of_mutations, False)
+        mutations = np.random.choice(mutations, num_of_mutations, False)
         mutations = reduce(lambda x, y: x | y, mutations)
-
         logger.info(f"Mutations: {mutations}")
 
         if MjCambrianAnimal.MutationType.REMOVE_EYE in mutations:
-            # NOTE: We assume here the animal's eyes are symmetric, as in when we remove
-            # an eye, we remove the reflected eye. Reflected eye's have even indices.
             logger.debug("Removing an eye.")
 
-            if len(config.eye_configs) <= 2:
+            if len(config.eye_configs) <= 1:
                 logger.info("Cannot remove the last eye. Adding one instead.")
                 mutations |= MjCambrianAnimal.MutationType.ADD_EYE
             else:
                 # Select an eye at random
                 eye_keys = list(config.eye_configs.keys())
-                assert len(eye_keys) % 2 == 0, "Number of eyes must be even."
-                eye_key1 = np.random.choice(eye_keys[::2])
-                eye_key2 = eye_keys[eye_keys.index(eye_key1) + 1]
-                del config.eye_configs[eye_key1]
-                del config.eye_configs[eye_key2]
-
-                config.num_eyes -= 2
+                eye_key = np.random.choice(eye_keys)
+                del config.eye_configs[eye_key]
 
         if MjCambrianAnimal.MutationType.ADD_EYE in mutations:
-            # NOTE: We assume here the animal's eyes are symmetric, as in when we add an
-            # eye, we add the reflected eye, i.e. negate the longitudinal coord. 
             logger.debug("Adding an eye.")
 
-            new_eye_config: MjCambrianEyeConfig = default_eye_config.copy()
-            new_eye_config.name = f"{config.name}_eye_{len(config.eye_configs)}"
-            new_eye_config.coord = [
-                np.random.uniform(*config.model_config.eyes_lat_range),
-                np.random.uniform(*config.model_config.eyes_lon_range),
-            ]
+            # Randomly select an eye to duplicate
+            eye_configs = list(config.eye_configs.values())
+            new_eye_config: MjCambrianEyeConfig = np.random.choice(eye_configs).copy()
+            new_eye_config.name = str(uuid.uuid4())  # make sure the name is unique
             config.eye_configs[new_eye_config.name] = new_eye_config
-
-            new_eye_config2 = new_eye_config.copy()
-            new_eye_config2.name = f"{config.name}_eye_{len(config.eye_configs)}"
-            new_eye_config2.coord[1] = -new_eye_config2.coord[1]
-            config.eye_configs[new_eye_config2.name] = new_eye_config2
-
-            config.num_eyes += 2
 
         if MjCambrianAnimal.MutationType.EDIT_EYE in mutations:
             logger.debug("Editing an eye.")
@@ -677,8 +663,59 @@ class MjCambrianAnimal:
 
                 logger.debug(f"aperture_open after: {eye_config.aperture_open}")
 
-        # Store the mutations used to create this animal
-        config.mutations_from_parent = [m.name for m in mutation_options]
+        # Update the eye placement, if necessary
+        # TODO make official config
+        mode = mutation_options.get("eye_placement_mode", "random")
+        if mode == "uniform":
+            logger.debug("Placing eyes uniformly.")
+
+            # Place the eyes uniformly on the animal. Will redistribute all
+            # existing eyes. The number of latitude and longitude bins is
+            # proportional to the number of eyes and the ratio of lat and lon
+            # ranges.
+            num_eyes = len(config.eye_configs)
+            lat_range = np.subtract(*config.model_config.eyes_lat_range)
+            lon_range = np.subtract(*config.model_config.eyes_lon_range)
+            assert (
+                lat_range != 0 or lon_range != 0
+            ), "Both lat_range and lon_range cannot be 0."
+
+            # Calculate the number of lat and lon bins
+            # Handle edge case where lat_range or lon_range is 0
+            if lat_range == 0:
+                num_lat = 1
+                num_lon = num_eyes
+            elif lon_range == 0:
+                num_lat = num_eyes
+                num_lon = 1
+            else:
+                num_lat = int(np.ceil(np.sqrt(num_eyes)))
+                num_lon = int(np.ceil(num_eyes / num_lat))
+            lat_bins = generate_sequence_from_range(
+                config.model_config.eyes_lat_range, num_lat
+            )
+            lon_bins = generate_sequence_from_range(
+                config.model_config.eyes_lon_range, num_lon
+            )
+
+            # Update the coord for each eye
+            for i, eye_config in enumerate(config.eye_configs.values()):
+                eye_config.coord = [
+                    float(lat_bins[i // num_lon]),
+                    float(lon_bins[i % num_lon]),
+                ]
+
+                # Update the eye name to be the index of the eye in the new list
+                eye_config.name = f"{config.name}_eye_{i}"
+            config.eye_configs = {eye.name: eye for eye in config.eye_configs.values()}
+        elif mode == "random":
+            # Assume the eyes are already placed randomly
+            logger.debug("Placing eyes randomly (doing nothing).")
+        else:
+            raise ValueError(f"Invalid eye placement mode: {mode}")
+
+        # Update the number of eyes
+        config.num_eyes = len(config.eye_configs)
 
         return config
 
@@ -758,7 +795,7 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
 
         # Calculate the global velocities
         theta = self._data.qpos[self._joint_qposadr + 2]
-        v = np.sqrt(vx ** 2 + vy ** 2)
+        v = np.sqrt(vx**2 + vy**2)
         theta = np.arctan2(vy, vx) - theta
 
         return np.array([v, theta], dtype=np.float32)
@@ -772,7 +809,9 @@ if __name__ == "__main__":
 
     parser = MjCambrianArgumentParser(description="Animal Test")
 
-    parser.add_argument("--title", type=str, help="Title of the demo.", default="Animal Test Demo")
+    parser.add_argument(
+        "--title", type=str, help="Title of the demo.", default="Animal Test Demo"
+    )
 
     parser.add_argument("--save", action="store_true", help="Save the demo")
     parser.add_argument("--mutate", action="store_true", help="Mutate the animal")

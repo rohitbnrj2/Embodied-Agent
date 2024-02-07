@@ -148,7 +148,7 @@ yaml.add_representer(tuple, lambda d, seq: d.represent_sequence(list_repr, seq, 
 T = TypeVar("T", bound="MjCambrianBaseConfig")
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianBaseConfig:
     """Base config for all configs. This is an abstract class.
 
@@ -256,9 +256,9 @@ class MjCambrianBaseConfig:
         """Save the config to a yaml file."""
         OmegaConf.save(self, path)
 
-    def copy(self: T, **kwargs) -> T:
+    def copy(self: T) -> T:
         """Copy the config such that it is a new instance."""
-        return deepcopy(self).update(**kwargs)
+        return deepcopy(self)
 
     def update(self: T, **kwargs) -> T:
         """Update the config with the given kwargs. This is a shallow update, meaning it
@@ -353,7 +353,7 @@ class MjCambrianBaseConfig:
         return OmegaConf.to_yaml(self)
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianGenerationConfig(MjCambrianBaseConfig):
     """Config for a generation. Used for type hinting.
 
@@ -373,7 +373,7 @@ class MjCambrianGenerationConfig(MjCambrianBaseConfig):
         return Path(f"generation_{self.generation}") / f"rank_{self.rank}"
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianTrainingConfig(MjCambrianBaseConfig):
     """Settings for the training process. Used for type hinting.
 
@@ -441,7 +441,7 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig):
     verbose: int
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianMazeConfig(MjCambrianBaseConfig):
     """Defines a map config. Used for type hinting.
 
@@ -520,7 +520,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
     eval_adversary_pos: Optional[Tuple[float, float]] = None
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianCameraConfig(MjCambrianBaseConfig):
     """Defines a camera config. Used for type hinting. This is a wrapper of
     mj.mjvCamera that is used to configure the camera in the viewer.
@@ -563,7 +563,7 @@ class MjCambrianCameraConfig(MjCambrianBaseConfig):
     distance_factor: Optional[float] = None
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianRendererConfig(MjCambrianBaseConfig):
     """The config for the renderer. Used for type hinting.
 
@@ -614,7 +614,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
     use_shared_context: bool
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianEyeConfig(MjCambrianBaseConfig):
     """Defines the config for an eye. Used for type hinting.
 
@@ -764,7 +764,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
         return kwargs
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianAnimalModelConfig(MjCambrianBaseConfig):
     """Defines the config for an animal model. Used for type hinting.
 
@@ -779,11 +779,11 @@ class MjCambrianAnimalModelConfig(MjCambrianBaseConfig):
         geom_name (str): The name of the geom that are used for eye placement.
 
         eyes_lat_range (Tuple[float, float]): The x range of the eye. This is used to
-            determine the placement of the eye on the animal. Specified in radians. This
+            determine the placement of the eye on the animal. Specified in degrees. This
             is the latitudinal/vertical range of the evenly placed eye about the
             animal's bounding sphere.
         eyes_lon_range (Tuple[float, float]): The y range of the eye. This is used to
-            determine the placement of the eye on the animal. Specified in radians. This
+            determine the placement of the eye on the animal. Specified in degrees. This
             is the longitudinal/horizontal range of the evenly placed eye about the
             animal's bounding sphere.
     """
@@ -797,7 +797,7 @@ class MjCambrianAnimalModelConfig(MjCambrianBaseConfig):
     eyes_lon_range: Tuple[float, float]
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     """Defines the config for an animal. Used for type hinting.
 
@@ -863,7 +863,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     mutations_from_parent: Optional[List[str]] = None
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianEnvConfig(MjCambrianBaseConfig):
     """Defines a config for the cambrian environment.
 
@@ -890,6 +890,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
         reward_fn_type (str): The reward function type to use. See
             `MjCambrianEnv._RewardType` for options.
+        eval_reward_fn_type (Optional[str]): The reward function type to use for 
+            evaluation. If unset, will use the same reward function as `reward_fn_type`.
         reward_options (Optional[Dict[str, Any]]): The options to use for the reward
             function.
 
@@ -957,6 +959,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     ambient_light_intensity: Optional[Tuple[float, float, float]] = None
 
     reward_fn_type: str
+    eval_reward_fn_type: Optional[str] = None
     reward_options: Optional[Dict[str, Any]] = None
 
     use_goal_obs: bool
@@ -1037,7 +1040,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     animal_configs: Dict[str, MjCambrianAnimalConfig] = field(default_factory=dict)
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianPopulationConfig(MjCambrianBaseConfig):
     """Config for a population. Used for type hinting.
 
@@ -1053,7 +1056,7 @@ class MjCambrianPopulationConfig(MjCambrianBaseConfig):
     num_top_performers: int
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianSpawningConfig(MjCambrianBaseConfig):
     """Config for spawning. Used for type hinting.
 
@@ -1064,9 +1067,14 @@ class MjCambrianSpawningConfig(MjCambrianBaseConfig):
         num_mutations (int): The number of mutations to perform on the parent
             generation to generate the new generation. The actual number of mutations
             is calculated using random.randint(1, num_mutations).
-
-        mutation_options (List[str]): The mutation options to use for the animal. See
+        mutations (List[str]): The mutation options to use for the animal. See
             `MjCambrianAnimal.MutationType` for options.
+        mutation_options (Optional[Dict[str, Any]]): The options to use for 
+            the mutations. 
+
+        load_policy (bool): Whether to load a policy or not. If True, the parent's 
+            saved policy will be loaded and used as the starting point for the new
+            generation. If False, the child will be trained from scratch.
 
         replication_type (str): The type of replication to use. See
             `ReplicationType` for options.
@@ -1074,7 +1082,10 @@ class MjCambrianSpawningConfig(MjCambrianBaseConfig):
 
     init_num_mutations: int
     num_mutations: int
-    mutation_options: List[str]
+    mutations: List[str]
+    mutation_options: Optional[Dict[str, Any]] = None
+
+    load_policy: bool
 
     class ReplicationType(Flag):
         """Use as bitmask to specify which type of replication to perform on the animal.
@@ -1095,7 +1106,7 @@ class MjCambrianSpawningConfig(MjCambrianBaseConfig):
     default_eye_config: Optional[MjCambrianEyeConfig] = None
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianEvoConfig(MjCambrianBaseConfig):
     """Config for evolutions. Used for type hinting.
 
@@ -1132,7 +1143,7 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
     environment_variables: Dict[str, str]
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
 class MjCambrianConfig(MjCambrianBaseConfig):
     """The base config for the mujoco cambrian environment. Used for type hinting.
 

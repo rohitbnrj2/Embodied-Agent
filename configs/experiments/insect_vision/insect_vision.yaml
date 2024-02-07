@@ -1,9 +1,9 @@
 training_config:
-  total_timesteps: 2_000_000
+  total_timesteps: 500_000
 
 env_config:
   extend:
-    maze_store: ${extend:${include:configs/mazes/dr/MAZE_STORE.yaml}}
+    maze_store: ${extend:${include:configs/mazes/maze_store.yaml}}
 
   use_ambient_light: True
   ambient_light_intensity: [0.7, 0.7, 0.7]
@@ -31,10 +31,16 @@ env_config:
 
       disable_intensity_sensor: True
 
+      model_config:
+        # Set the lat range to 0 since we want the eyes to be on the horizontal plane
+        eyes_lat_range: [0, 0]
+
 evo_config:
   spawning_config:
     init_num_mutations: 5
-    mutation_options: [ADD_EYE, REMOVE_EYE]
+    mutations: [ADD_EYE, REMOVE_EYE]
+    mutation_options:
+      eye_placement_mode: uniform
 
     default_animal_config:
       constant_actions: null

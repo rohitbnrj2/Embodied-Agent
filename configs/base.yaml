@@ -21,7 +21,7 @@ training_config:
 
   features_extractor_activation: ReLU
 
-  seed: 424242
+  seed: 0
   verbose: 2
 
 env_config:
@@ -92,7 +92,10 @@ evo_config:
   spawning_config:
     init_num_mutations: 1
     num_mutations: 1
-    mutation_options: [ADD_EYE, REMOVE_EYE, EDIT_EYE]
+    mutations: [ADD_EYE, REMOVE_EYE, EDIT_EYE]
+
+    load_policy: False
+
     replication_type: MUTATION
 
     default_animal_config:

@@ -147,13 +147,13 @@ class MjCambrianTrainer:
         BaseCallback.logger = self.logger
 
         callbacks_on_new_best = []
-        callbacks_on_new_best.append(
-            SaveVideoCallback(
-                eval_env,
-                self.logdir,
-                self.config.training_config.max_episode_steps,
-            )
-        )
+        # callbacks_on_new_best.append(
+        #     SaveVideoCallback(
+        #         eval_env,
+        #         self.logdir,
+        #         self.config.training_config.max_episode_steps,
+        #     )
+        # )
         callbacks_on_new_best.append(
             StopTrainingOnNoModelImprovement(
                 self.config.training_config.max_no_improvement_evals,
@@ -170,13 +170,13 @@ class MjCambrianTrainer:
 
         callbacks_after_eval = []
         callbacks_after_eval.append(PlotEvaluationCallback(self.logdir))
-        # callbacks_after_eval.append(
-        #     SaveVideoCallback(
-        #         eval_env,
-        #         self.logdir,
-        #         self.config.training_config.max_episode_steps,
-        #     )
-        # )
+        callbacks_after_eval.append(
+            SaveVideoCallback(
+                eval_env,
+                self.logdir,
+                self.config.training_config.max_episode_steps,
+            )
+        )
         callbacks_after_eval = CallbackListWithSharedParent(callbacks_after_eval)
 
         eval_cb = EvalCallback(

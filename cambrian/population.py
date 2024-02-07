@@ -5,7 +5,13 @@ import os
 import numpy as np
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from cambrian.utils.config import MjCambrianPopulationConfig, MjCambrianConfig
+from cambrian.animal import MjCambrianAnimal
+from cambrian.utils.config import (
+    MjCambrianPopulationConfig,
+    MjCambrianConfig,
+    MjCambrianSpawningConfig,
+)
+from cambrian.utils.logger import get_logger
 
 Fitness = float
 
@@ -32,15 +38,17 @@ class MjCambrianPopulation:
     calculated by parsing the `monitor.csv` file.
 
     Args:
-        config (MjCambrianPopulationConfig): The config to use for the population.
+        initial_config (MjCambrianPConfig): The initial config.
         logdir (Path | str): The path to the base directory animal logs should be saved
             to. It is assumed each animal config is saved to a subdirectory of this
             directory under `generation_{generation_num}/rank_{rank_num}`.
     """
 
-    def __init__(self, config: MjCambrianPopulationConfig, logdir: Path | str):
-        self.config = config
+    def __init__(self, initial_config: MjCambrianConfig, logdir: Path | str):
+        self.initial_config = initial_config
+        self.config = initial_config.evo_config.population_config
         self.logdir = Path(logdir)
+        self.logger = get_logger()
 
         self._all_population: Dict[Path, Tuple[Fitness, MjCambrianConfig]] = {}
         self._top_performers: List[Path] = []
@@ -141,6 +149,90 @@ class MjCambrianPopulation:
         configs = [self._all_population[a][1].copy() for a in animals]
 
         return configs
+
+    def spawn_animal(self, generation: int, rank: int) -> MjCambrianConfig:
+        """Spawns a new animal based on the current population.
+
+        TODO: add crossover
+        """
+        self.logger.info(f"Spawning animal with {generation=} and {rank=}.")
+
+        # Select an animal to mutate
+        # If generation is 0, we'll read the default config file, select otherwise
+        if generation == 0:
+            config = self.initial_config.copy()
+        else:
+            config = self.select_animal()
+
+        # Aliases
+        evo_config = config.evo_config
+        training_config = config.training_config
+        animal_configs = config.env_config.animal_configs
+        spawning_config = config.evo_config.spawning_config
+
+        # TODO
+        replication_type = MjCambrianSpawningConfig.ReplicationType.MUTATION
+        # replication_type = MjCambrianSpawningConfig.ReplicationType[
+        #     spawning_config.replication_type
+        # ]
+
+        # If this is the first generation, we'll use init_num_mutations to facilitate a
+        # diverse initial population. Either way, the total number of mutations is
+        # randomly selected from 1 to num_mutations.
+        if generation == 0:
+            num_mutations = np.random.randint(1, spawning_config.init_num_mutations + 1)
+        else:
+            num_mutations = np.random.randint(1, spawning_config.num_mutations + 1)
+
+        # Mutate the config
+        parent_rank = evo_config.generation_config.rank
+        self.logger.info(f"Mutating child of {parent_rank=} {num_mutations} times.")
+        for animal_config in animal_configs.values():
+            # For each animal, we'll mutate it `num_mutations` times
+            for _ in range(num_mutations):
+                # TODO: add crossover
+                animal_configs[animal_config.name] = MjCambrianAnimal.mutate(
+                    animal_config,
+                    spawning_config.mutations,
+                    spawning_config.mutation_options,
+                )
+
+        # Update the evo_config to reflect the new generation
+        evo_config.parent_generation_config = evo_config.generation_config.copy()
+        evo_config.generation_config.rank = rank
+        evo_config.generation_config.generation = generation
+        generation_logdir = self.logdir / evo_config.generation_config.to_path()
+        generation_logdir.mkdir(parents=True, exist_ok=True)
+
+        # Update the training_config. The logdir points to the new generation's logdir,
+        # so leave exp_name to empty string since trainer will append it to the logdir
+        training_config.seed = self._calc_seed(config, generation, rank)
+        training_config.logdir = str(generation_logdir)
+        training_config.exp_name = ""
+
+        # Load the parent's policy if it exists and the user wants to load it
+        if (parent := evo_config.parent_generation_config) is not None:
+            policy_path = self.logdir / parent.to_path() / "policy.pt"
+            if policy_path.exists() and spawning_config.load_policy:
+                training_config.policy_path = str(policy_path)
+
+        # Set n_envs to be the max_n_envs divided by the population size
+        n_envs = config.evo_config.max_n_envs // self.size
+        training_config.n_envs = n_envs
+
+        return config
+
+    def _calc_seed(self, config: MjCambrianConfig, generation: int, rank: int) -> int:
+        """Calculates a unique seed for each rank."""
+
+        # fmt: off
+        return (
+            (generation + 1) * (rank + 1) 
+            + config.training_config.seed 
+            * config.evo_config.population_config.size 
+            * config.evo_config.num_generations 
+        )
+        # fmt: on
 
     # ========
 

@@ -43,7 +43,7 @@ class MjCambrianEvoRunner:
         self.config = config
         self.dry_run = dry_run
 
-        self.real_rank = int(rank / self.config.evo_config.population_config.size)
+        real_rank = int(rank / self.config.evo_config.population_config.size)
         generation_config = MjCambrianGenerationConfig(generation=generation, rank=rank)
         self.config.evo_config.generation_config = generation_config
 
@@ -59,14 +59,14 @@ class MjCambrianEvoRunner:
         self.logger = get_logger(
             config,
             overwrite_filepath=self.logdir / "logs",
-            overwrite_filename_suffix=f"_{self.real_rank}",
+            overwrite_filename_suffix=f"_{real_rank}",
         )
 
-        population_config = self.config.evo_config.population_config
-        self.population = MjCambrianPopulation(population_config, self.logdir)
+        self.population = MjCambrianPopulation(self.config, self.logdir)
 
-        trainer_py = Path(__file__).parent / "trainer.py"
-        self.python_cmd = f"python {trainer_py}"
+        # Save the initial config to the logdir
+        (self.logdir / "initial_configs").mkdir(parents=True, exist_ok=True)
+        self.config.save(self.logdir / "initial_configs" / f"config_{real_rank}.yaml")
 
     def evo(self):
         """This method run's evolution.
@@ -89,9 +89,17 @@ class MjCambrianEvoRunner:
         def _loop(rank: int):
             generation = 0
             while generation < self.config.evo_config.num_generations:
+                # Update the population. This will search the evo logdir for the latest
+                # generation and update the population accordingly.
                 self.population.update()
 
-                config = self.spawn_animal(generation, rank)
+                # Spawn a new animal
+                config = self.population.spawn_animal(generation, rank)
+
+                # Save the config
+                config.save(Path(config.training_config.logdir) / "config.yaml")
+
+                # Finally, train the animal
                 self.train_animal(config)
 
                 generation += 1
@@ -107,88 +115,22 @@ class MjCambrianEvoRunner:
         for thread in threads:
             thread.join()
 
-    def spawn_animal(self, generation: int, rank: int) -> MjCambrianConfig:
-        """Spawns a new animal.
-
-        NOTE: The default eye config is selected randomly from the animal's eye configs.
-
-        # TODO: move all of the mutation logic to MjCambrianPopulation or some other
-        # class.
-        """
-        self.logger.info(
-            f"Spawning animal with generation {generation} and rank {rank}."
-        )
-
-        # Get the spawning config
-        config: MjCambrianConfig  # the parent config, going to mutate
-        num_mutations: int  # number of mutations to perform
-        replication_type: ReplicationType  # type of replication
-        if generation == 0:
-            # If it's the first generation, we'll mutate the original config n number of
-            # times to facilitate a diverse initial population.
-            config = self.config.copy()
-            num_mutations = random.randint(
-                1, config.evo_config.spawning_config.init_num_mutations
-            )
-            replication_type = ReplicationType.MUTATION
-        else:
-            config = self.population.select_animal()
-            num_mutations = random.randint(
-                1, config.evo_config.spawning_config.num_mutations
-            )
-            replication_type = ReplicationType[
-                config.evo_config.spawning_config.replication_type
-            ]
-
-        # Mutate the config
-        self.logger.info(
-            f"Mutating child of parent with rank "
-            f"{config.evo_config.generation_config.rank} {num_mutations} times."
-        )
-        animal_configs = config.env_config.animal_configs
-        spawning_config = config.evo_config.spawning_config
-        for _ in range(num_mutations):
-            for animal_config in animal_configs.values():
-                if ReplicationType.MUTATION in replication_type:
-                    animal_configs[animal_config.name] = MjCambrianAnimal.mutate(
-                        animal_config,
-                        random.choice(list(animal_config.eye_configs.values())),
-                        mutations=spawning_config.mutation_options,
-                    )
-                elif ReplicationType.CROSSOVER in replication_type:
-                    raise NotImplementedError
-                else:
-                    raise ValueError(f"Invalid replication type {replication_type}")
-
-        evo_config = config.evo_config
-        evo_config.parent_generation_config = evo_config.generation_config.copy()
-        evo_config.generation_config.rank = rank
-        evo_config.generation_config.generation = generation
-        generation_logdir = self.logdir / evo_config.generation_config.to_path()
-        generation_logdir.mkdir(parents=True, exist_ok=True)
-
-        config.training_config.seed = self._calc_seed(generation, rank)
-        config.training_config.logdir = str(generation_logdir)
-        config.training_config.exp_name = ""
-        if (parent := config.evo_config.parent_generation_config) is not None:
-            parent_logdir = self.logdir / parent.to_path()
-            if (policy_path := parent_logdir / "policy.pt").exists():
-                config.training_config.policy_path = str(policy_path)
-
-        # Set n_envs to be the max_n_envs divided by the population size
-        n_envs = config.evo_config.max_n_envs // self.population.size
-        config.training_config.n_envs = n_envs
-
-        # Save the config
-        config.save(generation_logdir / "config.yaml")
-
-        return config
-
     def train_animal(self, config: MjCambrianConfig):
+        """Runs the training process for the given animal.
+
+        Each trainer is launched using a separate process and waits until it completes.
+        This method is blocking, so if multiple animals should be trained separately
+        on the same computer, this method should be called from a thread.
+        """
+
+        # Create the cmd
+        trainer_py = Path(__file__).parent / "trainer.py"
+        python_cmd = f"python {trainer_py}"
         config_yaml = Path(config.training_config.logdir) / "config.yaml"
-        cmd = f"{self.python_cmd} {config_yaml} --train"
-        env = dict(os.environ, **self.config.evo_config.environment_variables)
+        cmd = f"{python_cmd} {config_yaml} --train"
         self.logger.debug(f"Running command: {cmd}")
+
+        env = dict(os.environ, **self.config.evo_config.environment_variables)
         if not self.dry_run:
             process = subprocess.Popen(
                 cmd.split(" "),
@@ -199,6 +141,7 @@ class MjCambrianEvoRunner:
                 text=True,
             )
 
+            # Log the output of the subprocess
             threading.Thread(
                 target=self._log_subprocess_output,
                 args=(
@@ -219,21 +162,6 @@ class MjCambrianEvoRunner:
             process.wait()
 
     # ========
-
-    def _calc_seed(self, generation: int, rank: int) -> int:
-        """Calculates a unique seed for each environment.
-
-        Equation is as follows:
-            i * population_size * num_generations + seed + generation
-        """
-        # fmt: off
-        return (
-            (generation + 1) * (rank + 1) 
-            + self.config.training_config.seed 
-            * self.config.evo_config.population_config.size 
-            * self.config.evo_config.num_generations 
-        )
-        # fmt: on
 
     def _log_subprocess_output(self, pipe, log_level: int, rank: int):
         """Logs the output of a subprocess to the logger with the given log level.
