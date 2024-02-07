@@ -3,7 +3,7 @@ from numpy.fft import fft2, fftshift, ifft2, ifftshift
 import torch
 from PIL import Image
 
-from scipy import signal
+from typing import Tuple
 
 from cambrian.utils.config import MjCambrianEyeConfig
 
@@ -28,6 +28,14 @@ def rs_prop (u1,z,FX,FY,lmbda):
     u2 = ifftshift(ifft2(U2))
     return u2
 
+def _crop( image: np.ndarray, resolution: Tuple[int, int]) -> np.ndarray:
+    """Crop the image to the resolution specified in the config."""
+    cw, ch = int(np.ceil(resolution[0] / 2)), int(np.ceil(resolution[1] / 2))
+    ox, oy = 1 if resolution[0] == 1 else 0, 1 if resolution[1] == 1 else 0
+    bl = (image.shape[0] // 2 - cw + ox, image.shape[1] // 2 - ch + oy)
+    tr = (image.shape[0] // 2 + cw, image.shape[1] // 2 + ch)
+    return image[bl[0] : tr[0], bl[1] : tr[1]]
+
 def add_gaussian_noise(images: torch.Tensor, std: float = 0.01) -> torch.Tensor:
     # add noise to the images with mean 0.5 and standard deviation std
     noise = torch.normal(mean=0.0, std=std, size=images.shape)
@@ -37,12 +45,12 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
 
     def __init__(self, config: MjCambrianEyeConfig):
         super(MjCambrianNonDifferentiableOptics).__init__()
+        self._debug = False
         self.reset(config)
-        # self._ct = None
 
     def reset(self, config: MjCambrianEyeConfig):
         self.config = config
-        self.A, self.X1, self.Y1, self.FX, self.FY = self.define_simple_psf(config)
+        self.A, self.X1, self.Y1, self.FX, self.FY, self.focal = self.define_simple_psf(config)
 
     def forward(self, image: np.ndarray, depth: np.ndarray, return_psf: bool = False) -> np.ndarray:
         """Apply the depth invariant PSF to the image.
@@ -51,12 +59,10 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
             image = add_gaussian_noise(image, self.config.noise_std)
 
         psf = self.depth_invariant_psf(np.mean(depth), self.A, self.X1, self.Y1, self.FX, 
-                              self.FY, self.config.focal, self.config.wavelengths)
+                              self.FY, self.focal, self.config.wavelengths)
 
-        # if self._ct is not None and self._ct % 10 == 0:
-        #     # save image and psf to file for debugging
-        #     Image.fromarray((image * 255).astype(np.uint8)).save('image_80x80.png')
-        #     np.save(f"depth_80x80.npy", depth)
+        # Image.fromarray((image * 255).astype(np.uint8)).save('image_80x80.png')
+        # np.save(f"depth_80x80.npy", depth)
             
         image = torch.tensor(image)
         if torch.cuda.is_available():
@@ -76,22 +82,51 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
             psf = psf.squeeze(0).permute(1, 2, 0).cpu().numpy()
             return img, psf 
         
+        if self._debug:
+            # save image and psf to file for debugging
+            psf = psf.squeeze(0).permute(1, 2, 0).cpu().numpy()
+            # make a new director inside logs to save the images
+            import os
+            import matplotlib.pyplot as plt
+            os.makedirs('logs/psfs/', exist_ok=True)
+            psf[:,:,0] = (psf[:,:,0] - np.min(psf[:,:,0])) / (np.max(psf[:,:,0]) - np.min(psf[:,:,0]))
+            psf[:,:,1] = (psf[:,:,1] - np.min(psf[:,:,1])) / (np.max(psf[:,:,1]) - np.min(psf[:,:,1]))
+            psf[:,:,2] = (psf[:,:,2] - np.min(psf[:,:,2])) / (np.max(psf[:,:,2]) - np.min(psf[:,:,2]))
+            fig, axs = plt.subplots(2, 2)
+            # set title of the whole plot 
+            axs[0, 0].imshow(image.squeeze(0).permute(1, 2, 0).cpu().numpy()); axs[0, 0].set_title(f'GT Image') # axs[0].axis('off')``
+            axs[0, 1].imshow(psf); axs[0, 1].set_title('PSF') # axs[1].axis('off')
+            axs[1, 0].imshow(img); axs[1, 0].set_title(f'Simulated Image with Aperture: {self.config.aperture_open:2f}') # axs[0].axis('off')
+            # downample img to self.config.resoltion
+            img = _crop(img, (self.config.resolution[1], self.config.resolution[0]))
+            img = Image.fromarray((img * 255).astype(np.uint8))
+            img = np.array(img).astype(np.float32) / 255.0
+            axs[1, 1].imshow(img); axs[1, 1].set_title(f'Eye Image') # axs[0].axis('off')
+            title = f'SceneRes-{image.shape[2]}x{image.shape[3]}-PSF-{psf.shape[0]}x{psf.shape[1]}-EyeRes-{img.shape[0]}x{img.shape[1]}-aperture-{self.config.aperture_open:2f}'
+            fig.suptitle(f'PSF Debugging: {title}')
+            filename = f'./logs/psfs/{title}.png'
+            fig.savefig(filename)
+            self._debug = False
+            raise Exception(f"{filename} saved for debugging")
+        
         return np.clip(img, 0, 1), None
 
     def define_simple_psf(self, config: MjCambrianEyeConfig) -> torch.Tensor:
         """Define a simple point spread function (PSF) for the eye.
-        """     
-        dx = 1e-3                           # pixel pitch of sensor (m)            
-        dy = 1e-3                           # pixel pitch of sensor (m)            
+        """
 
+        dx = config.pixel_size              # pixel pitch of sensor (m)            
         Mx = config.sensor_resolution[1]    # number of pixels in x direction
         My = config.sensor_resolution[0]    # number of pixels in y direction
-        assert (Mx > 2 or My > 2), f"Minimum resolution for sensor plane should be greater than 2 in x/y direction.: ({Mx}, {My})"
-        assert (Mx % 2 != 0 and My % 2 != 0), "Sensor resolution should be odd in both x and y direction. odd length is better for performance"
-
-
-        Lx = dx * Mx                        # length of simulation plane (m) 
-        Ly = dy * My                        # length of simulation plane (m) 
+        assert (Mx > 2 or My > 2), \
+            f"Minimum resolution for sensor plane should be greater than 2 in x/y direction.: ({Mx}, {My})"
+        assert (Mx % 2 != 0 and My % 2 != 0), \
+            "Sensor resolution should be odd in both x and y direction. odd length is better for performance"
+        Lx = dx * Mx                        # length of simulation plane (m)
+        Ly = dx * My                        # length of simulation plane (m)
+        if dx > 1e-3:  
+            print(f"Warning: Pixel size {dx} m > 0.001m. Required SENSOR resolution: {Lx/1e-3} for input fov and  sensorsize.")
+        focal = config.focal
 
         # Image plane coords                              
         x1 = np.linspace(-Lx/2.,Lx/2.,Mx) 
@@ -100,14 +135,14 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
 
         # Frequency coords
         fx = np.linspace(-1./(2.*dx),1./(2.*dx),Mx)
-        fy = np.linspace(-1./(2.*dy),1./(2.*dy),My)
+        fy = np.linspace(-1./(2.*dx),1./(2.*dx),My)
         FX,FY = np.meshgrid(fx,fy)
         
         # Aperture
         max_aperture_size = dx * int(Mx / 2) # (m)
         aperture_radius = np.interp(np.clip(config.aperture_open, 0, 1), [0, 1], [0, max_aperture_size])
         A = (np.sqrt(X1**2+Y1**2)/(aperture_radius + 1.0e-7) <= 1.).astype(np.float32)
-        return A, X1, Y1, FX, FY
+        return A, X1, Y1, FX, FY, focal
 
     def depth_invariant_psf(self, mean_depth, A, X1, Y1, FX, FY, focal, wavelengths) -> torch.Tensor:
         """

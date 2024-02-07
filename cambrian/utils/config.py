@@ -636,6 +636,10 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
             isn't actually used by eye, but by the animal. The eye has no knowledge
             of the geometry it's trying to be placed on. Fmt: lat lon
 
+        scene_angular_resolution: The angular resolution of the scene. This is used to
+            determine the field of view of the scene. Specified in degrees.
+        pixel_size: The pixel size of the sensor in meters.
+
         enable_optics (bool): Whether to enable optics or not.
         enable_aperture (bool): Whether to enable the aperture or not.
         enable_lens (bool): Whether to enable the lens or not.
@@ -716,6 +720,8 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     enable_phase_mask: bool
 
     scene_resolution: Tuple[int, int]
+    scene_angular_resolution: float # in degrees
+    pixel_size: float 
     sensor_resolution: Tuple[int, int]
     add_noise: bool
     noise_std: float

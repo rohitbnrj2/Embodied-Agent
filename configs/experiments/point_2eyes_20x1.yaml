@@ -27,21 +27,25 @@ env_config:
           extend: ${extend:${evo_config.spawning_config.default_eye_config}}
           resolution: [20, 1]
           fov: [120, 10]
+          scene_angular_resolution: 2.0 # degrees
           scene_resolution: [30, 30]
           sensor_resolution: [23, 23]
-          aperture_open: 0.1
-          # aperture_open: 1.0
+          # aperture_open: 0.01
+          # aperture_open: 0.75
+          aperture_open: 1.0
           coord: [10.0, -60.0]
           name: animal_0_eye_0
         animal_0_eye_1:
           extend: ${extend:${evo_config.spawning_config.default_eye_config}}
           resolution: [20, 1]
           fov: [120, 10]
+          scene_angular_resolution: 2.0 # degrees
           scene_resolution: [30, 30]
           sensor_resolution: [23, 23]
-          aperture_open: 0.1
-          # aperture_open: 1.0
-          coord: [10.0, 60.0]
+          # aperture_open: 0.01
+          # aperture_open: 0.75
+          aperture_open: 1.0
+          coord: [10.0, -60.0]
           name: animal_0_eye_1
       name: animal_0
 
@@ -56,16 +60,16 @@ env_config:
 
   maze_selection_criteria:
     mode: NAMED
-    name: Y_COMPLEX_MAZE_OPTION 
-    # name: Y_MAZE_OPTION
+    name: Y_MAZE_OPTION
+    # name: Y_COMPLEX_MAZE_OPTION 
   maze_configs:
-    - Y_COMPLEX_MAZE_OPTION 
+    # - Y_COMPLEX_MAZE_OPTION 
     - Y_MAZE_OPTION
   eval_maze_configs:
-    - Y_COMPLEX_MAZE_OPTION 
-    # - Y_MAZE_OPTION
+    - Y_MAZE_OPTION
     - OPTIC_FLOW_STRAIGHT_TEXTURE
     - OPTIC_FLOW_STRAIGHT_VAR_TEXTURE
+    # - Y_COMPLEX_MAZE_OPTION 
 
   maze_configs_store:
     BASE:
@@ -158,8 +162,8 @@ evo_config:
     default_eye_config:
       name: ${parent:} # will be replaced with parent key. evaluated after extend.
       mode: fixed
-      # enable_optics: True
-      enable_optics: False
+      enable_optics: True
+      # enable_optics: False
       aperture_open: 1.0 
       psf_filter_size: [0, 0]
 
@@ -167,7 +171,7 @@ evo_config:
       fov: [-1, -1] # Placeholder
 
       renderer_config:
-        render_modes: ["rgb_array"] 
-        # render_modes: ["rgb_array", "depth_array"]
+        # render_modes: ["rgb_array"] 
+        render_modes: ["rgb_array", "depth_array"]
 
         use_shared_context: True
