@@ -98,7 +98,7 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
             axs[0, 0].imshow(image.squeeze(0).permute(1, 2, 0).cpu().numpy()); axs[0, 0].set_title(f'GT Image') # axs[0].axis('off')``
             axs[0, 1].imshow(psf); axs[0, 1].set_title('PSF') # axs[1].axis('off')
             axs[1, 0].imshow(img); axs[1, 0].set_title(f'Simulated Image with Aperture: {self.config.aperture_open:2f}') # axs[0].axis('off')
-            img = _crop(img, (self.config.resolution[1], self.config.resolution[0]))
+            img = _crop(img, (self.config.resolution[0], self.config.resolution[1]))
             img = Image.fromarray((img * 255).astype(np.uint8))
             img = np.array(img).astype(np.float32) / 255.0
             axs[1, 1].imshow(img); axs[1, 1].set_title(f'Eye Image') # axs[0].axis('off')
