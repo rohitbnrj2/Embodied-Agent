@@ -84,11 +84,12 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
         
         if self._debug:
             # save image and psf to file for debugging
-            psf = psf.squeeze(0).permute(1, 2, 0).cpu().numpy()
-            # make a new director inside logs to save the images
             import os
             import matplotlib.pyplot as plt
+            # make a new director inside logs to save the images
             os.makedirs('logs/psfs/', exist_ok=True)
+
+            psf = psf.squeeze(0).permute(1, 2, 0).cpu().numpy()
             psf[:,:,0] = (psf[:,:,0] - np.min(psf[:,:,0])) / (np.max(psf[:,:,0]) - np.min(psf[:,:,0]))
             psf[:,:,1] = (psf[:,:,1] - np.min(psf[:,:,1])) / (np.max(psf[:,:,1]) - np.min(psf[:,:,1]))
             psf[:,:,2] = (psf[:,:,2] - np.min(psf[:,:,2])) / (np.max(psf[:,:,2]) - np.min(psf[:,:,2]))
@@ -97,7 +98,6 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
             axs[0, 0].imshow(image.squeeze(0).permute(1, 2, 0).cpu().numpy()); axs[0, 0].set_title(f'GT Image') # axs[0].axis('off')``
             axs[0, 1].imshow(psf); axs[0, 1].set_title('PSF') # axs[1].axis('off')
             axs[1, 0].imshow(img); axs[1, 0].set_title(f'Simulated Image with Aperture: {self.config.aperture_open:2f}') # axs[0].axis('off')
-            # downample img to self.config.resoltion
             img = _crop(img, (self.config.resolution[1], self.config.resolution[0]))
             img = Image.fromarray((img * 255).astype(np.uint8))
             img = np.array(img).astype(np.float32) / 255.0
@@ -124,8 +124,9 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
             "Sensor resolution should be odd in both x and y direction. odd length is better for performance"
         Lx = dx * Mx                        # length of simulation plane (m)
         Ly = dx * My                        # length of simulation plane (m)
-        if dx > 1e-3:  
-            print(f"Warning: Pixel size {dx} m > 0.001m. Required SENSOR resolution: {Lx/1e-3} for input fov and  sensorsize.")
+
+        # if dx > 1e-3:  
+        #     print(f"Warning: Pixel size {dx} m > 0.001m. Required SENSOR resolution: {Lx/1e-3} for input fov and  sensorsize.")
         focal = config.focal
 
         # Image plane coords                              

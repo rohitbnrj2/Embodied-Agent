@@ -14,6 +14,8 @@ training_config:
   gae_lambda: 0.95
   n_envs: 10
 
+  eval_freq: 1
+
 env_config:
   
   animal_configs:
