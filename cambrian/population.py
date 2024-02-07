@@ -206,7 +206,7 @@ class MjCambrianPopulation:
 
         # Update the training_config. The logdir points to the new generation's logdir,
         # so leave exp_name to empty string since trainer will append it to the logdir
-        training_config.seed = self._calc_seed(config, generation, rank)
+        training_config.seed = self._calc_seed(generation, rank)
         training_config.logdir = str(generation_logdir)
         training_config.exp_name = ""
 
@@ -222,17 +222,17 @@ class MjCambrianPopulation:
 
         return config
 
-    def _calc_seed(self, config: MjCambrianConfig, generation: int, rank: int) -> int:
+    def _calc_seed(self, generation: int, rank: int) -> int:
         """Calculates a unique seed for each rank."""
 
-        # fmt: off
         return (
-            (generation + 1) * (rank + 1) 
-            + config.training_config.seed 
-            * config.evo_config.population_config.size 
-            * config.evo_config.num_generations 
+            self.initial_config.training_config.seed
+            + self.initial_config.training_config.n_envs
+            * (
+                generation * self.initial_config.evo_config.population_config.size
+                + rank
+            )
         )
-        # fmt: on
 
     # ========
 
@@ -243,3 +243,40 @@ class MjCambrianPopulation:
     @property
     def num_top_performers(self) -> int:
         return self.config.num_top_performers
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Dataclass/YAML Tester")
+
+    parser.add_argument("config", type=str, help="Path to config file")
+    parser.add_argument(
+        "-o",
+        "--override",
+        "--overrides",
+        dest="overrides",
+        action="extend",
+        nargs="+",
+        type=str,
+        help="Override config values. Do <config>.<key>=<value>",
+        default=[],
+    )
+
+    args = parser.parse_args()
+    config: MjCambrianConfig = MjCambrianConfig.load(
+        args.config,
+        overrides=args.overrides,
+    )
+
+    pop = MjCambrianPopulation(config, "logs")
+
+    seeds = set()
+    for generation in range(config.evo_config.num_generations):
+        for rank in range(config.evo_config.population_config.size):
+            for env in range(config.training_config.n_envs):
+                seed = pop._calc_seed(generation, rank) + env
+                print("Generation", generation, "Rank", rank, "Seed", seed)
+                if seed in seeds:
+                    print(f"Duplicate seed: {seed}")
+                seeds.add(seed)

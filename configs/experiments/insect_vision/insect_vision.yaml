@@ -1,5 +1,5 @@
 training_config:
-  total_timesteps: 500_000
+  total_timesteps: 250_000
 
 env_config:
   extend:

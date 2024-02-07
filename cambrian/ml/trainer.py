@@ -40,7 +40,6 @@ class MjCambrianTrainer:
 
     def __init__(self, config: MjCambrianConfig):
         self.config = config
-        self.seed = self.config.training_config.seed
 
         self.logdir = Path(
             Path(self.config.training_config.logdir)
@@ -109,7 +108,7 @@ class MjCambrianTrainer:
     # ========
 
     def _calc_seed(self, i: int) -> int:
-        return self.config.training_config.seed + i * self.seed
+        return self.config.training_config.seed + i 
 
     def _make_env(self, n_envs: int, *, use_monitor: bool = True) -> VecEnv:
         assert n_envs > 0, f"n_envs must be > 0, got {n_envs}."
