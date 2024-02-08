@@ -472,7 +472,8 @@ class MjCambrianAnimal:
             observation_space[name] = spaces.Box(
                 low=eye_observation_space.low.min(),
                 high=eye_observation_space.high.max(),
-                shape=(n_temporal_obs, *eye_observation_space.shape),
+                shape=(n_temporal_obs, eye.resolution[1], eye.resolution[0], 3),
+                # shape=(n_temporal_obs, eye.resolution[0], eye.resolution[1], 3),
                 dtype=eye_observation_space.dtype,
             )
 

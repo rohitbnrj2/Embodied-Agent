@@ -75,36 +75,42 @@ class MjCambrianEye:
             assert config.fovy is None, "Cannot set both fov and fovy"
             assert config.sensorsize is None, "Cannot set both fov and sensorsize"
 
-            # the rendering resolution must be set wrt the scene resoution not the
-            # eye resolution
-            self.pixel_dx = 1e-3  # pixel size (m)
-            self.pixel_dy = 1e-3  # pixel size (m)
+            # the rendering resolution must be set wrt the scene resoution not the eye resolution
             if self._render_depth:
                 # if optics is enabled, then render at the scene resolution
-                Lx = self.pixel_dx * config.scene_resolution[0]
-                Ly = self.pixel_dy * config.scene_resolution[1]
+                sensor_fov = [
+                    config.scene_resolution[1] * config.scene_angular_resolution,
+                    config.scene_resolution[0] * config.scene_angular_resolution,
+                ]
+                config.setdefault("focal", [0.1, 0.1])
+                fovx, fovy = sensor_fov
+                focalx, focaly = config.focal
+                config.sensorsize = [
+                    float(2 * focalx * np.tan(np.radians(fovx) / 2)),
+                    float(2 * focaly * np.tan(np.radians(fovy) / 2)),
+                ]
+                config.pixel_size = config.sensorsize[0]/config.scene_resolution[0]
+                # if config.pixel_size > 1e-3:  
+                #     print(f"Warning: Pixel size {config.pixel_size} m > 0.001m. Required Scene Resolution: {config.sensorsize[0]/1e-3} for input fov and  sensorsize.")
+
+                config.renderer_config.width  = config.scene_resolution[1] 
+                config.renderer_config.height = config.scene_resolution[0]
+                config.fov = [fovx, fovy]
             else:
                 # if optics is not enabled, then render at the eye resolution
-                Lx = self.pixel_dx * config.resolution[0]
-                Ly = self.pixel_dy * config.resolution[1]
-
-            config.sensorsize = [Lx, Ly]
-
-            fovx, fovy = config.fov
-            focalx = config.sensorsize[0] / (2 * np.tan(np.radians(fovx) / 2))
-            focaly = config.sensorsize[1] / (2 * np.tan(np.radians(fovy) / 2))
-            config.focal = [focalx, focaly]
-
-        if self._render_depth:
-            (
-                config.renderer_config.width,
-                config.renderer_config.height,
-            ) = config.sensor_resolution
-        else:
-            (
-                config.renderer_config.width,
-                config.renderer_config.height,
-            ) = config.resolution
+                config.setdefault("focal", [0.1, 0.1])
+                # sensor_fov = [
+                #     config.resolution[0] * config.scene_angular_resolution,
+                #     config.resolution[1] * config.scene_angular_resolution,
+                # ]
+                # fovx, fovy = sensor_fov
+                # config.fov = [fovx, fovy]
+                fovx, fovy = config.fov
+                config.sensorsize = [
+                    float(2 * focalx * np.tan(np.radians(fovx) / 2)),
+                    float(2 * focaly * np.tan(np.radians(fovy) / 2)),
+                ]
+                config.renderer_config.height, config.renderer_config.width = config.resolution
 
         return config
 
@@ -158,14 +164,12 @@ class MjCambrianEye:
         self._data = data
 
         if self._render_depth:
-            (
-                self.config.renderer_config.width,
-                self.config.renderer_config.height,
-            ) = self.config.sensor_resolution
+            self.config.renderer_config.width  = self.config.scene_resolution[1] 
+            self.config.renderer_config.height = self.config.scene_resolution[0]
         else:
             (
-                self.config.renderer_config.width,
                 self.config.renderer_config.height,
+                self.config.renderer_config.width,
             ) = self.config.resolution
 
         self._renderer.reset(model, data)
@@ -206,22 +210,29 @@ class MjCambrianEye:
             rgb, depth = rgb
             rgb = rgb.astype(np.float32) / 255.0
             rgb, _ = self._optics.forward(rgb, depth)
-            rgb = (rgb * 255).astype(np.uint8)
+        else:
+            rgb = rgb.astype(np.float32) / 255.0
 
         return self._postprocess(rgb)
 
     def _postprocess(self, image: np.ndarray) -> np.ndarray:
-        """Downsamples image and normalizes it to [0, 1]."""
-        return self._downsample(image).astype(np.float32) / 255.0
+        """Downsamples image and normalizes it to [0, 1].
+            image: (H, W, 3) float32 array in [0, 1]
+        """
+        _CROP = True # should be true to for physically accurate rendering
+        if _CROP:
+            # 1. Apply animal angular resolution (downsample the image)
+            # 2. crop the imaging plane to the eye resolution
+            image = self._crop(image)
+            return np.clip(image, 0, 1).astype(np.float32)
+        else:
+            raise ValueError(f'Use _CROP=True for physically accurate rendering')
 
     def _crop(self, image: np.ndarray) -> np.ndarray:
         """Crop the image to the resolution specified in the config."""
-        if self.config.psf_filter_size == [0, 0]:
-            return image
-
-        resolution = self.resolution
+        resolution = [self.resolution[1], self.resolution[0]]
         cw, ch = int(np.ceil(resolution[0] / 2)), int(np.ceil(resolution[1] / 2))
-        ox, oy = 1 if resolution[0] == 1 else 0, 1 if resolution[1] == 1 else 0
+        ox, oy = 1 if resolution[0] % 2 == 1 else 0, 1 if resolution[1] % 2 == 1 else 0
         bl = (image.shape[0] // 2 - cw + ox, image.shape[1] // 2 - ch + oy)
         tr = (image.shape[0] // 2 + cw, image.shape[1] // 2 + ch)
         return image[bl[0] : tr[0], bl[1] : tr[1]]
