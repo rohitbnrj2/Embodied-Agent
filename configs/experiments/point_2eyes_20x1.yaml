@@ -26,7 +26,7 @@ env_config:
         animal_0_eye_0:
           extend: ${extend:${evo_config.spawning_config.default_eye_config}}
           resolution: [20, 1]
-          fov: [120, 10]
+          fov: [40, 2]
           scene_angular_resolution: 2.0 # degrees
           scene_resolution: [30, 30]
           sensor_resolution: [23, 23]
@@ -38,7 +38,7 @@ env_config:
         animal_0_eye_1:
           extend: ${extend:${evo_config.spawning_config.default_eye_config}}
           resolution: [20, 1]
-          fov: [120, 10]
+          fov: [40, 2]
           scene_angular_resolution: 2.0 # degrees
           scene_resolution: [30, 30]
           sensor_resolution: [23, 23]
@@ -50,7 +50,8 @@ env_config:
       name: animal_0
 
   use_ambient_light: True
-  ambient_light_intensity: [0.9, 0.9, 0.9]
+  # ambient_light_intensity: [0.9, 0.9, 0.9]
+  ambient_light_intensity: [0.5, 0.5, 0.5]
   use_goal_obs: False
   terminate_at_goal: False
   truncate_on_contact: False
@@ -74,14 +75,20 @@ env_config:
   maze_configs_store:
     BASE:
       extend: ${extend:${include:configs/mazes/maze.yaml}}
-      size_scaling: 4.0
       use_target_light_sources: False
       hide_targets: True
+      # size_scaling: 2.0
       wall_texture_map:
-        L: [vertical_10] #[vertical_20, vertical_40, vertical_60, vertical_80] # left
-        R: [vertical_10] #[vertical_20, vertical_40, vertical_60, vertical_80] # right
-        K: [vertical_10] #[vertical_20, vertical_40, vertical_60, vertical_80] # key
-        E: [vertical_10] #[vertical_20, vertical_40, vertical_60, vertical_80] # end
+        # Low Freq
+        # L: [vertical_2, vertical_4, vertical_6, vertical_8] 
+        # R: [vertical_2, vertical_4, vertical_6, vertical_8] 
+        # K: [vertical_2, vertical_4, vertical_6, vertical_8] 
+        # E: [vertical_2, vertical_4, vertical_6, vertical_8] 
+        # High Freq
+        L: [vertical_20, vertical_40, vertical_60] # left
+        R: [vertical_20, vertical_40, vertical_60] # right
+        K: [vertical_20, vertical_40, vertical_60] # key
+        E: [vertical_20, vertical_40, vertical_60] # end
       map: [] # placeholder
 
 
@@ -96,6 +103,7 @@ env_config:
 
     Y_MAZE_OPTION: 
       use_target_light_sources: False
+      # size_scaling: 2.0
       hide_targets: True
       extend: 
         base: ${extend:${include:configs/mazes/dr/Y_MAZE_OPTION.yaml}}
@@ -112,23 +120,27 @@ env_config:
 
     OPTIC_FLOW_STRAIGHT_TEXTURE: 
       use_target_light_sources: False
+      # size_scaling: 2.0
       hide_targets: True
       wall_texture_map:
         # default: [vertical_10]
-        L: [vertical_8] #[vertical_20, vertical_40, vertical_60, vertical_80] # left
-        R: [vertical_10] #[vertical_20, vertical_40, vertical_60, vertical_80] # right
-        K: [vertical_10] #[vertical_20, vertical_40, vertical_60, vertical_80] # key
-        E: [vertical_10] #[vertical_20, vertical_40, vertical_60, vertical_80] # end
+        L: [vertical_40] #[vertical_20, vertical_40, vertical_60, vertical_80] # left
+        R: [vertical_40] #[vertical_20, vertical_40, vertical_60, vertical_80] # right
+        K: [vertical_40] #[vertical_20, vertical_40, vertical_60, vertical_80] # key
+        E: [vertical_40] #[vertical_20, vertical_40, vertical_60, vertical_80] # end
       extend: 
         base: ${extend:${include:configs/mazes/eval/OPTIC_FLOW_STRAIGHT_TEXTURE.yaml}}
         ref: ${extend:${...BASE}}
 
     OPTIC_FLOW_STRAIGHT_VAR_TEXTURE: 
       use_target_light_sources: False
+      # size_scaling: 2.0
       hide_targets: True
       wall_texture_map:
-        default: [vertical_10]
-
+        K: [vertical_40] # key
+        L: [vertical_20] # left
+        R: [vertical_20] # right
+        E: [vertical_20] # end
       extend: 
         base: ${extend:${include:configs/mazes/eval/OPTIC_FLOW_STRAIGHT_VAR_TEXTURE.yaml}}
         ref: ${extend:${...BASE}}
@@ -169,6 +181,9 @@ evo_config:
 
       resolution: [-1, -1] # Placeholder
       fov: [-1, -1] # Placeholder
+
+      add_noise: False
+      noise_std: 0.01
 
       renderer_config:
         # render_modes: ["rgb_array"] 
