@@ -1,6 +1,6 @@
 from typing import Dict, Any, Tuple, Optional, List, TypeVar, Type
 from collections.abc import Iterable
-from dataclasses import dataclass, replace, field
+from dataclasses import dataclass, replace, field, asdict
 from pathlib import Path
 from copy import deepcopy
 from enum import Flag, auto, Enum
@@ -158,6 +158,10 @@ class MjCambrianBaseConfig:
         filename (Optional[str]): The filename of the config. This is set when the
             config is loaded from a yaml file. The name is strictly the stem, like
             a file named `example.yaml` will have a filename of `example`.
+        custom (Optional[Any]): Custom data to use. This is useful for
+            code-specific logic (i.e. not in yaml files) where you want to store
+            data that is not necessarily defined in the config. It's ignored by
+            OmegaConf.
         extend (Optional[Dict[str, Any]]): The config to extend this config with.
             This is useful for splitting configs into multiple files. You can extend
             other yaml files using the `include` resolver. Although the
@@ -188,6 +192,9 @@ class MjCambrianBaseConfig:
 
     filepath: Optional[str] = field(default=None, init=False)
     filename: Optional[str] = field(default=None, init=False)
+    custom: Optional[Any] = field(
+        default=None, init=False, metadata={"omegaconf_ignore": True}
+    )
     extend: Optional[Dict[str, Any]] = field(default=None, init=False)
 
     @classmethod
@@ -252,6 +259,12 @@ class MjCambrianBaseConfig:
         """Convert a config to an object."""
         return OmegaConf.to_object(config)
 
+    def as_dict(self) -> Dict[Any, Any]:
+        return asdict(self)
+
+    def as_dict_config(self) -> DictConfig:
+        return DictConfig(self.to_dict())
+
     def save(self, path: Path | str):
         """Save the config to a yaml file."""
         OmegaConf.save(self, path)
@@ -283,7 +296,7 @@ class MjCambrianBaseConfig:
 
     def select(self, key: str) -> Any:
         """Select the value of the key."""
-        return OmegaConf.select(OmegaConf.create(self), key)
+        return OmegaConf.select(self.as_dict_config(), key)
 
     def glob(self, key: str, *, flatten: bool = False) -> Dict[str, Any]:
         """This is effectively select, but allows `*` to be used as a wildcard.
@@ -308,12 +321,12 @@ class MjCambrianBaseConfig:
         if "*" not in key:
             return self.select(key)
 
-        def recursive_glob(config: DictConfig | Any, keys: List[str]) -> DictConfig:
-            if not keys or not isinstance(config, DictConfig):
+        def recursive_glob(config: Dict | Any, keys: List[str]) -> Dict:
+            if not keys or not isinstance(config, dict):
                 return config
 
             # Loop over all the keys and find each match with the passed key/pattern
-            result = DictConfig({})
+            result = {}
             current_key = keys[0].replace("*", ".*")
             for sub_key, sub_value in config.items():
                 if sub_value is None:  # Skip None values, probably optionals
@@ -326,7 +339,7 @@ class MjCambrianBaseConfig:
             return result
 
         # Glob the key(s)
-        config = OmegaConf.create(self)
+        config = self.as_dict()
         globbed = recursive_glob(config, key.split("."))
 
         if flatten:
@@ -335,7 +348,7 @@ class MjCambrianBaseConfig:
             # the values that were accumulated to that leaf key.
             def flatten_dict(data, values={}) -> Dict[str, Any]:
                 for k, v in data.items():
-                    if isinstance(v, DictConfig):
+                    if isinstance(v, dict):
                         flatten_dict(v, values)
                     else:
                         values.setdefault(k, [])
@@ -890,7 +903,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
         reward_fn_type (str): The reward function type to use. See
             `MjCambrianEnv._RewardType` for options.
-        eval_reward_fn_type (Optional[str]): The reward function type to use for 
+        eval_reward_fn_type (Optional[str]): The reward function type to use for
             evaluation. If unset, will use the same reward function as `reward_fn_type`.
         reward_options (Optional[Dict[str, Any]]): The options to use for the reward
             function.
@@ -917,7 +930,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             the amount of vram consumed by non-rendering environments.
         add_overlays (bool): Whether to add overlays or not.
         add_position_tracking_overlay (bool): Whether to add the position
-            tracking overlay which adds a site to the world at each position an 
+            tracking overlay which adds a site to the world at each position an
             animal has been.
         overlay_width (Optional[float]): The width of _each_ rendered overlay that's
             placed on the render output. This is primarily for debugging. If unset,
@@ -1069,10 +1082,10 @@ class MjCambrianSpawningConfig(MjCambrianBaseConfig):
             is calculated using random.randint(1, num_mutations).
         mutations (List[str]): The mutation options to use for the animal. See
             `MjCambrianAnimal.MutationType` for options.
-        mutation_options (Optional[Dict[str, Any]]): The options to use for 
-            the mutations. 
+        mutation_options (Optional[Dict[str, Any]]): The options to use for
+            the mutations.
 
-        load_policy (bool): Whether to load a policy or not. If True, the parent's 
+        load_policy (bool): Whether to load a policy or not. If True, the parent's
             saved policy will be loaded and used as the starting point for the new
             generation. If False, the child will be trained from scratch.
 

@@ -13,7 +13,7 @@ This file works as follows:
 """
 
 import argparse
-from typing import Dict, Union, Optional, Any
+from typing import Dict, Union, Optional, Any, List
 from pathlib import Path
 import pickle
 import os
@@ -151,7 +151,11 @@ def get_generation_file_paths(folder: Path) -> Data:
 
 
 def load_data(
-    folder: Path, check_finished: bool = True, *, overrides: Dict[str, Any] = {}
+    folder: Path,
+    check_finished: bool = True,
+    *,
+    overrides: Dict[str, Any] = {},
+    **kwargs,
 ) -> Data:
     """Load the data from the generation/rank folders. This function will walk through
     the folder heirarchy and load the config, evaluations and monitor data for each
@@ -159,6 +163,9 @@ def load_data(
     print(f"Loading data from {folder}...")
     # Get the file paths to all the generation/rank folders
     data = get_generation_file_paths(folder)
+
+    # We can ignore certain data if we want
+    ignore = kwargs.get("ignore", [])
 
     # Walk through each generation/rank and parse the config, evaluations and monitor
     # data
@@ -176,22 +183,25 @@ def load_data(
 
             # Get the config file
             if (config_file := rank_data.path / "config.yaml").exists():
-                print(f"\tLoading config from {config_file}...")
-                rank_data.config = MjCambrianConfig.load(
-                    config_file, overrides=overrides
-                )
+                if "config" not in ignore:
+                    print(f"\tLoading config from {config_file}...")
+                    rank_data.config = MjCambrianConfig.load(
+                        config_file, overrides=overrides
+                    )
 
             # Get the evaluations file
             if (evaluations_file := rank_data.path / "evaluations.npz").exists():
-                with np.load(evaluations_file) as evaluations_data:
-                    evaluations = {
-                        k: evaluations_data[k] for k in evaluations_data.files
-                    }
-                rank_data.evaluations = evaluations
+                if "evaluations" not in ignore:
+                    with np.load(evaluations_file) as evaluations_data:
+                        evaluations = {
+                            k: evaluations_data[k] for k in evaluations_data.files
+                        }
+                    rank_data.evaluations = evaluations
 
             # Get the monitor file
             if (rank_data.path / "monitor.csv").exists():
-                rank_data.monitor = load_results(rank_data.path)
+                if "monitor" not in ignore:
+                    rank_data.monitor = load_results(rank_data.path)
 
     return data
 
@@ -286,9 +296,13 @@ def plot_monitor(
     **kwargs,
 ):
     """Plot the monitor data."""
+    assert "xlabel" in kwargs, "xlabel is required."
+    assert "title" not in kwargs, "title is not allowed."
+    xlabel = kwargs["xlabel"]
 
     # Grab the data sorted by timesteps
     x, y = ts2xy(monitor, "timesteps")
+    t = ts2xy(monitor, "walltime_hrs")[0] * 60 # convert to minutes
     if len(y) < window:
         # Early exit if not enought data was recorded yet
         return
@@ -296,13 +310,27 @@ def plot_monitor(
     # Calculate the moving average
     y = moving_average(y, window)
     x = x[window - 1 :].astype(np.int64)  # adjust the length of x to match y
+    t = t[window - 1 :]  # adjust the length of t to match y
 
     # Now plot the data
+    title = f"monitor_rewards_vs_{xlabel}"
     plot_helper(
         xvalues,
         y[-1],
         ylabel="rewards",
         dry_run=dry_run,
+        title=title,
+        **kwargs,
+    )
+
+    # Plot the walltime if requested
+    title = f"monitor_walltime_vs_{xlabel}"
+    plot_helper(
+        xvalues,
+        t[-1],
+        ylabel="walltime (minutes)",
+        dry_run=dry_run,
+        title=title,
         **kwargs,
     )
 
@@ -328,16 +356,15 @@ def plot_monitor_and_config(
             values = np.average(values)
 
         # Now plot the monitor data
-        title = f"monitor_rewards_vs_{attr}"
         plot_monitor(
             monitor,
             values,
             dry_run=dry_run,
             window=window,
             xlabel=attr,
-            title=title,
             **kwargs,
         )
+
 
 def plot(
     data: Data,
@@ -353,9 +380,16 @@ def plot(
         print("Plotting data...")
 
     # First, create a matplotlib colormap so each rank has a unique color + marker
-    num_ranks = max(len(generation.ranks) for generation in data.generations.values() if generation.ranks)
+    num_ranks = max(
+        len(generation.ranks)
+        for generation in data.generations.values()
+        if generation.ranks
+    )
     colors = plt.cm.jet(np.linspace(0, 1, num_ranks))
     markers = [".", ",", "o", "v", "^", "<", ">", "s", "p", "*", "h", "+", "x"]
+
+    # We can ignore certain data if we want
+    ignore = kwargs.get("ignore", [])
 
     output_folder.mkdir(parents=True, exist_ok=True)
     for generation, generation_data in data.generations.items():
@@ -379,11 +413,16 @@ def plot(
             marker = markers[rank % len(markers)]
 
             # Plot config data
-            if rank_data.config is not None:
+            if rank_data.config is not None and "config" not in ignore:
                 # Build the glob pattern for the config attributes
                 # * indicates anything (like names which we don't know beforehand) and (|) indicates
                 # an OR operation (i.e. (resolution|fov) matches either resolution or fov)
-                pattern = "env_config.(animal_configs|num_animals).*.(eye_configs|num_eyes).*.(resolution|fov)"
+                pattern = build_pattern(
+                    "training_config.seed",
+                    "env_config.animal_configs.*.eye_configs.*.resolution",
+                    "env_config.animal_configs.*.eye_configs.*.fov",
+                    "env_config.animal_configs.*.num_eyes",
+                )
                 plot_config(
                     rank_data.config,
                     generation,
@@ -395,7 +434,7 @@ def plot(
                 )
 
             # Plot evaluations data
-            if rank_data.evaluations is not None:
+            if rank_data.evaluations is not None and "evaluations" not in ignore:
                 plot_evaluations(
                     rank_data.evaluations,
                     generation,
@@ -407,29 +446,33 @@ def plot(
                 )
 
             # Plot monitor data
-            if rank_data.monitor is not None:
+            if rank_data.monitor is not None and "monitor" not in ignore:
                 plot_monitor(
                     rank_data.monitor,
                     generation,
                     color=color,
                     marker=marker,
                     xlabel="generation",
-                    title="monitor_rewards",
                     dry_run=dry_run,
                 )
 
             # Also plot with some different x values
             if rank_data.monitor is not None and rank_data.config is not None:
-                # Build the glob pattern for the config attributes
-                pattern = "env_config.animal_configs.*.(eye_configs|num_eyes).*.(aperture_open|aperture_radius)"
-                plot_monitor_and_config(
-                    rank_data.monitor,
-                    rank_data.config,
-                    pattern,
-                    color=color,
-                    marker=marker,
-                    dry_run=dry_run,
-                )
+                if "monitor" not in ignore and "config" not in ignore:
+                    # Build the glob pattern for the config attributes
+                    pattern = build_pattern(
+                        "env_config.animal_configs.*.eye_configs.apperture_open",
+                        "env_config.animal_configs.*.eye_configs.apperture_radius",
+                        "env_config.animal_configs.*.num_eyes",
+                    )
+                    plot_monitor_and_config(
+                        rank_data.monitor,
+                        rank_data.config,
+                        pattern,
+                        color=color,
+                        marker=marker,
+                        dry_run=dry_run,
+                    )
 
     # Now save the plots
     if not dry_run:
@@ -500,11 +543,44 @@ def eval(
 # =======================================================
 # Random helpers
 
+
 def moving_average(values, window):
     weights = np.repeat(1.0, window) / window
     return np.convolve(values, weights, "valid")
 
+def build_pattern(*patterns: str) -> str:
+    """Build a glob pattern from the passed patterns.
+
+    The underlying method for globbing (`MjCambrianConfig.glob`) uses a regex pattern
+    which is parses the dot-separated keys independently.
+    
+    Example:
+        >>> build_pattern(
+        ...     "training_config.seed",
+        ...     "env_config.animal_configs.*.eye_configs.*.resolution",
+        ...     "env_config.animal_configs.*.eye_configs.*.fov",
+        ... )
+        '(training_config|env_config).(seed|animal_configs).*.eye_configs.*.(resolution|fov)'
+    """
+    depth_based_keys: List[List[str]] = [] # list of keys at depths in the patterns
+    for pattern in patterns:
+        # For each key in the pattern, add at the same depth as the other patterns
+        for i, key in enumerate(pattern.split(".")):
+            if i < len(depth_based_keys):
+                if key not in depth_based_keys[i]:
+                    depth_based_keys[i].extend([key])
+            else:
+                depth_based_keys.append([key])
+
+    # Now build the pattern
+    pattern = ""
+    for keys in depth_based_keys:
+        pattern += "(" + "|".join(keys) + ")."
+    pattern = pattern[:-1]  # remove the last dot
+    return pattern
+
 # =======================================================
+
 
 def main(args):
     folder = Path(args.folder)
@@ -519,7 +595,10 @@ def main(args):
 
     if args.force or (data := try_load_pickle_data(folder)) is None:
         data = load_data(
-            folder, check_finished=not args.no_check_finished, overrides=args.overrides
+            folder,
+            check_finished=not args.no_check_finished,
+            overrides=args.overrides,
+            **vars(args),
         )
 
         if not args.no_save:
@@ -588,13 +667,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--eval", action="store_true", help="Evaluate the data.")
     parser.add_argument("--plot", action="store_true", help="Plot the data.")
-    parser.add_argument("--legend", action="store_true", help="Use a legend.")
-    parser.add_argument("--locator", action="store_true", help="Use a locator.")
-    parser.add_argument(
-        "--plot-all-generations-monitor",
-        action="store_true",
-        help="Plot all generations monitor.",
-    )
+    parser.add_argument("--ignore", nargs="+", help="Ignore certain data.", default=[])
     parser.add_argument(
         "--no-check-finished",
         action="store_true",
