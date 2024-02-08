@@ -106,11 +106,12 @@ class MjCambrianEye:
                 # fovx, fovy = sensor_fov
                 # config.fov = [fovx, fovy]
                 fovx, fovy = config.fov
+                focalx, focaly = config.focal
                 config.sensorsize = [
                     float(2 * focalx * np.tan(np.radians(fovx) / 2)),
                     float(2 * focaly * np.tan(np.radians(fovy) / 2)),
                 ]
-                config.renderer_config.height, config.renderer_config.width = config.resolution
+                config.renderer_config.width, config.renderer_config.height = config.resolution
 
         return config
 
@@ -168,8 +169,8 @@ class MjCambrianEye:
             self.config.renderer_config.height = self.config.scene_resolution[0]
         else:
             (
-                self.config.renderer_config.height,
                 self.config.renderer_config.width,
+                self.config.renderer_config.height,
             ) = self.config.resolution
 
         self._renderer.reset(model, data)
@@ -219,14 +220,12 @@ class MjCambrianEye:
         """Downsamples image and normalizes it to [0, 1].
             image: (H, W, 3) float32 array in [0, 1]
         """
-        _CROP = True # should be true to for physically accurate rendering
-        if _CROP:
-            # 1. Apply animal angular resolution (downsample the image)
-            # 2. crop the imaging plane to the eye resolution
+        # 1. Apply animal angular resolution (downsample the image)
+        # 2. crop the imaging plane to the eye resolution
+        if self._render_depth:
             image = self._crop(image)
             return np.clip(image, 0, 1).astype(np.float32)
-        else:
-            raise ValueError(f'Use _CROP=True for physically accurate rendering')
+        return image
 
     def _crop(self, image: np.ndarray) -> np.ndarray:
         """Crop the image to the resolution specified in the config."""
