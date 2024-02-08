@@ -263,7 +263,7 @@ class MjCambrianBaseConfig:
         return asdict(self)
 
     def as_dict_config(self) -> DictConfig:
-        return DictConfig(self.to_dict())
+        return DictConfig(self.as_dict())
 
     def save(self, path: Path | str):
         """Save the config to a yaml file."""
