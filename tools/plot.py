@@ -14,7 +14,7 @@ def moving_average(values, window):
     return np.convolve(values, weights, 'valid')
 
 
-def plot_results(log_folders, name, fill_between=True):
+def plot_results(args):
     """
     plot the results
 
@@ -23,23 +23,25 @@ def plot_results(log_folders, name, fill_between=True):
     :param window: (int) the moving average window size
     """
     fig = plt.figure()
-    for log_folder in log_folders:
+    for log_folder in args.log_folders:
         print(f"Plotting {log_folder}")
         x, y = ts2xy(load_results(log_folder), 'timesteps')
         y = moving_average(y.astype(float), window=min(len(y) // 10, 1000))
         x = x[len(x) - len(y) :]  # truncate x
         label = log_folder.split('/')[-1]
-        label = '...' + label[15:] if len(label) > 20 else label
+        if args.shorten_label:
+            label = '...' + label[:19] if len(label) > 20 else label
+            # label = '...' + label[19:] if len(label) > 20 else label
         plt.plot(x, y, label=label)
-        if fill_between:
+        if args.fill_between:
             plt.fill_between(x, y - y.std() * 1.96, y + y.std() * 1.96, alpha=0.2)
 
     plt.xlabel('Number of Timesteps')
     plt.ylabel('Rewards')
-    plt.title(f'{name.split(".")[0]}')
+    plt.title(f'{args.name.split(".")[0]}')
     plt.legend(loc='best')
-    plt.savefig(name)
-    print(f"Plot saved to {name}")
+    plt.savefig(args.name)
+    print(f"Plot saved to {args.name}")
 
 
 if __name__ == "__main__":
@@ -51,6 +53,7 @@ if __name__ == "__main__":
                         default=[])
     parser.add_argument('--name', help='Path to save the plot')
     parser.add_argument('--fill_between', action='store_true', help='Fill between the curves')
+    parser.add_argument('--shorten_label', action='store_true', help='Shorten Label to the first 20 characters')
     args = parser.parse_args()
 
     # parent and log folders are mutually exclusive
@@ -60,7 +63,7 @@ if __name__ == "__main__":
         # get all directories in parent_folder
         args.log_folders = [f"{args.parent_folder}/{d}" for d in os.listdir(args.parent_folder) if os.path.isdir(f"{args.parent_folder}/{d}")]
 
-    plot_results(args.log_folders, args.name, args.fill_between)
+    plot_results(args)
 
     """
     python /home/tools/plot.py \
