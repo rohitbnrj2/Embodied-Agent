@@ -2,10 +2,10 @@
 
 This file works as follows:
 1. Parse the evolution folder. The evolution folder consists of many generations, each
-    with many ranks. Parsing involves walking through the folder heirarchy and loading
+    with many ranks. Parsing involves walking through the folder hierarchy and loading
     each config, evaluations, monitor and/or other available data.
 2. Save the parsed data to a pickle file for easy loading. Walking through the folder
-    heirarchy can be slow, so this is useful for quick loading. NOTE: If a pickle file
+    hierarchy can be slow, so this is useful for quick loading. NOTE: If a pickle file
     already exists, it will be loaded instead of parsing the data again (unless
     `--force` is passed).
 3. Plot the parsed data. This involves plotting the evaluations, monitor and/or other
@@ -13,16 +13,14 @@ This file works as follows:
 """
 
 import argparse
-from typing import Dict, Union, Optional, Any, List
+from typing import Dict, Union, Optional, Any
 from pathlib import Path
 import pickle
 import os
 from dataclasses import dataclass, field
 
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.ticker as tkr
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
@@ -30,11 +28,6 @@ from cambrian.utils import evaluate_policy
 from cambrian.utils.wrappers import make_single_env
 from cambrian.utils.config import MjCambrianConfig
 from cambrian.ml.model import MjCambrianModel
-
-def moving_average(values, window):
-    weights = np.repeat(1.0, window) / window
-    return np.convolve(values, weights, "valid")
-
 
 # =======================================================
 # Dataclasses
@@ -317,7 +310,7 @@ def plot_monitor(
 def plot_monitor_and_config(
     monitor: Dict[str, Any],
     config: MjCambrianConfig,
-    xkeys: List[str],
+    pattern: str,
     *,
     dry_run: bool = False,
     window: int = 100,
@@ -325,28 +318,26 @@ def plot_monitor_and_config(
 ):
     """Plot the monitor data."""
 
-    for xkey in xkeys:
-        # Grab the xvalue from the config; the xvalue should be a list
-        xvalues = config.glob(xkey, flatten=True)
-        assert len(xvalues) == 1, f"Expected 1 value for {xkey}, got {len(xvalues)}."
-        xlabel, xvalues = next(iter(xvalues.items()))
+    # Get the config attributes to plot
+    data = config.glob(pattern, flatten=True)
 
+    # Now loop through each key and plot the values
+    for attr, values in data.items():
         # If xvalues is a list, we'll average it
-        if isinstance(xvalues, list):
-            xvalues = np.average(xvalues)
+        if isinstance(values, list):
+            values = np.average(values)
 
         # Now plot the monitor data
-        title = f"monitor_rewards_vs_{xlabel}"
+        title = f"monitor_rewards_vs_{attr}"
         plot_monitor(
             monitor,
-            xvalues,
+            values,
             dry_run=dry_run,
             window=window,
-            xlabel=xlabel,
+            xlabel=attr,
             title=title,
             **kwargs,
         )
-
 
 def plot(
     data: Data,
@@ -429,15 +420,12 @@ def plot(
 
             # Also plot with some different x values
             if rank_data.monitor is not None and rank_data.config is not None:
-                xkeys = [
-                    "env_config.animal_configs.*.eye_configs.*.aperture_open",
-                    "env_config.animal_configs.*.eye_configs.*.aperture_radius",
-                    "env_config.animal_configs.*.num_eyes",
-                ]
+                # Build the glob pattern for the config attributes
+                pattern = "env_config.animal_configs.*.(eye_configs|num_eyes).*.(aperture_open|aperture_radius)"
                 plot_monitor_and_config(
                     rank_data.monitor,
                     rank_data.config,
-                    xkeys,
+                    pattern,
                     color=color,
                     marker=marker,
                     dry_run=dry_run,
@@ -508,6 +496,15 @@ def eval(
             if verbose > 1:
                 print(f"\tDone.")
 
+
+# =======================================================
+# Random helpers
+
+def moving_average(values, window):
+    weights = np.repeat(1.0, window) / window
+    return np.convolve(values, weights, "valid")
+
+# =======================================================
 
 def main(args):
     folder = Path(args.folder)
