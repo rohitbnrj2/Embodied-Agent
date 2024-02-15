@@ -767,7 +767,7 @@ class MjCambrianEnv(gym.Env):
         maze_names = self.env_config.maze_configs.copy()
         eval_overrides = self.env_config.eval_overrides
         if eval_overrides and (eval_maze_configs := eval_overrides.get("maze_configs")):
-            maze_names += eval_maze_configs
+            maze_names += [name for name in eval_maze_configs if name not in maze_names]
         return maze_names
 
     @property
