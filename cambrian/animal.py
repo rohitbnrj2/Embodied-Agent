@@ -1,4 +1,3 @@
-from math import prod
 from typing import Dict, Any, List, Deque
 from enum import Flag, auto
 from functools import reduce
@@ -95,6 +94,7 @@ class MjCambrianAnimal:
         self._parse_geometry(model)
         self._parse_actuators(model)
 
+        self._num_pixels: int = 0
         self._place_eyes()
 
         del model
@@ -180,6 +180,8 @@ class MjCambrianAnimal:
         for i, eye_config in enumerate(self.config.eye_configs.values()):
             name = f"{self.name}_eye_{i}"
             self._eyes[name] = self._create_eye(eye_config, name)
+
+            self._num_pixels += self._eyes[name].num_pixels
 
         # Add a forward facing eye intensity sensor
         if not self.config.disable_intensity_sensor:
@@ -497,7 +499,7 @@ class MjCambrianAnimal:
     @property
     def action_space(self) -> spaces.Space:
         """The action space is simply the controllable actuators of the animal."""
-        return spaces.Box(low=-1, high=1, shape=self._numctrl, dtype=np.float32)
+        return spaces.Box(low=-1, high=1, shape=(self._numctrl,), dtype=np.float32)
 
     @property
     def eyes(self) -> Dict[str, MjCambrianEye]:
@@ -505,10 +507,11 @@ class MjCambrianAnimal:
 
     @property
     def num_pixels(self) -> int:
-        self._num_pixels = 0
-        for eye in self._eyes.values():
-            self._num_pixels += prod(eye.resolution)
         return self._num_pixels
+
+    @property
+    def num_eyes(self) -> int:
+        return len(self._eyes)
 
     @property
     def intensity_sensor(self) -> MjCambrianEye:
@@ -641,6 +644,14 @@ class MjCambrianAnimal:
             # some random number between 0.8 and 1.2
             eye_config.resolution = edit(eye_config.resolution)
             eye_config.fov = edit(eye_config.fov)
+
+            # If all eyes should be identical, then apply the same edits to all eyes
+            if mutation_options.get("all_eyes_identical", False):
+                for key in config.eye_configs:
+                    config.eye_configs[key].resolution = eye_config.resolution
+                    config.eye_configs[key].fov = eye_config.fov
+            else:
+                config.eye_configs[eye_config.name] = eye_config
 
         if MjCambrianAnimal.MutationType.UPDATE_APERTURE in mutations:
             logger.debug("Updating aperture.")
@@ -823,9 +834,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config: MjCambrianConfig = MjCambrianConfig.load(
-        args.config, overrides=args.overrides
-    )
+    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
     logger = get_logger(config)
 
     animal_config: MjCambrianAnimalConfig = list(

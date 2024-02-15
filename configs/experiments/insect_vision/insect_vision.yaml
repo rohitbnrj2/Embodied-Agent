@@ -1,5 +1,5 @@
 training_config:
-  total_timesteps: 250_000
+  total_timesteps: 1_000_000
 
 env_config:
   extend:
@@ -14,9 +14,13 @@ env_config:
   terminate_at_goal: True
 
   maze_selection_criteria:
-    mode: CYCLE
+    mode: RANDOM
   maze_configs:
-    - Y_MAZE_OPTION
+    - OBS_AVOID_STRAIGHT_1
+    - OBS_AVOID_STRAIGHT_2
+    - OBS_AVOID_STRAIGHT_3
+    - OBS_AVOID_STRAIGHT_4
+    - OBS_AVOID_STRAIGHT_5
 
   maze_configs_store:
     BASE:
@@ -35,12 +39,34 @@ env_config:
         # Set the lat range to 0 since we want the eyes to be on the horizontal plane
         eyes_lat_range: [0, 0]
 
+  eval_overrides:
+    maze_selection_criteria:
+      mode: CYCLE
+
+    reward_fn_type: fitness_energy_and_delta_euclidean
+    reward_options:
+      reward_at_goal: 1.0
+      energy_penalty_per_pixel: -0.01
+      energy_penalty_per_eye: -0.1
+
+    # maze_configs:
+    #   - Y_COMPLEX_MAZE_OPTION
+
+    truncate_on_contact: False
+    contact_penalty: -5.0
+
 evo_config:
+  max_n_envs: 20
+
   spawning_config:
     init_num_mutations: 5
+    num_mutations: 5
     mutations: [ADD_EYE, REMOVE_EYE]
     mutation_options:
       eye_placement_mode: uniform
+      all_eyes_identical: True
 
     default_animal_config:
       constant_actions: null
+
+      n_temporal_obs: 5

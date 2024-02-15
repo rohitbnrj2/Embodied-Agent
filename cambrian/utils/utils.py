@@ -1,5 +1,5 @@
 import argparse
-from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable, Dict
+from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable, Dict, Generator
 from pathlib import Path
 from dataclasses import dataclass
 import contextlib
@@ -7,6 +7,8 @@ import contextlib
 import gymnasium as gym
 import mujoco as mj
 import numpy as np
+import torch
+from stable_baselines3.common.vec_env import VecEnv
 
 if TYPE_CHECKING:
     from cambrian.ml.model import MjCambrianModel
@@ -49,12 +51,13 @@ def get_include_path(
 
 
 def evaluate_policy(
-    env: gym.Env,
+    env: VecEnv,
     model: "MjCambrianModel",
     num_runs: int,
     *,
-    record_path: Optional[Path] = None,
-    step_callback: Optional[Callable] = None,
+    record_kwargs: Optional[Dict[str, Any]] = None,
+    step_callback: Optional[Callable[[], bool]] = lambda: True,
+    done_callback: Optional[Callable[[int], bool]] = lambda _: True,
 ):
     """Evaluate a policy.
 
@@ -74,8 +77,8 @@ def evaluate_policy(
     from cambrian.utils.logger import get_logger
 
     cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
-    if record_path is not None:
-        # don't set to record_path is not None directly cause this will delete overlays
+    if record_kwargs is not None:
+        # don't set to `record_path is not None` directly bc this will delete overlays
         cambrian_env.record = True
 
     prev_init_goal_pos = None
@@ -84,30 +87,27 @@ def evaluate_policy(
         cambrian_env.maze.config.init_goal_pos = eval_goal_pos
 
     run = 0
-    cumulative_reward = 0
-
-    get_logger().info(f"Starting {num_runs} evaluation run(s)...")
     obs = env.reset()
+    get_logger().info(f"Starting {num_runs} evaluation run(s)...")
     while run < num_runs:
         action, _ = model.predict(obs, deterministic=True)
-        obs, reward, done, _ = env.step(action)
-        cumulative_reward += reward[0]
+        obs, _, done, _ = env.step(action)
 
         if done:
-            get_logger().info(f"Run {run} done. Cumulative reward: {cumulative_reward}")
-            cumulative_reward = 0
+            get_logger().info(f"Run {run} done. Cumulative reward: {cambrian_env.cumulative_reward}")
+
+            if not done_callback(run):
+                break
+
             run += 1
 
-        if cambrian_env.config.env_config.add_overlays:
-            cambrian_env.overlays["Exp"] = cambrian_env.config.training_config.exp_name
-            cambrian_env.overlays["Cumulative Reward"] = f"{cumulative_reward:.2f}"
         env.render()
 
-        if step_callback is not None:
-            step_callback()
+        if not step_callback():
+            break
 
-    if record_path is not None:
-        cambrian_env.save(record_path)
+    if record_kwargs is not None:
+        cambrian_env.save(**record_kwargs)
         cambrian_env.record = False
 
     if prev_init_goal_pos is not None:
@@ -154,7 +154,9 @@ def merge_dicts(d1: dict, d2: dict) -> dict:
 
 
 @contextlib.contextmanager
-def setattrs_temporary(*args: Tuple[Any, Dict[str, Any]]) -> None:
+def setattrs_temporary(
+    *args: Tuple[Any, Dict[str, Any]]
+) -> Generator[None, None, None]:
     """Temporarily set attributes of an object."""
     prev_values = []
     for obj, kwargs in args:
@@ -173,6 +175,41 @@ def setattrs_temporary(*args: Tuple[Any, Dict[str, Any]]) -> None:
                 obj[attr] = value
             else:
                 setattr(obj, attr, value)
+
+
+def get_gpu_memory_usage(return_total_memory: bool = True) -> Tuple[float, float]:
+    """Get's the total and used memory of the GPU in GB."""
+    assert torch.cuda.is_available(), "No CUDA device available"
+    device = torch.cuda.current_device()
+    total_memory = torch.cuda.get_device_properties(device).total_memory / 1024**3
+    free_memory = torch.cuda.mem_get_info()[0] / 1024**3
+    used_memory = total_memory - free_memory
+
+    if return_total_memory:
+        return used_memory, total_memory
+    else:
+        return used_memory
+
+
+def get_observation_space_size(observation_space: gym.spaces.Space) -> int:
+    """Get the size of an observation space. Returns size in GB."""
+    if isinstance(observation_space, gym.spaces.Box):
+        return np.prod(observation_space.shape) / 1024**3
+    elif isinstance(observation_space, gym.spaces.Discrete):
+        return observation_space.n / 1024**3
+    elif isinstance(observation_space, gym.spaces.Tuple):
+        return sum(
+            get_observation_space_size(space) for space in observation_space.spaces
+        )
+    elif isinstance(observation_space, gym.spaces.Dict):
+        return sum(
+            get_observation_space_size(space)
+            for space in observation_space.spaces.values()
+        )
+    else:
+        raise ValueError(
+            f"Unsupported observation space type: {type(observation_space)}"
+        )
 
 
 # =============

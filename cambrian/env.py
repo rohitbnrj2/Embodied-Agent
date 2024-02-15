@@ -63,8 +63,7 @@ class MjCambrianEnv(gym.Env):
         self._create_animals()
 
         self.maze: MjCambrianMaze = None  # the chosen maze that's updated at each reset
-        self._training_mazes: Dict[str, MjCambrianMaze] = {}
-        self._eval_mazes: Dict[str, MjCambrianMaze] = {}
+        self.mazes: Dict[str, MjCambrianMaze] = {}
         self._create_mazes()
 
         self.xml = self.generate_xml()
@@ -91,13 +90,14 @@ class MjCambrianEnv(gym.Env):
         self._max_episode_steps = self.config.training_config.max_episode_steps
         self._num_timesteps = 0
         self._num_resets = 0
+        self._stashed_cumulative_reward = 0
         self._cumulative_reward = 0
 
         self._record: bool = False
         self._rollout: Dict[str, Any] = {}
         self._overlays: Dict[str, Any] = {}
 
-        self._reward_fn = self._get_reward_fn(self.env_config.reward_fn_type)
+        self.reward_fn = self._get_reward_fn(self.env_config.reward_fn_type)
 
         # Used to store the optimal path for each animal in the maze
         # Each animal has a different start position so optimal path is different
@@ -131,16 +131,14 @@ class MjCambrianEnv(gym.Env):
     def _create_mazes(self):
         """Helper method to create the mazes.
 
-        NOTE: The keys for self._training_mazes and self._eval_mazes are f"{name}_{i}",
-        not the actual name of the maze. This is to ensure that the keys are unique.
+        NOTE: The keys for self.mazes is f"{name}_{i}", not the actual name of the
+        maze. This is to ensure that the keys are unique.
         """
+
         self._maze_store: Dict[str, MjCambrianMaze] = {}
-        mazes_to_create = self.env_config.maze_configs
-        if (eval_maze_configs := self.env_config.eval_maze_configs) is not None:
-            mazes_to_create += eval_maze_configs
-        for maze_name in mazes_to_create:
+        for maze_name in self.maze_names:
             if maze_name in self._maze_store:
-                continue
+                raise ValueError(f"Duplicate maze name {maze_name}.")
 
             assert maze_name in self.env_config.maze_configs_store, (
                 f"Unrecognized maze name {maze_name}. "
@@ -162,17 +160,6 @@ class MjCambrianEnv(gym.Env):
                 ref = self._maze_store[ref]
 
             self._maze_store[maze_name] = MjCambrianMaze(maze_config, ref=ref)
-
-        self._training_mazes: Dict[str, MjCambrianMaze] = {
-            f"{n}_{i}": self._maze_store[n]
-            for i, n in enumerate(self.env_config.maze_configs)
-        }
-
-        self._eval_mazes: Dict[str, MjCambrianMaze] = {}
-        if (eval_maze_configs := self.env_config.eval_maze_configs) is not None:
-            self._eval_mazes: Dict[str, MjCambrianMaze] = {
-                f"{n}_{i}": self._maze_store[n] for i, n in enumerate(eval_maze_configs)
-            }
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
@@ -239,13 +226,21 @@ class MjCambrianEnv(gym.Env):
                 animal and the info dict for each animal.
         """
         super().reset(seed=seed, options=options)
-        if seed is not None:
+        if seed is not None and self._num_resets == 0:
+            self.logger.info(f"Setting random seed to {seed}")
             set_random_seed(seed)
 
         mj.mj_resetData(self.model, self.data)
 
+        # Reload the mazes here since it could be overridden during eval
+        self.mazes: Dict[str, MjCambrianMaze] = {
+            f"{n}_{i}": self._maze_store[n]
+            for i, n in enumerate(self.env_config.maze_configs)
+        }
+
+        # Choose the maze and reset all other mazes to be inactive
         self.maze = self._choose_maze(**self.env_config.maze_selection_criteria)
-        for maze in self.mazes:
+        for maze in self.mazes.values():
             if maze.name != self.maze.name:
                 if (ref := maze._ref) and ref.name == self.maze.name:
                     continue
@@ -302,14 +297,24 @@ class MjCambrianEnv(gym.Env):
             self.renderer.reset(self.model, self.data)
 
         self._episode_step = 0
+        self._stashed_cumulative_reward = self._cumulative_reward
         self._cumulative_reward = 0
         self._num_resets += 1
-        self._overlays.clear()
+        if self.env_config.clear_overlays_on_reset:
+            self._overlays.clear()
         if not self.record:
             self._rollout.clear()
+            self._overlays.clear()
 
-        if self.env_config.add_overlays:
-            self._overlays["Exp"] = self.config.training_config.exp_name
+        self._overlays["Exp"] = self.config.training_config.exp_name
+
+        if self.record:
+            self._rollout.setdefault("actions", [])
+            self._rollout["actions"].append(
+                [np.zeros_like(a.action_space.sample()) for a in self.animals.values()]
+            )
+            self._rollout.setdefault("positions", [])
+            self._rollout["positions"].append([a.pos for a in self.animals.values()])
 
         return obs, info
 
@@ -318,14 +323,14 @@ class MjCambrianEnv(gym.Env):
     ) -> MjCambrianMaze:
         """Chooses a maze from the list of mazes base on the selection mode."""
         mode = MjCambrianEnvConfig.MazeSelectionMode[mode]
-        training_mazes = list(self._training_mazes.values())
-        training_maze_names = [m.name for m in training_mazes]
+        mazes = list(self.mazes.values())
+        maze_names = self.maze_names
 
         if mode == MjCambrianEnvConfig.MazeSelectionMode.RANDOM:
-            return np.random.choice(training_mazes)
+            return np.random.choice(mazes)
         elif mode == MjCambrianEnvConfig.MazeSelectionMode.DIFFICULTY:
             # Sort the mazes by difficulty
-            sorted_mazes = sorted(training_mazes, key=lambda m: m.config.difficulty)
+            sorted_mazes = sorted(mazes, key=lambda m: m.config.difficulty)
             sorted_difficulty = np.array([m.config.difficulty for m in sorted_mazes])
 
             if schedule := kwargs.get("schedule", None):
@@ -358,31 +363,23 @@ class MjCambrianEnv(gym.Env):
             )
 
             # calc probs for each maze
-            difficulties = np.array([m.config.difficulty for m in training_mazes])
+            difficulties = np.array([m.config.difficulty for m in mazes])
             p = np.exp(-np.abs(difficulties / 100 - normalized_reward))
 
-            return np.random.choice(training_mazes, p=p / p.sum())
+            return np.random.choice(mazes, p=p / p.sum())
         elif mode == MjCambrianEnvConfig.MazeSelectionMode.NAMED:
             assert "name" in kwargs, "Must specify `name` if using NAMED selection mode"
-            assert kwargs["name"] in training_maze_names, (
+            assert kwargs["name"] in maze_names, (
                 f"Unrecognized maze name {kwargs['name']}. "
                 "Must be one of the following: "
-                f"{training_maze_names}"
+                f"{maze_names}"
             )
-            return training_mazes[training_maze_names.index(kwargs["name"])]
+            return mazes[maze_names.index(kwargs["name"])]
         elif mode == MjCambrianEnvConfig.MazeSelectionMode.CYCLE:
             # Will cycle through the mazes in the order they were defined in the config
             # If maze is unset, will choose the first maze
-            idx = -1 if self.maze is None else training_mazes.index(self.maze)
-            return training_mazes[(idx + 1) % len(training_mazes)]
-        elif mode == MjCambrianEnvConfig.MazeSelectionMode.EVAL:
-            eval_mazes = list(self._eval_mazes.values())
-            idx = self.env_config.maze_selection_criteria.setdefault("eval_idx", 0)
-            eval_maze = eval_mazes[idx]
-            self.env_config.maze_selection_criteria["eval_idx"] = (idx + 1) % len(
-                eval_mazes
-            )
-            return eval_maze
+            idx = -1 if self.maze is None else mazes.index(self.maze)
+            return mazes[(idx + 1) % len(mazes)]
         else:
             raise ValueError(f"Unrecognized maze selection mode {mode}")
 
@@ -443,22 +440,27 @@ class MjCambrianEnv(gym.Env):
         self._episode_step += 1
         self._num_timesteps += 1
         self._cumulative_reward += sum(reward.values())
+        self._stashed_cumulative_reward = self._cumulative_reward
 
-        if self.env_config.add_overlays:
-            self._overlays["Step"] = self._episode_step
-            self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
+        self._overlays["Step"] = self._episode_step
+        self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
 
-            # Add the position of each animal to the overlays
-            # NOTE: the height is very high such that the animal won't see the overlay
-            #       this will only work for birds-eye view cameras
+        # Add the position of each animal to the overlays
+        # NOTE: the height is very high such that the animal won't see the overlay
+        #       this will only work for birds-eye view cameras
+        if self.env_config.add_position_tracking_overlay and self.record:
+            assert (
+                self.env_config.position_tracking_overlay_color is not None
+            ), "Must specify a color for the position tracking overlay"
+            i = self._num_resets * self._max_episode_steps + self._episode_step
             for animal in self.animals.values():
-                key = f"{animal.name}_pos_{self._episode_step}"
-                self._overlays[key] = MjCambrianSiteViewerOverlay(animal.xpos.copy())
+                key = f"{animal.name}_pos_{i}"
+                self._overlays[key] = MjCambrianSiteViewerOverlay(
+                    animal.xpos.copy(), self.env_config.position_tracking_overlay_color
+                )
 
         if self.record:
-            self._rollout.setdefault("actions", [])
             self._rollout["actions"].append(list(action.values()))
-            self._rollout.setdefault("positions", [])
             self._rollout["positions"].append([a.pos for a in self.animals.values()])
 
         return obs, reward, terminated, truncated, info
@@ -510,7 +512,7 @@ class MjCambrianEnv(gym.Env):
                 continue
 
             # Call reward_fn
-            rewards[name] = self._reward_fn(animal, info[name])
+            rewards[name] = self.reward_fn(animal, info[name])
 
             # Add a penalty for each action taken
             rewards[name] += self.env_config.action_penalty * np.sum(
@@ -640,7 +642,7 @@ class MjCambrianEnv(gym.Env):
             cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
             overlay_text = f"Animal: {name}"
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-            overlay_text = f"Action: {[f'{a:0.3f}' for a in animal.last_action]}"
+            overlay_text = f"Action: {[f'{a: 0.3f}' for a in animal.last_action]}"
             cursor.y -= TEXT_HEIGHT
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
 
@@ -676,6 +678,11 @@ class MjCambrianEnv(gym.Env):
     def overlays(self) -> Dict[str, Any]:
         """Returns the overlays."""
         return self._overlays
+
+    @property
+    def cumulative_reward(self) -> float:
+        """Returns the cumulative reward."""
+        return self._stashed_cumulative_reward
 
     @property
     def agents(self) -> List[str]:
@@ -715,7 +722,7 @@ class MjCambrianEnv(gym.Env):
             observation_space: spaces.Dict = animal.observation_space
             if self.env_config.use_goal_obs:
                 observation_space.spaces["goal"] = spaces.Box(
-                    low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32
+                    low=-np.inf, high=np.inf, shape=(2,), dtype=np.float64
                 )
             observation_spaces[name] = observation_space
         return spaces.Dict(observation_spaces)
@@ -755,25 +762,32 @@ class MjCambrianEnv(gym.Env):
             self._rollout.clear()
 
     @property
-    def mazes(self) -> List[MjCambrianMaze]:
-        """Returns the mazes as a list."""
-        return [*self._training_mazes.values(), *self._eval_mazes.values()]
+    def maze_names(self) -> List[str]:
+        """Returns _all_ the maze names as a list."""
+        maze_names = self.env_config.maze_configs.copy()
+        eval_overrides = self.env_config.eval_overrides
+        if eval_overrides and (eval_maze_configs := eval_overrides.get("maze_configs")):
+            maze_names += eval_maze_configs
+        return maze_names
 
     @property
-    def maze_names(self) -> List[str]:
-        """Returns the maze names as a list."""
-        training_maze_names = [m.name for m in self._training_mazes.values()]
-        eval_maze_names = [m.name for m in self._eval_mazes.values()]
-        return training_maze_names + eval_maze_names
+    def n_eval_mazes(self) -> int:
+        """Returns the number of evaluation mazes. Will run eval on all mazes."""
+        n_eval_mazes = len(self.env_config.maze_configs)
+        eval_overrides = self.config.env_config.eval_overrides
+        if eval_overrides and (eval_maze_configs := eval_overrides.get("maze_configs")):
+            n_eval_mazes = len(eval_maze_configs)
+        return n_eval_mazes
 
-    def save(self, path: str | Path):
+    def save(self, path: str | Path, *, save_pkl: bool = True, **kwargs):
         """Saves the simulation output to the given path."""
-        self.renderer.save(path)
+        self.renderer.save(path, **kwargs)
 
-        self.logger.info(f"Saving rollout to {path.with_suffix('.pkl')}")
-        with open(path.with_suffix(".pkl"), "wb") as f:
-            pickle.dump(self._rollout, f)
-        self.logger.debug(f"Saved rollout to {path.with_suffix('.pkl')}")
+        if save_pkl:
+            self.logger.info(f"Saving rollout to {path.with_suffix('.pkl')}")
+            with open(path.with_suffix(".pkl"), "wb") as f:
+                pickle.dump(self._rollout, f)
+            self.logger.debug(f"Saved rollout to {path.with_suffix('.pkl')}")
 
     def _is_at_target(self, animal: MjCambrianAnimal, target: np.ndarray) -> bool:
         """Returns whether the animal is at the target."""
@@ -922,15 +936,18 @@ class MjCambrianEnv(gym.Env):
         animal: MjCambrianAnimal,
         info: Dict[str, Any],
     ) -> float:
-        """This reward combines `reward_fn_energy_per_step` and `reward_fn_intensity_sensor`."""
+        """This reward combines `reward_fn_energy_per_step` and
+        `reward_fn_intensity_sensor`."""
         if self._num_resets == 1:
             assert "energy_per_step" in self.env_config.reward_options
+            assert "reward_at_goal" in self.env_config.reward_options
 
+        reward_at_goal = self.env_config.reward_options["reward_at_goal"]
         energy_per_step = self.env_config.reward_options["energy_per_step"]
-        energy_per_step = np.clip(energy_per_step * (animal.num_pixels), -1.0, 0)
+        energy_per_step = np.clip(energy_per_step * animal.num_pixels, -1.0, 0)
         intensity_reward = self._reward_fn_intensity_sensor(animal, info)
         return (
-            self.env_config.reward_at_goal + energy_per_step + intensity_reward
+            reward_at_goal + energy_per_step + intensity_reward
             if self._is_at_goal(animal)
             else energy_per_step + intensity_reward
         )
@@ -964,6 +981,35 @@ class MjCambrianEnv(gym.Env):
     ) -> float:
         """This reward is 1 if the animal is at the goal, -0.1 otherwise."""
         return 1 if self._is_at_goal(animal) else -0.1
+
+    def _reward_fn_fitness_energy_and_delta_euclidean(
+        self,
+        animal: MjCambrianAnimal,
+        info: Dict[str, Any],
+    ) -> float:
+        """NOTE: used for fitness, so may be larger than 1."""
+        if self._num_resets == 1:
+            assert "reward_at_goal" in self.env_config.reward_options
+            assert "energy_penalty_per_pixel" in self.env_config.reward_options
+            assert "energy_penalty_per_eye" in self.env_config.reward_options
+
+        reward_at_goal = self.env_config.reward_options["reward_at_goal"]
+        if not self._is_at_goal(animal):
+            reward_at_goal = 0
+
+        energy_penalty_per_pixel = self.env_config.reward_options[
+            "energy_penalty_per_pixel"
+        ]
+        energy_penalty_per_eye = self.env_config.reward_options[
+            "energy_penalty_per_eye"
+        ]
+        energy_penalty = (
+            energy_penalty_per_pixel * animal.num_pixels
+            + energy_penalty_per_eye * animal.num_eyes
+        )
+
+        delta_euclidean_reward = self._reward_fn_delta_euclidean(animal, info)
+        return reward_at_goal + energy_penalty + delta_euclidean_reward
 
     # Helpers
 

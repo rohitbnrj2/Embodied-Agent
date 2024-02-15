@@ -12,7 +12,7 @@ from cambrian.evolution_envs.three_d.mujoco.utils import (
 from cambrian.evolution_envs.three_d.mujoco.config import (
     MjCambrianConfig,
     MjCambrianEyeConfig,
-    MjCambrianAnimalConfig
+    MjCambrianAnimalConfig,
 )
 
 
@@ -25,18 +25,20 @@ def generate_demos(args):
     demos = [
         ("compound_eye.yaml", "--num-eyes 10,10 --uniform-eyes"),
         ("simple_eye.yaml", "--num-eyes 1,1 --uniform-eyes"),
-        ("human_eye.yaml", "--num-eyes 1,1 --uniform-eyes -eo resolution='[1000, 1000]' fov='[120, 120]'"),
+        (
+            "human_eye.yaml",
+            "--num-eyes 1,1 --uniform-eyes -eo resolution='[1000, 1000]' fov='[120, 120]'",
+        ),
         ("random_eye.yaml", "--num-eyes 100"),
     ]
 
     for filename, cmd_args in demos:
-
         cmd = f"python {__file__} {args.config} {output / filename} {cmd_args}"
         if len(args.eye_overrides):
             cmd += f"-eo {' '.join(args.eye_overrides)}"
         if args.resolve:
             cmd += " --resolve"
-        
+
         print(f"Running: {cmd}")
         subprocess.run(cmd, shell=True)
 
@@ -66,7 +68,7 @@ if __name__ == "__main__":
         nargs="+",
         action="extend",
         help="Overrides for eye configs. Do <config>.<key>=<value>.",
-        default=[]
+        default=[],
     )
 
     parser.add_argument(
@@ -118,10 +120,13 @@ if __name__ == "__main__":
         num_eyes_total = num_lon * num_lat
 
     # duck typed if resolve is false
-    config: MjCambrianConfig = MjCambrianConfig.load(
-        args.config, overrides=args.overrides, resolve=args.resolve, instantiate=args.resolve
+    config = MjCambrianConfig.load(
+        args.config,
+        overrides=args.overrides,
+        resolve=args.resolve,
+        instantiate=args.resolve,
     )
-    resolved_config: MjCambrianConfig = MjCambrianConfig.load(
+    resolved_config = MjCambrianConfig.load(
         args.config, overrides=args.overrides, instantiate=False
     )
 
@@ -131,7 +136,9 @@ if __name__ == "__main__":
         animal_config.setdefault("name", f"animal_{animal_idx}")
 
         key = f"env_config.animal_configs.{animal_config.name}"
-        resolved_animal_config: MjCambrianAnimalConfig = OmegaConf.select(resolved_config, key)
+        resolved_animal_config: MjCambrianAnimalConfig = OmegaConf.select(
+            resolved_config, key
+        )
 
         eye_configs = {}
         for eye_idx in range(num_eyes_total):
@@ -140,7 +147,9 @@ if __name__ == "__main__":
             eye_config.setdefault("name", f"{animal_config.name}_eye_{eye_idx}")
 
             key = f"eye_configs.{eye_config.name}"
-            resolved_eye_config: MjCambrianEyeConfig = OmegaConf.select(resolved_animal_config, key)
+            resolved_eye_config: MjCambrianEyeConfig = OmegaConf.select(
+                resolved_animal_config, key
+            )
 
             if args.random_eyes:
 
@@ -161,8 +170,12 @@ if __name__ == "__main__":
                 lon = float(longitudes[eye_idx % num_lon])
                 lat = float(latitudes[eye_idx // num_lon])
             else:
-                lon = random.uniform(*resolved_animal_config.model_config.eyes_lon_range)
-                lat = random.uniform(*resolved_animal_config.model_config.eyes_lat_range)
+                lon = random.uniform(
+                    *resolved_animal_config.model_config.eyes_lon_range
+                )
+                lat = random.uniform(
+                    *resolved_animal_config.model_config.eyes_lat_range
+                )
 
             eye_config.coord = [lat, lon]
 

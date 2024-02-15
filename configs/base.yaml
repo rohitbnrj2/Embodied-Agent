@@ -19,7 +19,7 @@ training_config:
   max_no_improvement_evals: 10 # check_freq * max_no_improvement_evals steps
   min_no_improvement_evals: 10 # check_freq * min_no_improvement_evals steps
 
-  features_extractor_activation: ReLU
+  features_extractor_activation: Tanh
 
   seed: 0
   verbose: 2
@@ -34,6 +34,8 @@ env_config:
   reward_fn_type: intensity_and_at_goal
   reward_options:
     gamma: 4.0
+    energy_per_step: 1.0
+    reward_at_goal: 1.0
 
   use_goal_obs: False
   terminate_at_goal: False
@@ -43,13 +45,14 @@ env_config:
   contact_penalty: -1.0
   force_exclusive_contact_penalty: False
   adversary_penalty: -1.0
-  reward_at_goal: 1.0
 
   frame_skip: 10
 
   use_renderer: True
   add_overlays: True
+  clear_overlays_on_reset: True
   add_position_tracking_overlay: True
+  position_tracking_overlay_color: [1, 0, 0, 1]
   overlay_width: 0.5
   overlay_height: 0.35
 
@@ -80,10 +83,13 @@ env_config:
 
   num_animals: ${eval:'len(${oc.dict.keys:.animal_configs})'}
 
+  eval_overrides:
+    truncate_on_contact: False
+
 evo_config:
   max_n_envs: 10
-
   num_generations: 200
+  num_nodes: 1
 
   population_config:
     size: 4
@@ -105,8 +111,6 @@ evo_config:
       use_init_pos_obs: False
       use_current_pos_obs: False
       n_temporal_obs: 10
-
-      constant_actions: [0.25, null]
 
       disable_intensity_sensor: False
       intensity_sensor_config:

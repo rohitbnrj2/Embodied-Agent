@@ -121,3 +121,28 @@ maze_configs_store:
     extend: 
       ref: ${extend:${...BASE}}
       base: ${extend:${include:configs/mazes/dr/Y_COMPLEX_MAZE_OPTION.yaml}}
+  CAMBRIAN_MAZE:
+    extend: 
+      base: ${extend:${include:configs/mazes/dr/CAMBRIAN_MAZE.yaml}}
+      ref: ${extend:${...BASE}}
+  OBS_AVOID_STRAIGHT_1:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/obstacle_avoidance/STRAIGHT_1.yaml}}
+  OBS_AVOID_STRAIGHT_2:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/obstacle_avoidance/STRAIGHT_2.yaml}}
+  OBS_AVOID_STRAIGHT_3:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/obstacle_avoidance/STRAIGHT_3.yaml}}
+  OBS_AVOID_STRAIGHT_4:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/obstacle_avoidance/STRAIGHT_4.yaml}}
+  OBS_AVOID_STRAIGHT_5:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/obstacle_avoidance/STRAIGHT_5.yaml}}
+

@@ -67,11 +67,13 @@ class MjCambrianMaze:
     """
 
     def __init__(self, config: MjCambrianMazeConfig, *, ref: "MjCambrianMaze" = None):
-        self._config: MjCambrianMazeConfig = config
+        self._config = config
         self._name = self._config.name
         self._ref = ref
 
         self._map: np.ndarray = np.array(config.map, dtype=str)
+        if config.flip:
+            self._map = np.flip(self._map)
 
         if ref is not None:
             # If we're using a reference maze, copy the map center from the reference

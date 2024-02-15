@@ -1,6 +1,6 @@
 from pathlib import Path
-import shutil
 
+import torch
 from stable_baselines3.common.vec_env import (
     VecEnv,
     DummyVecEnv,
@@ -9,23 +9,30 @@ from stable_baselines3.common.vec_env import (
 )
 from stable_baselines3.common.callbacks import (
     BaseCallback,
-    EvalCallback,
     StopTrainingOnNoModelImprovement,
     StopTrainingOnRewardThreshold,
     CallbackList,
 )
 from stable_baselines3.common.utils import set_random_seed
 
+from cambrian.env import MjCambrianEnv
 from cambrian.ml.feature_extractors import MjCambrianCombinedExtractor
 from cambrian.ml.callbacks import (
-    PlotEvaluationCallback,
-    SaveVideoCallback,
+    MjCambrianEvalCallback,
+    MjCambrianPlotMonitorCallback,
     MjCambrianSavePolicyCallback,
-    CallbackListWithSharedParent,
+    MjCambrianPlotEvaluationsCallback,
+    MjCambrianGPUUsageCallback,
     MjCambrianProgressBarCallback,
+    CallbackListWithSharedParent,
 )
 from cambrian.ml.model import MjCambrianModel
-from cambrian.utils import evaluate_policy
+from cambrian.utils import (
+    evaluate_policy,
+    get_gpu_memory_usage,
+    get_observation_space_size,
+    setattrs_temporary,
+)
 from cambrian.utils.config import MjCambrianConfig
 from cambrian.utils.wrappers import make_single_env
 from cambrian.utils.logger import get_logger
@@ -40,10 +47,11 @@ class MjCambrianTrainer:
 
     def __init__(self, config: MjCambrianConfig):
         self.config = config
+        self.training_config = config.training_config
 
         self.logdir = Path(
-            Path(self.config.training_config.logdir)
-            / self.config.training_config.exp_name
+            Path(self.training_config.logdir)
+            / self.training_config.exp_name
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
 
@@ -55,7 +63,8 @@ class MjCambrianTrainer:
         )
         self.logger.info(f"Logging to {self.logdir / 'logs'}...")
 
-        set_random_seed(self._calc_seed(0))
+        self.logger.debug(f"Setting seed to {self.training_config.seed}...")
+        set_random_seed(self.training_config.seed)
 
     def train(self):
         """Train the animal."""
@@ -63,14 +72,17 @@ class MjCambrianTrainer:
 
         self.config.save(self.logdir / "config.yaml")
 
+        n_envs = self._calc_n_envs()
+        self.logger.info(f"Using {n_envs} environments for training...")
+
         # Setup the environment, model, and callbacks
-        env = self._make_env(self.config.training_config.n_envs)
-        eval_env = self._make_env(1, use_monitor=False)
+        env = self._make_env(n_envs)
+        eval_env = self._make_env(1, "eval_monitor.csv")
         callback = self._make_callback(env, eval_env)
         model = self._make_model(env)
 
         # Start training
-        total_timesteps = self.config.training_config.total_timesteps
+        total_timesteps = self.training_config.total_timesteps
         model.learn(total_timesteps=total_timesteps, callback=callback)
         self.logger.info("Finished training the animal...")
 
@@ -83,34 +95,71 @@ class MjCambrianTrainer:
         Path(self.logdir / "finished").touch()
 
     def eval(self, record: bool = False):
-        # copy monitor.csv to monitor_train.csv since it overwrites the real monitor.csv
-        if (self.logdir / "monitor.csv").exists() and not (
-            self.logdir / "monitor_train.csv"
-        ).exists():
-            shutil.copy(self.logdir / "monitor.csv", self.logdir / "monitor_train.csv")
-
         self.config.save(self.logdir / "eval_config.yaml")
 
-        # Set the maze selection mode to eval
-        if self.config.env_config.eval_maze_configs is not None:
-            self.config.env_config.maze_selection_criteria["mode"] = "EVAL"
-            num_runs = len(self.config.env_config.eval_maze_configs)
-        else:
-            self.config.env_config.maze_selection_criteria["mode"] = "CYCLE"
-            num_runs = len(self.config.env_config.maze_configs)
+        # Update temporary attributes for evaluation
+        temp_attrs = []
+        if (eval_overrides := self.config.env_config.eval_overrides) is not None:
+            temp_attrs.append((self.config.env_config, eval_overrides))
 
-        env = self._make_env(1, use_monitor=False)
-        model = self._make_model(env)
+        with setattrs_temporary(*temp_attrs):
+            env = self._make_env(1, None)
+            model = self._make_model(env)
 
-        record_path = self.logdir / "eval" if record else None
-        evaluate_policy(env, model, num_runs, record_path=record_path)
+            n_runs = len(self.config.env_config.maze_configs)
+            filename = self.logdir / "eval" if record else None
+            record_kwargs = dict(path=filename, save_types=["webp", "png", "gif"])
+            evaluate_policy(env, model, n_runs, record_kwargs=record_kwargs)
 
     # ========
 
     def _calc_seed(self, i: int) -> int:
-        return self.config.training_config.seed + i 
+        return self.training_config.seed + i
 
-    def _make_env(self, n_envs: int, *, use_monitor: bool = True) -> VecEnv:
+    def _calc_n_envs(self) -> int:
+        """Calculates the number of environments to use for training based on 
+        the memory available.
+        
+        Will be (ideally) an overestimate. We'll check how much memory is used by a 
+        single environment and then calculate the memory used by the model and it's 
+        rollout buffer.
+
+        Returns:
+            int: The number of environments to use for training. Will be at most the
+                number of environments specified in the config.
+        """
+        if not torch.cuda.is_available():
+            return self.training_config.n_envs
+
+        # Get the memory usage before creating the environment
+        memory_usage_before, total_memory = get_gpu_memory_usage()
+
+        # We'll create a single environment and then calculate the memory usage
+        # after a single step
+        eval_env = self._make_env(1, None)
+        model = self._make_model(eval_env)
+        with torch.no_grad():
+            eval_env.reset()
+            eval_env.step(model.predict(eval_env.observation_space.sample()))
+
+        # Get the memory usage and the size in bytes of the observation space
+        memory_usage_after = get_gpu_memory_usage(return_total_memory=False)
+        observation_space_size = get_observation_space_size(eval_env.observation_space)
+
+        # Calculate the memory usage per environment, which is the difference in memory
+        # usage after and before creating the environment plus the size of the
+        # observation space times the batch size (which is the size of the rollout 
+        # buffer)
+        memory_usage_per_env = (
+            memory_usage_after
+            - memory_usage_before
+            + observation_space_size * self.training_config.batch_size
+        )
+
+        return min(self.training_config.n_envs, int(total_memory // memory_usage_per_env) - 1)
+
+
+    def _make_env(self, n_envs: int, monitor_csv: str | None = "monitor.csv") -> VecEnv:
         assert n_envs > 0, f"n_envs must be > 0, got {n_envs}."
 
         config = self.config.copy()
@@ -120,8 +169,8 @@ class MjCambrianTrainer:
             vec_env = DummyVecEnv(envs)
         else:
             vec_env = SubprocVecEnv(envs)
-        if use_monitor:
-            vec_env = VecMonitor(vec_env, str(self.logdir / "monitor.csv"))
+        if monitor_csv is not None:
+            vec_env = VecMonitor(vec_env, str(self.logdir / monitor_csv))
         return MjCambrianModel._wrap_env(vec_env)
 
     def _make_callback(self, env: VecEnv, eval_env: VecEnv) -> BaseCallback:
@@ -135,57 +184,49 @@ class MjCambrianTrainer:
                 settings.
             - MjCambrianAnimalPoolCallback: Writes the best model to the animal pool
                 when a new best model is found.
-            - PlotEvaluationCallback: Plots the evaluation performance over time to a
-                `monitor.png` file.
+            - MjCambrianPlotMonitorCallback: Plots the monitor performance over time
+                to a `monitor.png` file.
+            - MjCambrianPlotEvaluationsCallback: Plots the evaluation performance over
+                time to a `evaluations.png` file.
+            - MjCambrianGPUUsageCallback: Logs the GPU usage to a csv file.
             - MjCambrianProgressBarCallback: Prints a progress bar to the console for
                 indicating the training progress.
-            - EvalCallback: Evaluates the model every `eval_freq` steps. See config for
-                settings. This is provided by Stable Baselines.
+            - MjCambrianEvalCallback: Evaluates the model every `eval_freq` steps. See
+                config for settings. This is an extension of the `EvalCallback` from
+                Stable Baselines 3 with video saving of the evaluations.
         """
-        # Update the logger for the basecallback to use our logger
-        BaseCallback.logger = self.logger
+        cambrian_env: MjCambrianEnv = eval_env.envs[0].unwrapped
 
         callbacks_on_new_best = []
-        # callbacks_on_new_best.append(
-        #     SaveVideoCallback(
-        #         eval_env,
-        #         self.logdir,
-        #         self.config.training_config.max_episode_steps,
-        #     )
-        # )
         callbacks_on_new_best.append(
             StopTrainingOnNoModelImprovement(
-                self.config.training_config.max_no_improvement_evals,
-                self.config.training_config.min_no_improvement_evals,
+                self.training_config.max_no_improvement_evals,
+                self.training_config.min_no_improvement_evals,
             )
         )
         callbacks_on_new_best.append(
             StopTrainingOnRewardThreshold(
-                self.config.training_config.no_improvement_reward_threshold,
+                self.training_config.no_improvement_reward_threshold,
             )
         )
         callbacks_on_new_best.append(MjCambrianSavePolicyCallback(self.logdir))
         callbacks_on_new_best = CallbackListWithSharedParent(callbacks_on_new_best)
 
         callbacks_after_eval = []
-        callbacks_after_eval.append(PlotEvaluationCallback(self.logdir))
-        callbacks_after_eval.append(
-            SaveVideoCallback(
-                eval_env,
-                self.logdir,
-                self.config.training_config.max_episode_steps,
-            )
-        )
+        callbacks_after_eval.append(MjCambrianPlotMonitorCallback(self.logdir))
+        callbacks_after_eval.append(MjCambrianPlotEvaluationsCallback(self.logdir))
+        callbacks_after_eval.append(MjCambrianGPUUsageCallback(self.logdir))
         callbacks_after_eval = CallbackListWithSharedParent(callbacks_after_eval)
 
-        eval_cb = EvalCallback(
-            env,
+        eval_cb = MjCambrianEvalCallback(
+            eval_env,
             best_model_save_path=self.logdir,
             log_path=self.logdir,
-            eval_freq=self.config.training_config.eval_freq,
+            eval_freq=self.training_config.eval_freq,
             deterministic=True,
-            render=False,
+            render=True,
             verbose=0,
+            n_eval_episodes=cambrian_env.n_eval_mazes,
             callback_on_new_best=callbacks_on_new_best,
             callback_after_eval=callbacks_after_eval,
         )
@@ -204,23 +245,23 @@ class MjCambrianTrainer:
         policy_kwargs = dict(
             features_extractor_class=MjCambrianCombinedExtractor,
             features_extractor_kwargs=dict(
-                activation=self.config.training_config.features_extractor_activation
+                activation=self.training_config.features_extractor_activation
             ),
         )
 
-        if (checkpoint_path := self.config.training_config.checkpoint_path) is not None:
+        if (checkpoint_path := self.training_config.checkpoint_path) is not None:
             model = MjCambrianModel.load(checkpoint_path, env=env)
         else:
             model = MjCambrianModel(
                 "MultiInputPolicy",
                 env,
-                n_steps=self.config.training_config.n_steps,
-                batch_size=self.config.training_config.batch_size,
-                learning_rate=self.config.training_config.learning_rate,
+                n_steps=self.training_config.n_steps,
+                batch_size=self.training_config.batch_size,
+                learning_rate=self.training_config.learning_rate,
                 policy_kwargs=policy_kwargs,
             )
 
-        if (policy_path := self.config.training_config.policy_path) is not None:
+        if (policy_path := self.training_config.policy_path) is not None:
             policy_path = Path(policy_path)
             assert (
                 policy_path.exists()
@@ -266,9 +307,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config: MjCambrianConfig = MjCambrianConfig.load(
-        args.config, overrides=args.overrides
-    )
+    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
 
     animal_configs = config.env_config.animal_configs
     for animal_name, animal_config in animal_configs.items():

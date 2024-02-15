@@ -135,6 +135,10 @@ class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
     eyes) will not be affected.
     """
 
+    def __init__(self, pos: np.ndarray, rgba: Tuple[float, float, float, float]):
+        super().__init__(pos)
+        self.rgba = rgba
+
     def draw_before_render(self, scene: mj.MjvScene):
         if scene.ngeom >= scene.maxgeom:
             get_logger().warning(
@@ -149,7 +153,7 @@ class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
             [0.1, 0.1, 0.1],
             self.obj,
             np.eye(3).flatten(),
-            [1, 0, 0, 1],
+            self.rgba,
         )
 
 

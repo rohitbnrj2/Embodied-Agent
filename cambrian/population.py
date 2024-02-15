@@ -3,13 +3,10 @@ from pathlib import Path
 import os
 
 import numpy as np
-from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from cambrian.animal import MjCambrianAnimal
 from cambrian.utils.config import (
-    MjCambrianPopulationConfig,
     MjCambrianConfig,
-    MjCambrianSpawningConfig,
 )
 from cambrian.utils.logger import get_logger
 
@@ -80,7 +77,7 @@ class MjCambrianPopulation:
                 config = MjCambrianConfig.load(path / "config.yaml")
             except AttributeError:
                 # This may happen if we try to read concurrently as it's being written
-                # Let's just continue
+                # Let's just do nothing if this happens
                 return
         else:
             assert fitness is not None, "Must provide fitness if config is provided"
@@ -96,6 +93,8 @@ class MjCambrianPopulation:
 
         TODO: Probably could be more performant
         """
+        self.logger.debug("Updating population.")
+
         for root, dirs, files in os.walk(self.logdir):
             root = Path(root)
             if not root.stem.startswith("generation_"):
@@ -120,19 +119,17 @@ class MjCambrianPopulation:
     def _calculate_fitness(self, path: Path):
         """Calculates the fitness of the given animal.
 
-        Currently, the fitness is calculated as the average reward over the last 1000
-        (or the all rewards if there are less than 1000) timesteps of training. This is
-        calculated by parsing the `monitor.csv` file.
+        Currently, the fitness is calculated as the reward received on the last
+        evaluation episode. This is calculated by parsing the `evaluation.npz` file.
         """
-        if not (path / "monitor.csv").exists():
+        path /= "evaluations.npz"
+        if not path.exists():
             return -np.inf
 
-        _, rewards = ts2xy(load_results(path), "timesteps")
-        if len(rewards) < 1000:
-            fitness = -np.inf
-        else:
-            fitness = rewards[-min(len(rewards) - 1, 1000) :].mean()
+        with np.load(path) as data:
+            rewards = np.mean(data["results"], axis=1)
 
+        fitness = max(rewards)
         return fitness
 
     def select_animal(self) -> MjCambrianConfig:
@@ -145,6 +142,8 @@ class MjCambrianPopulation:
         The animal is selected based on the fitness of the animal. The animal with the
         highest fitness is selected.
         """
+        self.logger.info(f"Selecting {num} animals.")
+
         animals = np.random.choice(self._top_performers, num, False)
         configs = [self._all_population[a][1].copy() for a in animals]
 
@@ -159,10 +158,7 @@ class MjCambrianPopulation:
 
         # Select an animal to mutate
         # If generation is 0, we'll read the default config file, select otherwise
-        if generation == 0:
-            config = self.initial_config.copy()
-        else:
-            config = self.select_animal()
+        config = self.select_animal() if generation != 0 else self.initial_config.copy()
 
         # Aliases
         evo_config = config.evo_config
@@ -171,7 +167,6 @@ class MjCambrianPopulation:
         spawning_config = config.evo_config.spawning_config
 
         # TODO
-        replication_type = MjCambrianSpawningConfig.ReplicationType.MUTATION
         # replication_type = MjCambrianSpawningConfig.ReplicationType[
         #     spawning_config.replication_type
         # ]
@@ -198,7 +193,8 @@ class MjCambrianPopulation:
                 )
 
         # Update the evo_config to reflect the new generation
-        evo_config.parent_generation_config = evo_config.generation_config.copy()
+        if generation != 0:
+            evo_config.parent_generation_config = evo_config.generation_config.copy()
         evo_config.generation_config.rank = rank
         evo_config.generation_config.generation = generation
         generation_logdir = self.logdir / evo_config.generation_config.to_path()
@@ -225,14 +221,13 @@ class MjCambrianPopulation:
     def _calc_seed(self, generation: int, rank: int) -> int:
         """Calculates a unique seed for each rank."""
 
-        return (
-            self.initial_config.training_config.seed
-            + self.initial_config.training_config.n_envs
-            * (
-                generation * self.initial_config.evo_config.population_config.size
-                + rank
-            )
-        )
+        seed = self.initial_config.training_config.seed
+        n_envs = self.initial_config.training_config.n_envs
+        n_nodes = self.initial_config.evo_config.num_nodes
+        n_ranks_per_node = self.initial_config.evo_config.population_config.size
+        n_ranks_per_population = n_nodes * n_ranks_per_node
+
+        return seed + n_envs * (generation * n_ranks_per_population + rank)
 
     # ========
 
@@ -262,21 +257,29 @@ if __name__ == "__main__":
         help="Override config values. Do <config>.<key>=<value>",
         default=[],
     )
-
-    args = parser.parse_args()
-    config: MjCambrianConfig = MjCambrianConfig.load(
-        args.config,
-        overrides=args.overrides,
+    parser.add_argument(
+        "-n",
+        "--num-nodes",
+        type=int,
+        help="Number of nodes to spawn",
+        default=4,
     )
 
+    args = parser.parse_args()
+    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
+
     pop = MjCambrianPopulation(config, "logs")
+    config.training_config.n_envs = config.evo_config.max_n_envs // pop.size
+    config.evo_config.num_nodes = args.num_nodes
 
     seeds = set()
     for generation in range(config.evo_config.num_generations):
-        for rank in range(config.evo_config.population_config.size):
-            for env in range(config.training_config.n_envs):
-                seed = pop._calc_seed(generation, rank) + env
-                print("Generation", generation, "Rank", rank, "Seed", seed)
-                if seed in seeds:
-                    print(f"Duplicate seed: {seed}")
-                seeds.add(seed)
+        for node in range(config.evo_config.num_nodes):
+            size = config.evo_config.population_config.size
+            for rank in range(node * size, node * size + size):
+                for env in range(config.evo_config.max_n_envs // size):
+                    seed = pop._calc_seed(generation, rank) + env
+                    print(f"Generation {generation}, Node {node}, Rank {rank}, Env {env}: {seed}")
+                    if seed in seeds:
+                        print(f"Duplicate seed: {seed}")
+                    seeds.add(seed)

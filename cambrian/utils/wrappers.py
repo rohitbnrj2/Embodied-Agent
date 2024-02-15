@@ -48,7 +48,7 @@ def make_single_env(
         env = MjCambrianEnv(config, **kwargs)
         env = MjCambrianSingleAnimalEnvWrapper(env)
         env.reset(seed=seed)
-        check_env(env)
+        check_env(env, warn=False)
         return env
 
     return _init

@@ -3,6 +3,8 @@ xml: ${include:models/maze.xml,str}
 
 size_scaling: 4.0
 height: 0.5
+flip: False
+smooth_walls: False
 
 hide_targets: false
 use_target_light_sources: True

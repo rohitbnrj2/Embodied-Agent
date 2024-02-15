@@ -3,19 +3,13 @@ import os
 import subprocess
 import threading
 from pathlib import Path
-import random
 import logging
 
-from cambrian.population import MjCambrianPopulation
-from cambrian.animal import MjCambrianAnimal
-from cambrian.utils.config import (
-    MjCambrianConfig,
-    MjCambrianGenerationConfig,
-    MjCambrianSpawningConfig,
-)
-from cambrian.utils.logger import get_logger
+from stable_baselines3.common.utils import set_random_seed
 
-ReplicationType = MjCambrianSpawningConfig.ReplicationType
+from cambrian.population import MjCambrianPopulation
+from cambrian.utils.config import MjCambrianConfig
+from cambrian.utils.logger import get_logger
 
 
 class MjCambrianEvoRunner:
@@ -35,18 +29,21 @@ class MjCambrianEvoRunner:
     def __init__(
         self,
         config: MjCambrianConfig,
-        rank: int = 0,
-        generation: int = 0,
         *,
         dry_run: bool = False,
     ):
         self.config = config
+        self.evo_config = config.evo_config
         self.dry_run = dry_run
 
-        real_rank = int(rank / self.config.evo_config.population_config.size)
-        generation_config = MjCambrianGenerationConfig(generation=generation, rank=rank)
-        self.config.evo_config.generation_config = generation_config
+        # The node num is defined as the rank divided by the number of nodes
+        # The rank should be initialized to the task id (i.e. slurm array job,
+        # node/computer, etc).
+        # This should be set prior to running the evo script
+        node_num = self.evo_config.generation_config.rank
+        self.evo_config.generation_config.rank *= self.evo_config.population_config.size
 
+        # Create the logdir
         self.logdir = Path(
             Path(self.config.training_config.logdir)
             / self.config.training_config.exp_name
@@ -59,14 +56,17 @@ class MjCambrianEvoRunner:
         self.logger = get_logger(
             config,
             overwrite_filepath=self.logdir / "logs",
-            overwrite_filename_suffix=f"_{real_rank}",
+            overwrite_filename_suffix=f"_{node_num}",
         )
 
         self.population = MjCambrianPopulation(self.config, self.logdir)
 
         # Save the initial config to the logdir
         (self.logdir / "initial_configs").mkdir(parents=True, exist_ok=True)
-        self.config.save(self.logdir / "initial_configs" / f"config_{real_rank}.yaml")
+        self.config.save(self.logdir / "initial_configs" / f"config_{node_num}.yaml")
+
+        # Update the seed to be unique between evos
+        set_random_seed(self.config.training_config.seed + node_num)
 
     def evo(self):
         """This method run's evolution.
@@ -88,7 +88,7 @@ class MjCambrianEvoRunner:
 
         def _loop(rank: int):
             generation = 0
-            while generation < self.config.evo_config.num_generations:
+            while generation < self.evo_config.num_generations:
                 # Update the population. This will search the evo logdir for the latest
                 # generation and update the population accordingly.
                 self.population.update()
@@ -105,8 +105,8 @@ class MjCambrianEvoRunner:
                 generation += 1
 
         threads: List[threading.Thread] = []
-        init_rank = self.config.evo_config.generation_config.rank
-        population_size = self.config.evo_config.population_config.size
+        init_rank = self.evo_config.generation_config.rank
+        population_size = self.evo_config.population_config.size
         for rank in range(init_rank, init_rank + population_size):
             thread = threading.Thread(target=_loop, args=(rank,))
             thread.start()
@@ -130,14 +130,13 @@ class MjCambrianEvoRunner:
         cmd = f"{python_cmd} {config_yaml} --train"
         self.logger.debug(f"Running command: {cmd}")
 
-        env = dict(os.environ, **self.config.evo_config.environment_variables)
+        env = dict(os.environ, **self.evo_config.environment_variables)
         if not self.dry_run:
             process = subprocess.Popen(
                 cmd.split(" "),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 env=env,
-                bufsize=1,
                 text=True,
             )
 
@@ -181,25 +180,16 @@ if __name__ == "__main__":
 
     parser = MjCambrianArgumentParser()
 
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Don't actually run the training"
-    )
-    parser.add_argument(
-        "-r", "--rank", type=int, help="Rank of this process", default=0
-    )
-
+    parser.add_argument("--dry-run", action="store_true", help="Don't actually run")
     parser.add_argument("--no-egl", action="store_true", help="Disable EGL rendering")
 
     args = parser.parse_args()
 
-    config: MjCambrianConfig = MjCambrianConfig.load(
-        args.config, overrides=args.overrides
-    )
-    config.training_config.setdefault("exp_name", Path(args.config).stem)
+    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
     config.evo_config.setdefault("environment_variables", {})
     if not args.no_egl:
+        # Set's EGL rendering for all trainer processes
         config.evo_config.environment_variables["MUJOCO_GL"] = "egl"
 
-    rank = config.evo_config.population_config.size * args.rank
-    runner = MjCambrianEvoRunner(config, rank=rank, dry_run=args.dry_run)
+    runner = MjCambrianEvoRunner(config, dry_run=args.dry_run)
     runner.evo()
