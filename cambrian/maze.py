@@ -22,6 +22,7 @@ TARGET = T = "T"
 COMBINED = C = "C"  # These cells can be selected as target or reset locations
 WALL = W = "1"
 EMPTY = E = "0"
+ADVERSARY = A = "A" # Optional adversary location - if not in maze, a target will be selected
 
 # ================
 
@@ -88,6 +89,7 @@ class MjCambrianMaze:
 
         self._wall_textures: List[str] = []
         self._unique_target_locations: List[np.ndarray] = []
+        self._unique_adv_locations: List[np.ndarray] = []
         self._unique_reset_locations: List[np.ndarray] = []
         self._combined_locations: List[np.ndarray] = []
         self._empty_locations: List[np.ndarray] = []
@@ -101,7 +103,7 @@ class MjCambrianMaze:
             self._init_adversary_pos: np.ndarray = np.array(
                 self._config.init_adversary_pos
             )
-            self._adversary: np.ndarray = self._reset_target(self._init_adversary_pos)
+            self._adversary: np.ndarray = self._reset_adversary(self._init_adversary_pos)
 
         # If we're using ref, verify the wall locations are the same and copy
         # block names
@@ -144,6 +146,8 @@ class MjCambrianMaze:
                     self._combined_locations.append(np.array([x, y]))
                 elif struct == EMPTY:
                     self._empty_locations.append(np.array([x, y]))
+                elif struct == ADVERSARY:
+                    self._unique_adv_locations.append(np.array([x, y]))
 
         # Add the combined cell locations (goal/reset) to goal and reset
         if (
@@ -330,9 +334,9 @@ class MjCambrianMaze:
             self._goal = self._reset_target(self._init_goal_pos)
             if self.config.use_adversary:
                 assert (
-                    len(self._unique_target_locations) > 1
+                    len(self._unique_target_locations) > 1 or len(self._unique_adv_locations) > 0
                 ), "Must have at least 2 unique target locations to use an adversary"
-                self._adversary = self._reset_target(self._init_adversary_pos)
+                self._adversary = self._reset_adversary(self._init_adversary_pos)
 
         self._update_target(model, self.goal_name, self.goal, active)
         if self.config.use_adversary:
@@ -363,6 +367,12 @@ class MjCambrianMaze:
 
     def _reset_target(self, init_pos: Optional[np.ndarray]) -> np.ndarray:
         """Helper method to reset the target."""
+        return init_pos if init_pos else self.generate_target_pos()
+
+    def _reset_adversary(self, init_pos: Optional[np.ndarray]) -> np.ndarray:
+        """Helper method to reset the adversary."""
+        if len(self._unique_adv_locations):
+            return init_pos if init_pos else self.generate_adv_pos()
         return init_pos if init_pos else self.generate_target_pos()
 
     def _update_target(
@@ -415,6 +425,13 @@ class MjCambrianMaze:
         if add_as_occupied:
             self._occupied_locations.append(target_pos)
         return target_pos
+
+    def generate_adv_pos(self, *, add_as_occupied: bool = True) -> np.ndarray:
+        """Generates a random adversary position for an env."""
+        adv_pos = self._generate_pos(self._unique_adv_locations)
+        if add_as_occupied:
+            self._occupied_locations.append(adv_pos)
+        return adv_pos
 
     def generate_reset_pos(self, *, add_as_occupied: bool = True) -> np.ndarray:
         """Generates a random reset position for an env."""
