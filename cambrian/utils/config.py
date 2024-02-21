@@ -225,6 +225,7 @@ class MjCambrianBaseConfig(Generic[T]):
         config: Path | str,
         *,
         overrides: List[List[str]] = [],
+        defaults: List[Path | str] = [],
         resolve: bool = True,
         instantiate: bool = True,
     ) -> T:
@@ -237,6 +238,9 @@ class MjCambrianBaseConfig(Generic[T]):
             overrides (List[List[str]]): A list of overrides to apply to the config.
                 Each override is a list of strings of the form `key=value`. This is
                 passed to OmegaConf.from_dotlist. Defaults to [].
+            defaults (List[str]): A list of default configs to apply to the config.
+                The default config is a yaml file that is loaded and merged with the
+                config. Defaults to [].
             resolve (bool): Whether to resolve the config or not. If instantiate is
                 True, the config will be resolved anyways.
             instantiate (bool): Whether to instantiate the config or not. If True, the
@@ -255,6 +259,8 @@ class MjCambrianBaseConfig(Generic[T]):
             config.filename = str(filename.stem)  # overrides the filename
 
             config = OmegaConf.unsafe_merge(config, OmegaConf.from_dotlist(overrides))
+            for default in defaults:
+                config = OmegaConf.unsafe_merge(config, OmegaConf.load(Path(default)))
 
         if resolve:
             # We need to merge config in twice so that extend will work properly
@@ -380,11 +386,12 @@ class MjCambrianBaseConfig(Generic[T]):
 
     @classmethod
     def fix(cls):
-        """This method will fix that config such that it has a valid state. It is 
-        possible that when loading a config, the config is missing attributes that 
+        """This method will fix that config such that it has a valid state. It is
+        possible that when loading a config, the config is missing attributes that
         either weren't in the config definition or they were removed. This method
         will set the __getattr__ dunder (which is only called when an attribute is
         missing) to be None if it's in the annotations."""
+
         def getattr(self, key: str) -> Any:
             if key in self.__annotations__:
                 return None
@@ -401,7 +408,9 @@ class MjCambrianBaseConfig(Generic[T]):
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianGenerationConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianGenerationConfig"]):
+class MjCambrianGenerationConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianGenerationConfig"]
+):
     """Config for a generation. Used for type hinting.
 
     Attributes:
@@ -421,7 +430,9 @@ class MjCambrianGenerationConfig(GenericWorkaround, MjCambrianBaseConfig["MjCamb
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianTrainingConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianTrainingConfig"]):
+class MjCambrianTrainingConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianTrainingConfig"]
+):
     """Settings for the training process. Used for type hinting.
 
     Attributes:
@@ -489,7 +500,9 @@ class MjCambrianTrainingConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambri
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianMazeConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianMazeConfig"]):
+class MjCambrianMazeConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianMazeConfig"]
+):
     """Defines a map config. Used for type hinting.
 
     Attributes:
@@ -514,7 +527,7 @@ class MjCambrianMazeConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianMa
         height (float): The height of the walls in the MuJoCo simulation.
         flip (bool): Whether to flip the maze or not. If True, the maze will be
             flipped along the x-axis.
-        smooth_walls (bool): Whether to smooth the walls such that they are continuous 
+        smooth_walls (bool): Whether to smooth the walls such that they are continuous
             appearing. This is an approximated as a spline fit to the walls.
 
         hide_targets (bool): Whether to hide the target or not. If True, the target
@@ -574,7 +587,9 @@ class MjCambrianMazeConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianMa
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianCameraConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianCameraConfig"]):
+class MjCambrianCameraConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianCameraConfig"]
+):
     """Defines a camera config. Used for type hinting. This is a wrapper of
     mj.mjvCamera that is used to configure the camera in the viewer.
 
@@ -617,7 +632,9 @@ class MjCambrianCameraConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrian
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianRendererConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianRendererConfig"]):
+class MjCambrianRendererConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianRendererConfig"]
+):
     """The config for the renderer. Used for type hinting.
 
     A renderer corresponds to a single camera. The renderer can then view the scene in
@@ -668,7 +685,9 @@ class MjCambrianRendererConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambri
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianEyeConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianEyeConfig"]):
+class MjCambrianEyeConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianEyeConfig"]
+):
     """Defines the config for an eye. Used for type hinting.
 
     Attributes:
@@ -776,8 +795,8 @@ class MjCambrianEyeConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianEye
     enable_phase_mask: bool
 
     scene_resolution: Tuple[int, int]
-    scene_angular_resolution: float 
-    pixel_size: float 
+    scene_angular_resolution: float
+    pixel_size: float
     sensor_resolution: Tuple[int, int]
     add_noise: bool
     noise_std: float
@@ -827,7 +846,9 @@ class MjCambrianEyeConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianEye
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianAnimalModelConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianAnimalModelConfig"]):
+class MjCambrianAnimalModelConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianAnimalModelConfig"]
+):
     """Defines the config for an animal model. Used for type hinting.
 
     Attributes:
@@ -860,7 +881,9 @@ class MjCambrianAnimalModelConfig(GenericWorkaround, MjCambrianBaseConfig["MjCam
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianAnimalConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianAnimalConfig"]):
+class MjCambrianAnimalConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianAnimalConfig"]
+):
     """Defines the config for an animal. Used for type hinting.
 
     Attributes:
@@ -926,7 +949,9 @@ class MjCambrianAnimalConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrian
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianEnvConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianEnvConfig"]):
+class MjCambrianEnvConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianEnvConfig"]
+):
     """Defines a config for the cambrian environment.
 
     Attributes:
@@ -976,7 +1001,7 @@ class MjCambrianEnvConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianEnv
             the amount of vram consumed by non-rendering environments.
         add_overlays (bool): Whether to add overlays or not.
         clear_overlays_on_reset (bool): Whether to clear the overlays on reset or not.
-            Consequence of setting to False is that if `add_position_tracking_overlay` 
+            Consequence of setting to False is that if `add_position_tracking_overlay`
             is True and mazes change between evaluations, the sites will be drawn on top
             of each other which may not be desired. When record is False, the overlays
             are always cleared.
@@ -984,7 +1009,7 @@ class MjCambrianEnvConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianEnv
             tracking overlay which adds a site to the world at each position an
             animal has been.
         position_tracking_overlay_color (Optional[Tuple[float, float, float, float]]):
-            The color of the position tracking overlay. Must be set if 
+            The color of the position tracking overlay. Must be set if
             `add_position_tracking_overlay` is True. Fmt: rgba
         overlay_width (Optional[float]): The width of _each_ rendered overlay that's
             placed on the render output. This is primarily for debugging. If unset,
@@ -1016,9 +1041,10 @@ class MjCambrianEnvConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianEnv
             set in the animal config.
 
         eval_overrides (Optional[Dict[str, Any]]): Key/values to override the default
-            env_config. Applied during evaluation only. Merged directly with the 
+            env_config. Applied during evaluation only. Merged directly with the
             env_config. NOTE: Only some fields are actually used when loading.
-            NOTE #2: Only the top level keys are used. Nested keys are not used.
+            NOTE #2: Only the top level keys are used, as in this is a shallow
+            merge.
     """
 
     xml: str
@@ -1106,7 +1132,9 @@ class MjCambrianEnvConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianEnv
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianPopulationConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianPopulationConfig"]):
+class MjCambrianPopulationConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianPopulationConfig"]
+):
     """Config for a population. Used for type hinting.
 
     Attributes:
@@ -1122,7 +1150,9 @@ class MjCambrianPopulationConfig(GenericWorkaround, MjCambrianBaseConfig["MjCamb
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianSpawningConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianSpawningConfig"]):
+class MjCambrianSpawningConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianSpawningConfig"]
+):
     """Config for spawning. Used for type hinting.
 
     Attributes:
@@ -1172,7 +1202,9 @@ class MjCambrianSpawningConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambri
 
 
 @dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianEvoConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianEvoConfig"]):
+class MjCambrianEvoConfig(
+    GenericWorkaround, MjCambrianBaseConfig["MjCambrianEvoConfig"]
+):
     """Config for evolutions. Used for type hinting.
 
     Attributes:
@@ -1193,6 +1225,10 @@ class MjCambrianEvoConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianEvo
             the parent generation. Will be set by the evolution runner. If None, that
             means that the current generation is the first generation (i.e. no parent).
 
+        top_performers (Optional[List[str]]): The top performers from the parent
+            generation. This was used to select an animal to spawn an offspring from.
+            Used for parsing after the fact.
+
         environment_variables (Optional[Dict[str, str]]): The environment variables to
             set for the training process.
     """
@@ -1206,6 +1242,8 @@ class MjCambrianEvoConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianEvo
 
     generation_config: Optional[MjCambrianGenerationConfig] = None
     parent_generation_config: Optional[MjCambrianGenerationConfig] = None
+
+    top_performers: Optional[List[str]] = None
 
     environment_variables: Dict[str, str]
 
@@ -1230,24 +1268,11 @@ class MjCambrianConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianConfig
 
 
 if __name__ == "__main__":
-    import argparse
     import time
     from cambrian.utils.logger import get_logger
+    from cambrian.utils import MjCambrianArgumentParser
 
-    parser = argparse.ArgumentParser(description="Dataclass/YAML Tester")
-
-    parser.add_argument("config", type=str, help="Path to config file")
-    parser.add_argument(
-        "-o",
-        "--override",
-        "--overrides",
-        dest="overrides",
-        action="extend",
-        nargs="+",
-        type=str,
-        help="Override config values. Do <config>.<key>=<value>",
-        default=[],
-    )
+    parser = MjCambrianArgumentParser(description="Dataclass/YAML Tester")
 
     parser.add_argument(
         "-ao",
@@ -1285,6 +1310,7 @@ if __name__ == "__main__":
     config = MjCambrianConfig.load(
         args.config,
         overrides=args.overrides,
+        defaults=args.defaults,
         instantiate=not args.no_instantiate and not args.no_resolve,
         resolve=not args.no_resolve,
     )
@@ -1304,6 +1330,7 @@ if __name__ == "__main__":
         logger = get_logger(config)
     else:
         import logging
+
         logging.basicConfig(level=logging.DEBUG)
         logger = get_logger()
 

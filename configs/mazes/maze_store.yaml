@@ -15,6 +15,18 @@ maze_configs_store:
     extend: 
       ref: ${extend:${...BASE}}
       base: ${extend:${include:configs/mazes/dr/I_MAZE_LARGE_STATIC.yaml}}
+    wall_texture_map:
+      L: [vertical_20] # left
+      R: [vertical_10] # right
+    size_scaling: 10.0
+  I_MAZE_LARGE_STATIC_FLIP:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/I_MAZE_LARGE_STATIC.yaml}}
+    wall_texture_map:
+      L: [vertical_10] # left
+      R: [vertical_20] # right
+    size_scaling: 10.0
   I_MAZE_INVERSE:
     extend: 
       ref: ${extend:${...BASE}}
@@ -24,10 +36,10 @@ maze_configs_store:
     extend: 
       ref: ${extend:${...BASE}}
       base: ${extend:${include:configs/mazes/dr/I_MAZE_STATIC_SWITCH.yaml}}
-  I_MAZE_LARGE_STATIC_SWITCH:
-    extend: 
-      ref: ${extend:${...BASE}}
-      base: ${extend:${include:configs/mazes/dr/I_MAZE_LARGE_STATIC_SWITCH.yaml}}
+    wall_texture_map:
+      L: [vertical_10] # left
+      R: [vertical_20] # right
+    size_scaling: 10.0
   I_MAZE_DIVERSE:
     extend: 
       ref: ${extend:${...BASE}}
@@ -121,10 +133,14 @@ maze_configs_store:
     extend: 
       ref: ${extend:${...BASE}}
       base: ${extend:${include:configs/mazes/dr/Y_COMPLEX_MAZE_OPTION.yaml}}
+  Y_COMPLEX_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/dr/Y_COMPLEX_MAZE_STATIC.yaml}}
+    ref: Y_COMPLEX_MAZE_OPTION
   CAMBRIAN_MAZE:
     extend: 
       base: ${extend:${include:configs/mazes/dr/CAMBRIAN_MAZE.yaml}}
-      ref: ${extend:${...BASE}}
   OBS_AVOID_STRAIGHT_1:
     extend: 
       ref: ${extend:${...BASE}}
@@ -145,4 +161,36 @@ maze_configs_store:
     extend: 
       ref: ${extend:${...BASE}}
       base: ${extend:${include:configs/mazes/obstacle_avoidance/STRAIGHT_5.yaml}}
-
+  OBS_AVOID_STRAIGHT_6:
+    extend: 
+      base: ${extend:${include:configs/mazes/obstacle_avoidance/STRAIGHT_6.yaml}}
+  OBS_AVOID_SHORT_1:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/obstacle_avoidance/SHORT_1.yaml}}
+  LARGE_MAZE_STATIC:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/train/LARGE_MAZE_STATIC.yaml}}
+  LARGE_MAZE_DIVERSE:
+    extend: 
+      ref: ${extend:${...BASE}}
+      base: ${extend:${include:configs/mazes/train/LARGE_MAZE_DIVERSE.yaml}}
+    ref: LARGE_MAZE_STATIC
+  OPTIC_FLOW_STRAIGHT:
+    extend: 
+      base: ${extend:${include:configs/mazes/eval/OPTIC_FLOW_STRAIGHT.yaml}}
+      ref: ${extend:${...BASE}}
+  OPTIC_FLOW_TAPER:
+    extend: 
+      base: ${extend:${include:configs/mazes/eval/OPTIC_FLOW_TAPER.yaml}}
+      ref: ${extend:${...BASE}}
+  OPTIC_FLOW_INVERSE_TAPER:
+    extend: 
+      base: ${extend:${include:configs/mazes/eval/OPTIC_FLOW_STRAIGHT_TEXTURE.yaml}}
+      ref: ${extend:${...BASE}}
+  OPTIC_FLOW_TAPER_AND_INVERSE_TAPER:
+    extend: 
+      base: ${extend:${include:configs/mazes/eval/OPTIC_FLOW_TAPER_AND_INVERSE_TAPER.yaml}}
+      ref: ${extend:${...BASE}}
+  

@@ -1,0 +1,55 @@
+extend:
+  base: ${extend:${include:configs/base.yaml}}
+
+env_config:
+  extend:
+    maze_store: ${extend:${include:configs/mazes/maze_store.yaml}}
+
+  use_ambient_light: True
+  ambient_light_intensity: [0.3, 0.3, 0.3]
+
+  animal_configs:
+    animal_0:
+      extend: ${extend:${evo_config.spawning_config.default_animal_config}}
+      model_config:
+        extend: ${extend:${include:configs/animals/ant.yaml}}
+      eye_configs: {}
+      disable_intensity_sensor: True
+      name: MjCambrianAnimal
+
+  maze_selection_criteria:
+    mode: RANDOM
+  maze_configs:
+    # - CAMBRIAN_MAZE
+    # - Y_COMPLEX_MAZE_OPTION
+    # - Y_MAZE_STATIC
+    # - X_MAZE_STATIC
+    # - S_MAZE_STATIC
+    # - I_MAZE_LARGE_STATIC_SWITCH
+    # - G_MAZE_STATIC
+    # - G_MAZE_DIVERSE
+    # - OBS_AVOID_STRAIGHT_6
+    - OBS_AVOID_SHORT_1
+
+  maze_configs_store:
+    G_MAZE_STATIC:
+      extend:
+        base: ${extend:${include:configs/mazes/train/G_MAZE_STATIC.yaml}}
+      
+      use_adversary: True
+    G_MAZE_DIVERSE:
+      extend:
+        base: ${extend:${include:configs/mazes/train/G_MAZE_DIVERSE.yaml}}
+      
+      use_adversary: True
+
+  add_overlays: False
+
+  renderer_config:
+    maxgeom: 100000
+
+    # camera_config:
+    #   azimuth: 145
+    #   elevation: -40
+    #   lookat: [-10, 0, 0]
+    #   distance_factor: 1.0

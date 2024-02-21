@@ -192,7 +192,8 @@ def load_data(
                 if "config" not in ignore:
                     print(f"\tLoading config from {config_file}...")
                     rank_data.config = MjCambrianConfig.load(
-                        config_file, overrides=overrides, fix=True
+                        config_file,
+                        overrides=overrides,
                     )
 
             # Get the evaluations file
@@ -262,18 +263,20 @@ def plot_config(
 ):
     """Plot the config data."""
 
-    def plot_config_helper(attr: str, values: Any):
+    def plot_config_helper(attr: str, values: Any, **kwargs):
         # if values is a list, we'll average it
         if isinstance(values, list):
             values = np.average(values)
 
         # Plot the values
-        title = f"{attr}_vs_{kwargs.get('xlabel')}"  # xlabel required by plot_helper
+        xlabel = kwargs.pop("xlabel").title().replace("_", " ")
+        title = f"{attr.title().replace('_', ' ')} vs {xlabel}"  # xlabel required by plot_helper
         ylabel = attr.split(".")[-1].replace("_", " ").title()
         plot_helper(
             xvalues,
             values,
             title=title,
+            xlabel=xlabel,
             ylabel=ylabel,
             dry_run=dry_run,
             **kwargs,
@@ -284,7 +287,7 @@ def plot_config(
 
     # Now loop through each key and plot the values
     for attr, values in data.items():
-        plot_config_helper(attr, values)
+        plot_config_helper(attr, values, **kwargs)
 
 
 def plot_evaluations(
@@ -470,6 +473,9 @@ def plot(
     markers = [".", ",", "o", "v", "^", "<", ">", "s", "p", "*", "h", "+", "x"]
     markers = ["."]
 
+    # set the colors to be a pastel blue with alpha of 0.1
+    colors = np.array([[0.65490196, 0.78039216, 0.90588235, 0.75]])
+
     # We can ignore certain data if we want
     ignore = kwargs.get("ignore", [])
 
@@ -605,9 +611,20 @@ def plot(
             # Plot the average line
             plot_average_line(fig.gca())
 
+            # Add a legend entry for the blue circles
+            (selected_agent,) = fig.gca().plot(
+                [], [], ".", color=colors, label="Selected Agent"
+            )
+            fig.gca().legend(handles=[selected_agent])
+
             fig.tight_layout()
             plt.gca().set_box_aspect(1)
-            plt.savefig(output_folder / filename, dpi=500, bbox_inches="tight")
+            plt.savefig(
+                output_folder / filename,
+                dpi=500,
+                bbox_inches="tight",
+                transparent=False,
+            )
 
             if verbose > 1:
                 print(f"Saved plot to {output_folder / filename}.")
@@ -630,6 +647,80 @@ def phylogenetic_tree(
 ):
     import ete3 as ete
 
+    def add_node(
+        nodes: Dict[str, ete.Tree],
+        *,
+        rank_data: Rank,
+        generation_data: Generation,
+    ):
+        rank = rank_data.num
+        generation = generation_data.num
+
+        if generation_to_use is not None and generation != generation_to_use:
+            return
+        if rank_to_use is not None and rank != rank_to_use:
+            return
+
+        # Define a unique identifier for each rank
+        rank_id = f"G{generation}_R{rank}"
+        if rank_id in nodes:
+            return
+
+        # Get the parent identifier
+        if not (config := rank_data.config):
+            print(f"Skipping rank {rank_id} because it has no config.")
+            return
+        if not (evaluations := rank_data.evaluations):
+            print(f"Skipping rank {rank_id} because it has no evaluations.")
+            return
+
+        # Fix the config
+        rank_data.config.fix()
+
+        # If this is the first generation, the parent is set to the root
+        if generation == 0:
+            parent_id = "root"
+        else:
+            if not (parent_config := config.evo_config.parent_generation_config):
+                print(f"Skipping rank {rank_id} because it has no parent config.")
+                return
+            parent_id = f"G{parent_config.generation}_R{parent_config.rank}"
+
+            if parent_id not in nodes:
+                parent_generation_data = data.generations[parent_config.generation]
+                add_node(
+                    nodes,
+                    rank_data=parent_generation_data.ranks[parent_config.rank],
+                    generation_data=parent_generation_data,
+                )
+
+        # Create the rank node under the parent node
+        parent = nodes[parent_id]
+        node = parent.add_child(name=rank_id)
+        nodes[rank_id] = node
+
+        # Add features for the ranks and generations
+        node.add_feature("rank", rank)
+        node.add_feature("generation", generation)
+        if generation != 0:
+            node.add_feature("parent_rank", parent_config.rank)
+            node.add_feature("parent_generation", parent_config.generation)
+        else:
+            node.add_feature("parent_rank", -1)
+            node.add_feature("parent_generation", -1)
+
+        # Add evaluations to the node
+        key = "mean_results" if "mean_results" in evaluations else "results"
+        node.add_feature("fitness", np.max(evaluations[key]))
+
+        # Add a text label and feature for the pattern
+        globbed_data = config.glob(pattern, flatten=True)
+        for key, value in globbed_data.items():
+            if isinstance(value, list):
+                value = np.average(value).astype(type(value[0]))
+
+            node.add_feature(key, value)
+
     def build_tree(pattern: str) -> ete.Tree:
         tree = ete.Tree()
         tree.name = "root"
@@ -638,60 +729,9 @@ def phylogenetic_tree(
         nodes = {"root": tree}
 
         # Iterate through the generations and ranks
-        for generation, generation_data in data.generations.items():
-            if generation_to_use is not None and generation != generation_to_use:
-                continue
-
-            for rank, rank_data in generation_data.ranks.items():
-                # Only plot the rank we want, if specified
-                if rank_to_use is not None and rank != rank_to_use:
-                    continue
-
-                # Define a unique identifier for each rank
-                rank_id = f"G{generation}_R{rank}"
-
-                # Get the parent identifier
-                if not (config := rank_data.config):
-                    print(f"Skipping rank {rank_id} because it has no config.")
-                    continue
-                if not (evaluations := rank_data.evaluations):
-                    print(f"Skipping rank {rank_id} because it has no evaluations.")
-                    continue
-                if not (parent_config := config.evo_config.parent_generation_config):
-                    print(f"Skipping rank {rank_id} because it has no parent config.")
-                    continue
-
-                # Fix the config
-                rank_data.config.fix()
-
-                # If this is the first generation, the parent is set to the root
-                if generation == 0:
-                    parent_id = "root"
-                else:
-                    parent_id = f"G{parent_config.generation}_R{parent_config.rank}"
-
-                # Create the rank node under the parent node
-                parent = nodes[parent_id]
-                node = parent.add_child(name=rank_id)
-                nodes[rank_id] = node
-
-                # Add features for the ranks and generations
-                node.add_feature("rank", rank)
-                node.add_feature("generation", generation)
-                node.add_feature("parent_rank", parent_config.rank)
-                node.add_feature("parent_generation", parent_config.generation)
-
-                # Add evaluations to the node
-                key = "mean_results" if "mean_results" in evaluations else "results"
-                node.add_feature("fitness", np.max(evaluations[key]))
-
-                # Add a text label and feature for the pattern
-                globbed_data = config.glob(pattern, flatten=True)
-                for key, value in globbed_data.items():
-                    if isinstance(value, list):
-                        value = np.average(value).astype(type(value[0]))
-
-                    node.add_feature(key, value)
+        for generation_data in data.generations.values():
+            for rank_data in generation_data.ranks.values():
+                add_node(nodes, rank_data=rank_data, generation_data=generation_data)
 
         return tree
 
@@ -720,6 +760,7 @@ def phylogenetic_tree(
         if color_range:
             assert value_range is not None
             assert value_range[0] <= feature_value <= value_range[1]
+
             # Interpolate the color between the color range
             # The color range is defined as hex strings
             def hex_to_rgb(hex_str: str):
@@ -727,6 +768,7 @@ def phylogenetic_tree(
 
             def rgb_to_hex(rgb: Tuple[int, int, int]):
                 return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+
             color_range = [hex_to_rgb(color) for color in color_range]
             t = np.interp(feature_value, value_range, [0, 1])
             color = tuple(int(c0 + (c1 - c0) * t) for c0, c1 in zip(*color_range))
@@ -788,7 +830,11 @@ def phylogenetic_tree(
         style_feature_key = "fitness"
         values = [getattr(node, style_feature_key) for node in tree.iter_leaves()]
         threshold = np.percentile(values, 95)
-        style_kwargs = dict(style_feature_key=style_feature_key, value_threshold=threshold, color="#ff0000")
+        style_kwargs = dict(
+            style_feature_key=style_feature_key,
+            value_threshold=threshold,
+            color="#ff0000",
+        )
         layout_fn = partial(
             layout,
             feature_key=feature_key,
@@ -799,9 +845,9 @@ def phylogenetic_tree(
         tree_style = ete.treeview.TreeStyle()
         tree_style.show_leaf_name = False
         tree_style.layout_fn = layout_fn
-        # tree_style.mode = 'c'
-        # tree_style.arc_start = -180
-        # tree_style.arc_span = 360
+        tree_style.mode = 'c'
+        tree_style.arc_start = -180
+        tree_style.arc_span = 180
         tree_style.title.add_face(
             ete.TextFace(f"Phylogenetic Tree for {feature_key}", fsize=20), column=0
         )

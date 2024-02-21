@@ -138,7 +138,7 @@ class MjCambrianEnv(gym.Env):
         self._maze_store: Dict[str, MjCambrianMaze] = {}
         for maze_name in self.maze_names:
             if maze_name in self._maze_store:
-                raise ValueError(f"Duplicate maze name {maze_name}.")
+                continue
 
             assert maze_name in self.env_config.maze_configs_store, (
                 f"Unrecognized maze name {maze_name}. "
@@ -455,8 +455,11 @@ class MjCambrianEnv(gym.Env):
             i = self._num_resets * self._max_episode_steps + self._episode_step
             for animal in self.animals.values():
                 key = f"{animal.name}_pos_{i}"
+                size = self.maze.max_dim * 5e-3
                 self._overlays[key] = MjCambrianSiteViewerOverlay(
-                    animal.xpos.copy(), self.env_config.position_tracking_overlay_color
+                    animal.xpos.copy(),
+                    self.env_config.position_tracking_overlay_color,
+                    size,
                 )
 
         if self.record:
@@ -582,6 +585,9 @@ class MjCambrianEnv(gym.Env):
         assert self.renderer is not None, "Renderer has not been initialized! "
         "Ensure `use_renderer` is set to True in the constructor."
 
+        if not self.env_config.add_overlays:
+            return self.renderer.render()
+
         renderer = self.renderer
         renderer_width = renderer.width
         renderer_height = renderer.height
@@ -598,9 +604,6 @@ class MjCambrianEnv(gym.Env):
             else:
                 cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
                 overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
-
-        if not self.env_config.add_overlays:
-            return self.renderer.render(overlays=overlays)
 
         cursor = MjCambrianCursor(0, 0)
         for i, (name, animal) in enumerate(self.animals.items()):
@@ -633,13 +636,14 @@ class MjCambrianEnv(gym.Env):
             overlay_text = f"Num Eyes: {len(animal.eyes)}"
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
             cursor.y += TEXT_HEIGHT
-            eye0 = next(iter(animal.eyes.values()))
-            overlay_text = f"Res: {tuple(eye0.resolution)}"
-            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-            cursor.y += TEXT_HEIGHT
-            overlay_text = f"FOV: {tuple(eye0.fov)}"
-            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-            cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
+            if animal.num_eyes > 0:
+                eye0 = next(iter(animal.eyes.values()))
+                overlay_text = f"Res: {tuple(eye0.resolution)}"
+                overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
+                cursor.y += TEXT_HEIGHT
+                overlay_text = f"FOV: {tuple(eye0.fov)}"
+                overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
+                cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
             overlay_text = f"Animal: {name}"
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
             overlay_text = f"Action: {[f'{a: 0.3f}' for a in animal.last_action]}"
@@ -992,6 +996,7 @@ class MjCambrianEnv(gym.Env):
             assert "reward_at_goal" in self.env_config.reward_options
             assert "energy_penalty_per_pixel" in self.env_config.reward_options
             assert "energy_penalty_per_eye" in self.env_config.reward_options
+            assert "delta_euclidean_weight" in self.env_config.reward_options
 
         reward_at_goal = self.env_config.reward_options["reward_at_goal"]
         if not self._is_at_goal(animal):
@@ -1003,12 +1008,16 @@ class MjCambrianEnv(gym.Env):
         energy_penalty_per_eye = self.env_config.reward_options[
             "energy_penalty_per_eye"
         ]
-        energy_penalty = (
-            energy_penalty_per_pixel * animal.num_pixels
-            + energy_penalty_per_eye * animal.num_eyes
-        )
+        energy_penalty = animal.num_eyes * energy_penalty_per_eye
+        for eye in animal.eyes.values():
+            energy_penalty += eye.num_pixels * energy_penalty_per_pixel
 
-        delta_euclidean_reward = self._reward_fn_delta_euclidean(animal, info)
+        delta_euclidean_weight = self.env_config.reward_options[
+            "delta_euclidean_weight"
+        ]
+        delta_euclidean_reward = (
+            self._reward_fn_delta_euclidean(animal, info) * delta_euclidean_weight
+        )
         return reward_at_goal + energy_penalty + delta_euclidean_reward
 
     # Helpers
@@ -1119,7 +1128,9 @@ if __name__ == "__main__":
                 record_composites = True
                 composites = {k: [] for k in env.animals}
 
-        action_map = {0: np.array([0, -0.5]), 10: np.array([1, -0.5])}
+        action_map = {
+            0: np.array([-0.9, -0.1])
+        }  # {0: np.array([0, -0.5]), 10: np.array([1, -0.5])}
 
         t0 = time.time()
         step = 0
@@ -1130,7 +1141,7 @@ if __name__ == "__main__":
                 }
 
             _, reward, _, _, _ = env.step(action)
-            env.overlays["Step Reward"] = f"{reward['animal_0']:.2f}"
+            env.overlays["Step Reward"] = f"{next(iter(reward.values())):.2f}"
 
             if env.config.env_config.use_renderer:
                 if not env.renderer.is_running():

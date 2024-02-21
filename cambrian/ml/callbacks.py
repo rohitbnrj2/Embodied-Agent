@@ -54,7 +54,7 @@ class MjCambrianPlotMonitorCallback(BaseCallback):
         if len(x) <= 1 or len(y) <= 1:
             return True
 
-        def moving_average(values, window):
+        def moving_average(values, window) -> np.ndarray:
             weights = np.repeat(1.0, window) / window
             return np.convolve(values, weights, "valid")
 

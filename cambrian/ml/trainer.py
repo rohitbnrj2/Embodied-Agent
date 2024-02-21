@@ -81,6 +81,12 @@ class MjCambrianTrainer:
         callback = self._make_callback(env, eval_env)
         model = self._make_model(env)
 
+        # Save the eval environments xml
+        # All xml's _should_ be the same
+        xml_path = self.logdir / "env.xml"
+        cambrian_env: MjCambrianEnv = eval_env.envs[0].unwrapped
+        cambrian_env.xml.write(xml_path)
+
         # Start training
         total_timesteps = self.training_config.total_timesteps
         model.learn(total_timesteps=total_timesteps, callback=callback)
@@ -108,7 +114,7 @@ class MjCambrianTrainer:
 
             n_runs = len(self.config.env_config.maze_configs)
             filename = self.logdir / "eval" if record else None
-            record_kwargs = dict(path=filename, save_types=["webp", "png", "gif"])
+            record_kwargs = dict(path=filename, save_types=["webp", "png", "gif", "mp4"])
             evaluate_policy(env, model, n_runs, record_kwargs=record_kwargs)
 
     # ========
@@ -294,6 +300,15 @@ if __name__ == "__main__":
         help="Override eye config values. Do <config>.<key>=<value>. These are applied to _all_ eyes for _all_ animals.",
         default=[],
     )
+    parser.add_argument(
+        "-mo",
+        "--maze-overrides",
+        nargs="+",
+        action="extend",
+        type=str,
+        help="Override maze config values. Do <config>.<key>=<value>. These are applied to _all_ mazes.",
+        default=[],
+    )
 
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--train", action="store_true", help="Train the model")
@@ -307,7 +322,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
+    config = MjCambrianConfig.load(args.config, overrides=args.overrides, defaults=args.defaults)
 
     animal_configs = config.env_config.animal_configs
     for animal_name, animal_config in animal_configs.items():
@@ -318,6 +333,17 @@ if __name__ == "__main__":
             eye_config = eye_config.merge_with_dotlist(args.eye_overrides)
             eye_configs[eye_name] = eye_config
         animal_configs[animal_name] = animal_config
+
+    if args.maze_overrides:
+        maze_configs_store = config.env_config.maze_configs_store
+        maze_configs = config.env_config.maze_configs
+        if eval_overrides := config.env_config.eval_overrides:
+            if eval_maze_configs := eval_overrides.get("maze_configs"):
+                maze_configs += eval_maze_configs
+        for maze_name in maze_configs:
+            maze_config = maze_configs_store[maze_name]
+            maze_config = maze_config.merge_with_dotlist(args.maze_overrides)
+            maze_configs_store[maze_name] = maze_config
 
     runner = MjCambrianTrainer(config)
 

@@ -109,8 +109,9 @@ class MjCambrianPopulation:
                 if not (path / "config.yaml").exists():
                     continue
 
-                # Will overwrite the animal if it already exists
-                self.add_animal(path)
+                # Only add the animal if it's finished and not already in the population
+                if (path / "finished").exists() and path not in self._all_population:
+                    self.add_animal(path)
 
         # Sort the population and update the current population
         pop = sorted(self._all_population.items(), key=lambda x: x[1][0])
@@ -129,7 +130,7 @@ class MjCambrianPopulation:
         with np.load(path) as data:
             rewards = np.mean(data["results"], axis=1)
 
-        fitness = max(rewards)
+        fitness = np.max(rewards)
         return fitness
 
     def select_animal(self) -> MjCambrianConfig:
@@ -144,6 +145,9 @@ class MjCambrianPopulation:
         """
         self.logger.info(f"Selecting {num} animals.")
 
+        assert (
+            num <= self.num_top_performers
+        ), f"Cannot select more animals than exist: {num=} < {self.num_top_performers=}"
         animals = np.random.choice(self._top_performers, num, False)
         configs = [self._all_population[a][1].copy() for a in animals]
 
@@ -165,6 +169,9 @@ class MjCambrianPopulation:
         training_config = config.training_config
         animal_configs = config.env_config.animal_configs
         spawning_config = config.evo_config.spawning_config
+
+        # Set the top performer list to be the current population
+        evo_config.top_performers = [str(tp) for tp in self._top_performers]
 
         # TODO
         # replication_type = MjCambrianSpawningConfig.ReplicationType[
@@ -279,7 +286,9 @@ if __name__ == "__main__":
             for rank in range(node * size, node * size + size):
                 for env in range(config.evo_config.max_n_envs // size):
                     seed = pop._calc_seed(generation, rank) + env
-                    print(f"Generation {generation}, Node {node}, Rank {rank}, Env {env}: {seed}")
+                    print(
+                        f"Generation {generation}, Node {node}, Rank {rank}, Env {env}: {seed}"
+                    )
                     if seed in seeds:
                         print(f"Duplicate seed: {seed}")
                     seeds.add(seed)

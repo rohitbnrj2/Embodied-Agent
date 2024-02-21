@@ -2,5 +2,5 @@ xml: ${include:models/ant.xml,str}
 body_name: "torso_${..name}"
 joint_name: "root_${..name}"
 geom_name: "torso_geom_${..name}"
-eyes_lat_range: [-10, 20]
-eyes_lon_range: [-120, 120]
+eyes_lat_range: [-10, 10]
+eyes_lon_range: [-60, 60]

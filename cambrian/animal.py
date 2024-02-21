@@ -263,6 +263,7 @@ class MjCambrianAnimal:
 
         # Update the animal's position using the freejoint
         self.pos = init_qpos
+
         # step here so that the observations are updated
         mj.mj_forward(model, data)
         self.init_pos = self.pos.copy()
@@ -381,6 +382,9 @@ class MjCambrianAnimal:
             ML M MR
             BL B BR
         """
+        if self.num_eyes == 0:
+            return
+
         from cambrian.renderer import resize_with_aspect_fill
 
         max_res = (
@@ -388,31 +392,36 @@ class MjCambrianAnimal:
             max([eye.config.resolution[1] for eye in self.eyes.values()]),
         )
 
-        # TODO: sort based on lat/lon
-        num_horizontal = np.ceil(np.sqrt(len(self.eyes))).astype(int)
-        num_vertical = np.ceil(len(self.eyes) / num_horizontal).astype(int)
+        # Sort the eyes based on their lat/lon
+        lats, lons = set(), set()
+        images = {}
+        for eye in self.eyes.values():
+            lat, lon = eye.config.coord
+            if lat not in images:
+                images[lat] = {lon: eye.last_obs}
+            else:
+                assert lon not in images[lat]
+                images[lat][lon] = eye.last_obs
 
-        images: List[List[np.ndarray]] = []
-        for i in range(num_vertical):
-            images.append([])
-            for j in reversed(range(num_horizontal)):
-                name = f"{self.name}_eye_{num_vertical * i + j}"
+        # Construct the composite image
+        # Loop through the sorted list of images based on lat/lon
+        composite = []
+        for lat in sorted(images.keys()):
+            row = []
+            lons = sorted(images[lat].keys())
+            for lon in lons[::-1]:
+                row.append(resize_with_aspect_fill(images[lat][lon], *max_res))
+            composite.append(np.hstack(row))
+        composite = np.vstack(composite)
 
-                if name in self._eyes:
-                    image = self._eyes[name].last_obs
-                else:
-                    image = np.zeros((1, 1, 3), dtype=np.uint8)
-                images[i].append(resize_with_aspect_fill(image, *max_res))
-        images = np.array(images)
-
-        if images.size == 0:
+        if composite.size == 0:
             self.logger.warning(
                 f"Animal `{self.name}` observations. "
                 "Maybe you forgot to call `render`?."
             )
             return None
 
-        return np.vstack([np.hstack(image_row) for image_row in reversed(images)])
+        return composite
 
     @property
     def has_contacts(self) -> bool:
@@ -598,6 +607,8 @@ class MjCambrianAnimal:
 
         # Convert the strings to the enum
         mutations = [MjCambrianAnimal.MutationType[m] for m in mutations]
+        if len(mutations) == 0:
+            return config
 
         # Randomly select the number of mutations to perform with a skewed dist
         # This will lean towards less total mutations generally

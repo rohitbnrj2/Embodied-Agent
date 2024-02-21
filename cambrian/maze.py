@@ -136,7 +136,9 @@ class MjCambrianMaze:
                     self._wall_locations.append(np.array([x, y]))
 
                     wall_texture = struct[2:] if len(struct) > 2 else "default"
-                    assert wall_texture in self.config.wall_texture_map, f"Invalid texture: {wall_texture}"
+                    assert (
+                        wall_texture in self.config.wall_texture_map
+                    ), f"Invalid texture: {wall_texture}"
                     self._wall_textures.append(wall_texture)
                 elif struct == RESET:
                     self._unique_reset_locations.append(np.array([x, y]))

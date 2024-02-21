@@ -59,7 +59,8 @@ def get_logger(
         return logging.getLogger(name)
 
     # Walk through the handlers and remove any that don't have a valid filepath.
-    for handler_name, handler in config.select("logging_config.handlers").items():
+    handlers = config.select("logging_config.handlers") or {}
+    for handler_name, handler in handlers.items():
         filename = handler.get("filename", None)
         if not filename:
             continue

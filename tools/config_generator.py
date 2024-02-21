@@ -3,18 +3,15 @@ from functools import partial
 import random
 from pathlib import Path
 
+import yaml
 from omegaconf import OmegaConf
 
-from cambrian.evolution_envs.three_d.mujoco.utils import (
-    MjCambrianArgumentParser,
-    generate_sequence_from_range,
-)
-from cambrian.evolution_envs.three_d.mujoco.config import (
-    MjCambrianConfig,
-    MjCambrianEyeConfig,
-    MjCambrianAnimalConfig,
-)
+from cambrian.utils import MjCambrianArgumentParser, generate_sequence_from_range
+from cambrian.utils.config import MjCambrianConfig, MjCambrianEyeConfig, MjCambrianAnimalConfig
 
+list_repr = "tag:yaml.org,2002:seq"
+yaml.add_representer(list, lambda d, seq: d.represent_sequence(list_repr, seq, True))
+yaml.add_representer(tuple, lambda d, seq: d.represent_sequence(list_repr, seq, True))
 
 def generate_demos(args):
     import subprocess
@@ -184,4 +181,5 @@ if __name__ == "__main__":
 
         animal_config.eye_configs = eye_configs
 
-    OmegaConf.save(config, args.output)
+    with open(args.output, "w") as f:
+        yaml.dump(OmegaConf.to_container(config), f)

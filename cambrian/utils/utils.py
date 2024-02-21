@@ -11,6 +11,7 @@ import torch
 from stable_baselines3.common.vec_env import VecEnv
 
 if TYPE_CHECKING:
+    from cambrian.utils.config import MjCambrianConfig
     from cambrian.ml.model import MjCambrianModel
 
 
@@ -46,6 +47,7 @@ def get_include_path(
             return None
 
     return path
+
 
 # ============
 
@@ -94,7 +96,9 @@ def evaluate_policy(
         obs, _, done, _ = env.step(action)
 
         if done:
-            get_logger().info(f"Run {run} done. Cumulative reward: {cambrian_env.cumulative_reward}")
+            get_logger().info(
+                f"Run {run} done. Cumulative reward: {cambrian_env.cumulative_reward}"
+            )
 
             if not done_callback(run):
                 break
@@ -133,11 +137,34 @@ class MjCambrianArgumentParser(argparse.ArgumentParser):
             help="Override config values. Do <config>.<key>=<value>",
             default=[],
         )
+        self.add_argument(
+            "--defaults",
+            type=str,
+            action="extend",
+            nargs="+",
+            help="Path to yaml files containing defaults. Merged with the config file.",
+            default=[],
+        )
+
+        self._args = None
 
     def parse_args(self, *args, **kwargs):
         args = super().parse_args(*args, **kwargs)
+        self._args = args
 
         return args
+
+    def parse_config(self, **kwargs) -> "MjCambrianConfig":
+        assert self._args is not None, "parse_args() must be called first"
+
+        from cambrian.utils.config import MjCambrianConfig
+
+        return MjCambrianConfig.load(
+            self._args.config,
+            overrides=self._args.overrides,
+            defaults=self._args.defaults,
+            **kwargs,
+        )
 
 
 # =============

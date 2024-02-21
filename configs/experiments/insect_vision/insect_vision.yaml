@@ -45,18 +45,19 @@ env_config:
 
     reward_fn_type: fitness_energy_and_delta_euclidean
     reward_options:
-      reward_at_goal: 1.0
-      energy_penalty_per_pixel: -0.01
-      energy_penalty_per_eye: -0.1
+      reward_at_goal: 25.0
+      energy_penalty_per_pixel: 0
+      energy_penalty_per_eye: -0.5
+      delta_euclidean_weight: 3.0
 
-    # maze_configs:
-    #   - Y_COMPLEX_MAZE_OPTION
+    maze_configs:
+      - OBS_AVOID_STRAIGHT_6
 
     truncate_on_contact: False
-    contact_penalty: -5.0
+    contact_penalty: -2.0
 
 evo_config:
-  max_n_envs: 20
+  max_n_envs: 40
 
   spawning_config:
     init_num_mutations: 5

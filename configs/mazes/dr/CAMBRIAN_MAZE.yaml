@@ -101,3 +101,8 @@ map: [
 ]
 difficulty: 100
 flip: True
+wall_texture_map:
+  default: [vertical_10]
+  L: [vertical_10] # left
+  R: [vertical_10] # right
+  E: [vertical_10] # end
