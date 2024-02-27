@@ -1,0 +1,24 @@
+# @package env.mazes.I_MAZE_STATIC
+
+defaults:
+  - /env/mazes@_here_: default/${env/mazes/default}
+  - _self_
+
+map: |
+  [
+    [1:L, 1:E, 1:R],
+    [1:L,   R, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   T, 1:R],
+    [1:L, 1:E, 1:R],
+  ]

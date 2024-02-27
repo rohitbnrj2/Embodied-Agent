@@ -186,10 +186,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = MjCambrianConfig.load(args.config, overrides=args.overrides)
-    config.evo_config.setdefault("environment_variables", {})
     if not args.no_egl:
         # Set's EGL rendering for all trainer processes
-        config.evo_config.environment_variables["MUJOCO_GL"] = "egl"
+        config.evo_config.environment_variables.setdefault("MUJOCO_EGL", "egl")
 
     runner = MjCambrianEvoRunner(config, dry_run=args.dry_run)
     runner.evo()

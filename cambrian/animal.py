@@ -49,17 +49,23 @@ class MjCambrianAnimal:
 
     Args:
         config (MjCambrianAnimalConfig): The configuration for the animal.
+        name (str): The name of the animal. This is used to identify the animal in the
+            environment.
     """
 
-    def __init__(self, config: MjCambrianAnimalConfig):
+    def __init__(self, config: MjCambrianAnimalConfig, name: str):
         self.config = self._check_config(config)
+        self._name = name
         self.logger = get_logger()
 
         self._eyes: Dict[str, MjCambrianEye] = {}
         self._intensity_sensor: MjCambrianEye = None
+        # We're "responsible" (i.e. should step it) for the intensity sensor if we're
+        # not using the intensity obs (since eyes.step will step the intensity sensor if
+        # we use the intensity obs).
         self._responsible_for_intensity_sensor: bool = (
             not self.config.use_intensity_obs
-            and not self.config.disable_intensity_sensor
+            and self.config.intensity_sensor is not None
         )
 
         self._model: mj.MjModel = None
@@ -75,9 +81,9 @@ class MjCambrianAnimal:
         we'll update the model path to make sure it's either absolute/relative to
         the execution path or relative to this file."""
 
-        assert config.model_config.body_name is not None, "No body name specified."
-        assert config.model_config.joint_name is not None, "No joint name specified."
-        assert config.model_config.geom_name is not None, "No geom name specified."
+        assert config.body_name is not None, "No body name specified."
+        assert config.joint_name is not None, "No joint name specified."
+        assert config.geom_name is not None, "No geom name specified."
 
         return config
 
@@ -89,7 +95,7 @@ class MjCambrianAnimal:
             - parse the geometry
             - place eyes at the appropriate locations
         """
-        model = mj.MjModel.from_xml_string(self.config.model_config.xml)
+        model = mj.MjModel.from_xml_string(self.config.xml)
 
         self._parse_geometry(model)
         self._parse_actuators(model)
@@ -122,10 +128,8 @@ class MjCambrianAnimal:
         self._numctrl = model.nu
 
         # Create the geometries we will use for eye placement
-        geom_id = get_geom_id(model, self.config.model_config.geom_name)
-        assert (
-            geom_id != -1
-        ), f"Could not find geom {self.config.model_config.geom_name}."
+        geom_id = get_geom_id(model, self.config.geom_name)
+        assert (geom_id != -1), f"Could not find geom {self.config.geom_name}."
         geom_rbound = model.geom_rbound[geom_id]
         geom_pos = model.geom_pos[geom_id]
         self._geom = MjCambrianGeometry(geom_id, geom_rbound, geom_pos)
@@ -138,7 +142,7 @@ class MjCambrianAnimal:
         """
 
         # Root body for the animal
-        body_name = self.config.model_config.body_name
+        body_name = self.config.body_name
         body_id = get_body_id(model, body_name)
         assert body_id != -1, f"Could not find body with name {body_name}."
 
@@ -177,18 +181,17 @@ class MjCambrianAnimal:
     def _place_eyes(self):
         """Place the eyes on the animal."""
 
-        for i, eye_config in enumerate(self.config.eye_configs.values()):
+        for i, eye_config in enumerate(self.config.eyes.values()):
             name = f"{self.name}_eye_{i}"
             self._eyes[name] = self._create_eye(eye_config, name)
 
             self._num_pixels += self._eyes[name].num_pixels
 
         # Add a forward facing eye intensity sensor
-        if not self.config.disable_intensity_sensor:
-            intensity_sensor_config = self.config.intensity_sensor_config
+        if intensity_sensor_config := self.config.intensity_sensor:
             intensity_sensor_config.coord = [
-                float(np.mean(self.config.model_config.eyes_lat_range)),
-                float(np.mean(self.config.model_config.eyes_lon_range)),
+                float(np.mean(self.config.eyes_lat_range)),
+                float(np.mean(self.config.eyes_lon_range)),
             ]
             self._intensity_sensor = self._create_eye(
                 intensity_sensor_config,
@@ -210,10 +213,9 @@ class MjCambrianAnimal:
         pos_rot = default_rot * R.from_euler("yz", [lat, lon])
         rot_rot = R.from_euler("z", lat) * R.from_euler("y", -lon) * default_rot
 
+        geom = self._geom
         config.name = name
-        config.pos = (
-            pos_rot.apply([-self._geom.rbound, 0, 0]) + self._geom.pos
-        ).tolist()
+        config.pos = (pos_rot.apply([-geom.rbound, 0, 0]) + geom.pos).tolist()
         config.quat = rot_rot.as_quat().tolist()
         return MjCambrianEye(config)
 
@@ -221,24 +223,22 @@ class MjCambrianAnimal:
         """Generates the xml for the animal. Will generate the xml from the model file
         and then add eyes to it.
         """
-        self.xml = MjCambrianXML.from_string(self.config.model_config.xml)
+        self.xml = MjCambrianXML.from_string(self.config.xml)
 
         # Set each geom in this animal to be a certain group for rendering utils
         # The group number is the index the animal was created + 2
         # + 2 because the default group used in mujoco is 0 and our animal indexes start
         # at 0 and we'll put our scene stuff on group 1
-        for geom in self.xml.findall(
-            f".//*[@name='{self.config.model_config.body_name}']//geom"
-        ):
+        for geom in self.xml.findall(f".//*[@name='{self.config.body_name}']//geom"):
             geom.set("group", str(idx + 2))
 
         # Add eyes
         for eye in self.eyes.values():
-            self.xml += eye.generate_xml(self.xml, self.config.model_config.body_name)
+            self.xml += eye.generate_xml(self.xml, self.config.body_name)
 
         # Add the intensity sensor only if it's not included in self.eyes
         if self._responsible_for_intensity_sensor:
-            body_name = self.config.model_config.body_name
+            body_name = self.config.body_name
             self.xml += self._intensity_sensor.generate_xml(self.xml, body_name)
 
         return self.xml
@@ -292,12 +292,12 @@ class MjCambrianAnimal:
         """Resets the adrs for the animal. This is used when the model is reloaded."""
 
         # Root body for the animal
-        body_name = self.config.model_config.body_name
+        body_name = self.config.body_name
         self._body_id = get_body_id(model, body_name)
         assert self._body_id != -1, f"Could not find body with name {body_name}."
 
         # This joint is used for positioning the animal in the environment
-        joint_name = self.config.model_config.joint_name
+        joint_name = self.config.joint_name
         self._joint_id = get_joint_id(model, joint_name)
         assert self._joint_id != -1, f"Could not find joint with name {joint_name}."
         self._joint_qposadr = model.jnt_qposadr[self._joint_id]
@@ -528,7 +528,7 @@ class MjCambrianAnimal:
 
     @property
     def name(self) -> str:
-        return self.config.name
+        return self._name
 
     @property
     def pos(self) -> np.ndarray:

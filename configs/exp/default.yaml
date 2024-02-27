@@ -2,19 +2,32 @@
 
 defaults:
   # Below is how mazes are specified. Each maze should include the following in it's defaults list:
-  # - /env_config/mazes@_here_: default/${env_config/mazes/default}
+  # - /env/mazes@_here_: default/${env/mazes/default}
+  # - _self_
   # This refers to the default maze configuration defined below. At runtime, the user
   # can then specify a different default maze configuration, if desired. Furthermore,
   # the order below is important: mazes must come first because then the snippet 
-  # mentioned earlier (specifically the ${env_config/mazes/default} part) won't be
-  # resolved correctly. To specify a maze or multiple, you may run the following:
-  # python <script> env_config/mazes=MAZE # defines one maze only
+  # mentioned earlier (specifically the ${env/mazes/default} part) won't be
+  # resolved correctly. The exp file you write should therefore define the mazes
+  # _before_ including the default file (this file).
+  # To specify a maze or multiple, you may run the following:
+  # python <script> env/mazes=MAZE # defines one maze only
   # OR
-  # python <script> env_config/mazes=[MAZE1,MAZE2,...]
-  # TODO: currently is required, could loosen if we want to allow for no mazes
-  - /env_config/mazes: "???"
-  - /env_config/mazes/default: default
+  # python <script> env/mazes=[MAZE1,MAZE2,...]
+  # In the yaml exp file, you can also specify the mazes as follows:
+  # Option 1:
+  # - /env/mazes: <MAZE>
+  # Option 2:
+  # - /env/mazes: [MAZE1, MAZE2, ...]
+  # or
+  # - /env/mazes: 
+  #   - <MAZE1>
+  #   - <MAZE2>
+  #   - ...
+  # Option 3:
+  # - /env/mazes/MAZE1@env.mazes.CUSTOM_NAME
+  - /env/mazes/default: default
 
   # Similar to the mazes, you must also specify the animal configuration.
-  - /env_config/animals: "???"
-  - /env_config/animals/default: default
+  - /env/animals/default: default
+  - /env/animals/eyes/default: default

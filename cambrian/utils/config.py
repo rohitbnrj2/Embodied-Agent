@@ -10,7 +10,7 @@ from typing import (
     TypeAlias,
 )
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from enum import Enum, Flag, auto
 from copy import deepcopy
@@ -19,16 +19,6 @@ from functools import partial
 import yaml
 from omegaconf import OmegaConf, DictConfig
 import hydra_zen as zen
-
-
-def partial_representer(dumper, data):
-    func_name = f"{data.func.__module__}.{data.func.__name__}"
-    return dumper.represent_mapping(
-        "tag:yaml.org,2002:map", {"_target_": func_name, "_partial_": True}
-    )
-
-
-yaml.add_representer(partial, partial_representer)
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 
@@ -128,30 +118,10 @@ class MjCambrianBaseConfig:
             OmegaConf.
     """
 
-    custom: Optional[Dict[Any, str]] = None
-
-    def save(self, path: Path | str):
-        """Save the config to a yaml file."""
-
-        class CustomDumper(yaml.CSafeDumper):
-            pass
-
-        # Add the following resolver temporarily to the yaml file
-        def str_representer(dumper, data):
-            if "\n" in data:
-                return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
-            return dumper.represent_scalar("tag:yaml.org,2002:str", data)
-
-        CustomDumper.add_representer(str, str_representer)
-
-        with open(path, "w") as f:
-            f.write(
-                yaml.dump(
-                    yaml.safe_load(OmegaConf.to_yaml(self)),
-                    sort_keys=False,
-                    Dumper=CustomDumper,
-                )
-            )
+    custom: Optional[Dict[Any, str]] = field(
+        default_factory=dict,
+        metadata={"omegaconf_ignore": True},
+    )
 
     def copy(self) -> Self:
         """Copy the config such that it is a new instance."""
@@ -168,12 +138,42 @@ class MjCambrianBaseConfig:
             setattr(self, key, default)
         return getattr(self, key)
 
+    def to_yaml(self) -> str:
+        """Convert the config to a yaml string.
+
+        OmegaConf implements a custom dumper with a custom representer that is
+        basically a no-op since we use structured configs. But it doesn't let use
+        add a custom representer. This method overrides the default representer.
+        """
+        from omegaconf._utils import get_omega_conf_dumper
+
+        def partial_representer(dumper, data):
+            func_name = f"{data.func.__module__}.{data.func.__name__}"
+            return dumper.represent_mapping(
+                "tag:yaml.org,2002:map", {"_target_": func_name, "_partial_": True}
+            )
+
+        def str_representer(dumper: yaml.Dumper, data):
+            """Will use the | style for multiline strings."""
+            style = "|" if "\n" in data else None
+            return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+        get_omega_conf_dumper().add_representer(partial, partial_representer)
+        get_omega_conf_dumper().add_representer(str, str_representer)
+
+        return OmegaConf.to_yaml(self)
+
+    def save(self, path: Path | str):
+        """Save the config to a yaml file."""
+        with open(path, "w") as f:
+            f.write(self.to_yaml())
+
     def __contains__(self, key: str) -> bool:
         """Check if the dataclass contains a key with the given name."""
         return key in self.__annotations__
 
-    def __str__(self):
-        return OmegaConf.to_yaml(self)
+    def __str__(self) -> str:
+        return self.to_yaml()
 
 
 MjCambrianXMLConfig: TypeAlias = Any
@@ -228,6 +228,9 @@ MjCambrianActivationFn: TypeAlias = Any
 
 MjCambrianRewardFn: TypeAlias = Any
 """Actual type: Callable[[MjCambrianAnimal, Dict[str, Any], ...], float]"""
+
+MjCambrianMazeSelectionFn: TypeAlias = Any
+"""Actual type: Callable[[MjCambrianEnv, ...], MjCambrianMaze]"""
 
 
 @config_wrapper
@@ -464,7 +467,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
             the width and height are ignored and the window is rendered in fullscreen.
             This is only valid for onscreen renderers.
 
-        camera_config (Optional[MjCambrianCameraConfig]): The camera config to use for
+        camera (Optional[MjCambrianCameraConfig]): The camera config to use for
             the renderer.
         scene_options (Optional[Dict[str, Any]]): The scene options to use for the
             renderer. Keys are the name of the option as defined in MjvOption. For
@@ -487,7 +490,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
 
     fullscreen: Optional[bool] = None
 
-    camera_config: Optional[MjCambrianCameraConfig] = None
+    camera: Optional[MjCambrianCameraConfig] = None
     scene_options: Optional[Dict[str, Any]] = None
 
     use_shared_context: bool
@@ -585,7 +588,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
             isn't actually used by eye, but by the animal. The eye has no knowledge
             of the geometry it's trying to be placed on. Fmt: lat lon
 
-        renderer_config (MjCambrianRendererConfig): The renderer config to use for the
+        renderer (MjCambrianRendererConfig): The renderer config to use for the
             underlying renderer. The width and height of the renderer will be set to the
             padded resolution (resolution + int(psf_filter_size/2)) of the eye.
     """
@@ -629,7 +632,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
 
     coord: Optional[Tuple[float, float]] = None
 
-    renderer_config: MjCambrianRendererConfig
+    renderer: MjCambrianRendererConfig
 
     def to_xml_kwargs(self) -> Dict[str, Any]:
         kwargs = dict()
@@ -653,17 +656,16 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
 
 
 @config_wrapper
-class MjCambrianAnimalModelConfig(MjCambrianBaseConfig):
-    """Defines the config for an animal model. Used for type hinting.
+class MjCambrianAnimalConfig(MjCambrianBaseConfig):
+    """Defines the config for an animal. Used for type hinting.
 
     Attributes:
-        xml (str): The xml for the animal model. This is the xml that will be used to
-            create the animal model. You should use ${..name} to generate named
-            attributes.
+        xml (str): The xml for the animal. This is the xml that will be used to create
+            the animal. You should use ${parent:xml} to generate named attributes. This
+            will search upwards in the yaml file to find the name of the animal.
+
         body_name (str): The name of the body that defines the main body of the animal.
-            This will probably be set through a MjCambrianAnimal subclass.
         joint_name (str): The root joint name for the animal. For positioning (see qpos)
-            This will probably be set through a MjCambrianAnimal subclass.
         geom_name (str): The name of the geom that are used for eye placement.
 
         eyes_lat_range (Tuple[float, float]): The x range of the eye. This is used to
@@ -674,14 +676,7 @@ class MjCambrianAnimalModelConfig(MjCambrianBaseConfig):
             determine the placement of the eye on the animal. Specified in degrees. This
             is the longitudinal/horizontal range of the evenly placed eye about the
             animal's bounding sphere.
-    """
 
-
-@config_wrapper
-class MjCambrianAnimalConfig(MjCambrianBaseConfig):
-    """Defines the config for an animal. Used for type hinting.
-
-    Attributes:
         init_pos (Tuple[float, float]): The initial position of the animal. If unset,
             the animal's position at each reset is generated randomly using the
             `maze.generate_reset_pos` method.
@@ -699,10 +694,9 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             not.
         n_temporal_obs (int): The number of temporal observations to use.
 
-        eyes (List[MjCambrianEyeConfig]): The configs for the eyes.
-            The key will be used as the default name for the eye, unless explicitly
-            set in the eye config.
-        intensity_sensor_config (Optional[MjCambrianEyeConfig]): The eye config to use
+        eyes (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
+            The key will be used as the name for the eye.
+        intensity_sensor (Optional[MjCambrianEyeConfig]): The eye config to use
             for the intensity sensor. If unset, the intensity sensor will not be used.
 
         mutations_from_parent (Optional[List[str]]): The mutations applied to the child
@@ -728,7 +722,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     use_current_pos_obs: bool
     n_temporal_obs: int
 
-    eyes: List[MjCambrianEyeConfig]
+    eyes: Dict[str, MjCambrianEyeConfig]
     intensity_sensor: Optional[MjCambrianEyeConfig] = None
 
     mutations_from_parent: Optional[List[str]] = None
@@ -762,50 +756,33 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
 
-        use_renderer (bool): Whether to use the renderer. Should set to False if
-            `render` will never be called. Defaults to True. This is useful to reduce
-            the amount of vram consumed by non-rendering environments.
         add_overlays (bool): Whether to add overlays or not.
         clear_overlays_on_reset (bool): Whether to clear the overlays on reset or not.
             Consequence of setting to False is that if `add_position_tracking_overlay`
             is True and mazes change between evaluations, the sites will be drawn on top
             of each other which may not be desired. When record is False, the overlays
             are always cleared.
-        add_position_tracking_overlay (bool): Whether to add the position
-            tracking overlay which adds a site to the world at each position an
-            animal has been.
-        position_tracking_overlay_color (Optional[Tuple[float, float, float, float]]):
-            The color of the position tracking overlay. Must be set if
-            `add_position_tracking_overlay` is True. Fmt: rgba
-        overlay_width (Optional[float]): The width of _each_ rendered overlay that's
-            placed on the render output. This is primarily for debugging. If unset,
-            no overlay will be added. This is a percentage!! It's the percentage of
-            the total width of the render output.
-        overlay_height (Optional[float]): The height of _each_ rendered overlay that's
-            placed on the render output. This is primarily for debugging. If unset,
-            no overlay will be added. This is a percentage!! It's the percentage of
-            the total height of the render output.
-        renderer_config (MjCambrianViewerConfig): The default viewer config to
-            use for the mujoco viewer.
+        renderer (Optional[MjCambrianViewerConfig]): The default viewer config to
+            use for the mujoco viewer. If unset, no renderer will be used. Should
+            set to None if `render` will never be called. This may be useful to
+            reduce the amount of vram consumed by non-rendering environments.
 
-        maze_selection_criteria (Dict[str, Any]): The mode to use for choosing
-            the maze. The `mode` key is required and must be set to a
-            `MazeSelectionMode`. See `MazeSelectionMode` for other params or
-            `maze.py` for more info.
-        mazes (List[MjCambrianMazeConfig]): The configs for the mazes. Each
+        eval_overrides (Optional[Dict[str, Any]]): Key/values to override the default
+            env during evaluation. Applied during evaluation only. Merged directly 
+            with the env. The actual datatype is Self/MjCambrianEnvConfig but all 
+            attributes are optional. NOTE: This dict is only applied at reset, 
+            meaning mujoco xml changes will not be reflected in the eval episode.
+
+        mazes (Dict[str, MjCambrianMazeConfig]): The configs for the mazes. Each
             maze will be loaded into the scene and the animal will be placed in a maze
-            at each reset. The maze will be chosen based on the
-            `maze_selection_criteria.mode` field.
+            at each reset. 
+        maze_selection_fn (MjCambrianMazeSelectionFn): The function to use to select
+            the maze. The function will be called at each reset to select the maze
+            to use. See `MjCambrianMazeSelectionFn` and `maze.py` for more info.
 
         animals (List[MjCambrianAnimalConfig]): The configs for the animals.
             The key will be used as the default name for the animal, unless explicitly
             set in the animal config.
-
-        eval_overrides (Optional[Dict[str, Any]]): Key/values to override the default
-            env_config. Applied during evaluation only. Merged directly with the
-            env_config. NOTE: Only some fields are actually used when loading.
-            NOTE #2: Only the top level keys are used, as in this is a shallow
-            merge.
     """
 
     xml: MjCambrianXMLConfig
@@ -823,65 +800,16 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
     frame_skip: int
 
-    use_renderer: bool
     add_overlays: bool
     clear_overlays_on_reset: bool
-    add_position_tracking_overlay: bool
-    position_tracking_overlay_color: Optional[Tuple[float, float, float, float]] = None
-    overlay_width: Optional[float] = None
-    overlay_height: Optional[float] = None
-    renderer_config: MjCambrianRendererConfig
+    renderer: Optional[MjCambrianRendererConfig] = None
 
     eval_overrides: Optional[Dict[str, Any]] = None
 
-    class MazeSelectionMode(Enum):
-        """The mode to use for choosing the maze. See `maze.py` for more info.
+    mazes: Dict[str, MjCambrianMazeConfig]
+    maze_selection_fn: MjCambrianMazeSelectionFn
 
-        NOTE: the `mode` key is required for the criteria dict. other keys are passed
-        as kwargs to the selection method.
-
-        Ex:
-            # Choose a random maze
-            maze_selection_criteria:
-                mode: RANDOM
-
-            # Choose a maze based on difficulty
-            maze_selection_criteria:
-                mode: DIFFICULTY
-                schedule: logistic
-
-            # From the command line
-            -o ...maze_selection_criteria="{mode: DIFFICULTY, schedule: logistic}"
-            # or simply
-            -o ...maze_selection_criteria.mode=RANDOM
-
-        Attributes:
-            RANDOM (str): Choose a random maze.
-            DIFFICULTY (str): Choose a maze based on difficulty. A maze is chosen
-                based on the passed `schedule` method. Current support methods are
-                `logistic`, `linear`, `exponential`. See the
-                `MjCambrianEnv._choose_maze` for more details.
-            CURRICULUM (str): Choose a maze based on a curriculum. This is similar to
-                DIFFICULTY, but CURRICULUM will schedule the maze changes based on the
-                current reward. As the reward nears
-                `maze_selection_criteria["factor"] * max_episode_steps`, the maze
-                selection will lean towards more difficult mazes.
-            NAMED (str): Choose a maze based on name. `name` must be passed as a kwarg
-                to the selection method.
-            CYCLE (str): Cycle through the mazes. The mazes are cycled through in
-                the order they are defined in the config.
-        """
-
-        RANDOM: str = "random"
-        DIFFICULTY: str = "difficulty"
-        CURRICULUM: str = "curriculum"
-        NAMED: str = "named"
-        CYCLE: str = "cycle"
-
-    maze_selection_criteria: Dict[str, Any]
-    mazes: List[MjCambrianMazeConfig]
-
-    animals: List[MjCambrianAnimalConfig]
+    animals: Dict[str, MjCambrianAnimalConfig]
 
 
 @config_wrapper
@@ -890,14 +818,12 @@ class MjCambrianPopulationConfig(MjCambrianBaseConfig):
 
     Attributes:
         size (int): The population size. This represents the number of agents that
-            should be trained at any one time.
-        num_top_performers (int): The number of top performers to use in the new agent
-            selection. Either in cross over or in mutation, these top performers are
-            used to generate new agents.
+            should be trained at any one time. This is independent to the number of 
+            parallel envs; an agent represents a single model, where we launch many 
+            parallel envs to improve training. This number represents the former.
     """
 
     size: int
-    num_top_performers: int
 
 
 @config_wrapper
@@ -952,20 +878,25 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
     """Config for evolutions. Used for type hinting.
 
     Attributes:
+        num_nodes (int): The number of nodes used for the evolution process. By default,
+            this should be 1. And then if multiple evolutions are run in parallel, the
+            number of nodes should be set to the number of evolutions.
         max_n_envs (int): The maximum number of environments to use for
             parallel training. Will set `n_envs` for each training process to
             `max_n_envs // population size`.
         num_generations (int): The number of generations to run for.
-        num_nodes (int): The number of nodes used for the evolution process. By default,
-            this should be 1. And then if multiple evolutions are run in parallel, the
-            number of nodes should be set to the number of evolutions.
 
-        population_config (MjCambrianPopulationConfig): The config for the population.
-        spawning_config (MjCambrianSpawningConfig): The config for the spawning process.
+        population (MjCambrianPopulationConfig): The config for the population.
+        spawning (MjCambrianSpawningConfig): The config for the spawning process.
 
-        generation_config (Optional[MjCambrianGenerationConfig]): The config for the
+        rank (int): The rank of the current evolution. Will be set by the evolution
+            runner. A rank is essentially the id of the current evolution process.
+        generation (int): The generation of the current evolution. Will be set by the
+            evolution runner.
+
+        generation (Optional[MjCambrianGenerationConfig]): The config for the
             current generation. Will be set by the evolution runner.
-        parent_generation_config (Optional[MjCambrianGenerationConfig]): The config for
+        parent_generation (Optional[MjCambrianGenerationConfig]): The config for
             the parent generation. Will be set by the evolution runner. If None, that
             means that the current generation is the first generation (i.e. no parent).
 
@@ -977,15 +908,18 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
             set for the training process.
     """
 
+    num_nodes: int
     max_n_envs: int
     num_generations: int
-    num_nodes: int
 
-    population_config: MjCambrianPopulationConfig
-    spawning_config: MjCambrianSpawningConfig
+    population: MjCambrianPopulationConfig
+    spawning: MjCambrianSpawningConfig
 
-    generation_config: Optional[MjCambrianGenerationConfig] = None
-    parent_generation_config: Optional[MjCambrianGenerationConfig] = None
+    # rank: int
+    # generation: int
+
+    # parent_rank: int
+    # parent_generation: int
 
     top_performers: Optional[List[str]] = None
 
@@ -1005,11 +939,11 @@ class MjCambrianConfig(MjCambrianBaseConfig):
             Launched processes should use this seed value to calculate their own seed
             values. This is used to ensure that each process has a unique seed.
 
-        training_config (MjCambrianTrainingConfig): The config for the training process.
-        env_config (MjCambrianEnvConfig): The config for the environment.
-        evo_config (Optional[MjCambrianEvoConfig]): The config for the evolution
+        training (MjCambrianTrainingConfig): The config for the training process.
+        env (MjCambrianEnvConfig): The config for the environment.
+        evo (Optional[MjCambrianEvoConfig]): The config for the evolution
             process. If None, the environment will not be run in evolution mode.
-        logging_config (Optional[Dict[str, Any]]): The config for the logging process.
+        logging (Optional[Dict[str, Any]]): The config for the logging process.
             Passed to `logging.config.dictConfig`.
     """
 
@@ -1018,10 +952,10 @@ class MjCambrianConfig(MjCambrianBaseConfig):
 
     seed: int
 
-    training_config: MjCambrianTrainingConfig
-    env_config: MjCambrianEnvConfig
-    evo_config: Optional[MjCambrianEvoConfig] = None
-    logging_config: Optional[Dict[str, Any]] = None
+    training: MjCambrianTrainingConfig
+    env: MjCambrianEnvConfig
+    evo: Optional[MjCambrianEvoConfig] = None
+    logging: Optional[Dict[str, Any]] = None
 
 
 def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, /):
@@ -1064,7 +998,6 @@ def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, 
     )
     def main(cfg: DictConfig):
         OmegaConf.resolve(cfg)
-        cfg.custom = None
 
         main_fn(zen.instantiate(cfg))
 
@@ -1077,8 +1010,9 @@ if __name__ == "__main__":
     t0 = time.time()
 
     def main(config: MjCambrianConfig):
-        # print(config)
-        config.save("config.yaml")
+        print(config)
+        # config.save("config.yaml")
+        pass
 
     setup_hydra(main)
     t1 = time.time()

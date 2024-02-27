@@ -1,0 +1,6 @@
+run:
+  dir: ${logdir}/hydra/run/${now:%H-%M-%S}/
+sweep:
+  dir: ${logdir}/hydra/sweep/${now:%H-%M-%S}/
+job:
+  name: ${expname}_${now:%H-%M-%S}

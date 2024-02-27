@@ -1,0 +1,10 @@
+defaults:
+  - default
+  - stdout
+  - stderr
+  - file
+  - _self_
+
+loggers:
+  cambrian:
+    handlers: [file_out, file_err, stdout, stderr]

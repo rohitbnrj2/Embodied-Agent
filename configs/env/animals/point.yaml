@@ -1,0 +1,13 @@
+# @package env.animals.point
+
+defaults:
+  - /env/animals@_here_: default/${env/animals/default}
+  - xml: point
+  - _self_
+
+body_name: "particle_${parent:}"
+joint_name: "ball_x_${parent:}"
+geom_name: "particle_geom_${parent:}"
+
+eyes_lat_range: [-5, 25]
+eyes_lon_range: [-60, 60]

@@ -1,6 +1,6 @@
 """Augmented from `gymnasium_robotics.envs.maze.maze.Maze` to utilize MjCambrianXML."""
 
-from typing import Tuple, Dict, List, Any, Optional
+from typing import Tuple, Dict, List, Any, Optional, Type, TYPE_CHECKING
 from collections import deque
 import numpy as np
 
@@ -13,7 +13,10 @@ from cambrian.utils import (
     get_light_id,
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML
-from cambrian.utils.config import MjCambrianMazeConfig
+from cambrian.utils.config import MjCambrianMazeConfig, MjCambrianMazeSelectionFn
+
+if TYPE_CHECKING:
+    from cambrian.env import MjCambrianEnv
 
 # ================
 
@@ -22,7 +25,9 @@ TARGET = T = "T"
 COMBINED = C = "C"  # These cells can be selected as target or reset locations
 WALL = W = "1"
 EMPTY = E = "0"
-ADVERSARY = A = "A" # Optional adversary location - if not in maze, a target will be selected
+ADVERSARY = A = (
+    "A"  # Optional adversary location - if not in maze, a target will be selected
+)
 
 # ================
 
@@ -67,9 +72,9 @@ class MjCambrianMaze:
         adversary: the target which the agent is trying to avoid
     """
 
-    def __init__(self, config: MjCambrianMazeConfig, *, ref: "MjCambrianMaze" = None):
+    def __init__(self, config: MjCambrianMazeConfig, name: str, *, ref: "MjCambrianMaze" = None):
         self._config = config
-        self._name = self._config.name
+        self._name = name
         self._ref = ref
 
         self._map: np.ndarray = np.array(config.map, dtype=str)
@@ -103,7 +108,9 @@ class MjCambrianMaze:
             self._init_adversary_pos: np.ndarray = np.array(
                 self._config.init_adversary_pos
             )
-            self._adversary: np.ndarray = self._reset_adversary(self._init_adversary_pos)
+            self._adversary: np.ndarray = self._reset_adversary(
+                self._init_adversary_pos
+            )
 
         # If we're using ref, verify the wall locations are the same and copy
         # block names
@@ -336,7 +343,8 @@ class MjCambrianMaze:
             self._goal = self._reset_target(self._init_goal_pos)
             if self.config.use_adversary:
                 assert (
-                    len(self._unique_target_locations) > 1 or len(self._unique_adv_locations) > 0
+                    len(self._unique_target_locations) > 1
+                    or len(self._unique_adv_locations) > 0
                 ), "Must have at least 2 unique target locations to use an adversary"
                 self._adversary = self._reset_adversary(self._init_adversary_pos)
 
@@ -514,6 +522,16 @@ class MjCambrianMaze:
         return self._name
 
     @property
+    def ref(self) -> Type["MjCambrianMaze"] | None:
+        """Returns the reference maze."""
+        return self._ref
+
+    @property
+    def ref_name(self) -> str | None:
+        """Returns the reference maze name."""
+        return self._ref.name if self._ref else None
+
+    @property
     def goal(self) -> np.ndarray:
         """Returns the goal."""
         return self._goal
@@ -607,6 +625,145 @@ class MjCambrianMaze:
 
     def __str__(self) -> str:
         return self.__repr__()
+
+
+# ================================
+
+
+class MjCambrianMazeStore:
+    """This is a simple class to store a collection of mazes."""
+
+    def __init__(self, maze_configs: Dict[str, MjCambrianMazeConfig], maze_selection_fn: MjCambrianMazeSelectionFn):
+        self._mazes: Dict[str, MjCambrianMaze] = {}
+        self._ref_mazes: Dict[str, MjCambrianMaze] = {}
+        self._current_maze: MjCambrianMaze = None
+
+        self._maze_selection_fn = maze_selection_fn
+
+        self._create_mazes(maze_configs)
+
+    def _create_mazes(self, maze_configs: Dict[str, MjCambrianMazeConfig]):
+        for name, config in maze_configs.items():
+            if name in self._mazes:
+                # If the maze already exists, skip it
+                continue
+
+            if (ref := config.ref) and ref not in self._mazes:
+                # If the reference maze is not in the store, create it first
+                assert ref in maze_configs, (
+                    f"Unrecognized reference maze {ref=} for maze {name}. "
+                    f"Must be one of the following: {list(maze_configs.keys())}"
+                )
+                self._ref_mazes[ref] = MjCambrianMaze(maze_configs[ref])
+
+            # Now create the maze
+            self._mazes[name] = MjCambrianMaze(config, name, ref=self._ref_mazes.get(ref))
+
+    def generate_xml(self) -> MjCambrianXML:
+        """Generates the xml for the current maze."""
+        xml = MjCambrianXML.make_empty()
+
+        for maze in self._mazes.values():
+            xml += maze.generate_xml()
+            if (ref := maze.ref) and ref not in self._mazes:
+                xml += ref.generate_xml()
+
+        return xml
+
+    def reset(self, model: mj.MjModel, *, all_active: bool = False):
+        """Resets the mazes."""
+        for maze in self._mazes.values():
+            maze.reset(model, active=maze == self._current_maze or all_active)
+            if (ref := maze.ref) and ref not in self._mazes:
+                ref.reset(model, active=maze == self._current_maze or all_active)
+
+        # Explicitly reset the current maze to ensure it's active
+        self._current_maze.reset(model, active=True)
+
+    @property
+    def current_maze(self) -> MjCambrianMaze:
+        """Returns the current maze."""
+        return self._current_maze
+
+    @property
+    def maze_list(self) -> List[MjCambrianMaze]:
+        """Returns the list of mazes."""
+        return list(self._mazes.values())
+
+    # ======================
+    # Maze selection methods
+
+    def select_maze(self, env: "MjCambrianEnv") -> MjCambrianMaze:
+        """This should be called by the environment to select a maze."""
+        maze = self._maze_selection_fn(self, env)
+        self._current_maze = maze
+        return maze
+
+    def select_maze_random(self, _: "MjCambrianEnv") -> MjCambrianMaze:
+        """Selects a maze at random."""
+        return np.random.choice(self.maze_list)
+
+    def select_maze_difficulty(
+        self, env: "MjCambrianEnv", *, schedule: Optional[str] = None, **kwargs
+    ) -> MjCambrianMaze:
+        """Selects a maze based on a difficulty schedule.
+
+        Keyword Args:
+            schedule (Optional[str]): The schedule to use. One of "linear",
+                "exponential", or "logistic". If None, the selection is proportional
+                to the difficulty.
+
+            lam_0 (Optional[float]): The lambda value at the start of the schedule.
+                Unused if schedule is None.
+            lam_n (Optional[float]): The lambda value at the end of the schedule.
+                Unused if schedule is None.
+        """
+
+        def calc_scheduled_lambda(
+            *,
+            schedule: str,
+            lam_0: Optional[float] = -2.0,
+            lam_n: Optional[float] = 2.0,
+        ):
+            """Selects a maze based on a schedule."""
+            assert lam_0 < lam_n, "lam_0 must be less than lam_n"
+
+            steps_per_env = (
+                env.config.training.total_timesteps // env.config.training.n_envs
+            )
+
+            # Compute the current step
+            step = env.num_timesteps / steps_per_env
+
+            # Compute the lambda value
+            if schedule == "linear":
+                lam = lam_0 + (lam_n - lam_0) * step
+            elif schedule == "exponential":
+                lam = lam_0 * (lam_n / lam_0) ** (step / env.config.training.n_envs)
+            elif schedule == "logistic":
+                lam = lam_0 + (lam_n - lam_0) / (
+                    1 + np.exp(-2 * step / env.config.training.n_envs)
+                )
+            else:
+                raise ValueError(f"Invalid schedule: {schedule}")
+            return lam
+
+        # Sort the mazes by difficulty
+        sorted_mazes = sorted(self.maze_list, key=lambda maze: maze.config.difficulty)
+        sorted_difficulty = np.array([maze.config.difficulty for maze in sorted_mazes])
+
+        if schedule is not None:
+            lam = calc_scheduled_lambda(schedule=schedule, **kwargs)
+            p = np.exp(lam * np.array(sorted_difficulty) / sorted_difficulty.max())
+        else:
+            # If no schedule, the selection is proportional to the difficulty
+            p = sorted_difficulty
+
+        return np.random.choice(sorted_mazes, p=p / p.sum())
+
+    def select_maze_cycle(self, env: "MjCambrianEnv") -> MjCambrianMaze:
+        """Selects a maze based on a cycle."""
+        pass
 
 
 if __name__ == "__main__":

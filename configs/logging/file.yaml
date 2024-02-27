@@ -1,0 +1,22 @@
+defaults:
+  - default
+  - _self_
+
+handlers:
+  file_out:
+    class: logging.FileHandler
+    formatter: simple
+    filename: logs/2024-02-20/point_6eyes_1x1/logs/out.log
+    level: DEBUG
+    mode: w
+  file_err:
+    class: logging.FileHandler
+    formatter: simple
+    filename: logs/2024-02-20/point_6eyes_1x1/logs/err.log
+    level: WARNING
+    mode: w
+loggers:
+  cambrian:
+    level: DEBUG
+    handlers: [file_out, file_err]
+

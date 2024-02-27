@@ -1,0 +1,18 @@
+defaults:
+  - default
+  - _self_
+
+filters:
+  max_level:
+    (): cambrian.utils.logger.MjCambrianLoggerMaxLevelFilter
+handlers:
+  stdout:
+    class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
+    formatter: simple
+    stream: ext://sys.stdout
+    level: DEBUG
+    filters: [max_level]
+loggers:
+  cambrian:
+    level: DEBUG
+    handlers: [stdout]

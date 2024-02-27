@@ -1,15 +1,16 @@
 defaults:
-  - MjCambrianConfig # Specify the config group (i.e. the class to instantiate this config as)
+  - /MjCambrianConfig # Specify the config group (i.e. the class to instantiate this config as)
   - _self_ # Ordered such that subsequent defaults override self
 
   - required exp: '???'
 
-  - training_config: default
-  - env_config: default
-  - evo_config: default
-  - logging_config: basic
+  - training: default
+  - env: default
+  - evo: default
+  - logging: basic
+  - hydra: default
 
-expname: test #${hydra:runtime.choices.exp}
-logdir: logs/${now:%Y-%m-%d}/${expname}
+expname: ${hydra:runtime.choices.exp}
+logdir: ./logs/${now:%Y-%m-%d}/${expname}
 
 seed: 0
