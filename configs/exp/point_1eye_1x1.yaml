@@ -1,0 +1,23 @@
+# @package _global_
+# We need to specify the package as _global_ so that hydra knows to place all the 
+# overridden configs defined here at the root of the config
+
+defaults:
+  # First, we'll include the default config (located at in the same folder as this file
+  # i.e. configs/exp/default.yaml). This file defines required attributes we'll need
+  # to specify here to set things up correctly.
+  - default
+
+  # Here we define all the mazes we want to use in this experiment in a list.
+  # Note the override keyword; this is necessary since we define this attribute as a
+  # requirement in the default file listed above
+  - override /env_config/mazes: 
+    - I_MAZE_STATIC 
+
+  # Same here; we define all the animals we want to use (in this case, just one)
+  - override /env_config/animals: 
+    - point 
+
+  # Finally, we include _self_ such that all the configs defined herein will override
+  # the files we've included above
+  - _self_

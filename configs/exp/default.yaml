@@ -1,0 +1,20 @@
+# @package: _global_
+
+defaults:
+  # Below is how mazes are specified. Each maze should include the following in it's defaults list:
+  # - /env_config/mazes@_here_: default/${env_config/mazes/default}
+  # This refers to the default maze configuration defined below. At runtime, the user
+  # can then specify a different default maze configuration, if desired. Furthermore,
+  # the order below is important: mazes must come first because then the snippet 
+  # mentioned earlier (specifically the ${env_config/mazes/default} part) won't be
+  # resolved correctly. To specify a maze or multiple, you may run the following:
+  # python <script> env_config/mazes=MAZE # defines one maze only
+  # OR
+  # python <script> env_config/mazes=[MAZE1,MAZE2,...]
+  # TODO: currently is required, could loosen if we want to allow for no mazes
+  - /env_config/mazes: "???"
+  - /env_config/mazes/default: default
+
+  # Similar to the mazes, you must also specify the animal configuration.
+  - /env_config/animals: "???"
+  - /env_config/animals/default: default

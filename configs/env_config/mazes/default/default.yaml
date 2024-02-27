@@ -1,0 +1,21 @@
+# @package custom.defaults.maze
+# We aren't actually going to use this maze, so store it in custom just to put it somewhere
+
+defaults:
+  - /MjCambrianMazeConfig
+  - /env_config/mazes/xml@xml: maze
+  - _self_
+
+size_scaling: 4.0
+height: 0.5
+flip: False
+smooth_walls: False
+
+hide_targets: false
+use_target_light_sources: True
+
+wall_texture_map: 
+  default: [vertical_10]
+
+use_adversary: False
+difficulty: 1

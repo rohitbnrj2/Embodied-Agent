@@ -1,0 +1,6 @@
+checkpoint_path: null # Will train from scratch if unset
+policy_path: null # Will train from scratch if unset; doesn't include optimizer
+
+features_extractor_activation:
+  _target_: torch.nn.Tanh
+  _partial_: true

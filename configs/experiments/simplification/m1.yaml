@@ -1,9 +1,0 @@
-env_config:
-  extend:
-    maze_store: ${extend:${include:configs/mazes/maze_store.yaml}}
-
-  maze_selection_criteria:
-    mode: CYCLE
-  maze_configs:
-    # Only statics for training
-    - Y_MAZE_STATIC

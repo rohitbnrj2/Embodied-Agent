@@ -1,0 +1,13 @@
+render_modes: [rgb_array]
+maxgeom: 10000
+
+camera_config:
+  azimuth: 180.0
+  elevation: -90.0
+  distance_factor: 1.25
+
+scene_options:
+  flags:
+    mjVIS_CAMERA: true
+
+use_shared_context: true

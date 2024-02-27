@@ -1,313 +1,165 @@
-from typing import Dict, Any, Tuple, Optional, List, TypeVar, Type, Generic
-from collections.abc import Iterable
-from dataclasses import dataclass, replace, field, asdict
+from typing import (
+    Dict,
+    Any,
+    Tuple,
+    Optional,
+    List,
+    Self,
+    Iterable,
+    Callable,
+    TypeAlias,
+)
+import os
+from dataclasses import dataclass
 from pathlib import Path
+from enum import Enum, Flag, auto
 from copy import deepcopy
-from enum import Flag, auto, Enum
-import contextlib
-import re
+from functools import partial
 
 import yaml
-from omegaconf import OmegaConf, DictConfig, Node
-
-from cambrian.utils import get_include_path
-
-# ==================== Global Config ====================
-
-# TODO: I would guess hydra does the extend/include part with defaults
-
-CUSTOM_RESOLVERS = dict()
+from omegaconf import OmegaConf, DictConfig
+import hydra_zen as zen
 
 
-def register_new_resolver(func=None, /, *args, **kwargs):
-    kwargs.setdefault("replace", True)
-
-    def wrapper(func):
-        CUSTOM_RESOLVERS[func.__name__] = func
-        return OmegaConf.register_new_resolver(func.__name__, func, *args, **kwargs)
-
-    if func is None:
-        return wrapper
-    return wrapper(func)
-
-
-@contextlib.contextmanager
-def clear_resolvers():
-    OmegaConf.clear_resolvers()
-    yield
-    for name, func in CUSTOM_RESOLVERS.items():
-        OmegaConf.register_new_resolver(name, func, replace=True)
-
-
-register_new_resolver(eval)
-
-
-@register_new_resolver(use_cache=True)
-def now(pattern: str) -> str:
-    """Returns the current time in the given pattern. The pattern is the same as
-    strftime. See https://strftime.org/ for more info."""
-    from datetime import datetime
-
-    return datetime.now().strftime(pattern)
-
-
-@register_new_resolver
-def extend(
-    interpolation: DictConfig,
-    override_with_parent: Optional[bool] = True,
-    *,
-    _parent_: DictConfig,
-    _node_: Node,
-):
-    """This resolver is used to extend a config with another config. To use, set the
-    value to ${extend: ${<dotlist>.<key>}}. This will extend the current config with the
-    config at the given dotlist. However, although the above is supported, it is
-    intended for the user to use the following syntax:
-
-    extend:
-        <key>: ${extend: ${<dotlist>.<key>}}
-        <key2>: ${extend: ${<dotlist>.<key2>}}
-
-    If extend is not found to be the parent's key, the interpolation will be merged
-    with the parent. Otherwise, it will merge with the parent's parent.
-
-    Extends are processed in the REVERSE order they appear in the config. As in, in the
-    above example, key2 is actually processed first and then key, which means key
-    will override key2.
-    """
-    # Explicitly set extend to None so it doesn't get resolved again when merging
-    _parent_[_node_._key()] = None
-
-    interpolation = deepcopy(interpolation)
-    # First move overrides from _parent_ to interpolation since parent is higher
-    # priority. Then move interpolation back into parent to get all the defaults.
-    # TODO: too many merges, too slow
-    parent = _parent_._parent if _node_._key() != "extend" else _parent_
-    if override_with_parent:
-        OmegaConf.unsafe_merge(interpolation, parent)
-    OmegaConf.unsafe_merge(parent, interpolation, interpolation)
-
-    return None
-
-
-@register_new_resolver
-def include(interpolation: DictConfig, type: Optional[str] = "DictConfig"):
-    """This resolver takes a filepath and returns the config at that filepath.
-    See `get_include_path` for info on how the path is resolved."""
-    interpolation: Path = get_include_path(interpolation)
-    assert interpolation.exists(), f"File {interpolation} does not exist"
-    assert interpolation.is_file(), f"File {interpolation} is not a file"
-
-    if type == "str":
-        with open(interpolation) as f:
-            return f.read()
-    elif type == "DictConfig":
-        filename = Path(interpolation)
-        config = dict(filename=filename.stem, filepath=str(filename.parent))
-        return OmegaConf.merge(OmegaConf.load(filename), config)
-    else:
-        raise ValueError(f"Unknown type {type}")
-
-
-@register_new_resolver
-def parent(type: Optional[str] = "key", *, _parent_: DictConfig):
-    """This resolver is used to access a parent config. To use, set the value to
-    ${parent: ${<dotlist>.<key>}}. This will access the parent config at the given
-    dotlist."""
-    if type == "key":
-        return _parent_._key() if _parent_._key() is not None else "PARENT"
-    else:
-        raise ValueError(f"Unknown type {type}")
-
-
-@register_new_resolver
-def override_required(_node_: Node, _parent_: DictConfig):
-    """This resolver is used as a placeholder to indicate that a field must be
-    overridden. To use, set the value to ${override_required:}."""
-    from omegaconf._utils import format_and_raise
-
-    e = ValueError("This field must be overridden!")
-    format_and_raise(
-        node=_parent_,
-        key=_node_._key(),
-        value=None,
-        msg=str(e),
-        cause=e,
+def partial_representer(dumper, data):
+    func_name = f"{data.func.__module__}.{data.func.__name__}"
+    return dumper.represent_mapping(
+        "tag:yaml.org,2002:map", {"_target_": func_name, "_partial_": True}
     )
 
 
-list_repr = "tag:yaml.org,2002:seq"
-yaml.add_representer(list, lambda d, seq: d.represent_sequence(list_repr, seq, True))
-yaml.add_representer(tuple, lambda d, seq: d.represent_sequence(list_repr, seq, True))
+yaml.add_representer(partial, partial_representer)
+
+OmegaConf.register_new_resolver("eval", eval, replace=True)
 
 
-# =======================================================
+def parent(
+    key: Optional[str] = None, /, *, depth: int = 0, _parent_: DictConfig
+) -> Any:
+    """This method will recursively search up the parent chain for the key and return
+    the parent key. If key is not specified, it will return the parent's key.
 
+    For instance, a heavily nested value might want to access a value some level
+    higher but it may be hazardous to use relative paths (i.e. ${..key}) since
+    the config may be changed. Instead, we'll search up for a specific key to set the
+    value to. Helpful for setting unique names for an object in a nested config.
 
-# TODO: move to python3.11 so we can use Self
-T = TypeVar("T")
+    NOTE: This technically uses hidden attributes (i.e. _parent).
 
-
-class GenericWorkaround:
+    Args:
+        key (Optional[str]): The key to search for. If None, will return the parent's
+            key. Defaults to None.
+        depth (int, optional): The depth of the search. Used internally
+            in this method and unsettable from the config. Avoids checking the parent
+            key.
+        _parent_ (DictConfig): The parent config to search in.
     """
-    Taken from [PyTorch3D](https://github.com/facebookresearch/pytorch3d/blob/d0d9cae9cd76dbbb1b3e1da673ae9043277a3d9e/pytorch3d/implicitron/dataset/utils.py#L27).
+    if _parent_ is None:
+        # Parent will be None if we're at the top level
+        raise ValueError(f"Key {key} not found in parent chain.")
 
-    OmegaConf.structured has a weirdness when you try to apply
-    it to a dataclass whose first base class is a Generic which is not
-    Dict. The issue is with a function called get_dict_key_value_types
-    in omegaconf/_utils.py.
-    For example this fails:
+    if key is None:
+        # If the key is None, we'll return the parent's key
+        assert _parent_._key() is not None, "Parent key is None."
+        return _parent_._key()
 
-        @dataclass(eq=False)
-        class D(torch.utils.data.Dataset[int]):
-            a: int = 3
+    if depth != 0 and isinstance(_parent_, DictConfig) and key in _parent_:
+        # If we're at a key that's not the parent and the parent has the key we're
+        # looking for, we'll return the parent
+        return parent(None, depth=depth + 1, _parent_=_parent_)
+    else:
+        # Otherwise, we'll keep searching up the parent chain
+        return parent(key, depth=depth + 1, _parent_=_parent_._parent)
 
-        OmegaConf.structured(D)
 
-    We avoid the problem by adding this class as an extra base class.
+OmegaConf.register_new_resolver("parent", parent, replace=True)
+
+
+def config_wrapper(cls=None, /, dataclass_kwargs: Dict[str, Any] | None = ...):
+    """This is a wrapper of the dataclass decorator that adds the class to the hydra
+    store.
+
+    The hydra store is used to construct structured configs from the yaml files.
+    NOTE: Only some primitive datatypes are supported by Hydra/OmegaConf.
+
+    Args:
+        dataclass_kwargs (Dict[str, Any] | None): The kwargs to pass to the dataclass
+            decorator. If unset, will use the defaults. If set to None, the class
+            will not be wrapped as a dataclass.
     """
 
-    pass
+    # Update the kwargs for the dataclass with some defaults
+    default_dataclass_kwargs = dict(repr=False, slots=True, eq=False, kw_only=True)
+    if dataclass_kwargs is ...:
+        # Set to the default dataclass kwargs
+        dataclass_kwargs = default_dataclass_kwargs
+    elif isinstance(dataclass_kwargs, dict):
+        # Update the default dataclass kwargs with the given dataclass kwargs
+        dataclass_kwargs = {**default_dataclass_kwargs, **dataclass_kwargs}
+
+    def wrapper(cls):
+        if dataclass_kwargs is not None:
+            cls = dataclass(cls, **dataclass_kwargs)
+
+        # Add to the hydra store
+        if (None, cls.__name__) not in zen.store:
+            zen.store(
+                zen.builds(cls, populate_full_signature=True, hydra_convert="partial"),
+                name=cls.__name__,
+                zen_dataclass={**dataclass_kwargs, "cls_name": cls.__name__},
+                builds_bases=(cls,),
+            )
+
+        return cls
+
+    if cls is None:
+        return wrapper
+    return wrapper(cls)
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianBaseConfig(Generic[T]):
+@config_wrapper
+class MjCambrianBaseConfig:
     """Base config for all configs. This is an abstract class.
 
     Attributes:
-        filepath (Optional[str]): The filepath of the config. This is set when the
-            config is loaded from a yaml file.
-        filename (Optional[str]): The filename of the config. This is set when the
-            config is loaded from a yaml file. The name is strictly the stem, like
-            a file named `example.yaml` will have a filename of `example`.
         custom (Optional[Dict[Any, str]]): Custom data to use. This is useful for
             code-specific logic (i.e. not in yaml files) where you want to store
             data that is not necessarily defined in the config. It's ignored by
             OmegaConf.
-        extend (Optional[Dict[str, Any]]): The config to extend this config with.
-            This is useful for splitting configs into multiple files. You can extend
-            other yaml files using the `include` resolver. Although the
-            type hint is `Dict[str, Any]`, there are two supported methods for
-            specifying extends:
-
-            1. As a dict:
-                ```
-                extends:
-                    example: ${extend: ${<dotlist>.<key>}}
-                    example_include: ${extend: ${include: <path>}}
-                ```
-
-            2. As a comma separated string list:
-                ```
-                extends: ${extend: ${<dotlist>.<key>}}
-                # OR
-                extends: ${extend: ${include: <path>}}
-                # OR
-                extends: ${extend: ${<dotlist>.<key>}, ${<dotlist>.<key>}}
-                # OR
-                extends: ${extend: ${include: <path>}, ${include: <path>}}
-                ```
-
-            You can override the extend using the key name as specified in 1. or just
-            set the entire extend string directly.
     """
 
-    filepath: Optional[str] = field(default=None, init=False)
-    filename: Optional[str] = field(default=None, init=False)
-    custom: Optional[Dict[Any, str]] = field(
-        default_factory=dict, init=False, metadata={"omegaconf_ignore": True}
-    )
-    extend: Optional[Dict[str, Any]] = field(default=None, init=False)
-
-    @classmethod
-    def load(
-        cls,
-        config: Path | str,
-        *,
-        overrides: List[List[str]] = [],
-        defaults: List[Path | str] = [],
-        resolve: bool = True,
-        instantiate: bool = True,
-    ) -> T:
-        """Load a config. Accepts a path to a yaml file or a config object.
-
-        Args:
-            config (Path | str): The yaml config file to load.
-
-        Keyword Args:
-            overrides (List[List[str]]): A list of overrides to apply to the config.
-                Each override is a list of strings of the form `key=value`. This is
-                passed to OmegaConf.from_dotlist. Defaults to [].
-            defaults (List[str]): A list of default configs to apply to the config.
-                The default config is a yaml file that is loaded and merged with the
-                config. Defaults to [].
-            resolve (bool): Whether to resolve the config or not. If instantiate is
-                True, the config will be resolved anyways.
-            instantiate (bool): Whether to instantiate the config or not. If True, the
-                config will be converted to an object. If False, the config will be
-                converted to a dictionary. Defaults to False.
-
-        Returns:
-            T: The loaded config. If `instantiate` is True, the config
-                will be an object of type T. Otherwise, it will be a
-                `OmegaConf.DictConfig` duck typed to a T.
-        """
-
-        with clear_resolvers():
-            filename = Path(config)
-            config: MjCambrianConfig = OmegaConf.load(filename)  # duck typed
-            config.filename = str(filename.stem)  # overrides the filename
-
-            config = OmegaConf.unsafe_merge(config, OmegaConf.from_dotlist(overrides))
-            for default in defaults:
-                config = OmegaConf.unsafe_merge(config, OmegaConf.load(Path(default)))
-
-        if resolve:
-            # We need to merge config in twice so that extend will work properly
-            # We need to first run unsafe_merge to call resolve. Explicitly calling
-            # resolve here won't work because we're editting the root config which
-            # isn't allowed with that method. This should be fixed in the next
-            # OmegaConf version. The second merge is then to apply the strucutred
-            # config. The last resolve then resolves the included strings (like
-            # ${...} resolutions in strings).
-            config = OmegaConf.unsafe_merge(config, config)
-            config = OmegaConf.merge(cls, config)
-            OmegaConf.resolve(config)
-
-        if instantiate:
-            assert resolve, "Cannot instantiate without resolving"
-            return cls.instantiate(config)
-        else:
-            return config
-
-    @classmethod
-    def instantiate(cls, config: DictConfig) -> T:
-        """Convert a config to an object."""
-        return OmegaConf.to_object(config)
-
-    def as_dict(self) -> Dict[Any, Any]:
-        return asdict(self)
-
-    def as_dict_config(self) -> DictConfig:
-        return DictConfig(self.as_dict())
+    custom: Optional[Dict[Any, str]] = None
 
     def save(self, path: Path | str):
         """Save the config to a yaml file."""
-        OmegaConf.save(self, path)
 
-    def copy(self) -> T:
+        class CustomDumper(yaml.CSafeDumper):
+            pass
+
+        # Add the following resolver temporarily to the yaml file
+        def str_representer(dumper, data):
+            if "\n" in data:
+                return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+            return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
+        CustomDumper.add_representer(str, str_representer)
+
+        with open(path, "w") as f:
+            f.write(
+                yaml.dump(
+                    yaml.safe_load(OmegaConf.to_yaml(self)),
+                    sort_keys=False,
+                    Dumper=CustomDumper,
+                )
+            )
+
+    def copy(self) -> Self:
         """Copy the config such that it is a new instance."""
         return deepcopy(self)
 
-    def update(self, **kwargs) -> T:
-        """Update the config with the given kwargs. This is a shallow update, meaning it
-        will only replace attributes at this class level, not nested."""
-        return replace(self, **kwargs)
-
-    def merge_with_dotlist(self, dotlist: List[str]) -> T:
-        """Merge the config with the given dotlist. This is a shallow merge, meaning it
-        will only replace attributes at this class level, not nested."""
-        return self.update(**OmegaConf.from_dotlist(dotlist))
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get the value of the key. Like `dict.get`."""
+        return getattr(self, key, default)
 
     def setdefault(self, key: str, default: Any) -> Any:
         """Assign the default value to the key if it is not already set. Like
@@ -315,89 +167,6 @@ class MjCambrianBaseConfig(Generic[T]):
         if not hasattr(self, key) or getattr(self, key) is None:
             setattr(self, key, default)
         return getattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get the value of the key. Like `dict.get`."""
-        return getattr(self, key, default)
-
-    def select(self, key: str) -> Any:
-        """Select the value of the key."""
-        return OmegaConf.select(self.as_dict_config(), key)
-
-    def glob(self, key: str, *, flatten: bool = False) -> Dict[str, Any]:
-        """This is effectively select, but allows `*` to be used as a wildcard.
-
-        This method works by finding all `*` in the key and then iterating over all
-        subsequent keys that match the globbed pattern.
-
-        NOTE: yaml files aren't necessarily built to support globbing (like xml), so
-        this method is fairly slow and should be used sparingly.
-
-        Args:
-            key (str): The key to glob. This is a dotlist key, like `a.b.*`. Multiple
-                globs can be used, like `a.*.c.*.d.*`. Globs in keys can be used, as
-                well, such as `a.ab*.c`
-
-        Keyword Args:
-            flatten (bool): If true, the output will be a dict of the leaf keys and
-                the accumulated values if there are like leaf keys. If False, the
-                output will be a nested dict. Defaults to False.
-        """
-        # Early exit if no globs
-        if "*" not in key and "|" not in key:
-            return self.select(key)
-
-        def recursive_glob(config: Dict | Any, keys: List[str]) -> Dict:
-            if not keys or not isinstance(config, dict):
-                return config
-
-            # Loop over all the keys and find each match with the passed key/pattern
-            result = {}
-            current_key = keys[0].replace("*", ".*")
-            for sub_key, sub_value in config.items():
-                if sub_value is None:  # Skip None values, probably optionals
-                    continue
-
-                if match := re.fullmatch(current_key, sub_key):
-                    # If it's a match, we'll recursively glob the next key
-                    matched_key = match.group()
-                    result[matched_key] = recursive_glob(sub_value, keys[1:])
-            return result
-
-        # Glob the key(s)
-        config = self.as_dict()
-        globbed = recursive_glob(config, key.split("."))
-
-        if flatten:
-            # If flatten is True, we'll flatten the nested dict to a flat dict where
-            # each key is a leaf key of the nested dict and the value is a list of all
-            # the values that were accumulated to that leaf key.
-            def flatten_dict(data, values={}) -> Dict[str, Any]:
-                for k, v in data.items():
-                    if isinstance(v, dict):
-                        flatten_dict(v, values)
-                    else:
-                        values.setdefault(k, [])
-                        values[k].append(v)
-                return values
-
-            return flatten_dict(globbed)
-        return globbed
-
-    @classmethod
-    def fix(cls):
-        """This method will fix that config such that it has a valid state. It is
-        possible that when loading a config, the config is missing attributes that
-        either weren't in the config definition or they were removed. This method
-        will set the __getattr__ dunder (which is only called when an attribute is
-        missing) to be None if it's in the annotations."""
-
-        def getattr(self, key: str) -> Any:
-            if key in self.__annotations__:
-                return None
-            raise AttributeError(f"Attribute {key} not found")
-
-        cls.__getattr__ = getattr
 
     def __contains__(self, key: str) -> bool:
         """Check if the dataclass contains a key with the given name."""
@@ -407,10 +176,62 @@ class MjCambrianBaseConfig(Generic[T]):
         return OmegaConf.to_yaml(self)
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianGenerationConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianGenerationConfig"]
-):
+MjCambrianXMLConfig: TypeAlias = Any
+"""Actual type: List[Dict[str, Self]]
+
+The actual type is a nested list of dictionaries that's recursively defined. We use a
+list here because then we can have non-unique keys.
+
+This defines a custom xml config. This can be used to define custom xmls which 
+are built from during the initialization phase of the environment. The config is 
+structured as follows:
+
+```yaml
+parent_key1:
+    - child_key1: 
+        - attr1: val1
+        - attr2: val2
+    - child_key2:
+        - attr1: val1
+        - attr2: val2
+child_key1:
+    - child_key2:
+        - attr1: ${parent_key1.child_key1.attr2}
+- child_key2:
+    - child_key3: ${parent_key1.child_key1}
+```
+
+which will construct an xml that looks like:
+
+```xml
+<parent_key1>
+    <child_key1 attr1="val1" attr2="val2">
+        <child_key2 attr1="val2"/>
+    </child_key1>
+    <child_key2>
+        <attr1>val1</attr1>
+        <attr2>val2</attr2>
+        <child_key3 attr1="val1" attr2="val2">
+    </child_key2>
+</parent_key1>
+```
+
+This is a verbose representation for xml files. This is done
+to allow interpolation through hydra/omegaconf in the xml files and without the need
+for a complex xml parser omegaconf resolver.
+
+TODO: I think this type (minus the Self) is supported as of OmegaConf issue #890.
+"""
+
+MjCambrianActivationFn: TypeAlias = Any
+"""Actual type: torch.nn.Module"""
+
+MjCambrianRewardFn: TypeAlias = Any
+"""Actual type: Callable[[MjCambrianAnimal, Dict[str, Any], ...], float]"""
+
+
+@config_wrapper
+class MjCambrianGenerationConfig(MjCambrianBaseConfig):
     """Config for a generation. Used for type hinting.
 
     Attributes:
@@ -429,21 +250,11 @@ class MjCambrianGenerationConfig(
         return Path(f"generation_{self.generation}") / f"rank_{self.rank}"
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianTrainingConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianTrainingConfig"]
-):
+@config_wrapper
+class MjCambrianTrainingConfig(MjCambrianBaseConfig):
     """Settings for the training process. Used for type hinting.
 
     Attributes:
-        logdir (str): The directory to log training data to.
-        exp_name (Optional[str]): The name of the experiment. Used to name the logging
-            subdirectory. If unset, will set to the name of the config file.
-        checkpoint_path (Optional[Path | str]): The path to the model checkpoint to
-            load. If None, training will start from scratch.
-        policy_path (Optional[Path | str]): The path to the policy checkpoint to load.
-            Should be a `.pt` file that was saved using MjCambrianModel.save_policy.
-
         total_timesteps (int): The total number of timesteps to train for.
         max_episode_steps (int): The maximum number of steps per episode.
         n_steps (int): The number of steps to take per training batch.
@@ -454,8 +265,7 @@ class MjCambrianTrainingConfig(
             10.
         gae_lambda (float): The lambda value to use for the generalized advantage
             estimation. NOTE: sb3 default is 0.95.
-        batch_size (Optional[int)): The batch size to use for training. If None,
-            calculated as `n_steps * n_envs // n_epochs`.
+        batch_size (int): The batch size to use for training.
         n_envs (int): The number of environments to use for training.
 
         eval_freq (int): The frequency at which to evaluate the model.
@@ -466,17 +276,8 @@ class MjCambrianTrainingConfig(
         min_no_improvement_evals (int): The minimum number of evaluations to perform
             before stopping training if max_no_improvement_steps is reached.
 
-        features_extractor_activation (str): The activation function to use for the
-            features extractor.
-
-        seed (int): The seed to use for training.
-        verbose (int): The verbosity level for the training process.
+        model (MjCambrianModelConfig): The settings for the model.
     """
-
-    logdir: Path | str
-    exp_name: Optional[str] = None
-    checkpoint_path: Optional[Path | str] = None
-    policy_path: Optional[Path | str] = None
 
     total_timesteps: int
     max_episode_steps: int
@@ -485,7 +286,7 @@ class MjCambrianTrainingConfig(
     learning_rate: float
     n_epochs: int
     gae_lambda: float
-    batch_size: Optional[int] = None
+    batch_size: int
     n_envs: int
 
     eval_freq: int
@@ -493,20 +294,33 @@ class MjCambrianTrainingConfig(
     max_no_improvement_evals: int
     min_no_improvement_evals: int
 
-    features_extractor_activation: str
+    @config_wrapper
+    class MjCambrianModelConfig(MjCambrianBaseConfig):
+        """Settings for the model. Used for type hinting.
 
-    seed: int
-    verbose: int
+        Attributes:
+            checkpoint_path (Optional[str]): The path to the model checkpoint to
+                load. If None, training will start from scratch.
+            policy_path (Optional[str]): The path to the policy checkpoint to load.
+                Should be a `.pt` file that was saved using MjCambrianModel.save_policy.
+
+            features_extractor_activation (MjCambrianActivationFn): The activation
+                function to use for the features extractor. Should be a nn.Module
+        """
+
+        checkpoint_path: Optional[str] = None
+        policy_path: Optional[str] = None
+
+        features_extractor_activation: MjCambrianActivationFn
+
+    model: MjCambrianModelConfig
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianMazeConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianMazeConfig"]
-):
+@config_wrapper
+class MjCambrianMazeConfig(MjCambrianBaseConfig):
     """Defines a map config. Used for type hinting.
 
     Attributes:
-        name (str): The name of the maze. Used to uniquely name the maze.
         ref (Optional[str]): Reference to a named maze config. Used to share walls and
             other geometries/assets. A check will be done to ensure the walls are
             identical between configs.
@@ -517,7 +331,7 @@ class MjCambrianMazeConfig(
         xml (str): The xml for the maze. This is the xml that will be used to
             create the maze.
 
-        difficulty (float | int): The difficulty of the maze. This is used to determine
+        difficulty (float): The difficulty of the maze. This is used to determine
             the selection probability of the maze when the mode is set to "DIFFICULTY".
             The value should be set between 0 and 100, where 0 is the easiest and 100
             is the hardest.
@@ -560,13 +374,12 @@ class MjCambrianMazeConfig(
             generated.
     """
 
-    name: str
     ref: Optional[str] = None
 
-    map: Optional[List[List]] = None
-    xml: str
+    map: Optional[str] = None
+    xml: MjCambrianXMLConfig
 
-    difficulty: float | int
+    difficulty: float
 
     size_scaling: float
     height: float
@@ -586,10 +399,8 @@ class MjCambrianMazeConfig(
     eval_adversary_pos: Optional[Tuple[float, float]] = None
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianCameraConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianCameraConfig"]
-):
+@config_wrapper
+class MjCambrianCameraConfig(MjCambrianBaseConfig):
     """Defines a camera config. Used for type hinting. This is a wrapper of
     mj.mjvCamera that is used to configure the camera in the viewer.
 
@@ -631,10 +442,8 @@ class MjCambrianCameraConfig(
     distance_factor: Optional[float] = None
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianRendererConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianRendererConfig"]
-):
+@config_wrapper
+class MjCambrianRendererConfig(MjCambrianBaseConfig):
     """The config for the renderer. Used for type hinting.
 
     A renderer corresponds to a single camera. The renderer can then view the scene in
@@ -684,10 +493,8 @@ class MjCambrianRendererConfig(
     use_shared_context: bool
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianEyeConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianEyeConfig"]
-):
+@config_wrapper
+class MjCambrianEyeConfig(MjCambrianBaseConfig):
     """Defines the config for an eye. Used for type hinting.
 
     Attributes:
@@ -845,10 +652,8 @@ class MjCambrianEyeConfig(
         return kwargs
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianAnimalModelConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianAnimalModelConfig"]
-):
+@config_wrapper
+class MjCambrianAnimalModelConfig(MjCambrianBaseConfig):
     """Defines the config for an animal model. Used for type hinting.
 
     Attributes:
@@ -871,30 +676,21 @@ class MjCambrianAnimalModelConfig(
             animal's bounding sphere.
     """
 
-    xml: str
-    body_name: str
-    joint_name: str
-    geom_name: str
 
-    eyes_lat_range: Tuple[float, float]
-    eyes_lon_range: Tuple[float, float]
-
-
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianAnimalConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianAnimalConfig"]
-):
+@config_wrapper
+class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     """Defines the config for an animal. Used for type hinting.
 
     Attributes:
-        name (str): The name of the animal. Used to uniquely name the animal
-            and its eyes.
-
         init_pos (Tuple[float, float]): The initial position of the animal. If unset,
             the animal's position at each reset is generated randomly using the
             `maze.generate_reset_pos` method.
-
-        model_config (MjCambrianAnimalModelConfig): The config for the animal model.
+        constant_actions (Optional[List[float | None]]): The constant velocity to use for
+            the animal. If not None, the len(constant_actions) must equal number of
+            actuators defined in the model. For instance, if there are 3 actuators
+            defined and it's desired to have the 2nd actuator be constant, then
+            constant_actions = [None, 0, None]. If None, no constant action will be
+            applied.
 
         use_intensity_obs (bool): Whether to use the intensity sensor observation.
         use_action_obs (bool): Whether to use the action observation or not.
@@ -903,33 +699,28 @@ class MjCambrianAnimalConfig(
             not.
         n_temporal_obs (int): The number of temporal observations to use.
 
-        constant_actions (Optional[List[float | None]]): The constant velocity to use for
-            the animal. If not None, the len(constant_actions) must equal number of
-            actuators defined in the model. For instance, if there are 3 actuators
-            defined and it's desired to have the 2nd actuator be constant, then
-            constant_actions = [None, 0, None]. If None, no constant action will be
-            applied.
-
-        num_eyes (Optional[int]): The number of eyes for this animal. Useful for
-            debugging. Should be calculated in the config using resolvers.
-        eye_configs (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
+        eyes (List[MjCambrianEyeConfig]): The configs for the eyes.
             The key will be used as the default name for the eye, unless explicitly
             set in the eye config.
-
-        disable_intensity_sensor (bool): Whether to disable the intensity sensor or not.
-        intensity_sensor_config (MjCambrianEyeConfig): The eye config to use for the
-            intensity sensor.
+        intensity_sensor_config (Optional[MjCambrianEyeConfig]): The eye config to use
+            for the intensity sensor. If unset, the intensity sensor will not be used.
 
         mutations_from_parent (Optional[List[str]]): The mutations applied to the child
             (this animal) from the parent. This is unused during mutation; it simply
             is a record of the mutations that were applied to the parent.
     """
 
-    name: str
+    xml: MjCambrianXMLConfig
 
-    model_config: Optional[MjCambrianAnimalModelConfig] = None
+    body_name: str
+    joint_name: str
+    geom_name: str
+
+    eyes_lat_range: Tuple[float, float]
+    eyes_lon_range: Tuple[float, float]
 
     init_pos: Optional[Tuple[float, float]] = None
+    constant_actions: Optional[List[float | None]] = None
 
     use_intensity_obs: bool
     use_action_obs: bool
@@ -937,48 +728,22 @@ class MjCambrianAnimalConfig(
     use_current_pos_obs: bool
     n_temporal_obs: int
 
-    constant_actions: Optional[List[float | None]] = None
-
-    num_eyes: Optional[int] = None
-    eye_configs: Dict[str, MjCambrianEyeConfig] = field(default_factory=dict)
-
-    disable_intensity_sensor: bool
-    intensity_sensor_config: MjCambrianEyeConfig
+    eyes: List[MjCambrianEyeConfig]
+    intensity_sensor: Optional[MjCambrianEyeConfig] = None
 
     mutations_from_parent: Optional[List[str]] = None
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianEnvConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianEnvConfig"]
-):
+@config_wrapper
+class MjCambrianEnvConfig(MjCambrianBaseConfig):
     """Defines a config for the cambrian environment.
 
     Attributes:
-        xml (str): The xml for the scene. This is the xml that will be used to
-            create the environment.
+        xml (MjCambrianXMLConfig): The xml for the scene. This is the xml that will be
+            used to create the environment. See `MjCambrianXMLConfig` for more info.
 
-        use_headlight (bool): Whether to use a headlight or not. The headlight in
-            mujoco is basically a first-person light that illuminates the scene directly
-            in front of the camera. If False (the default), no headlight is used. This
-            should be set to True during visualization/eval/testing.
-        use_ambient_light (bool): Whether to use a ambient light or not. If
-            True, a ambient light will be instantiated in the model that illuminates
-            the entire scene. Otherwise, no global illuminating light will be created.
-            Setting to False should be used in the case that the animal is trying to
-            navigate to a light source. Furthermore, if False, the maze xml will be
-            updated such that the target site is a light source instead of a red sphere
-            (this behavior can be overwritten using the `target_as_light_source` field
-            in `MjCambrianMazeConfig`). To adjust the ambient value of the ambient
-            light, use the `ambient_light_intensity` field.
-        ambient_light_intensity (Optional[Tuple[float, float, float]]): The intensity
-            value of the ambient light. This is only used if
-            `ambient` is True.
-
-        reward_fn_type (str): The reward function type to use. See `MjCambrianEnv` for
-            options.
-        reward_options (Optional[Dict[str, Any]]): The options to use for the reward
-            function.
+        reward_fn (MjCambrianRewardFn): The reward function type to use. See the
+            `MjCambrianRewardFn` for more info.
 
         use_goal_obs (bool): Whether to use the goal observation or not.
         terminate_at_goal (bool): Whether to terminate the episode when the animal
@@ -988,12 +753,13 @@ class MjCambrianEnvConfig(
         distance_to_target_threshold (float): The distance to the target at which the
             animal is assumed to be "at the target".
         action_penalty (float): The action penalty when it moves.
+        adversary_penalty (float): The adversary penalty when it goes to the wrong target.
         contact_penalty (float): The contact penalty when it contacts the wall.
         force_exclusive_contact_penalty (bool): Whether to force exclusive contact
             penalty or not. If True, the contact penalty will be used exclusively for
             the reward. If False, the contact penalty will be used in addition to the
             calculated reward.
-        adversary_penalty (float): The adversary penalty when it goes to the wrong target.
+
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
 
         use_renderer (bool): Whether to use the renderer. Should set to False if
@@ -1026,17 +792,12 @@ class MjCambrianEnvConfig(
             the maze. The `mode` key is required and must be set to a
             `MazeSelectionMode`. See `MazeSelectionMode` for other params or
             `maze.py` for more info.
-        maze_config ([Dict[str, MjCambrianMazeConfig]): The configs for the mazes. Each
+        mazes (List[MjCambrianMazeConfig]): The configs for the mazes. Each
             maze will be loaded into the scene and the animal will be placed in a maze
-            at each reset. The maze will be chosen based on the `maze_selection_criteria.mode`
-            field.
-        compute_optimal_path (bool): Whether to compute the optimal path or not.
-            Improves performance if set to False. Should be true if the optimal path
-            is needed for the reward fn.
+            at each reset. The maze will be chosen based on the
+            `maze_selection_criteria.mode` field.
 
-        num_animals (Optional[int]): The number of animals for this environment. Useful
-            for debugging. Should be calculated in the config using resolvers.
-        animal_configs (Dict[str, MjCambrianAnimalConfig]): The configs for the animals.
+        animals (List[MjCambrianAnimalConfig]): The configs for the animals.
             The key will be used as the default name for the animal, unless explicitly
             set in the animal config.
 
@@ -1047,23 +808,18 @@ class MjCambrianEnvConfig(
             merge.
     """
 
-    xml: str
+    xml: MjCambrianXMLConfig
 
-    use_headlight: bool
-    use_ambient_light: bool
-    ambient_light_intensity: Optional[Tuple[float, float, float]] = None
-
-    reward_fn_type: str
-    reward_options: Optional[Dict[str, Any]] = None
+    reward_fn: MjCambrianRewardFn
 
     use_goal_obs: bool
     terminate_at_goal: bool
     truncate_on_contact: bool
     distance_to_target_threshold: float
     action_penalty: float
+    adversary_penalty: float
     contact_penalty: float
     force_exclusive_contact_penalty: bool
-    adversary_penalty: float
 
     frame_skip: int
 
@@ -1123,18 +879,13 @@ class MjCambrianEnvConfig(
         CYCLE: str = "cycle"
 
     maze_selection_criteria: Dict[str, Any]
-    maze_configs: List[str]
-    maze_configs_store: Dict[str, MjCambrianMazeConfig]
-    compute_optimal_path: bool
+    mazes: List[MjCambrianMazeConfig]
 
-    num_animals: Optional[int] = None
-    animal_configs: Dict[str, MjCambrianAnimalConfig] = field(default_factory=dict)
+    animals: List[MjCambrianAnimalConfig]
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianPopulationConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianPopulationConfig"]
-):
+@config_wrapper
+class MjCambrianPopulationConfig(MjCambrianBaseConfig):
     """Config for a population. Used for type hinting.
 
     Attributes:
@@ -1149,10 +900,8 @@ class MjCambrianPopulationConfig(
     num_top_performers: int
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianSpawningConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianSpawningConfig"]
-):
+@config_wrapper
+class MjCambrianSpawningConfig(MjCambrianBaseConfig):
     """Config for spawning. Used for type hinting.
 
     Attributes:
@@ -1197,14 +946,9 @@ class MjCambrianSpawningConfig(
 
     replication_type: str
 
-    default_animal_config: Optional[MjCambrianAnimalConfig] = None
-    default_eye_config: Optional[MjCambrianEyeConfig] = None
 
-
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianEvoConfig(
-    GenericWorkaround, MjCambrianBaseConfig["MjCambrianEvoConfig"]
-):
+@config_wrapper
+class MjCambrianEvoConfig(MjCambrianBaseConfig):
     """Config for evolutions. Used for type hinting.
 
     Attributes:
@@ -1248,11 +992,19 @@ class MjCambrianEvoConfig(
     environment_variables: Dict[str, str]
 
 
-@dataclass(kw_only=True, repr=False, slots=True, match_args=False)
-class MjCambrianConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianConfig"]):
+@config_wrapper
+class MjCambrianConfig(MjCambrianBaseConfig):
     """The base config for the mujoco cambrian environment. Used for type hinting.
 
     Attributes:
+        logdir (str): The directory to log training data to.
+        expname (str): The name of the experiment. Used to name the logging
+            subdirectory. If unset, will set to the name of the config file.
+
+        seed (int): The base seed used when intializing the default thread/process.
+            Launched processes should use this seed value to calculate their own seed
+            values. This is used to ensure that each process has a unique seed.
+
         training_config (MjCambrianTrainingConfig): The config for the training process.
         env_config (MjCambrianEnvConfig): The config for the environment.
         evo_config (Optional[MjCambrianEvoConfig]): The config for the evolution
@@ -1261,84 +1013,73 @@ class MjCambrianConfig(GenericWorkaround, MjCambrianBaseConfig["MjCambrianConfig
             Passed to `logging.config.dictConfig`.
     """
 
+    logdir: str
+    expname: str
+
+    seed: int
+
     training_config: MjCambrianTrainingConfig
     env_config: MjCambrianEnvConfig
     evo_config: Optional[MjCambrianEvoConfig] = None
     logging_config: Optional[Dict[str, Any]] = None
 
 
+def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, /):
+    """This function is the main entry point for the hydra application.
+
+    Args:
+        main_fn (Callable[["MjCambrianConfig"], None]): The main function to be called
+            after the hydra configuration is parsed.
+    """
+    import hydra
+
+    zen.store.add_to_hydra_store()
+
+    def hydra_argparse_override(fn: Callable, /):
+        """This function allows us to add custom argparse parameters prior to hydra
+        parsing the config.
+
+        We want to set some defaults for the hydra config here. This is a workaround
+        in a way such that we don't
+
+        Note:
+            Augmented from hydra discussion #2598.
+        """
+        import sys
+        import argparse
+
+        parser = argparse.ArgumentParser()
+        parsed_args, unparsed_args = parser.parse_known_args()
+
+        # By default, argparse uses sys.argv[1:] to search for arguments, so update
+        # sys.argv[1:] with the unparsed arguments for hydra to parse (which uses
+        # argparse).
+        sys.argv[1:] = unparsed_args
+
+        return fn if fn is not None else lambda fn: fn
+
+    @hydra_argparse_override
+    @hydra.main(
+        version_base=None, config_path=f"{os.getcwd()}/configs", config_name="base"
+    )
+    def main(cfg: DictConfig):
+        OmegaConf.resolve(cfg)
+        cfg.custom = None
+
+        main_fn(zen.instantiate(cfg))
+
+    main()
+
+
 if __name__ == "__main__":
     import time
-    from cambrian.utils.logger import get_logger
-    from cambrian.utils import MjCambrianArgumentParser
-
-    parser = MjCambrianArgumentParser(description="Dataclass/YAML Tester")
-
-    parser.add_argument(
-        "-ao",
-        "--animal-overrides",
-        nargs="+",
-        action="extend",
-        type=str,
-        help="Override animal config values. Do <config>.<key>=<value>. These are applied to _all_ animals.",
-        default=[],
-    )
-    parser.add_argument(
-        "-eo",
-        "--eye-overrides",
-        nargs="+",
-        action="extend",
-        type=str,
-        help="Override eye config values. Do <config>.<key>=<value>. These are applied to _all_ eyes for _all_ animals.",
-        default=[],
-    )
-
-    parser.add_argument(
-        "--no-resolve", action="store_true", help="Don't resolve config"
-    )
-    parser.add_argument(
-        "--no-instantiate", action="store_true", help="Don't instantiate config"
-    )
-    parser.add_argument(
-        "--select", type=str, help="Select a specific config value to print", default=""
-    )
-    parser.add_argument("-q", "--quiet", action="store_true", help="Run in quiet mode")
-
-    args = parser.parse_args()
 
     t0 = time.time()
-    config = MjCambrianConfig.load(
-        args.config,
-        overrides=args.overrides,
-        defaults=args.defaults,
-        instantiate=not args.no_instantiate and not args.no_resolve,
-        resolve=not args.no_resolve,
-    )
 
-    if animal_configs := config.env_config.animal_configs:
-        for animal_name, animal_config in animal_configs.items():
-            animal_config = animal_config.merge_with_dotlist(args.animal_overrides)
+    def main(config: MjCambrianConfig):
+        # print(config)
+        config.save("config.yaml")
 
-            if animal_config and (eye_configs := animal_config.eye_configs):
-                for eye_name, eye_config in eye_configs.items():
-                    eye_config = eye_config.merge_with_dotlist(args.eye_overrides)
-                    eye_configs[eye_name] = eye_config
-                animal_configs[animal_name] = animal_config
+    setup_hydra(main)
     t1 = time.time()
-
-    if isinstance(config, MjCambrianConfig):
-        logger = get_logger(config)
-    else:
-        import logging
-
-        logging.basicConfig(level=logging.DEBUG)
-        logger = get_logger()
-
-    logger.info(f"Loaded config in {t1 - t0:.4f} seconds")
-
-    if not args.quiet:
-        selection = OmegaConf.select(OmegaConf.create(config), args.select)
-        if isinstance(selection, DictConfig):
-            print(OmegaConf.to_yaml(selection))
-        else:
-            print(selection)
+    print(f"Time: {t1 - t0:.2f}s")

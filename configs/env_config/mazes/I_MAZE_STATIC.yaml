@@ -1,0 +1,25 @@
+# @package custom.mazes.I_MAZE_STATIC
+# A little trickery to let use define the mazes in a list; see MjCambrianEnvConfig for more details.
+
+defaults:
+  - /env_config/mazes@_here_: default/${env_config/mazes/default}
+  - _self_
+
+map: |
+  [
+    [1:L, 1:E, 1:R],
+    [1:L,   R, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   0, 1:R],
+    [1:L,   T, 1:R],
+    [1:L, 1:E, 1:R],
+  ]

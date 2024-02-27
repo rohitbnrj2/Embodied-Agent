@@ -1,6 +1,0 @@
-xml: ${include:models/swimmer.xml,str}
-body_name: "torso_${..name}"
-joint_name: "slider1_${..name}"
-geom_name: "frontbody_${..name}"
-eyes_lat_range: [1, 25]
-eyes_lon_range: [-120, 120]

@@ -1,0 +1,18 @@
+max_n_envs: 10
+num_generations: 200
+num_nodes: 1
+
+population_config:
+  size: 4
+  num_top_performers: 2
+
+spawning_config:
+  init_num_mutations: 1
+  num_mutations: 1
+  mutations: [ADD_EYE, REMOVE_EYE, EDIT_EYE]
+
+  load_policy: False
+
+  replication_type: MUTATION
+
+environment_variables: {}

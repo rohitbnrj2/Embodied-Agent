@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Dict, Any, Tuple, List, Optional
 from pathlib import Path
 import pickle
@@ -44,9 +45,9 @@ class MjCambrianEnv(gym.Env):
 
     NOTES:
     - This is an overridden version of the MujocoEnv class. The two main differences is
-    that we allow for /resetmultiple agents and use our own custom renderer. It also reduces
-    the need to create temporary xml files which MujocoEnv had to load. It's essentially
-    a copy of MujocoEnv with the two aforementioned major changes.
+    that we allow for /reset multiple agents and use our own custom renderer. It also 
+    reduces the need to create temporary xml files which MujocoEnv had to load. It's 
+    essentially a copy of MujocoEnv with the two aforementioned major changes.
 
     Args:
         config_path (str | Path | MjCambrianConfig): The path to the config file or the
@@ -163,24 +164,7 @@ class MjCambrianEnv(gym.Env):
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
-        xml = MjCambrianXML.from_string(self.env_config.xml)
-
-        # Create the ambient light, if desired
-        if self.env_config.use_ambient_light:
-            assert self.env_config.ambient_light_intensity is not None
-            xml.add(
-                xml.find(".//worldbody"),
-                "light",
-                ambient=" ".join(map(str, self.env_config.ambient_light_intensity)),
-                diffuse="0 0 0",
-                specular="0 0 0",
-                cutoff="180",
-                castshadow="false",
-            )
-
-        # Disable the headlight
-        if not self.env_config.use_headlight:
-            xml.add(xml.add(xml.root, "visual"), "headlight", active="0")
+        xml = MjCambrianXML.make_empty()
 
         # Add the animals to the xml
         for idx, animal in enumerate(self.animals.values()):

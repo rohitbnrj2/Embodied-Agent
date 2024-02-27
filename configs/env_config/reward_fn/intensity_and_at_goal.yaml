@@ -1,0 +1,4 @@
+defaults:
+  - default
+
+_target_: cambrian.env.MjCambrianEnv._reward_fn_intensity_and_at_goal

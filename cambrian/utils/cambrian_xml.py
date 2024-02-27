@@ -1,9 +1,27 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 
+from cambrian.utils.config import MjCambrianXMLConfig
+
+def convert_xml_to_yaml(input_xml_file: str) -> str:
+    tree = ET.parse(input_xml_file)
+    root = tree.getroot()
+
+    def parse_element(element: ET.Element, result: list) -> list:
+        # Set's attributes
+        for key, value in element.items():
+            result.append({key: value})
+
+        # Adds children
+        for child in element:
+            result.append({child.tag: parse_element(child, [])})
+        return result
+
+    yaml_out = parse_element(root, [])
+    return yaml_out
 
 class MjCambrianXML:
     """Helper class for manipulating mujoco xml files. Provides some helper methods for
@@ -42,6 +60,78 @@ class MjCambrianXML:
             f.write(xml_string)
             f.flush()
             return MjCambrianXML(f.name)
+
+    @staticmethod
+    def from_config(config: MjCambrianXMLConfig) -> "MjCambrianXML":
+        """Adds to the xml based on the passed config.
+
+        The MjCambrianXMLConfig is structured as follows:
+        parent_key:
+            - child_key:
+                - attribute_key: attribute_value
+                - subchild_key: 
+                    - attribute_key: attribute_value
+                    - attribute_key: attribute_value
+                - subchild_key:
+                    - subsubchild_key: attribute_value
+        
+        This would create the following xml:
+
+        <parent_key>
+            <child_key attribute_key="attribute_value">
+                <subchild_key attribute_key="attribute_value" attribute_key="attribute_value"/>
+                <subchild_key>
+                    <subsubchild_key attribute_key="attribute_value"/>
+                </subchild_key>
+            </child_key>
+        </parent_key>
+
+        We need to walk though the XMLConfig and update it recursively.
+
+        See `MjCambrianXMLConfig` for more information.
+        """
+
+        xml = MjCambrianXML.make_empty()
+
+        def add_element(parent: ET.Element, tag: str, **kwargs) -> ET.Element:
+            # If the parent is the root, just return
+            # NOTE Only going to compare the tag, not the attributes
+            if tag == xml._root.tag:
+                return parent
+
+            # Make the search path
+            path = tag + "".join([f"[@{key}='{value}']" for key, value in kwargs.items()])
+            if (element := parent.find(path)) is None:
+                element = xml.add(parent, tag, **kwargs) 
+            return element
+
+        def get_attribs(config: MjCambrianXMLConfig, *, depth: int = 0) -> Dict[str, str]:
+            attribs = {}
+            for key, value in config.items():
+                if isinstance(value, str):
+                    attribs[key] = value
+                elif depth == 0 and isinstance(value, list):
+                    # If it's a list, we need to add a new element for each item in the list
+                    for sub_config in value:
+                        attribs.update(get_attribs(sub_config, depth=depth + 1))
+            return attribs
+        
+        def add_to_xml(parent: ET.Element, config: MjCambrianXMLConfig):
+            for key, value in config.items():
+                if isinstance(value, list):
+                    attribs = get_attribs(config)
+                    for sub_config in value:
+                        # If it's a list, we need to add a new element for each item in the list
+                        element = add_element(parent, key, **attribs)
+                        add_to_xml(element, sub_config)
+                else:
+                    # If it's a value, we need to add it as an attribute
+                    parent.set(key, str(value))
+
+        for root in config:
+            add_to_xml(xml.root, root)
+        return xml
+
 
     def add(self, parent: ET.Element, tag: str, *args, **kwargs) -> ET.Element:
         """Add an element to the xml tree.
@@ -129,31 +219,31 @@ class MjCambrianXML:
 
         Taken from here: https://stackoverflow.com/a/29896847/20125256
         """
-
         class hashabledict(dict):
             def __hash__(self):
                 return hash(tuple(sorted(self.items())))
 
-        # Create a mapping from tag name to element, as that's what we are fltering with
+        # Create a mapping from tag name to element, as that's what we are filtering with
         mapping = {(el.tag, hashabledict(el.attrib)): el for el in root}
         for el in other:
+            key = (el.tag, hashabledict(el.attrib))
             if len(el) == 0:
                 # Not nested
                 try:
                     # Update the text
-                    mapping[(el.tag, hashabledict(el.attrib))].text = el.text
+                    mapping[key].text = el.text
                 except KeyError:
                     # An element with this name is not in the mapping
-                    mapping[(el.tag, hashabledict(el.attrib))] = el
+                    mapping[key] = el
                     # Add it
                     root.append(el)
             else:
                 try:
                     # Recursively process the element, and update it in the same way
-                    self.combine(mapping[(el.tag, hashabledict(el.attrib))], el)
+                    self.combine(mapping[key], el)
                 except KeyError:
                     # Not in the mapping
-                    mapping[(el.tag, hashabledict(el.attrib))] = el
+                    mapping[key] = el
                     # Just add it
                     root.append(el)
         return root
@@ -187,17 +277,70 @@ class MjCambrianXML:
 
 
 if __name__ == "__main__":
+    import yaml
     import argparse
 
     parser = argparse.ArgumentParser(description="MujocoXML Tester")
 
-    parser.add_argument("xml_path1", type=str, help="The path to the first xml file.")
-    parser.add_argument("xml_path2", type=str, help="The path to the second xml file.")
-
     args = parser.parse_args()
 
-    xml1 = MjCambrianXML(args.xml_path1)
-    xml2 = MjCambrianXML(args.xml_path2)
-    xml = xml1 + xml2
-    xml += xml2
+    xml = MjCambrianXML.make_empty()
+
+    # NOTE: This and the next example fail because combine doesn't combine attributes
+    # Unclear whether this is an issue or not
+    config = [{"mujoco": [{"compiler": [{"angle": "degree"}]}]}]
+    xml += MjCambrianXML.from_config(config)
+    print(xml)
+
+    config = [{"mujoco": [{"compiler": [{"coordinate": "local"}]}]}]
+    xml += MjCambrianXML.from_config(config)
+    print(xml)
+
+    config = """
+    - mujoco:
+        - model: ant
+        - custom:
+            - numeric:
+                - name: init_qpos_${..name}
+                - data: 0.0 0.0 0.55 1.0 0.0 0.0 0.0 0.0 1.0 0.0 -1.0 0.0 -1.0 0.0 1.0
+        - asset:
+            - material:
+                - name: geom_mat
+                - emission: '0.1'
+                - rgba: 0.8 0.6 0.4 1
+        - default:
+            - default:
+                - class: ant
+                - joint:
+                    - limited: 'true'
+                    - armature: '1'
+                    - damping: '1'
+                - geom:
+                    - condim: '3'
+                    - conaffinity: '0'
+                    - margin: '0.01'
+                    - friction: 1 0.5 0.5
+                    - solref: .02 1
+                    - solimp: .8 .8 .01
+                    - density: '5.0'
+                    - material: geom_mat
+        - actuator:
+            - motor:
+                - ctrllimited: 'true'
+                - ctrlrange: -1 1
+                - gear: '150.0'
+                - joint: motor1_rot_{uid}
+            - motor:
+                - ctrllimited: 'true'
+                - ctrlrange: -1 1
+                - gear: '150.0'
+                - joint: motor2_rot_{uid}
+    - mujoco:
+        - compiler:
+            - coordinate: global
+            - angle: radian
+    """
+    config = yaml.load(config, Loader=yaml.FullLoader)
+    xml += MjCambrianXML.from_config(config)
+
     print(xml)
