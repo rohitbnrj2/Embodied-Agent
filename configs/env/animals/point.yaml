@@ -1,5 +1,3 @@
-# @package env.animals.point
-
 defaults:
   - /env/animals@_here_: default/${env/animals/default}
   - xml: point

@@ -11,7 +11,8 @@ defaults:
   - /env/mazes: I_MAZE_STATIC
 
   # Same here; we define all the animals we want to use (in this case, just one)
-  - /env/animals: point
+  - /env/animals/point@env.animals.point
+  - /env/animals/eyes/intensity_sensor@env.animals.point.eyes.intensity_sensor
 
   # First, we'll include the default config (located at in the same folder as this file
   # i.e. configs/exp/default.yaml). This file defines required attributes we'll need

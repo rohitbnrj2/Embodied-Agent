@@ -54,17 +54,20 @@ def maybe_transpose_obs(observation: torch.Tensor) -> torch.Tensor:
 
     return observation
 
+class MjCambrianBaseFeaturesExtractor(BaseFeaturesExtractor):
+    pass
 
-class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
+class MjCambrianCombinedExtractor(MjCambrianBaseFeaturesExtractor):
     """Overwrite of the default feature extractor of Stable Baselines 3."""
 
     def __init__(
         self,
         observation_space: spaces.Dict,
-        output_dim: int = 256,
-        normalized_image: bool = True,
-        activation: nn.Module | str = nn.Tanh,
-        use_static_output: bool = False,
+        output_dim: int,
+        normalized_image: bool,
+        activation: nn.Module,
+        image_extractor: MjCambrianBaseFeaturesExtractor,
+        use_fixed_length_output: bool,
     ) -> None:
         # TODO we do not know features-dim here before going over all the items, so put
         # something there. This is dirty!
@@ -80,7 +83,7 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
         for key, subspace in observation_space.spaces.items():
             if is_image_space(subspace, normalized_image=normalized_image):
                 subspace = maybe_transpose_space(subspace, key)
-                extractors[key] = MjCambrianLowLevel(
+                extractors[key] = image_extractor(
                     subspace,
                     features_dim=output_dim,
                     activation=activation,
@@ -96,8 +99,8 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
         # Update the features dim manually
         self._features_dim = total_concat_size
 
-        self.use_static_output = use_static_output
-        if use_static_output:
+        self.use_fixed_length_output = use_fixed_length_output
+        if use_fixed_length_output:
             self._features_processing = nn.Sequential(
                 nn.Linear(total_concat_size, 256),
                 activation(),
@@ -112,12 +115,12 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
             encoded_tensor_list.append(extractor(observation))
 
         features = torch.cat(encoded_tensor_list, dim=1)
-        if self.use_static_output:
+        if self.use_fixed_length_output:
             features = self._features_processing(features)
         return features
 
 
-class MjCambrianLowLevel(BaseFeaturesExtractor):
+class MjCambrianLowLevelExtractor(MjCambrianBaseFeaturesExtractor):
     """MLP feature extractor for small images. Essentially NatureCNN but with MLPs."""
 
     def __init__(
@@ -127,7 +130,7 @@ class MjCambrianLowLevel(BaseFeaturesExtractor):
         activation: nn.Module,
     ) -> None:
         # We assume TxHxWxC images (channels last as input)
-        super().__init__(observation_space, features_dim)
+        super().__init__(observation_space, features_dim, activation)
 
         time_steps = observation_space.shape[0]
         n_input_channels = observation_space.shape[1]
@@ -160,7 +163,7 @@ class MjCambrianLowLevel(BaseFeaturesExtractor):
         return self.temporal_linear(encodings)
 
 
-class MjCambrianNatureCNN(BaseFeaturesExtractor):
+class MjCambrianNatureCNNExtractor(MjCambrianBaseFeaturesExtractor):
     """This class overrides the default CNN feature extractor of Stable Baselines 3.
 
     The default feature extractor doesn't support images smaller than 36x36 because of
@@ -176,7 +179,7 @@ class MjCambrianNatureCNN(BaseFeaturesExtractor):
         features_dim: int,
         activation: nn.Module
     ) -> None:
-        super().__init__(observation_space, features_dim)
+        super().__init__(observation_space, features_dim, activation)
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
 
@@ -228,65 +231,3 @@ class MjCambrianNatureCNN(BaseFeaturesExtractor):
 
         encodings = torch.cat(encoding_list, dim=1)
         return self.temporal_linear(encodings)
-
-
-class MjCambrianMLP(BaseFeaturesExtractor):
-
-    def __init__(
-        self,
-        observation_space: gym.Space,
-        features_dim: int,
-        activation: nn.Module,
-    ) -> None:
-        super().__init__(observation_space, features_dim)
-        # We assume CxHxW images (channels first)
-        # Re-ordering will be done by pre-preprocessing or wrapper
-        time_steps = observation_space.shape[0]
-        n_input_channels = observation_space.shape[3]
-        x = (
-            torch.as_tensor(observation_space.sample()[None][:, 0, :, :, :])
-            .float()
-            .permute(0, 3, 1, 2)
-        )
-        x = x[0, :, :, :]
-        x = x.flatten()
-        per_channel_input = int((list(x.shape)[0]) / n_input_channels)
-        del x
-        # Compute shape by doing one forward pass
-        self.mlp = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(n_input_channels * per_channel_input, 32 * per_channel_input),
-            activation(),
-            nn.Linear(32 * per_channel_input, 64 * per_channel_input),
-            activation(),
-            nn.Linear(64 * per_channel_input, 64 * per_channel_input),
-            activation(),
-        )
-        with torch.no_grad():
-            # print(f"{observation_space.sample()[None][:, 0, :, :, :].shape}")
-            n_flatten = self.mlp(
-                torch.as_tensor(observation_space.sample()[None][:, 0, :, :, :])
-                .float()
-                .permute(0, 3, 1, 2)
-            ).shape[1]
-
-        self.linear = torch.nn.Sequential(
-            torch.nn.Linear(n_flatten, features_dim), activation()
-        )
-
-        self.temporal_linear = torch.nn.Sequential(
-            torch.nn.Linear(features_dim * time_steps, features_dim), activation()
-        )
-
-    def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        B = observations.shape[0]
-        T = observations.shape[1]
-        encoding_list = []  # [B, self.features_dim, T]
-        for t in range(T):
-            obs_ = observations[:, t, :, :, :].permute(0, 3, 1, 2)
-            encoding = self.linear(self.mlp(obs_))
-            encoding_list.append(encoding)
-        # output should be of shape [B, self.features_dim]
-        return self.temporal_linear(
-            torch.cat(encoding_list, dim=1).reshape(B, -1)
-        ).reshape(B, -1)

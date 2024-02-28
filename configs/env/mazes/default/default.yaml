@@ -2,8 +2,8 @@
 # We aren't actually going to use this maze, so store it in the special attr `custom` which isn't read
 
 defaults:
-  - /env/mazes/xml@xml: maze
   - _self_
+  - /env/mazes/xml@xml: maze
 
 size_scaling: 4.0
 height: 0.5

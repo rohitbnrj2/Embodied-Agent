@@ -1,10 +1,6 @@
 # @package custom.default.eye
 # We aren't actually going to use this eye, so store it in custom just to put it somewhere
 
-defaults:
-  - /MjCambrianEyeConfig
-  - _self_
-
 mode: fixed
 psf_filter_size: [0, 0]
 

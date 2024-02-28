@@ -1,4 +1,4 @@
-# @package: _global_
+# @package _global_
 
 defaults:
   # Below is how mazes are specified. Each maze should include the following in it's defaults list:

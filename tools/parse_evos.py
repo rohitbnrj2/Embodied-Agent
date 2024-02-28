@@ -997,12 +997,12 @@ def eval(
     flags: List[str] = [],
     **kwargs,
 ):
-    # Have to update the sys.modules to include the feature_extractors module
-    # feature_extractors is saved in the model checkpoint
+    # Have to update the sys.modules to include the features_extractors module
+    # features_extractors is saved in the model checkpoint
     import sys
-    from cambrian.ml import feature_extractors
+    from cambrian.ml import features_extractors
 
-    sys.modules["feature_extractors"] = feature_extractors
+    sys.modules["features_extractors"] = features_extractors
 
     if verbose > 0:
         print("Evaluating model...")

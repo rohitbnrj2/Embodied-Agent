@@ -12,7 +12,7 @@ from typing import (
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from enum import Enum, Flag, auto
+from enum import Flag, auto
 from copy import deepcopy
 from functools import partial
 
@@ -22,12 +22,16 @@ import hydra_zen as zen
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 
-
-def parent(
-    key: Optional[str] = None, /, *, depth: int = 0, _parent_: DictConfig
+def search(
+    key: str | None = None,
+    /,
+    mode: Optional[str] = "value",
+    *,
+    depth: int = 0,
+    _parent_: DictConfig,
 ) -> Any:
     """This method will recursively search up the parent chain for the key and return
-    the parent key. If key is not specified, it will return the parent's key.
+    the value. If the key is not found, will raise a KeyError.
 
     For instance, a heavily nested value might want to access a value some level
     higher but it may be hazardous to use relative paths (i.e. ${..key}) since
@@ -37,8 +41,12 @@ def parent(
     NOTE: This technically uses hidden attributes (i.e. _parent).
 
     Args:
-        key (Optional[str]): The key to search for. If None, will return the parent's
-            key. Defaults to None.
+        key (str | None): The key to search for. Could be none (like when mode is
+            "parent_key").
+        mode (Optional[str]): The mode to use. Defaults to "value". Available modes:
+            - "value": Will return the value of the found key. Key must be set.
+            - "parent_key": Will return the parent's key. If key is None, won't do
+                any recursion and will return the parent's key.
         depth (int, optional): The depth of the search. Used internally
             in this method and unsettable from the config. Avoids checking the parent
             key.
@@ -46,23 +54,34 @@ def parent(
     """
     if _parent_ is None:
         # Parent will be None if we're at the top level
-        raise ValueError(f"Key {key} not found in parent chain.")
+        raise KeyError(f"Key {key} not found in parent chain.")
 
-    if key is None:
-        # If the key is None, we'll return the parent's key
-        assert _parent_._key() is not None, "Parent key is None."
-        return _parent_._key()
+    if mode == "value":
+        if key in _parent_:
+            # If the key is in the parent, we'll return the value
+            return _parent_[key]
+        else:
+            # Otherwise, we'll keep searching up the parent chain
+            return search(key, mode=mode, depth=depth + 1, _parent_=_parent_._parent)
+    elif mode == "parent_key":
+        if key is None:
+            # If the key is None, we'll return the parent's key
+            assert _parent_._key() is not None, "Parent key is None."
+            return _parent_._key()
 
-    if depth != 0 and isinstance(_parent_, DictConfig) and key in _parent_:
-        # If we're at a key that's not the parent and the parent has the key we're
-        # looking for, we'll return the parent
-        return parent(None, depth=depth + 1, _parent_=_parent_)
-    else:
-        # Otherwise, we'll keep searching up the parent chain
-        return parent(key, depth=depth + 1, _parent_=_parent_._parent)
+        if depth != 0 and isinstance(_parent_, DictConfig) and key in _parent_:
+            # If we're at a key that's not the parent and the parent has the key we're
+            # looking for, we'll return the parent
+            return search(None, mode=mode, depth=depth + 1, _parent_=_parent_)
+        else:
+            # Otherwise, we'll keep searching up the parent chain
+            return search(key, mode=mode, depth=depth + 1, _parent_=_parent_._parent)
 
 
-OmegaConf.register_new_resolver("parent", parent, replace=True)
+OmegaConf.register_new_resolver("search", search, replace=True)
+OmegaConf.register_new_resolver(
+    "parent", partial(search, mode="parent_key"), replace=True
+)
 
 
 def config_wrapper(cls=None, /, dataclass_kwargs: Dict[str, Any] | None = ...):
@@ -92,6 +111,11 @@ def config_wrapper(cls=None, /, dataclass_kwargs: Dict[str, Any] | None = ...):
             cls = dataclass(cls, **dataclass_kwargs)
 
         # Add to the hydra store
+        # By adding it to the zen store rather than the hydra store directly, we can
+        # support partial types (as in types that are not allowed by OmegaConf/hydra).
+        # For instance, if we want to type hint a class or function, this would not be
+        # allowed by OmegaConf/hydra. But by adding it to the zen store, we can support
+        # these types.
         if (None, cls.__name__) not in zen.store:
             zen.store(
                 zen.builds(cls, populate_full_signature=True, hydra_convert="partial"),
@@ -120,7 +144,7 @@ class MjCambrianBaseConfig:
 
     custom: Optional[Dict[Any, str]] = field(
         default_factory=dict,
-        metadata={"omegaconf_ignore": True},
+        # metadata={"omegaconf_ignore": True},
     )
 
     def copy(self) -> Self:
@@ -232,26 +256,8 @@ MjCambrianRewardFn: TypeAlias = Any
 MjCambrianMazeSelectionFn: TypeAlias = Any
 """Actual type: Callable[[MjCambrianEnv, ...], MjCambrianMaze]"""
 
-
-@config_wrapper
-class MjCambrianGenerationConfig(MjCambrianBaseConfig):
-    """Config for a generation. Used for type hinting.
-
-    Attributes:
-        rank (int): The rank of the generation. A rank is a unique identifier assigned
-            to each process, where a processes is an individual evo runner running on a
-            separate computer. In the context of a cluster, each node that is running
-            an evo job is considered one rank, where the rank number is a unique int.
-        generation (int): The generation number. This is used to uniquely identify the
-            generation.
-    """
-
-    rank: int
-    generation: int
-
-    def to_path(self) -> Path:
-        return Path(f"generation_{self.generation}") / f"rank_{self.rank}"
-
+MjCambrianBaseFeaturesExtractorType: TypeAlias = Any 
+"""Actual type: MjCambrianBaseFeaturesExtractor"""
 
 @config_wrapper
 class MjCambrianTrainingConfig(MjCambrianBaseConfig):
@@ -279,7 +285,7 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig):
         min_no_improvement_evals (int): The minimum number of evaluations to perform
             before stopping training if max_no_improvement_steps is reached.
 
-        model (MjCambrianModelConfig): The settings for the model.
+        model (MjCambrianBaseFeaturesExtractorType): The model to use for training.
     """
 
     total_timesteps: int
@@ -297,26 +303,7 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig):
     max_no_improvement_evals: int
     min_no_improvement_evals: int
 
-    @config_wrapper
-    class MjCambrianModelConfig(MjCambrianBaseConfig):
-        """Settings for the model. Used for type hinting.
-
-        Attributes:
-            checkpoint_path (Optional[str]): The path to the model checkpoint to
-                load. If None, training will start from scratch.
-            policy_path (Optional[str]): The path to the policy checkpoint to load.
-                Should be a `.pt` file that was saved using MjCambrianModel.save_policy.
-
-            features_extractor_activation (MjCambrianActivationFn): The activation
-                function to use for the features extractor. Should be a nn.Module
-        """
-
-        checkpoint_path: Optional[str] = None
-        policy_path: Optional[str] = None
-
-        features_extractor_activation: MjCambrianActivationFn
-
-    model: MjCambrianModelConfig
+    model: MjCambrianBaseFeaturesExtractorType 
 
 
 @config_wrapper
@@ -630,6 +617,11 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     focal: Optional[Tuple[float, float]] = None
     sensorsize: Optional[Tuple[float, float]] = None
 
+    @dataclass
+    class Coord:
+        lat: float
+        lon: float
+
     coord: Optional[Tuple[float, float]] = None
 
     renderer: MjCambrianRendererConfig
@@ -677,8 +669,11 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             is the longitudinal/horizontal range of the evenly placed eye about the
             animal's bounding sphere.
 
-        init_pos (Tuple[float, float]): The initial position of the animal. If unset,
-            the animal's position at each reset is generated randomly using the
+        initial_state (Optional[List[float | None]]): The initial state of the animal.
+            The length of the list should be equal or less than the number of qpos
+            variables that correspond to the joint defined by `joint_name`. If less
+            than the number of qpos variables, the remaining qpos variables will be
+            unchanged. If None, the intial state will be generated randomly using
             `maze.generate_reset_pos` method.
         constant_actions (Optional[List[float | None]]): The constant velocity to use for
             the animal. If not None, the len(constant_actions) must equal number of
@@ -687,7 +682,6 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             constant_actions = [None, 0, None]. If None, no constant action will be
             applied.
 
-        use_intensity_obs (bool): Whether to use the intensity sensor observation.
         use_action_obs (bool): Whether to use the action observation or not.
         use_init_pos_obs (bool): Whether to use the initial position observation or not.
         use_current_pos_obs (bool): Whether to use the current position observation or
@@ -696,8 +690,6 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
         eyes (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
             The key will be used as the name for the eye.
-        intensity_sensor (Optional[MjCambrianEyeConfig]): The eye config to use
-            for the intensity sensor. If unset, the intensity sensor will not be used.
 
         mutations_from_parent (Optional[List[str]]): The mutations applied to the child
             (this animal) from the parent. This is unused during mutation; it simply
@@ -713,17 +705,15 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     eyes_lat_range: Tuple[float, float]
     eyes_lon_range: Tuple[float, float]
 
-    init_pos: Optional[Tuple[float, float]] = None
+    initial_state: Optional[List[float | None]] = None
     constant_actions: Optional[List[float | None]] = None
 
-    use_intensity_obs: bool
     use_action_obs: bool
     use_init_pos_obs: bool
     use_current_pos_obs: bool
     n_temporal_obs: int
 
     eyes: Dict[str, MjCambrianEyeConfig]
-    intensity_sensor: Optional[MjCambrianEyeConfig] = None
 
     mutations_from_parent: Optional[List[str]] = None
 
@@ -768,14 +758,14 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             reduce the amount of vram consumed by non-rendering environments.
 
         eval_overrides (Optional[Dict[str, Any]]): Key/values to override the default
-            env during evaluation. Applied during evaluation only. Merged directly 
-            with the env. The actual datatype is Self/MjCambrianEnvConfig but all 
-            attributes are optional. NOTE: This dict is only applied at reset, 
+            env during evaluation. Applied during evaluation only. Merged directly
+            with the env. The actual datatype is Self/MjCambrianEnvConfig but all
+            attributes are optional. NOTE: This dict is only applied at reset,
             meaning mujoco xml changes will not be reflected in the eval episode.
 
         mazes (Dict[str, MjCambrianMazeConfig]): The configs for the mazes. Each
             maze will be loaded into the scene and the animal will be placed in a maze
-            at each reset. 
+            at each reset.
         maze_selection_fn (MjCambrianMazeSelectionFn): The function to use to select
             the maze. The function will be called at each reset to select the maze
             to use. See `MjCambrianMazeSelectionFn` and `maze.py` for more info.
@@ -818,8 +808,8 @@ class MjCambrianPopulationConfig(MjCambrianBaseConfig):
 
     Attributes:
         size (int): The population size. This represents the number of agents that
-            should be trained at any one time. This is independent to the number of 
-            parallel envs; an agent represents a single model, where we launch many 
+            should be trained at any one time. This is independent to the number of
+            parallel envs; an agent represents a single model, where we launch many
             parallel envs to improve training. This number represents the former.
     """
 
@@ -997,9 +987,11 @@ def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, 
         version_base=None, config_path=f"{os.getcwd()}/configs", config_name="base"
     )
     def main(cfg: DictConfig):
-        OmegaConf.resolve(cfg)
+        cfg = zen.instantiate(cfg, _convert_="object")
+        # cfg = zen.instantiate({"_target_": "__main__.MjCambrianConfig", **cfg})
 
-        main_fn(zen.instantiate(cfg))
+        main_fn(cfg)
+        pass
 
     main()
 
@@ -1010,7 +1002,12 @@ if __name__ == "__main__":
     t0 = time.time()
 
     def main(config: MjCambrianConfig):
-        print(config)
+        print(type(config), OmegaConf.get_type(config))
+        print(type(config.env), OmegaConf.get_type(config.env))
+        print(type(config.env.animals), OmegaConf.get_type(config.env.animals))
+        print(type(config.env.animals["point"].eyes["intensity_sensor"]))
+        print(config.env.animals["point"].eyes["intensity_sensor"].coord)
+        print(config.env.reward_fn)
         # config.save("config.yaml")
         pass
 

@@ -59,14 +59,6 @@ class MjCambrianAnimal:
         self.logger = get_logger()
 
         self._eyes: Dict[str, MjCambrianEye] = {}
-        self._intensity_sensor: MjCambrianEye = None
-        # We're "responsible" (i.e. should step it) for the intensity sensor if we're
-        # not using the intensity obs (since eyes.step will step the intensity sensor if
-        # we use the intensity obs).
-        self._responsible_for_intensity_sensor: bool = (
-            not self.config.use_intensity_obs
-            and self.config.intensity_sensor is not None
-        )
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
@@ -187,19 +179,6 @@ class MjCambrianAnimal:
 
             self._num_pixels += self._eyes[name].num_pixels
 
-        # Add a forward facing eye intensity sensor
-        if intensity_sensor_config := self.config.intensity_sensor:
-            intensity_sensor_config.coord = [
-                float(np.mean(self.config.eyes_lat_range)),
-                float(np.mean(self.config.eyes_lon_range)),
-            ]
-            self._intensity_sensor = self._create_eye(
-                intensity_sensor_config,
-                f"{self.name}_intensity_sensor",
-            )
-            if self.config.use_intensity_obs:
-                self._eyes[self._intensity_sensor.name] = self._intensity_sensor
-
     def _create_eye(self, config: MjCambrianEyeConfig, name: str) -> MjCambrianEye:
         """Creates an eye with the given config.
 
@@ -235,11 +214,6 @@ class MjCambrianAnimal:
         # Add eyes
         for eye in self.eyes.values():
             self.xml += eye.generate_xml(self.xml, self.config.body_name)
-
-        # Add the intensity sensor only if it's not included in self.eyes
-        if self._responsible_for_intensity_sensor:
-            body_name = self.config.body_name
-            self.xml += self._intensity_sensor.generate_xml(self.xml, body_name)
 
         return self.xml
 
@@ -282,9 +256,6 @@ class MjCambrianAnimal:
             init_eye_obs.append(reset_obs)
 
             self._eye_obs[name] = init_eye_obs
-
-        if self._responsible_for_intensity_sensor:
-            self._intensity_sensor.reset(model, data)
 
         return self._get_obs()
 
@@ -349,9 +320,6 @@ class MjCambrianAnimal:
 
         for name, eye in self.eyes.items():
             self._eye_obs[name].append(eye.step())
-
-        if self._responsible_for_intensity_sensor:
-            self._intensity_sensor.step()
 
         return self._get_obs()
 
@@ -521,10 +489,6 @@ class MjCambrianAnimal:
     @property
     def num_eyes(self) -> int:
         return len(self._eyes)
-
-    @property
-    def intensity_sensor(self) -> MjCambrianEye:
-        return self._intensity_sensor
 
     @property
     def name(self) -> str:
