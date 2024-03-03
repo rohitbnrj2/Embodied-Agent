@@ -16,7 +16,7 @@ from stable_baselines3.common.callbacks import (
 from stable_baselines3.common.utils import set_random_seed
 
 from cambrian.env import MjCambrianEnv
-from cambrian.ml.feature_extractors import MjCambrianCombinedExtractor
+from cambrian.ml.features_extractors import MjCambrianCombinedExtractor
 from cambrian.ml.callbacks import (
     MjCambrianEvalCallback,
     MjCambrianPlotMonitorCallback,
@@ -47,7 +47,7 @@ class MjCambrianTrainer:
 
     def __init__(self, config: MjCambrianConfig):
         self.config = config
-        self.training_config = config.training_config
+        self.training_config = config.training
 
         self.logdir = Path(
             Path(self.training_config.logdir)
@@ -180,65 +180,15 @@ class MjCambrianTrainer:
         return MjCambrianModel._wrap_env(vec_env)
 
     def _make_callback(self, env: VecEnv, eval_env: VecEnv) -> BaseCallback:
-        """Makes the callbacks.
+        """Makes the callbacks."""
+        from functools import partial 
 
-        Current callbacks:
-            - SaveVideoCallback: Saves a video of an evaluation episode when a new best
-                model is found.
-            - StopTrainingOnNoModelImprovement: Stops training when no new best model
-                has been found for a certain number of evaluations. See config for
-                settings.
-            - MjCambrianAnimalPoolCallback: Writes the best model to the animal pool
-                when a new best model is found.
-            - MjCambrianPlotMonitorCallback: Plots the monitor performance over time
-                to a `monitor.png` file.
-            - MjCambrianPlotEvaluationsCallback: Plots the evaluation performance over
-                time to a `evaluations.png` file.
-            - MjCambrianGPUUsageCallback: Logs the GPU usage to a csv file.
-            - MjCambrianProgressBarCallback: Prints a progress bar to the console for
-                indicating the training progress.
-            - MjCambrianEvalCallback: Evaluates the model every `eval_freq` steps. See
-                config for settings. This is an extension of the `EvalCallback` from
-                Stable Baselines 3 with video saving of the evaluations.
-        """
-        cambrian_env: MjCambrianEnv = eval_env.envs[0].unwrapped
+        for i, callback in enumerate(self.training_config.callbacks):
+            # TODO: is this a good assumption? is there a better way to do this?
+            if isinstance(callback, partial):
+                self.training_config.callbacks[i] = callback(eval_env)
 
-        callbacks_on_new_best = []
-        callbacks_on_new_best.append(
-            StopTrainingOnNoModelImprovement(
-                self.training_config.max_no_improvement_evals,
-                self.training_config.min_no_improvement_evals,
-            )
-        )
-        callbacks_on_new_best.append(
-            StopTrainingOnRewardThreshold(
-                self.training_config.no_improvement_reward_threshold,
-            )
-        )
-        callbacks_on_new_best.append(MjCambrianSavePolicyCallback(self.logdir))
-        callbacks_on_new_best = CallbackListWithSharedParent(callbacks_on_new_best)
-
-        callbacks_after_eval = []
-        callbacks_after_eval.append(MjCambrianPlotMonitorCallback(self.logdir))
-        callbacks_after_eval.append(MjCambrianPlotEvaluationsCallback(self.logdir))
-        callbacks_after_eval.append(MjCambrianGPUUsageCallback(self.logdir))
-        callbacks_after_eval = CallbackListWithSharedParent(callbacks_after_eval)
-
-        eval_cb = MjCambrianEvalCallback(
-            eval_env,
-            best_model_save_path=self.logdir,
-            log_path=self.logdir,
-            eval_freq=self.training_config.eval_freq,
-            deterministic=True,
-            render=True,
-            verbose=0,
-            n_eval_episodes=cambrian_env.n_eval_mazes,
-            callback_on_new_best=callbacks_on_new_best,
-            callback_after_eval=callbacks_after_eval,
-        )
-
-        progress_bar_callback = MjCambrianProgressBarCallback()
-        return CallbackList([eval_cb, progress_bar_callback])
+        return callback
 
     def _make_model(self, env: VecEnv) -> MjCambrianModel:
         """This method creates the model.
@@ -248,24 +198,9 @@ class MjCambrianTrainer:
         output may be different between animals, the weights with different shapes
         are ignored.
         """
-        policy_kwargs = dict(
-            features_extractor_class=MjCambrianCombinedExtractor,
-            features_extractor_kwargs=dict(
-                activation=self.training_config.features_extractor_activation
-            ),
-        )
-
+        model = self.config.training.model(env=env)
         if (checkpoint_path := self.training_config.checkpoint_path) is not None:
             model = MjCambrianModel.load(checkpoint_path, env=env)
-        else:
-            model = MjCambrianModel(
-                "MultiInputPolicy",
-                env,
-                n_steps=self.training_config.n_steps,
-                batch_size=self.training_config.batch_size,
-                learning_rate=self.training_config.learning_rate,
-                policy_kwargs=policy_kwargs,
-            )
 
         if (policy_path := self.training_config.policy_path) is not None:
             policy_path = Path(policy_path)

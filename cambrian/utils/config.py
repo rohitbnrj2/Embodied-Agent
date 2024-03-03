@@ -8,19 +8,124 @@ from typing import (
     Iterable,
     Callable,
     TypeAlias,
+    Type,
+    TypeVar,
+    Protocol,
 )
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from enum import Flag, auto
 from copy import deepcopy
-from functools import partial
+from functools import partial, cache, wraps
+from abc import ABC
 
-import yaml
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf, DictConfig, ListConfig
 import hydra_zen as zen
+import mujoco as mj
+
+
+class Key:
+    __slots__ = ("obj", "key", "name")
+
+    def __init__(self, obj: "MjCambrianDictConfig", name: str):
+        self.obj = obj
+        self.key = getattr(obj, "_key", lambda: None)() or ""
+        self.name = name
+
+    def __hash__(self):
+        return hash((self.key, self.name))
+
+    def __eq__(self, other):
+        if isinstance(other, Key):
+            return (self.key, self.name) == (other.key, other.name)
+        return NotImplemented
+
+
+def cache_key(fn):
+    @cache
+    def key_fn(key: Key):
+        return fn(key.obj, key.name)
+
+    @wraps(fn)
+    def wrapper(self: "MjCambrianDictConfig", name: str):
+        return key_fn(Key(self, name))
+
+    return wrapper
+
+
+class MjCambrianContainerConfig(ABC):
+    _config: DictConfig | ListConfig
+
+    def __init__(
+        self,
+        content: DictConfig | ListConfig | Self,
+        /,
+        *args,
+        structured: Optional["MjCambrianBaseConfig"] = None,
+        config: Optional[DictConfig | ListConfig] = None,
+        **kwargs,
+    ):
+        self.__dict__["_config"] = config or content
+        if structured:
+            content = self.instantiate(content, structured=structured, *args, **kwargs)
+        super().__init__(content, *args, **kwargs)
+
+    def instantiate(
+        self,
+        config: DictConfig | ListConfig | Self,
+        structured: Optional["MjCambrianConfig"] = None,
+        *args,
+        **kwargs,
+    ) -> Self:
+        config = zen.instantiate(config, *args, **kwargs)
+        if structured:
+            config = OmegaConf.merge(structured, config)
+        if isinstance(config, DictConfig):
+            config = MjCambrianDictConfig(config, config=self._config)
+        elif isinstance(config, ListConfig):
+            config = MjCambrianListConfig(config, config=self._config)
+        return config
+
+    @cache_key
+    def __getattr__(self, name: str):
+        attr = super().__getattr__(name)
+        config = getattr(self._config, name, None)
+        if isinstance(attr, DictConfig):
+            return MjCambrianDictConfig(attr, config=config)
+        elif isinstance(attr, ListConfig):
+            return MjCambrianListConfig(attr, config=config)
+        return attr
+
+    @cache_key
+    def __getitem__(self, key: str) -> Any:
+        return self.__getattr__(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+    def to_yaml(self) -> str:
+        return OmegaConf.to_yaml(self._config)
+
+    def save(self, path: Path | str):
+        """Save the config to a yaml file."""
+        with open(path, "w") as f:
+            f.write(self.to_yaml())
+
+    def __str__(self) -> str:
+        return self.to_yaml()
+
+
+class MjCambrianDictConfig(MjCambrianContainerConfig, DictConfig):
+    pass
+
+
+class MjCambrianListConfig(MjCambrianContainerConfig, ListConfig):
+    pass
+
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
+
 
 def search(
     key: str | None = None,
@@ -98,7 +203,8 @@ def config_wrapper(cls=None, /, dataclass_kwargs: Dict[str, Any] | None = ...):
     """
 
     # Update the kwargs for the dataclass with some defaults
-    default_dataclass_kwargs = dict(repr=False, slots=True, eq=False, kw_only=True)
+    # NOTE: Can't use slots: https://github.com/python/cpython/issues/90562
+    default_dataclass_kwargs = dict(repr=False, eq=False, slots=True, kw_only=True)
     if dataclass_kwargs is ...:
         # Set to the default dataclass kwargs
         dataclass_kwargs = default_dataclass_kwargs
@@ -117,10 +223,11 @@ def config_wrapper(cls=None, /, dataclass_kwargs: Dict[str, Any] | None = ...):
         # allowed by OmegaConf/hydra. But by adding it to the zen store, we can support
         # these types.
         if (None, cls.__name__) not in zen.store:
+            (new_cls,) = (zen.builds(cls, populate_full_signature=True),)
             zen.store(
-                zen.builds(cls, populate_full_signature=True, hydra_convert="partial"),
+                new_cls,
                 name=cls.__name__,
-                zen_dataclass={**dataclass_kwargs, "cls_name": cls.__name__},
+                zen_dataclass={**dataclass_kwargs, "cls_name": new_cls.__name__},
                 builds_bases=(cls,),
             )
 
@@ -129,6 +236,21 @@ def config_wrapper(cls=None, /, dataclass_kwargs: Dict[str, Any] | None = ...):
     if cls is None:
         return wrapper
     return wrapper(cls)
+
+
+def mujoco_wrapper(instance, **kwargs):
+    """This wrapper will wrap a mujoco class and convert it into a dataclass which we
+    can use to build structured configs. Mujoco classes don't have __init__ methods,
+    so we'll use the __dict__ to get the fields of the class.
+
+    Should be called as follows:
+    _target_: cambrian.utils.config.mujoco_wrapper
+    instance:
+        _target_: <mujoco_class>
+    """
+    for key, value in kwargs.items():
+        setattr(instance, key, value)
+    return instance
 
 
 @config_wrapper
@@ -142,25 +264,11 @@ class MjCambrianBaseConfig:
             OmegaConf.
     """
 
-    custom: Optional[Dict[Any, str]] = field(
-        default_factory=dict,
-        # metadata={"omegaconf_ignore": True},
-    )
+    custom: Optional[Dict[str, Any]] = field(default_factory=dict)
 
-    def copy(self) -> Self:
-        """Copy the config such that it is a new instance."""
-        return deepcopy(self)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get the value of the key. Like `dict.get`."""
-        return getattr(self, key, default)
-
-    def setdefault(self, key: str, default: Any) -> Any:
-        """Assign the default value to the key if it is not already set. Like
-        `dict.setdefault`."""
-        if not hasattr(self, key) or getattr(self, key) is None:
-            setattr(self, key, default)
-        return getattr(self, key)
+    @classmethod
+    def instantiate(cls, dict_config: DictConfig) -> Self | MjCambrianDictConfig:
+        return MjCambrianDictConfig(dict_config, structured=cls)
 
     def to_yaml(self) -> str:
         """Convert the config to a yaml string.
@@ -169,23 +277,66 @@ class MjCambrianBaseConfig:
         basically a no-op since we use structured configs. But it doesn't let use
         add a custom representer. This method overrides the default representer.
         """
-        from omegaconf._utils import get_omega_conf_dumper
+        import yaml
+        import numpy as np
 
-        def partial_representer(dumper, data):
-            func_name = f"{data.func.__module__}.{data.func.__name__}"
+        def object_representer(dumper: yaml.Dumper, data: object):
+            if hasattr(data, "__dict__"):
+                state = data.__dict__.copy()
+            else:
+                state = {
+                    k: getattr(data, k) for k in dir(data) if not k.startswith("__")
+                }
             return dumper.represent_mapping(
-                "tag:yaml.org,2002:map", {"_target_": func_name, "_partial_": True}
+                "tag:yaml.org,2002:map",
+                {
+                    "_target_": f"{data.__class__.__module__}.{data.__class__.__name__}",
+                    **state,
+                },
             )
 
-        def str_representer(dumper: yaml.Dumper, data):
+        def partial_representer(dumper: yaml.Dumper, data: partial):
+            func_name = f"{data.func.__module__}.{data.func.__name__}"
+            return dumper.represent_mapping(
+                "tag:yaml.org,2002:map",
+                {
+                    "_target_": func_name,
+                    "_partial_": True,
+                    "_args_": data.args,
+                    **data.keywords,
+                },
+            )
+
+        def str_representer(dumper: yaml.Dumper, data: str):
             """Will use the | style for multiline strings."""
             style = "|" if "\n" in data else None
             return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
 
-        get_omega_conf_dumper().add_representer(partial, partial_representer)
-        get_omega_conf_dumper().add_representer(str, str_representer)
+        def path_representer(dumper: yaml.Dumper, data: Path):
+            return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
 
-        return OmegaConf.to_yaml(self)
+        def ndarray_representer(dumper: yaml.Dumper, array: np.ndarray) -> yaml.Node:
+            return dumper.represent_list(array.tolist())
+
+        dumper = yaml.CDumper
+        # dumper.add_representer(partial, partial_representer)
+        # dumper.add_representer(str, str_representer)
+        # dumper.add_multi_representer(Path, path_representer)
+        # dumper.add_representer(tuple, dumper.represent_list)
+        # dumper.add_multi_representer(object, object_representer)
+        # dumper.add_representer(np.ndarray, ndarray_representer)
+
+        return yaml.dump(
+            self.to_dict(),
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+            Dumper=dumper,
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the config to a dictionary."""
+        return asdict(self)
 
     def save(self, path: Path | str):
         """Save the config to a yaml file."""
@@ -256,8 +407,12 @@ MjCambrianRewardFn: TypeAlias = Any
 MjCambrianMazeSelectionFn: TypeAlias = Any
 """Actual type: Callable[[MjCambrianEnv, ...], MjCambrianMaze]"""
 
-MjCambrianBaseFeaturesExtractorType: TypeAlias = Any 
-"""Actual type: MjCambrianBaseFeaturesExtractor"""
+MjCambrianModelType: TypeAlias = Any
+"""Actual type: MjCambrianModel"""
+
+MjCambrianCallbackListType: TypeAlias = Any
+"""Actual type: MjCambrianCallbackList"""
+
 
 @config_wrapper
 class MjCambrianTrainingConfig(MjCambrianBaseConfig):
@@ -266,44 +421,18 @@ class MjCambrianTrainingConfig(MjCambrianBaseConfig):
     Attributes:
         total_timesteps (int): The total number of timesteps to train for.
         max_episode_steps (int): The maximum number of steps per episode.
-        n_steps (int): The number of steps to take per training batch.
+        n_envs (int): The number of parallel environments to use for training.
 
-        learning_rate (float): The learning rate to use for training. NOTE: sb3 default
-            is 3e-4.
-        n_epochs (int): The number of epochs to use for training. NOTE: sb3 default is
-            10.
-        gae_lambda (float): The lambda value to use for the generalized advantage
-            estimation. NOTE: sb3 default is 0.95.
-        batch_size (int): The batch size to use for training.
-        n_envs (int): The number of environments to use for training.
-
-        eval_freq (int): The frequency at which to evaluate the model.
-        no_improvement_reward_threshold (float): The reward threshold at which to stop
-            training.
-        max_no_improvement_evals (int): The maximum number of evals to take without
-            improvement before stopping training.
-        min_no_improvement_evals (int): The minimum number of evaluations to perform
-            before stopping training if max_no_improvement_steps is reached.
-
-        model (MjCambrianBaseFeaturesExtractorType): The model to use for training.
+        model (MjCambrianModelType): The model to use for training.
+        callbacks (MjCambrianCallbackListType): The callbacks to use for training.
     """
 
     total_timesteps: int
     max_episode_steps: int
-    n_steps: int
-
-    learning_rate: float
-    n_epochs: int
-    gae_lambda: float
-    batch_size: int
     n_envs: int
 
-    eval_freq: int
-    no_improvement_reward_threshold: float
-    max_no_improvement_evals: int
-    min_no_improvement_evals: int
-
-    model: MjCambrianBaseFeaturesExtractorType 
+    model: MjCambrianModelType
+    callbacks: MjCambrianCallbackListType
 
 
 @config_wrapper
@@ -390,49 +519,6 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
 
 
 @config_wrapper
-class MjCambrianCameraConfig(MjCambrianBaseConfig):
-    """Defines a camera config. Used for type hinting. This is a wrapper of
-    mj.mjvCamera that is used to configure the camera in the viewer.
-
-    Attributes:
-        type (Optional[int]): The type of camera.
-        fixedcamid (Optional[int]): The id of the camera to use.
-        trackbodyid (Optional[int]): The id of the body to track.
-
-        lookat (Optional[Tuple[float, float, float]]): The point to look at.
-        distance (Optional[float]): The distance from the camera to the lookat point.
-        azimuth (Optional[float]): The azimuth angle.
-        elevation (Optional[float]): The elevation angle.
-
-        typename (Optional[str]): The type of camera as a string. Takes presidence over
-            type. Converted to mjtCamera with mjCAMERA_{typename.upper()}.
-        fixedcamname (Optional[str]): The name of the camera. Takes presidence over
-            fixedcamid. Used to determine the fixedcamid using mj.mj_name2id.
-        trackbodyname (Optional[str]): The name of the body to track. Takes presidence
-            over trackbodyid. Used to determine the trackbodyid using mj.mj_name2id.
-
-        distance_factor (Optional[float]): The distance factor. This is used to
-            calculate the distance from the camera to the lookat point. If unset, no
-            scaling will be applied.
-    """
-
-    type: Optional[int] = None
-    fixedcamid: Optional[int] = None
-    trackbodyid: Optional[int] = None
-
-    lookat: Optional[Tuple[float, float, float]] = None
-    distance: Optional[float] = None
-    azimuth: Optional[float] = None
-    elevation: Optional[float] = None
-
-    typename: Optional[str] = None
-    fixedcamname: Optional[str] = None
-    trackbodyname: Optional[str] = None
-
-    distance_factor: Optional[float] = None
-
-
-@config_wrapper
 class MjCambrianRendererConfig(MjCambrianBaseConfig):
     """The config for the renderer. Used for type hinting.
 
@@ -477,7 +563,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
 
     fullscreen: Optional[bool] = None
 
-    camera: Optional[MjCambrianCameraConfig] = None
+    camera: Optional[Any] = None
     scene_options: Optional[Dict[str, Any]] = None
 
     use_shared_context: bool
@@ -925,7 +1011,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
         expname (str): The name of the experiment. Used to name the logging
             subdirectory. If unset, will set to the name of the config file.
 
-        seed (int): The base seed used when intializing the default thread/process.
+        seed (int): The base seed used when initializing the default thread/process.
             Launched processes should use this seed value to calculate their own seed
             values. This is used to ensure that each process has a unique seed.
 
@@ -987,10 +1073,9 @@ def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, 
         version_base=None, config_path=f"{os.getcwd()}/configs", config_name="base"
     )
     def main(cfg: DictConfig):
-        cfg = zen.instantiate(cfg, _convert_="object")
-        # cfg = zen.instantiate({"_target_": "__main__.MjCambrianConfig", **cfg})
+        config = MjCambrianConfig.instantiate(cfg)
 
-        main_fn(cfg)
+        main_fn(config)
         pass
 
     main()
@@ -1002,13 +1087,8 @@ if __name__ == "__main__":
     t0 = time.time()
 
     def main(config: MjCambrianConfig):
-        print(type(config), OmegaConf.get_type(config))
-        print(type(config.env), OmegaConf.get_type(config.env))
-        print(type(config.env.animals), OmegaConf.get_type(config.env.animals))
-        print(type(config.env.animals["point"].eyes["intensity_sensor"]))
-        print(config.env.animals["point"].eyes["intensity_sensor"].coord)
-        print(config.env.reward_fn)
-        # config.save("config.yaml")
+        # print(config)
+        config.save("config.yaml")
         pass
 
     setup_hydra(main)

@@ -1,13 +1,24 @@
-_target_: cambrian.ml.features_extractors.MjCambrianCombinedExtractor
+_target_: cambrian.ml.model.MjCambrianModel
 _partial_: true
-output_dim: 256
-normalize_image: True
-activation:
-  _target_: torch.nn.Tanh
-  _partial_: true
-image_extractor:
-  _target_: cambrian.ml.features_extractors.MjCambrianLowLevelExtractor
-  _partial_: true
-  features_dim: ${..output_dim}
-  activation: ${..activation}
-use_fixed_length_output: False
+
+policy: MultiInputPolicy
+n_steps: 2048
+batch_size: ${eval:'${.n_steps} * ${..n_envs} // 32'}
+learning_rate: 1e-3 # default is 3e-4
+
+policy_kwargs:
+  features_extractor_class:
+    _target_: cambrian.ml.features_extractors.MjCambrianCombinedExtractor
+    _partial_: true
+  features_extractor_kwargs:
+    output_dim: 256
+    normalize_image: True
+    activation:
+      _target_: torch.nn.Tanh
+      _partial_: true
+    image_extractor:
+      _target_: cambrian.ml.features_extractors.MjCambrianLowLevelExtractor
+      _partial_: true
+      features_dim: ${..output_dim}
+      activation: ${..activation}
+    use_fixed_length_output: False

@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Iterable
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -297,10 +297,10 @@ class MjCambrianProgressBarCallback(ProgressBarCallback):
         print("\x1b[?25h")
 
 
-class CallbackListWithSharedParent(CallbackList):
-    def __init__(self, *args, **kwargs):
+class MjCambrianCallbackListWithSharedParent(CallbackList):
+    def __init__(self, callbacks: Iterable[BaseCallback]):
         self.callbacks = []
-        super().__init__(*args, **kwargs)
+        super().__init__(list(callbacks))
 
     @property
     def parent(self):

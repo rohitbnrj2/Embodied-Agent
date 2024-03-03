@@ -1,0 +1,13 @@
+render_modes: [rgb_array]
+maxgeom: 10000
+
+camera:
+  _target_: cambrian.utils.config.mujoco_wrapper
+  instance: 
+    _target_: mujoco.MjvCamera
+
+scene_options:
+  flags:
+    mjVIS_CAMERA: true
+
+use_shared_context: true

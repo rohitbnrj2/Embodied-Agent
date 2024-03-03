@@ -1,7 +1,7 @@
 defaults:
- - bev
  - tracking
+ - bev
  - _self_
 
 camera:
-  distance_factor: 0.5
+  distance: 0.5

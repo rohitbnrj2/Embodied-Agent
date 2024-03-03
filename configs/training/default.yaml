@@ -1,17 +1,7 @@
 defaults:
   - model: default
+  - callbacks: default
 
 total_timesteps: 1_000_000
 max_episode_steps: 256
-n_steps: 2048
-
-learning_rate: 0.001
-n_epochs: 8
-gae_lambda: 0.95
-batch_size: ${eval:'${.n_steps} * ${.n_envs}'}
 n_envs: 10
-
-eval_freq: 10000
-no_improvement_reward_threshold: 1e3
-max_no_improvement_evals: 10 # check_freq * max_no_improvement_evals steps
-min_no_improvement_evals: 10 # check_freq * min_no_improvement_evals steps

@@ -1,7 +1,7 @@
 from typing import Dict
 
 import numpy as np
-from cambrian.ml.feature_extractors import MjCambrianLowLevel
+from cambrian.ml.features_extractors import MjCambrianLowLevel
 from cambrian.optics import MjCambrianNonDifferentiableOptics, add_gaussian_noise, electric_field, rs_prop
 from cambrian.utils.config import MjCambrianAnimalConfig, MjCambrianEyeConfig
 import torch
