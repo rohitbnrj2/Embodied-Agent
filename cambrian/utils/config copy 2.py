@@ -1,6 +1,6 @@
-from typing import Dict, Any, Tuple, Optional, List, Self, Iterable, Callable, TypeAlias, Concatenate
+from typing import Dict, Any, Tuple, Optional, List, Self, Iterable, Callable, TypeAlias
 import os
-from dataclasses import field
+from dataclasses import dataclass, field
 from pathlib import Path
 from enum import Flag, auto
 from functools import partial, cache, wraps
@@ -9,9 +9,6 @@ from abc import ABC
 from omegaconf import OmegaConf, DictConfig, ListConfig, MissingMandatoryValue
 import hydra_zen as zen
 import torch
-
-import mujoco as mj
-import hydra_zen.typing
 
 
 class Key:
@@ -67,7 +64,6 @@ class MjCambrianContainerConfig(ABC):
         *args,
         **kwargs,
     ) -> Self:
-        
         config = OmegaConf.merge(structured, zen.instantiate(config, *args, **kwargs))
         if keys := OmegaConf.missing_keys(config):
             config._format_and_raise(
@@ -81,19 +77,7 @@ class MjCambrianContainerConfig(ABC):
             config = MjCambrianListConfig(config, config=self._config)
         return config
 
-    @classmethod
-    def load(cls, path: Path | str) -> Self:
-        return cls.instantiate(OmegaConf.load(path))
-
-    @classmethod
-    def load_from_string(cls, string: str) -> Self:
-        import tempfile
-        with tempfile.NamedTemporaryFile("w", delete=False) as f:
-            f.write(string)
-            path = Path(f.name)
-        return cls.load(path)
-
-    # @cache_key
+    @cache_key
     def __getattr__(self, name: str):
         attr = super().__getattr__(name)
         config = getattr(self._config, name, None)
@@ -103,7 +87,7 @@ class MjCambrianContainerConfig(ABC):
             return MjCambrianListConfig(attr, config=config)
         return attr
 
-    # @cache_key
+    @cache_key
     def __getitem__(self, key: str) -> Any:
         return self.__getattr__(key)
 
@@ -222,7 +206,7 @@ def config_wrapper(cls=None, /, dataclass_kwargs: Dict[str, Any] | None = ...):
 
     def wrapper(cls):
         if dataclass_kwargs is not None:
-            hydrated_cls = zen.hydrated_dataclass(cls, populate_full_signature=True, **dataclass_kwargs)(cls)
+            cls = dataclass(cls, **dataclass_kwargs)
 
         # Add to the hydra store
         # By adding it to the zen store rather than the hydra store directly, we can
@@ -231,30 +215,84 @@ def config_wrapper(cls=None, /, dataclass_kwargs: Dict[str, Any] | None = ...):
         # allowed by OmegaConf/hydra. But by adding it to the zen store, we can support
         # these types.
         if (None, cls.__name__) not in zen.store:
+            (new_cls,) = (zen.builds(cls, populate_full_signature=True),)
             zen.store(
-                cls,
+                new_cls,
                 name=cls.__name__,
-                populate_full_signature=True,
-                zen_dataclass=dataclass_kwargs,
-                builds_bases=(hydrated_cls,),
+                zen_dataclass={**dataclass_kwargs, "cls_name": new_cls.__name__},
+                builds_bases=(cls,),
             )
 
-        return hydrated_cls
+        return cls
 
     if cls is None:
         return wrapper
     return wrapper(cls)
 
 
-@config_wrapper
-class MjCambrianBaseConfig(MjCambrianDictConfig):
-    """Base config for all configs.
+def mujoco_wrapper(instance, **kwargs):
+    """This wrapper will wrap a mujoco class and convert it into a dataclass which we
+    can use to build structured configs. Mujoco classes don't have __init__ methods,
+    so we'll use the __dict__ to get the fields of the class.
 
-    NOTE: This class inherits from MjCambrianDictConfig which is a subclass of 
-    DictConfig. There are issues with inheriting from DictConfig and instantiating an
-    instance using the hydra instantiate or omegaconf.to_object methods. So these
-    classes aren't meant to be instantiated, but are used for type hinting and
-    validation of the config files.
+    Should be called as follows:
+    _target_: cambrian.utils.config.mujoco_wrapper
+    instance:
+        _target_: <mujoco_class>
+    """
+
+    def setattrs(instance, **kwargs):
+        try:
+            for key, value in kwargs.items():
+                setattr(instance, key, value)
+        except Exception as e:
+            raise ValueError(
+                f"In mujoco_wrapper, got error when setting attribute "
+                f"{key=} to {value=}: {e}"
+            )
+        return instance
+
+    if isinstance(instance, partial):
+        # If the instance is a partial, we'll setup a wrapper such that once the
+        # partial is actually instantiated, we'll set the attributes of the instance
+        # with the kwargs.
+        partial_instance = instance
+        config_kwargs = kwargs
+
+        def wrapper(*args, **kwargs):
+            instance = partial_instance(*args, **kwargs)
+            return setattrs(instance, **config_kwargs)
+
+        return wrapper
+    else:
+        return setattrs(instance, **kwargs)
+
+def mujoco_flags_wrapper(instance, key, flag_type, **flags):
+    def setattrs(instance, key, flag_type, **flags):
+        attr = getattr(instance, key)
+        for flag, value in flags.items():
+            flag = getattr(flag_type, flag)
+            attr[flag] = value
+        return attr
+
+    if isinstance(instance, partial):
+        partial_instance = instance
+        config_key = key
+        config_type = flag_type
+        config_flags = flags
+
+        def wrapper(*args, **kwargs):
+            instance = partial_instance(*args, **kwargs)
+            return setattrs(instance, config_key, config_type, **config_flags)
+
+        return wrapper
+    else:
+        return setattrs(instance, key, flag_type, **flags)
+
+
+@config_wrapper
+class MjCambrianBaseConfig:
+    """Base config for all configs.
 
     Attributes:
         custom (Optional[Dict[Any, str]]): Custom data to use. This is useful for
@@ -265,7 +303,9 @@ class MjCambrianBaseConfig(MjCambrianDictConfig):
     custom: Optional[Dict[str, Any]] = field(default_factory=dict)
 
     @classmethod
-    def instantiate(cls, dict_config: DictConfig, **kwargs) -> Self:
+    def instantiate(
+        cls, dict_config: DictConfig, **kwargs
+    ) -> Self | MjCambrianDictConfig:
         return MjCambrianDictConfig(dict_config, structured=cls, **kwargs)
 
 
@@ -319,13 +359,10 @@ TODO: I think this type (minus the Self) is supported as of OmegaConf issue #890
 MjCambrianActivationFn: TypeAlias = torch.nn.Module
 """Actual type: torch.nn.Module"""
 
-MjCambrianAnimalType: TypeAlias = Any
-MjCambrianRewardFn: TypeAlias = Callable[Concatenate[MjCambrianAnimalType, Dict[str, Any], ...], float]
+MjCambrianRewardFn: TypeAlias = Any
 """Actual type: Callable[[MjCambrianAnimal, Dict[str, Any], ...], float]"""
 
-MjCambrianEnvType: TypeAlias = Any
-MjCambrianMazeType: TypeAlias = Any
-MjCambrianMazeSelectionFn: TypeAlias = Callable[Concatenate[MjCambrianEnvType, ...], MjCambrianMazeType]
+MjCambrianMazeSelectionFn: TypeAlias = Any
 """Actual type: Callable[[MjCambrianEnv, ...], MjCambrianMaze]"""
 
 MjCambrianModelType: TypeAlias = Any
@@ -482,7 +519,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
 
     fullscreen: Optional[bool] = None
 
-    camera: Optional[mj.MjvCamera] = None
+    camera: Optional[Any] = None
     scene: Optional[Any] = None
     scene_options: Optional[Any] = None
 
@@ -991,6 +1028,7 @@ def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, 
         config = MjCambrianConfig.instantiate(cfg)
 
         main_fn(config)
+        pass
 
     main()
 
@@ -1001,7 +1039,9 @@ if __name__ == "__main__":
     t0 = time.time()
 
     def main(config: MjCambrianConfig):
+        # print(config)
         config.save("config.yaml")
+        pass
 
     setup_hydra(main)
     t1 = time.time()

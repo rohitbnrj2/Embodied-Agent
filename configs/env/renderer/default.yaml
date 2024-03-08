@@ -1,13 +1,44 @@
 render_modes: [rgb_array]
-maxgeom: 10000
 
 camera:
-  _target_: cambrian.utils.config.mujoco_wrapper
+  _target_: cambrian.utils.mujoco_wrapper
   instance: 
     _target_: mujoco.MjvCamera
 
+scene:
+  _target_: cambrian.utils.mujoco_wrapper
+  instance:
+    _target_: mujoco.MjvScene
+    _partial_: true
+    maxgeom: 10000
+  flags: 
+    _target_: cambrian.utils.mujoco_flags_wrapper
+    instance: ${..instance}
+    key: flags
+    flag_type: 
+      _target_: mujoco.mjtRndFlag
+      value: 0 # placeholder
+    mjRND_SHADOW: 0
+    mjRND_WIREFRAME: 0
+    mjRND_REFLECTION: 0
+    mjRND_ADDITIVE: 0
+    mjRND_SKYBOX: 0
+    mjRND_FOG: 0
+    mjRND_HAZE: 0
+    mjRND_SEGMENT: 0
+    mjRND_IDCOLOR: 0
+    mjRND_CULL_FACE: 1
 scene_options:
-  flags:
-    mjVIS_CAMERA: true
+  _target_: cambrian.utils.mujoco_wrapper
+  instance:
+    _target_: mujoco.MjvOption
+  flags: 
+    _target_: cambrian.utils.mujoco_flags_wrapper
+    instance: ${..instance}
+    key: flags
+    flag_type: 
+      _target_: mujoco.mjtVisFlag
+      value: 0 # placeholder
+    mjVIS_CAMERA: 0
 
 use_shared_context: true

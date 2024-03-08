@@ -9,3 +9,5 @@ geom_name: "particle_geom_${parent:}"
 
 eyes_lat_range: [-5, 25]
 eyes_lon_range: [-60, 60]
+
+mutations_from_parent: []

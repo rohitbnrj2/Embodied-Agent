@@ -15,7 +15,7 @@ from stable_baselines3.common.callbacks import (
 )
 from stable_baselines3.common.utils import set_random_seed
 
-from cambrian.env import MjCambrianEnv
+from cambrian.envs.env import MjCambrianEnv
 from cambrian.ml.features_extractors import MjCambrianCombinedExtractor
 from cambrian.ml.callbacks import (
     MjCambrianEvalCallback,

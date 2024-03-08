@@ -16,7 +16,7 @@ from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import MjCambrianMazeConfig, MjCambrianMazeSelectionFn
 
 if TYPE_CHECKING:
-    from cambrian.env import MjCambrianEnv
+    from cambrian.envs.env import MjCambrianEnv
 
 # ================
 

@@ -15,7 +15,7 @@ from stable_baselines3.common.callbacks import (
 )
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from cambrian.env import MjCambrianEnv
+from cambrian.envs.env import MjCambrianEnv
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import setattrs_temporary
 from cambrian.utils.logger import get_logger

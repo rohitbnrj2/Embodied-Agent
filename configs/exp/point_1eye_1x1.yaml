@@ -13,6 +13,7 @@ defaults:
   # Same here; we define all the animals we want to use (in this case, just one)
   - /env/animals/point@env.animals.point
   - /env/animals/eyes/intensity_sensor@env.animals.point.eyes.intensity_sensor
+  - /env/animals/eyes/default@env.animals.point.eyes.point_0_eye_0: ${env/animals/eyes/default}
 
   # First, we'll include the default config (located at in the same folder as this file
   # i.e. configs/exp/default.yaml). This file defines required attributes we'll need
@@ -20,5 +21,15 @@ defaults:
   - default
 
   # Finally, we include _self_ such that all the configs defined herein will override
-  # the files we've included above
+  # the files we've included above. This isn't really necessary as hydra will 
+  # automatically append _self_ to the end of the list of defaults.
   - _self_
+
+env:
+  animals:
+    point:
+      eyes:
+        point_0_eye_0:
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [10, 0]

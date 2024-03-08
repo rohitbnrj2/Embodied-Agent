@@ -165,16 +165,11 @@ MJR_CONTEXT: mj.MjrContext = None
 class MjCambrianViewer(ABC):
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
-        self.config.setdefault("maxgeom", 1000)
         self.logger = get_logger()
 
         self.model: mj.MjModel = None
         self.data: mj.MjData = None
-        self.scene: mj.MjvScene = None
-        self.camera: mj.MjvCamera = mj.MjvCamera()
         self.viewport: mj.MjrRect = None
-
-        self.scene_option = mj.MjvOption()
 
         self._gl_context: mj.gl_context.GLContext = None
         self._mjr_context: mj.MjrContext = None
@@ -183,45 +178,7 @@ class MjCambrianViewer(ABC):
         self.model = model
         self.data = data
 
-        self.reset_camera()
-
-        self.scene = mj.MjvScene(model=model, maxgeom=self.config.maxgeom)
-
-        # Disable ~all mj flags
-        self.scene.flags[mj.mjtRndFlag.mjRND_SHADOW] = False
-        self.scene.flags[mj.mjtRndFlag.mjRND_WIREFRAME] = False
-        self.scene.flags[mj.mjtRndFlag.mjRND_REFLECTION] = False
-        self.scene.flags[mj.mjtRndFlag.mjRND_ADDITIVE] = False
-        self.scene.flags[mj.mjtRndFlag.mjRND_SKYBOX] = False
-        self.scene.flags[mj.mjtRndFlag.mjRND_FOG] = False
-        self.scene.flags[mj.mjtRndFlag.mjRND_HAZE] = False
-        self.scene.flags[mj.mjtRndFlag.mjRND_SEGMENT] = False
-        self.scene.flags[mj.mjtRndFlag.mjRND_IDCOLOR] = False
-        self.scene.flags[mj.mjtRndFlag.mjRND_CULL_FACE] = True
-
-        # Scene options is a dict where options either are keys directly or if the
-        # mujoco option is an array, the key is a dict with the keys of the dict as
-        # the indices of the mujoco array.
-        self.config.setdefault("scene_options", {})
-        for option, value in self.config.scene_options.items():
-            assert hasattr(self.scene_option, option), f"Invalid scene option {option}."
-            if isinstance(getattr(self.scene_option, option), np.ndarray):
-                assert isinstance(value, dict), (
-                    f"Invalid type for scene option {option}. "
-                    f"Expected dict, got {type(value)}."
-                )
-                for index, val in value.items():
-                    if isinstance(index, str):
-                        # Special case where the option is "flags" and the index is a
-                        # str representing the mjtVisFlag enum
-                        assert hasattr(mj.mjtVisFlag, index), (
-                            "Index is expected to be a valid mjtVisFlag enum, "
-                            f"but got {index}."
-                        )
-                        index = getattr(mj.mjtVisFlag, index)
-                    getattr(self.scene_option, option)[index] = val
-            else:
-                setattr(self.scene_option, option, value)
+        self.config.scene = self.config.scene(model=model)
 
         # NOTE: All shared contexts must match either onscreen or offscreen. And their
         # height and width most likely must match as well. If the existing context
@@ -262,36 +219,6 @@ class MjCambrianViewer(ABC):
 
         mj.mjr_setBuffer(self.get_framebuffer_option(), self._mjr_context)
 
-    def reset_camera(self):
-        """Setup the camera."""
-        camera_config = self.config.camera_config
-        if camera_config is None:
-            return
-
-        def set_camera_property(name: str, value: Any):
-            if value is not None:
-                setattr(self.camera, name, value)
-
-        set_camera_property("type", camera_config.type)
-        set_camera_property("fixedcamid", camera_config.fixedcamid)
-        set_camera_property("trackbodyid", camera_config.trackbodyid)
-        set_camera_property("azimuth", camera_config.azimuth)
-        set_camera_property("elevation", camera_config.elevation)
-        set_camera_property("lookat", camera_config.lookat)
-
-        if (typename := camera_config.typename) is not None:
-            self.camera.type = getattr(mj.mjtCamera, f"mjCAMERA_{typename.upper()}")
-
-        if (fixedcamname := camera_config.fixedcamname) is not None:
-            set_camera_property("fixedcamid", get_camera_id(self.model, fixedcamname))
-
-        if (trackbodyname := camera_config.trackbodyname) is not None:
-            set_camera_property("trackbodyid", get_body_id(self.model, trackbodyname))
-
-        distance_factor = camera_config.setdefault("distance_factor", 1)
-        set_camera_property("distance", camera_config.distance)
-        set_camera_property("distance", self.camera.distance * distance_factor)
-
     @abstractmethod
     def update(self, width: int, height: int):
         # Subclass should override this method such that this is not possible
@@ -300,11 +227,11 @@ class MjCambrianViewer(ABC):
         mj.mjv_updateScene(
             self.model,
             self.data,
-            self.scene_option,
+            self.config.scene_options,
             None,  # mjvPerturb
-            self.camera,
+            self.config.camera,
             mj.mjtCatBit.mjCAT_ALL,
-            self.scene,
+            self.config.scene,
         )
 
     def render(self, *, overlays: List[MjCambrianViewerOverlay] = []):
@@ -312,9 +239,9 @@ class MjCambrianViewer(ABC):
         self.update(self.viewport.width, self.viewport.height)
 
         for overlay in overlays:
-            overlay.draw_before_render(self.scene)
+            overlay.draw_before_render(self.config.scene)
 
-        mj.mjr_render(self.viewport, self.scene, self._mjr_context)
+        mj.mjr_render(self.viewport, self.config.scene, self._mjr_context)
 
         for overlay in overlays:
             overlay.draw_after_render(self._mjr_context, self.viewport)
@@ -521,7 +448,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         width, height = glfw.get_framebuffer_size(window)
         reldx, reldy = dx / width, dy / height
 
-        mj.mjv_moveCamera(self.model, action, reldx, reldy, self.scene, self.camera)
+        mj.mjv_moveCamera(self.model, action, reldx, reldy, self.config.scene, self.config.camera)
 
         self._last_mouse_x = int(self._scale * xpos)
         self._last_mouse_y = int(self._scale * ypos)
@@ -537,8 +464,8 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
             mj.mjtMouse.mjMOUSE_ZOOM,
             0,
             -0.05 * yoffset,
-            self.scene,
-            self.camera,
+            self.config.scene,
+            self.config.camera,
         )
 
     def _key_callback(self, window, key, scancode, action, mods):
@@ -551,11 +478,11 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
         # Switch cameras
         if key == glfw.KEY_TAB:
-            self.camera.fixedcamid += 1
-            self.camera.type = mj.mjtCamera.mjCAMERA_FIXED
-            if self.camera.fixedcamid >= self.model.ncam:
-                self.camera.fixedcamid = -1
-                self.camera.type = mj.mjtCamera.mjCAMERA_FREE
+            self.config.camera.fixedcamid += 1
+            self.config.camera.type = mj.mjtCamera.mjCAMERA_FIXED
+            if self.config.camera.fixedcamid >= self.model.ncam:
+                self.config.camera.fixedcamid = -1
+                self.config.camera.type = mj.mjtCamera.mjCAMERA_FREE
 
         # Pause simulation
         if key == glfw.KEY_SPACE:
@@ -604,14 +531,15 @@ class MjCambrianRenderer:
     ) -> np.ndarray | Tuple[np.ndarray, np.ndarray] | None:
         self.viewer.render(overlays=overlays)
 
-        if not any(mode in self.render_modes for mode in ["rgb_array", "depth_array"]):
-            return
+        # self.render_modes
+        # if not any(mode in self.render_modes for mode in ["rgb_array", "depth_array"]):
+        #     return
 
-        rgb, depth = self.viewer.read_pixels("depth_array" in self.render_modes)
-        if self._record and not resetting:
-            self._rgb_buffer.append(rgb)
+        # rgb, depth = self.viewer.read_pixels("depth_array" in self.render_modes)
+        # if self._record and not resetting:
+        #     self._rgb_buffer.append(rgb)
 
-        return (rgb, depth) if "depth_array" in self.render_modes else rgb
+        # return (rgb, depth) if "depth_array" in self.render_modes else rgb
 
     def is_running(self):
         return self.viewer.is_running()
@@ -712,7 +640,6 @@ class MjCambrianRenderer:
 
 if __name__ == "__main__":
     import argparse
-    import yaml
     import time
     from pathlib import Path
     from cambrian.utils.cambrian_xml import MjCambrianXML
@@ -733,12 +660,24 @@ if __name__ == "__main__":
 
     use_shared_context: true
 
-    camera_config:
-        typename: 'fixed'
-        fixedcamid: 0
+    camera:
+        _target_: cambrian.utils.mujoco_wrapper
+        instance: 
+            _target_: mujoco.MjvCamera
+
+    scene:
+        _target_: cambrian.utils.mujoco_wrapper
+        instance:
+            _target_: mujoco.MjvScene
+            _partial_: true
+            maxgeom: 10000
+    scene_options:
+        _target_: cambrian.utils.mujoco_wrapper
+        instance:
+            _target_: mujoco.MjvOption
     """
 
-    xml = MjCambrianXML(Path(__file__).parent / "models" / "test.xml")
+    xml = MjCambrianXML(Path("models") / "test.xml")
     xml.add(
         xml.find(".//worldbody"),
         "camera",
@@ -751,13 +690,13 @@ if __name__ == "__main__":
     data = mj.MjData(model)
     mj.mj_step(model, data)
 
-    config = MjCambrianRendererConfig.from_dict(yaml.safe_load(YAML))
+    config = MjCambrianRendererConfig.load_from_string(YAML)
     renderer = MjCambrianRenderer(config)
     renderer.reset(model, data)
 
     if args.speed_test:
         print("Starting speed test...")
-        num_frames = 100
+        num_frames = 1000
         t0 = time.time()
         for _ in range(num_frames):
             renderer.render()

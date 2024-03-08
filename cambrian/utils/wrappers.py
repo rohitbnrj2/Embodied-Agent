@@ -4,7 +4,7 @@ from pathlib import Path
 import gymnasium as gym
 from stable_baselines3.common.env_checker import check_env
 
-from cambrian.env import MjCambrianEnv
+from cambrian.envs.env import MjCambrianEnv
 from cambrian.utils.config import MjCambrianConfig
 
 

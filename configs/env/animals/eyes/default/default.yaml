@@ -4,9 +4,6 @@
 mode: fixed
 psf_filter_size: [0, 0]
 
-resolution: [-1, -1] # Placeholder
-fov: [-1, -1] # Placeholder
-
 enable_optics: False
 enable_aperture: True
 enable_lens: False
