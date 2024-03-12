@@ -1,0 +1,554 @@
+expname: ${hydra:runtime.choices.exp}
+logdir: ./logs/${now:%Y-%m-%d}/${expname}
+seed: 0
+env:
+  mazes:
+    I_MAZE_STATIC:
+      size_scaling: 4.0
+      height: 0.5
+      flip: false
+      smooth_walls: false
+      hide_targets: false
+      use_target_light_sources: true
+      wall_texture_map:
+        default:
+        - vertical_10
+      use_adversary: false
+      difficulty: 1
+      xml:
+      - mujoco:
+        - name: maze
+        - asset:
+          - material:
+            - name: floor_mat_${parent:xml}
+            - rgba: 0.1 0.1 0.1 1.0
+            - shininess: '0.0'
+            - specular: '0.0'
+        - default:
+          - default:
+            - class: maze_block_${parent:xml}
+            - geom:
+              - type: box
+              - gap: '0.05'
+              - margin: '0.1'
+              - group: '1'
+              - condim: '1'
+          - default:
+            - class: maze_target_${parent:xml}
+            - site:
+              - type: sphere
+              - group: '1'
+            - light:
+              - exponent: '0.1'
+              - cutoff: '180'
+              - dir: 0 0 -1
+              - diffuse: 1 1 1
+              - ambient: 1 1 1
+              - specular: 1 1 1
+              - castshadow: 'false'
+        - worldbody:
+          - geom:
+            - name: floor_${parent:xml}
+            - type: plane
+            - pos: 0 0 -0.05
+            - size: 1 1 1
+            - material: floor_mat_${parent:xml}
+            - condim: '1'
+            - group: '1'
+      map: "[\n  [1:L, 1:E, 1:R],\n  [1:L,   R, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,\
+        \   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n\
+        \  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0,\
+        \ 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   T, 1:R],\n  [1:L,\
+        \ 1:E, 1:R],\n]"
+  animals:
+    point:
+      use_action_obs: true
+      use_init_pos_obs: false
+      use_current_pos_obs: false
+      n_temporal_obs: 10
+      eyes:
+        intensity_sensor:
+          mode: fixed
+          psf_filter_size:
+          - 0
+          - 0
+          enable_optics: false
+          enable_aperture: true
+          enable_lens: false
+          enable_phase_mask: false
+          scene_angular_resolution: 2.0
+          pixel_size: 0.001
+          scene_resolution:
+          - 80
+          - 80
+          sensor_resolution:
+          - 60
+          - 60
+          add_noise: false
+          noise_std: 0.01
+          aperture_open: 1.0
+          aperture_radius: 1
+          wavelengths:
+          - 6.1e-07
+          - 5.3e-07
+          - 4.7e-07
+          depth_bins: 11
+          load_height_mask_from_file: false
+          randomize_psf_init: false
+          refractive_index: 1.5
+          min_phi_defocus: -10
+          max_phi_defocus: 10
+          renderer:
+            render_modes:
+            - rgb_array
+            use_shared_context: true
+          resolution:
+          - 1
+          - 1
+          fov:
+          - 120
+          - 10
+          coord:
+          - ${eval:'sum(${....eyes_lon_range}) / len(${....eyes_lon_range})'}
+          - ${eval:'sum(${....eyes_lat_range}) / len(${....eyes_lat_range})'}
+        point_0_eye_0:
+          mode: fixed
+          psf_filter_size:
+          - 0
+          - 0
+          enable_optics: false
+          enable_aperture: true
+          enable_lens: false
+          enable_phase_mask: false
+          scene_angular_resolution: 2.0
+          pixel_size: 0.001
+          scene_resolution:
+          - 80
+          - 80
+          sensor_resolution:
+          - 60
+          - 60
+          add_noise: false
+          noise_std: 0.01
+          aperture_open: 1.0
+          aperture_radius: 1
+          wavelengths:
+          - 6.1e-07
+          - 5.3e-07
+          - 4.7e-07
+          depth_bins: 11
+          load_height_mask_from_file: false
+          randomize_psf_init: false
+          refractive_index: 1.5
+          min_phi_defocus: -10
+          max_phi_defocus: 10
+          renderer:
+            render_modes:
+            - rgb_array
+            use_shared_context: true
+          resolution:
+          - 1
+          - 1
+          fov:
+          - 45
+          - 20
+          coord:
+          - 10
+          - 0
+      xml:
+      - mujoco:
+        - asset:
+          - material:
+            - name: particle_mat
+            - emission: '1'
+            - rgba: 0.3 0.6 0.3 1
+          - material:
+            - name: particle_direction_mat
+            - emission: '1'
+            - rgba: 0.6 0.3 0.3 1
+        - worldbody:
+          - body:
+            - name: particle_${parent:xml}
+            - pos: 0 0 0.2
+            - geom:
+              - name: particle_geom_${parent:xml}
+              - type: sphere
+              - size: '0.2'
+              - rgba: 0.0 0.0 1.0 0.0
+              - contype: '1'
+              - friction: .5 .1 .1
+              - density: '1000'
+              - margin: '0.002'
+              - condim: '1'
+              - conaffinity: '1'
+            - site:
+              - name: particle_site_${parent:xml}
+              - pos: 0.0 0.0 0.0
+              - material: particle_mat
+              - size: '0.2'
+            - site:
+              - name: particle_direction_site_${parent:xml}
+              - group: '2'
+              - pos: 0.3 0.0 0.0
+              - quat: 0.5 0.5 0.5 0.5
+              - type: cylinder
+              - material: particle_direction_mat
+              - rgba: 1.0 0.0 0.0 1.0
+              - size: 0.05 0.15
+            - joint:
+              - name: ball_x_${parent:xml}
+              - type: slide
+              - pos: 0 0 0
+              - axis: 1 0 0
+              - damping: '1'
+              - limited: 'false'
+            - joint:
+              - name: ball_y_${parent:xml}
+              - type: slide
+              - pos: 0 0 0
+              - axis: 0 1 0
+              - damping: '1'
+              - limited: 'false'
+            - joint:
+              - name: ball_z_${parent:xml}
+              - type: hinge
+              - pos: 0 0 0
+              - axis: 0 0 1
+              - damping: '1'
+              - limited: 'false'
+        - actuator:
+          - velocity:
+            - name: act_x_${parent:xml}
+            - joint: ball_x_${parent:xml}
+            - ctrlrange: -10.0 10.0
+            - ctrllimited: 'true'
+            - kv: '100'
+          - velocity:
+            - name: act_y_${parent:xml}
+            - joint: ball_y_${parent:xml}
+            - ctrlrange: -10.0 10.0
+            - ctrllimited: 'true'
+            - kv: '100'
+          - position:
+            - name: act_z_${parent:xml}
+            - joint: ball_z_${parent:xml}
+            - ctrlrange: -3.14 3.14
+            - ctrllimited: 'true'
+            - gear: '1'
+      body_name: particle_${parent:}
+      joint_name: ball_x_${parent:}
+      geom_name: particle_geom_${parent:}
+      eyes_lat_range:
+      - -5
+      - 25
+      eyes_lon_range:
+      - -60
+      - 60
+      mutations_from_parent: []
+  use_goal_obs: false
+  terminate_at_goal: false
+  truncate_on_contact: false
+  distance_to_target_threshold: 2.0
+  action_penalty: 0.0
+  contact_penalty: -1.0
+  force_exclusive_contact_penalty: false
+  adversary_penalty: -1.0
+  frame_skip: 10
+  add_overlays: true
+  clear_overlays_on_reset: true
+  maze_selection_fn:
+    _target_: cambrian.maze.MjCambrianMazeStore.select_maze_random
+    _partial_: true
+  reward_fn:
+    _partial_: true
+    _target_: cambrian.env.MjCambrianEnv._reward_fn_intensity_and_at_goal
+  renderer:
+    render_modes:
+    - rgb_array
+    camera:
+      _target_: cambrian.utils.mujoco_wrapper
+      instance:
+        _target_: mujoco.MjvCamera
+      azimuth: 180.0
+      elevation: -90.0
+      distance: 1.25
+    scene:
+      _target_: cambrian.utils.mujoco_wrapper
+      instance:
+        _target_: mujoco.MjvScene
+        _partial_: true
+        maxgeom: 10000
+      flags:
+        _target_: cambrian.utils.mujoco_flags_wrapper
+        instance: ${..instance}
+        key: flags
+        flag_type:
+          _target_: mujoco.mjtRndFlag
+          value: 0
+        mjRND_SHADOW: 0
+        mjRND_WIREFRAME: 0
+        mjRND_REFLECTION: 0
+        mjRND_ADDITIVE: 0
+        mjRND_SKYBOX: 0
+        mjRND_FOG: 0
+        mjRND_HAZE: 0
+        mjRND_SEGMENT: 0
+        mjRND_IDCOLOR: 0
+        mjRND_CULL_FACE: 1
+    scene_options:
+      _target_: cambrian.utils.mujoco_wrapper
+      instance:
+        _target_: mujoco.MjvOption
+      flags:
+        _target_: cambrian.utils.mujoco_flags_wrapper
+        instance: ${..instance}
+        key: flags
+        flag_type:
+          _target_: mujoco.mjtVisFlag
+          value: 0
+        mjVIS_CAMERA: 0
+    use_shared_context: true
+  xml:
+  - mujoco:
+    - model: scene
+    - compiler:
+      - assetdir: assets
+      - angle: degree
+      - coordinate: local
+      - inertiafromgeom: 'true'
+    - option:
+      - density: '1000'
+      - integrator: implicitfast
+      - timestep: '0.02'
+      - viscosity: '1.8e-5'
+    - visual:
+      - map:
+        - znear: '0.001'
+        - zfar: '3'
+      - scale:
+        - frustum: '40'
+      - rgba:
+        - camera: 0.6 0.9 0.6 1
+    - asset:
+      - texture:
+        - type: skybox
+        - builtin: gradient
+        - width: '100'
+        - height: '100'
+        - rgb1: 0 0 0
+        - rgb2: 0 0 0
+    - worldbody: []
+custom:
+  default:
+    maze:
+      size_scaling: 4.0
+      height: 0.5
+      flip: false
+      smooth_walls: false
+      hide_targets: false
+      use_target_light_sources: true
+      wall_texture_map:
+        default:
+        - vertical_10
+      use_adversary: false
+      difficulty: 1
+      xml:
+      - mujoco:
+        - name: maze
+        - asset:
+          - material:
+            - name: floor_mat_${parent:xml}
+            - rgba: 0.1 0.1 0.1 1.0
+            - shininess: '0.0'
+            - specular: '0.0'
+        - default:
+          - default:
+            - class: maze_block_${parent:xml}
+            - geom:
+              - type: box
+              - gap: '0.05'
+              - margin: '0.1'
+              - group: '1'
+              - condim: '1'
+          - default:
+            - class: maze_target_${parent:xml}
+            - site:
+              - type: sphere
+              - group: '1'
+            - light:
+              - exponent: '0.1'
+              - cutoff: '180'
+              - dir: 0 0 -1
+              - diffuse: 1 1 1
+              - ambient: 1 1 1
+              - specular: 1 1 1
+              - castshadow: 'false'
+        - worldbody:
+          - geom:
+            - name: floor_${parent:xml}
+            - type: plane
+            - pos: 0 0 -0.05
+            - size: 1 1 1
+            - material: floor_mat_${parent:xml}
+            - condim: '1'
+            - group: '1'
+    animal:
+      use_action_obs: true
+      use_init_pos_obs: false
+      use_current_pos_obs: false
+      n_temporal_obs: 10
+      eyes: {}
+    eye:
+      mode: fixed
+      psf_filter_size:
+      - 0
+      - 0
+      enable_optics: false
+      enable_aperture: true
+      enable_lens: false
+      enable_phase_mask: false
+      scene_angular_resolution: 2.0
+      pixel_size: 0.001
+      scene_resolution:
+      - 80
+      - 80
+      sensor_resolution:
+      - 60
+      - 60
+      add_noise: false
+      noise_std: 0.01
+      aperture_open: 1.0
+      aperture_radius: 1
+      wavelengths:
+      - 6.1e-07
+      - 5.3e-07
+      - 4.7e-07
+      depth_bins: 11
+      load_height_mask_from_file: false
+      randomize_psf_init: false
+      refractive_index: 1.5
+      min_phi_defocus: -10
+      max_phi_defocus: 10
+      renderer:
+        render_modes:
+        - rgb_array
+        use_shared_context: true
+training:
+  model:
+    _target_: cambrian.ml.model.MjCambrianModel
+    _partial_: true
+    policy: MultiInputPolicy
+    n_steps: 2048
+    batch_size: ${eval:'${.n_steps} * ${..n_envs} // 32'}
+    learning_rate: 0.001
+    policy_kwargs:
+      features_extractor_class:
+        _target_: cambrian.ml.features_extractors.MjCambrianCombinedExtractor
+        _partial_: true
+      features_extractor_kwargs:
+        output_dim: 256
+        normalize_image: true
+        activation:
+          _target_: torch.nn.Tanh
+          _partial_: true
+        image_extractor:
+          _target_: cambrian.ml.features_extractors.MjCambrianLowLevelExtractor
+          _partial_: true
+          features_dim: ${..output_dim}
+          activation: ${..activation}
+        use_fixed_length_output: false
+  callbacks:
+    _target_: stable_baselines3.common.callbacks.CallbackList
+    _partial_: true
+    callbacks:
+    - _target_: cambrian.ml.callbacks.MjCambrianEvalCallback
+      _partial_: true
+      best_model_save_path: ${logdir}
+      log_path: ${logdir}
+      deterministic: true
+      render: true
+      eval_freq: 10000
+      verbose: 0
+      n_eval_episodes: ???
+      eval_env: ???
+      callbacks_on_new_best:
+        _target_: cambrian.ml.callbacks.MjCambrianCallbackListWithSharedParent
+        callbacks:
+        - _target_: stable_baselines3.common.callbacks.StopTrainingOnNoModelImprovement
+          max_no_improvement_evals: 10
+          min_evals: 10
+        - _target_: stable_baselines3.common.callbacks.StopTrainingOnRewardThreshold
+          reward_threshold: 1000.0
+        - _target_: cambrian.ml.callbacks.MjCambrianSavePolicyCallback
+          logdir: ${logdir}
+      callbacks_after_eval:
+        _target_: cambrian.ml.callbacks.MjCambrianCallbackListWithSharedParent
+        callbacks:
+        - _target_: cambrian.ml.callbacks.MjCambrianPlotMonitorCallback
+          logdir: ${logdir}
+        - _target_: cambrian.ml.callbacks.MjCambrianPlotEvaluationsCallback
+          logdir: ${logdir}
+        - _target_: cambrian.ml.callbacks.MjCambrianGPUUsageCallback
+          logdir: ${logdir}
+    - _target_: cambrian.ml.callbacks.MjCambrianProgressBarCallback
+  total_timesteps: 1000000
+  max_episode_steps: 256
+  n_envs: 10
+evo:
+  num_nodes: 1
+  max_n_envs: 10
+  num_generations: 200
+  population:
+    size: 4
+  spawning:
+    init_num_mutations: 1
+    num_mutations: 1
+    mutations:
+    - ADD_EYE
+    - REMOVE_EYE
+    - EDIT_EYE
+    load_policy: false
+    replication_type: MUTATION
+  environment_variables: {}
+logging:
+  version: 1
+  disable_existing_loggers: false
+  formatters:
+    simple:
+      format: '%(levelname)-8s | %(module)s.%(funcName)s :: %(message)s'
+  loggers:
+    cambrian:
+      level: DEBUG
+      handlers:
+      - file_out
+      - file_err
+      - stdout
+      - stderr
+  filters:
+    max_level:
+      (): cambrian.utils.logger.MjCambrianLoggerMaxLevelFilter
+  handlers:
+    stdout:
+      class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
+      formatter: simple
+      stream: ext://sys.stdout
+      level: DEBUG
+      filters:
+      - max_level
+    stderr:
+      class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
+      formatter: simple
+      stream: ext://sys.stderr
+      level: WARNING
+    file_out:
+      class: logging.FileHandler
+      formatter: simple
+      filename: logs/2024-02-20/point_6eyes_1x1/logs/out.log
+      level: DEBUG
+      mode: w
+    file_err:
+      class: logging.FileHandler
+      formatter: simple
+      filename: logs/2024-02-20/point_6eyes_1x1/logs/err.log
+      level: WARNING
+      mode: w

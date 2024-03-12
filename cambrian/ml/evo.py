@@ -10,6 +10,60 @@ from stable_baselines3.common.utils import set_random_seed
 from cambrian.population import MjCambrianPopulation
 from cambrian.utils.config import MjCambrianConfig
 from cambrian.utils.logger import get_logger
+from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
+
+
+@config_wrapper
+class MjCambrianEvoConfig(MjCambrianBaseConfig):
+    """Config for evolutions. Used for type hinting.
+
+    Attributes:
+        num_nodes (int): The number of nodes used for the evolution process. By default,
+            this should be 1. And then if multiple evolutions are run in parallel, the
+            number of nodes should be set to the number of evolutions.
+        max_n_envs (int): The maximum number of environments to use for
+            parallel training. Will set `n_envs` for each training process to
+            `max_n_envs // population size`.
+        num_generations (int): The number of generations to run for.
+
+        population (MjCambrianPopulationConfig): The config for the population.
+        spawning (MjCambrianSpawningConfig): The config for the spawning process.
+
+        rank (int): The rank of the current evolution. Will be set by the evolution
+            runner. A rank is essentially the id of the current evolution process.
+        generation (int): The generation of the current evolution. Will be set by the
+            evolution runner.
+
+        generation (Optional[MjCambrianGenerationConfig]): The config for the
+            current generation. Will be set by the evolution runner.
+        parent_generation (Optional[MjCambrianGenerationConfig]): The config for
+            the parent generation. Will be set by the evolution runner. If None, that
+            means that the current generation is the first generation (i.e. no parent).
+
+        top_performers (Optional[List[str]]): The top performers from the parent
+            generation. This was used to select an animal to spawn an offspring from.
+            Used for parsing after the fact.
+
+        environment_variables (Optional[Dict[str, str]]): The environment variables to
+            set for the training process.
+    """
+
+    num_nodes: int
+    max_n_envs: int
+    num_generations: int
+
+    population: MjCambrianPopulationConfig
+    spawning: MjCambrianSpawningConfig
+
+    # rank: int
+    # generation: int
+
+    # parent_rank: int
+    # parent_generation: int
+
+    top_performers: Optional[List[str]] = None
+
+    environment_variables: Dict[str, str]
 
 
 class MjCambrianEvoRunner:

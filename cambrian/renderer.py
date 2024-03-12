@@ -10,11 +10,61 @@ import OpenGL.GL as GL
 import cv2
 
 from cambrian.utils import get_camera_id, get_body_id
-from cambrian.utils.config import MjCambrianRendererConfig
 from cambrian.utils.logger import get_logger
+from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 
 TEXT_HEIGHT = 20
 TEXT_MARGIN = 5
+
+@config_wrapper
+class MjCambrianRendererConfig(MjCambrianBaseConfig):
+    """The config for the renderer. Used for type hinting.
+
+    A renderer corresponds to a single camera. The renderer can then view the scene in
+    different ways, like offscreen (rgb_array) or onscreen (human).
+
+    Attributes:
+        render_modes (List[str]): The render modes to use for the renderer. See
+            `MjCambrianRenderer.metadata["render.modes"]` for options.
+
+        maxgeom (Optional[int]): The maximum number of geoms to render.
+
+        width (int): The width of the rendered image. For onscreen renderers, if this
+            is set, the window cannot be resized. Must be set for offscreen renderers.
+        height (int): The height of the rendered image. For onscreen renderers, if this
+            is set, the window cannot be resized. Must be set for offscreen renderers.
+
+        fullscreen (Optional[bool]): Whether to render in fullscreen or not. If True,
+            the width and height are ignored and the window is rendered in fullscreen.
+            This is only valid for onscreen renderers.
+
+        camera (Optional[MjCambrianCameraConfig]): The camera config to use for
+            the renderer.
+        scene_options (Optional[Dict[str, Any]]): The scene options to use for the
+            renderer. Keys are the name of the option as defined in MjvOption. For
+            array options (like `flags`), the value should be another dict where the
+            keys are the indices/mujoco enum keys and the values are the values to set.
+
+        use_shared_context (bool): Whether to use a shared context or not.
+            If True, the renderer will share a context with other renderers. This is
+            useful for rendering multiple renderers at the same time. If False, the
+            renderer will create its own context. This is computationally expensive if
+            there are many renderers.
+    """
+
+    render_modes: List[str]
+
+    width: Optional[int] = None
+    height: Optional[int] = None
+
+    fullscreen: Optional[bool] = None
+
+    camera: Optional[mj.MjvCamera] = None
+    scene: Optional[Any] = None
+    scene_options: Optional[Any] = None
+
+    use_shared_context: bool
+
 
 
 def resize_with_aspect_fill(image: np.ndarray, width: int, height: int):

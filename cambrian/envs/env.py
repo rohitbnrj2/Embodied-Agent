@@ -1,5 +1,4 @@
-from __future__ import annotations
-from typing import Dict, Any, Tuple, List, Optional
+from typing import Dict, Any, Tuple, List, Optional, Callable, Concatenate
 from pathlib import Path
 import pickle
 
@@ -9,13 +8,14 @@ import mujoco as mj
 from gymnasium import spaces
 from stable_baselines3.common.utils import set_random_seed
 
-from cambrian.animal import MjCambrianAnimal, MjCambrianPointAnimal
-from cambrian.maze import MjCambrianMaze, MjCambrianMazeStore
+from cambrian.animal import MjCambrianAnimal, MjCambrianPointAnimal, MjCambrianAnimalConfig
 from cambrian.utils.config import MjCambrianConfig
-from cambrian.utils.cambrian_xml import MjCambrianXML
+from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
+from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.logger import get_logger
 from cambrian.renderer import (
     MjCambrianRenderer,
+    MjCambrianRendererConfig,
     MjCambrianViewerOverlay,
     MjCambrianTextViewerOverlay,
     MjCambrianImageViewerOverlay,
@@ -26,6 +26,85 @@ from cambrian.renderer import (
     TEXT_MARGIN,
 )
 
+@config_wrapper
+class MjCambrianEnvConfig(MjCambrianBaseConfig):
+    """Defines a config for the cambrian environment.
+
+    Attributes:
+        xml (MjCambrianXMLConfig): The xml for the scene. This is the xml that will be
+            used to create the environment. See `MjCambrianXMLConfig` for more info.
+
+        reward_fn (MjCambrianRewardFn): The reward function type to use. See the
+            `MjCambrianRewardFn` for more info.
+
+        use_goal_obs (bool): Whether to use the goal observation or not.
+        terminate_at_goal (bool): Whether to terminate the episode when the animal
+            reaches the goal or not.
+        truncate_on_contact (bool): Whether to truncate the episode when the animal
+            makes contact with an object or not.
+        distance_to_target_threshold (float): The distance to the target at which the
+            animal is assumed to be "at the target".
+        action_penalty (float): The action penalty when it moves.
+        adversary_penalty (float): The adversary penalty when it goes to the wrong target.
+        contact_penalty (float): The contact penalty when it contacts the wall.
+        force_exclusive_contact_penalty (bool): Whether to force exclusive contact
+            penalty or not. If True, the contact penalty will be used exclusively for
+            the reward. If False, the contact penalty will be used in addition to the
+            calculated reward.
+
+        frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
+
+        add_overlays (bool): Whether to add overlays or not.
+        clear_overlays_on_reset (bool): Whether to clear the overlays on reset or not.
+            Consequence of setting to False is that if `add_position_tracking_overlay`
+            is True and mazes change between evaluations, the sites will be drawn on top
+            of each other which may not be desired. When record is False, the overlays
+            are always cleared.
+        renderer (Optional[MjCambrianViewerConfig]): The default viewer config to
+            use for the mujoco viewer. If unset, no renderer will be used. Should
+            set to None if `render` will never be called. This may be useful to
+            reduce the amount of vram consumed by non-rendering environments.
+
+        eval_overrides (Optional[Dict[str, Any]]): Key/values to override the default
+            env during evaluation. Applied during evaluation only. Merged directly
+            with the env. The actual datatype is Self/MjCambrianEnvConfig but all
+            attributes are optional. NOTE: This dict is only applied at reset,
+            meaning mujoco xml changes will not be reflected in the eval episode.
+
+        mazes (Dict[str, MjCambrianMazeConfig]): The configs for the mazes. Each
+            maze will be loaded into the scene and the animal will be placed in a maze
+            at each reset.
+        maze_selection_fn (MjCambrianMazeSelectionFn): The function to use to select
+            the maze. The function will be called at each reset to select the maze
+            to use. See `MjCambrianMazeSelectionFn` and `maze.py` for more info.
+
+        animals (List[MjCambrianAnimalConfig]): The configs for the animals.
+            The key will be used as the default name for the animal, unless explicitly
+            set in the animal config.
+    """
+
+    xml: MjCambrianXMLConfig
+
+    reward_fn: Callable[Concatenate[MjCambrianAnimal, Dict[str, Any], ...], float]
+
+    use_goal_obs: bool
+    terminate_at_goal: bool
+    truncate_on_contact: bool
+    distance_to_target_threshold: float
+    action_penalty: float
+    adversary_penalty: float
+    contact_penalty: float
+    force_exclusive_contact_penalty: bool
+
+    frame_skip: int
+
+    add_overlays: bool
+    clear_overlays_on_reset: bool
+    renderer: Optional[MjCambrianRendererConfig] = None
+
+    eval_overrides: Optional[Dict[str, Any]] = None
+
+    animals: Dict[str, MjCambrianAnimalConfig]
 
 class MjCambrianEnv(gym.Env):
     """A MjCambrianEnv defines a gymnasium environment that's based off mujoco.

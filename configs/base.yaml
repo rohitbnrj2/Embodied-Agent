@@ -9,7 +9,7 @@ defaults:
   - required exp: '???'
 
   - env: default
-  - training: default
+  - trainer: default
   - evo: default
   - logging: basic
   - hydra: default

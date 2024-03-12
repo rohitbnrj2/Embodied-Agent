@@ -1,5 +1,5 @@
+from typing import Tuple, Dict, Optional, Any, Iterable
 import time
-from typing import Tuple, Dict
 import numpy as np
 
 import cv2
@@ -8,8 +8,168 @@ from gymnasium import spaces
 
 from cambrian.renderer import MjCambrianRenderer
 from cambrian.optics import MjCambrianNonDifferentiableOptics
-from cambrian.utils.config import MjCambrianEyeConfig, MjCambrianRendererConfig
+from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
+
+
+@config_wrapper
+class MjCambrianEyeConfig(MjCambrianBaseConfig):
+    """Defines the config for an eye. Used for type hinting.
+
+    Attributes:
+        name (Optional[str]): Placeholder for the name of the eye. If set, used
+            directly. If unset, the name is set to `{animal.name}_eye_{eye_index}`.
+
+        mode (str): The mode of the camera. Should always be "fixed". See the mujoco
+            documentation for more info.
+        resolution (Tuple[int, int]): The width and height of the rendered image.
+            Fmt: width height.
+        fov (Tuple[float, float]): Independent of the `fovy` field in the MJCF
+            xml. Used to calculate the sensorsize field. Specified in degrees. Mutually
+            exclusive with `fovy`. If `focal` is unset, it is set to 1, 1. Will override
+            `sensorsize`, if set. Fmt: fovx fovy.
+
+        enable_optics (bool): Whether to enable optics or not.
+        enable_aperture (bool): Whether to enable the aperture or not.
+        enable_lens (bool): Whether to enable the lens or not.
+        enable_phase_mask (bool): Whether to enable the phase mask or not.
+
+        scene_angular_resolution: The angular resolution of the scene. This is used to
+            determine the field of view of the scene. Specified in degrees.
+        pixel_size: The pixel size of the sensor in meters.
+        sensor_resolution (Tuple[int, int]): TODO
+        add_noise (bool): TODO
+        noise_std (float): TODO
+        aperture_open (float): The aperture open value. This is the radius of the
+            aperture. The aperture is a circle that is used to determine which light
+            rays to let through. Only used if `enable_aperture` is True. Must be
+            between 0 and 1.
+        aperture_radius (float): The aperture radius value.
+        wavelengths (Tuple[float, float, float]): The wavelengths to use for the
+            intensity sensor. Fmt: wavelength_1 wavelength_2 wavelength_3
+        depth_bins (int): The number of depth bins to use for the depth dependent psf.
+
+        load_height_mask_from_file (bool): Whether to load the height mask from file or
+            not. If True, the height mask will be loaded from the file specified in
+            `height_mask_from_file`. If False, the psf wil be randomized or set to zeros
+            using `randomize_psf_init`.
+        height_mask_from_file (Optional[str]): The path to the height mask file to load.
+        randomize_psf_init (bool): Whether to randomize the psf or not. If True, the psf
+            will be randomized. If False, the psf will be set to zeros. Only used if
+            `load_height_mask_from_file` is False.
+        zernike_basis_path (Optional[str]): The path to the zernike basis file to load.
+        psf_filter_size (Tuple[int, int]): The psf filter size. This is
+            convolved across the image, so the actual resolution of the image is plus
+            psf_filter_size / 2. Only used if `load_height_mask_from_file` is False.
+            Otherwise the psf filter size is determined by the height mask.
+        refractive_index (float): The refractive index of the eye.
+        min_phi_defocus (float): TODO
+        max_phi_defocus (float): TODO
+
+        load_height_mask_from_file (bool): Whether to load the height mask from file or
+            not. If True, the height mask will be loaded from the file specified in
+            `height_mask_from_file`. If False, the psf wil be randomized or set to zeros
+            using `randomize_psf_init`.
+        height_mask_from_file (Optional[str]): The path to the height mask file to load.
+        randomize_psf_init (bool): Whether to randomize the psf or not. If True, the psf
+            will be randomized. If False, the psf will be set to zeros. Only used if
+            `load_height_mask_from_file` is False.
+        zernike_basis_path (Optional[str]): The path to the zernike basis file to load.
+
+        psf_filter_size (Tuple[int, int]): The psf filter size. This is
+            convolved across the image, so the actual resolution of the image is plus
+            psf_filter_size / 2. Only used if `load_height_mask_from_file` is False.
+            Otherwise the psf filter size is determined by the height mask.
+        refractive_index (float): The refractive index of the eye.
+        depth_bins (int): The number of depth bins to use for the depth sensor.
+        min_phi_defocus (float): The minimum depth to use for the depth sensor.
+        max_phi_defocus (float): The maximum depth to use for the depth sensor.
+        wavelengths (Tuple[float, float, float]): The wavelengths to use for the
+            intensity sensor. Fmt: wavelength_1 wavelength_2 wavelength_3
+        #### Optics Params
+
+        pos (Optional[Tuple[float, float, float]]): The initial position of the camera.
+            Fmt: xyz
+        quat (Optional[Tuple[float, float, float, float]]): The initial rotation of the
+            camera. Fmt: wxyz.
+        fovy (Optional[float]): The vertical field of view of the camera.
+        focal (Optional[Tuple[float, float]]): The focal length of the camera.
+            Fmt: focal_x focal_y.
+        sensorsize (Optional[Tuple[float, float]]): The sensor size of the camera.
+            Fmt: sensor_x sensor_y.
+
+        coord (Tuple[float, float]): The x and y coordinates of the eye.
+            This is used to determine the placement of the eye on the animal.
+            Specified in degrees. Mutually exclusive with `pos` and `quat`. This attr
+            isn't actually used by eye, but by the animal. The eye has no knowledge
+            of the geometry it's trying to be placed on. Fmt: lat lon
+
+        renderer (MjCambrianRendererConfig): The renderer config to use for the
+            underlying renderer. The width and height of the renderer will be set to the
+            padded resolution (resolution + int(psf_filter_size/2)) of the eye.
+    """
+
+    name: Optional[str] = None
+
+    mode: str
+    resolution: Tuple[int, int]
+    fov: Tuple[float, float]
+
+    enable_optics: bool
+    enable_aperture: bool
+    enable_lens: bool
+    enable_phase_mask: bool
+
+    scene_resolution: Tuple[int, int]
+    scene_angular_resolution: float
+    pixel_size: float
+    sensor_resolution: Tuple[int, int]
+    add_noise: bool
+    noise_std: float
+    aperture_open: float
+    aperture_radius: float
+    wavelengths: Tuple[float, float, float]
+    depth_bins: int
+
+    load_height_mask_from_file: bool
+    height_mask_from_file: Optional[str] = None
+    randomize_psf_init: bool
+    zernike_basis_path: Optional[str] = None
+    psf_filter_size: Tuple[int, int]
+    refractive_index: float
+    min_phi_defocus: float
+    max_phi_defocus: float
+
+    pos: Optional[Tuple[float, float, float]] = None
+    quat: Optional[Tuple[float, float, float, float]] = None
+    fovy: Optional[float] = None
+    focal: Optional[Tuple[float, float]] = None
+    sensorsize: Optional[Tuple[float, float]] = None
+
+    coord: Tuple[float, float]
+
+    renderer: MjCambrianRendererConfig
+
+    def to_xml_kwargs(self) -> Dict[str, Any]:
+        kwargs = dict()
+
+        def set_if_not_none(key: str, val: Any):
+            if val is not None:
+                if isinstance(val, Iterable) and not isinstance(val, str):
+                    val = " ".join(map(str, val))
+                kwargs[key] = val
+
+        set_if_not_none("name", self.name)
+        set_if_not_none("mode", self.mode)
+        set_if_not_none("pos", self.pos)
+        set_if_not_none("quat", self.quat)
+        set_if_not_none("resolution", self.resolution)
+        set_if_not_none("fovy", self.fovy)
+        set_if_not_none("focal", self.focal)
+        set_if_not_none("sensorsize", self.sensorsize)
+
+        return kwargs
+
 
 
 class MjCambrianEye:

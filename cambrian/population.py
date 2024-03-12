@@ -6,11 +6,71 @@ import numpy as np
 
 from cambrian.animal import MjCambrianAnimal
 from cambrian.utils.config import (
-    MjCambrianConfig,
+    MjCambrianConfig
 )
 from cambrian.utils.logger import get_logger
+from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 
-Fitness = float
+@config_wrapper
+class MjCambrianPopulationConfig(MjCambrianBaseConfig):
+    """Config for a population. Used for type hinting.
+
+    Attributes:
+        size (int): The population size. This represents the number of agents that
+            should be trained at any one time. This is independent to the number of
+            parallel envs; an agent represents a single model, where we launch many
+            parallel envs to improve training. This number represents the former.
+    """
+
+    size: int
+
+@config_wrapper
+class MjCambrianSpawningConfig(MjCambrianBaseConfig):
+    """Config for spawning. Used for type hinting.
+
+    Attributes:
+        init_num_mutations (int): The number of mutations to perform on the
+            default config to generate the initial population. The actual number of
+            mutations is calculated using random.randint(1, init_num_mutations).
+        num_mutations (int): The number of mutations to perform on the parent
+            generation to generate the new generation. The actual number of mutations
+            is calculated using random.randint(1, num_mutations).
+        mutations (List[str]): The mutation options to use for the animal. See
+            `MjCambrianAnimal.MutationType` for options.
+        mutation_options (Optional[Dict[str, Any]]): The options to use for
+            the mutations.
+
+        load_policy (bool): Whether to load a policy or not. If True, the parent's
+            saved policy will be loaded and used as the starting point for the new
+            generation. If False, the child will be trained from scratch.
+
+        replication_type (str): The type of replication to use. See
+            `ReplicationType` for options.
+    """
+
+    init_num_mutations: int
+    num_mutations: int
+    mutations: List[str]
+    mutation_options: Optional[Dict[str, Any]] = None
+
+    load_policy: bool
+
+    class ReplicationType(Flag):
+        """Use as bitmask to specify which type of replication to perform on the animal.
+
+        Example:
+        >>> # Only mutation
+        >>> type = ReplicationType.MUTATION
+        >>> # Both mutation and crossover
+        >>> type = ReplicationType.MUTATION | ReplicationType.CROSSOVER
+        """
+
+        MUTATION = auto()
+        CROSSOVER = auto()
+
+    replication_type: str
+
+
 
 
 class MjCambrianPopulation:
@@ -47,11 +107,11 @@ class MjCambrianPopulation:
         self.logdir = Path(logdir)
         self.logger = get_logger()
 
-        self._all_population: Dict[Path, Tuple[Fitness, MjCambrianConfig]] = {}
+        self._all_population: Dict[Path, Tuple[float, MjCambrianConfig]] = {}
         self._top_performers: List[Path] = []
 
     def add_animal(
-        self, path_or_config: Path | MjCambrianConfig, fitness: Optional[Fitness] = None
+        self, path_or_config: Path | MjCambrianConfig, fitness: Optional[float] = None
     ):
         """Add an animal to the population. This can be called internally during an
         update or externally, such as when adding the very first animal to the
@@ -63,7 +123,7 @@ class MjCambrianPopulation:
                 be provided. Furthermore, it assumed that the animal is being added for
                 convenience (like when we need to add an initial animal to the
                 population); therefore, the key is set to "placeholder".
-            fitness (Optional[Fitness]): The animal's fitness. If None, the fitness is
+            fitness (Optional[float]): The animal's fitness. If None, the fitness is
                 calculated from the animal's monitor.csv file.
         """
         if isinstance(path_or_config, Path):

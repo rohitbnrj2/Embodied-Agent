@@ -1,27 +1,53 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, TypeAlias, Self
 from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 
-from cambrian.utils.config import MjCambrianXMLConfig
+MjCambrianXMLConfig: TypeAlias = List[Dict[str, Self]]
+"""
+We use a list here because then we can have non-unique keys.
 
-def convert_xml_to_yaml(input_xml_file: str) -> str:
-    tree = ET.parse(input_xml_file)
-    root = tree.getroot()
+This defines a custom xml config. This can be used to define custom xmls which 
+are built from during the initialization phase of the environment. The config is 
+structured as follows:
 
-    def parse_element(element: ET.Element, result: list) -> list:
-        # Set's attributes
-        for key, value in element.items():
-            result.append({key: value})
+```yaml
+parent_key1:
+    - child_key1: 
+        - attr1: val1
+        - attr2: val2
+    - child_key2:
+        - attr1: val1
+        - attr2: val2
+child_key1:
+    - child_key2:
+        - attr1: ${parent_key1.child_key1.attr2}
+- child_key2:
+    - child_key3: ${parent_key1.child_key1}
+```
 
-        # Adds children
-        for child in element:
-            result.append({child.tag: parse_element(child, [])})
-        return result
+which will construct an xml that looks like:
 
-    yaml_out = parse_element(root, [])
-    return yaml_out
+```xml
+<parent_key1>
+    <child_key1 attr1="val1" attr2="val2">
+        <child_key2 attr1="val2"/>
+    </child_key1>
+    <child_key2>
+        <attr1>val1</attr1>
+        <attr2>val2</attr2>
+        <child_key3 attr1="val1" attr2="val2">
+    </child_key2>
+</parent_key1>
+```
+
+This is a verbose representation for xml files. This is done
+to allow interpolation through hydra/omegaconf in the xml files and without the need
+for a complex xml parser omegaconf resolver.
+
+TODO: I think this type (minus the Self) is supported as of OmegaConf issue #890.
+"""
 
 class MjCambrianXML:
     """Helper class for manipulating mujoco xml files. Provides some helper methods for
@@ -274,6 +300,24 @@ class MjCambrianXML:
 
     def __str__(self) -> str:
         return self.to_string()
+
+
+def convert_xml_to_yaml(input_xml_file: str) -> str:
+    tree = ET.parse(input_xml_file)
+    root = tree.getroot()
+
+    def parse_element(element: ET.Element, result: list) -> list:
+        # Set's attributes
+        for key, value in element.items():
+            result.append({key: value})
+
+        # Adds children
+        for child in element:
+            result.append({child.tag: parse_element(child, [])})
+        return result
+
+    yaml_out = parse_element(root, [])
+    return yaml_out
 
 
 if __name__ == "__main__":

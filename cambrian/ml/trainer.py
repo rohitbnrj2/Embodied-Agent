@@ -34,8 +34,29 @@ from cambrian.utils import (
     setattrs_temporary,
 )
 from cambrian.utils.config import MjCambrianConfig
+from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.wrappers import make_single_env
 from cambrian.utils.logger import get_logger
+
+@config_wrapper
+class MjCambrianTrainerConfig(MjCambrianBaseConfig):
+    """Settings for the training process. Used for type hinting.
+
+    Attributes:
+        total_timesteps (int): The total number of timesteps to train for.
+        max_episode_steps (int): The maximum number of steps per episode.
+        n_envs (int): The number of parallel environments to use for training.
+
+        model (MjCambrianModelType): The model to use for training.
+        callbacks (MjCambrianCallbackListType): The callbacks to use for training.
+    """
+
+    total_timesteps: int
+    max_episode_steps: int
+    n_envs: int
+
+    model: MjCambrianModel
+    callbacks: CallbackList
 
 
 class MjCambrianTrainer:

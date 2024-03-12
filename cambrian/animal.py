@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Deque
+from typing import Dict, Any, List, Deque, Tuple, Optional
 from enum import Flag, auto
 from functools import reduce
 from collections import deque
@@ -9,23 +9,92 @@ import mujoco as mj
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
 
-from cambrian.eye import MjCambrianEye
+from cambrian.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.utils import (
     get_include_path,
     get_body_id,
-    get_body_name,
     get_geom_id,
     get_joint_id,
-    get_geom_name,
     MjCambrianJoint,
     MjCambrianActuator,
     MjCambrianGeometry,
     setattrs_temporary,
     generate_sequence_from_range,
 )
-from cambrian.utils.cambrian_xml import MjCambrianXML
-from cambrian.utils.config import MjCambrianAnimalConfig, MjCambrianEyeConfig
+from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
+from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 from cambrian.utils.logger import get_logger
+
+
+@config_wrapper
+class MjCambrianAnimalConfig(MjCambrianBaseConfig):
+    """Defines the config for an animal. Used for type hinting.
+
+    Attributes:
+        xml (str): The xml for the animal. This is the xml that will be used to create
+            the animal. You should use ${parent:xml} to generate named attributes. This
+            will search upwards in the yaml file to find the name of the animal.
+
+        body_name (str): The name of the body that defines the main body of the animal.
+        joint_name (str): The root joint name for the animal. For positioning (see qpos)
+        geom_name (str): The name of the geom that are used for eye placement.
+
+        eyes_lat_range (Tuple[float, float]): The x range of the eye. This is used to
+            determine the placement of the eye on the animal. Specified in degrees. This
+            is the latitudinal/vertical range of the evenly placed eye about the
+            animal's bounding sphere.
+        eyes_lon_range (Tuple[float, float]): The y range of the eye. This is used to
+            determine the placement of the eye on the animal. Specified in degrees. This
+            is the longitudinal/horizontal range of the evenly placed eye about the
+            animal's bounding sphere.
+
+        initial_state (Optional[List[float | None]]): The initial state of the animal.
+            The length of the list should be equal or less than the number of qpos
+            variables that correspond to the joint defined by `joint_name`. If less
+            than the number of qpos variables, the remaining qpos variables will be
+            unchanged. If None, the intial state will be generated randomly using
+            `maze.generate_reset_pos` method.
+        constant_actions (Optional[List[float | None]]): The constant velocity to use for
+            the animal. If not None, the len(constant_actions) must equal number of
+            actuators defined in the model. For instance, if there are 3 actuators
+            defined and it's desired to have the 2nd actuator be constant, then
+            constant_actions = [None, 0, None]. If None, no constant action will be
+            applied.
+
+        use_action_obs (bool): Whether to use the action observation or not.
+        use_init_pos_obs (bool): Whether to use the initial position observation or not.
+        use_current_pos_obs (bool): Whether to use the current position observation or
+            not.
+        n_temporal_obs (int): The number of temporal observations to use.
+
+        eyes (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
+            The key will be used as the name for the eye.
+
+        mutations_from_parent (Optional[List[str]]): The mutations applied to the child
+            (this animal) from the parent. This is unused during mutation; it simply
+            is a record of the mutations that were applied to the parent.
+    """
+
+    xml: MjCambrianXMLConfig
+
+    body_name: str
+    joint_name: str
+    geom_name: str
+
+    eyes_lat_range: Tuple[float, float]
+    eyes_lon_range: Tuple[float, float]
+
+    initial_state: Optional[List[float | None]] = None
+    constant_actions: Optional[List[float | None]] = None
+
+    use_action_obs: bool
+    use_init_pos_obs: bool
+    use_current_pos_obs: bool
+    n_temporal_obs: int
+
+    eyes: Dict[str, MjCambrianEyeConfig]
+
+    mutations_from_parent: List[str]
 
 
 class MjCambrianAnimal:
