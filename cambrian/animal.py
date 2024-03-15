@@ -22,7 +22,7 @@ from cambrian.utils import (
     generate_sequence_from_range,
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
-from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
+from cambrian.utils.base_config import MjCambrianBaseConfig, config_wrapper
 from cambrian.utils.logger import get_logger
 
 

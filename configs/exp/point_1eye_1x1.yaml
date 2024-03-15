@@ -20,6 +20,8 @@ defaults:
   # to specify here to set things up correctly.
   - default
 
+  - override /env: maze_env
+
   # Finally, we include _self_ such that all the configs defined herein will override
   # the files we've included above. This isn't really necessary as hydra will 
   # automatically append _self_ to the end of the list of defaults.

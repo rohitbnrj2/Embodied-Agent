@@ -1,11 +1,12 @@
-from typing import Dict, Any, Tuple
-from pathlib import Path
+from typing import Dict, Any, Tuple, TYPE_CHECKING
 
 import gymnasium as gym
 from stable_baselines3.common.env_checker import check_env
 
 from cambrian.envs.env import MjCambrianEnv
-from cambrian.utils.config import MjCambrianConfig
+
+if TYPE_CHECKING:
+    from cambrian.utils.config import MjCambrianConfig
 
 
 class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
@@ -40,7 +41,7 @@ class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
 
 
 def make_single_env(
-    config: Path | str | MjCambrianConfig, seed: int, **kwargs
+    config: "MjCambrianConfig", seed: int, **kwargs
 ) -> MjCambrianSingleAnimalEnvWrapper:
     """Utility function for multiprocessed MjCambrianSingleAnimalEnvWrapper."""
 

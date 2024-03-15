@@ -6,7 +6,7 @@ import cv2
 import mujoco as mj
 from gymnasium import spaces
 
-from cambrian.renderer import MjCambrianRenderer
+from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
 from cambrian.optics import MjCambrianNonDifferentiableOptics
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML

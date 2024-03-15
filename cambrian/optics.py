@@ -1,11 +1,12 @@
+from typing import Tuple, TYPE_CHECKING
+
 import numpy as np
 from numpy.fft import fft2, fftshift, ifft2, ifftshift
 import torch
 from PIL import Image
 
-from typing import Tuple
-
-from cambrian.utils.config import MjCambrianEyeConfig
+if TYPE_CHECKING:
+    from cambrian.eye import MjCambrianEyeConfig
 
 def electric_field(k, z1, X1, Y1):
     return np.exp(1j*k*np.sqrt(X1**2+Y1**2+z1**2)) 
@@ -43,12 +44,12 @@ def add_gaussian_noise(images: torch.Tensor, std: float = 0.01) -> torch.Tensor:
 
 class MjCambrianNonDifferentiableOptics(torch.nn.Module):
 
-    def __init__(self, config: MjCambrianEyeConfig):
-        super(MjCambrianNonDifferentiableOptics).__init__()
+    def __init__(self, config: "MjCambrianEyeConfig"):
+        super().__init__()
         self._debug = False
         self.reset(config)
 
-    def reset(self, config: MjCambrianEyeConfig):
+    def reset(self, config: "MjCambrianEyeConfig"):
         self.config = config
         self.A, self.X1, self.Y1, self.FX, self.FY, self.focal = self.define_simple_psf(config)
 
@@ -111,7 +112,7 @@ class MjCambrianNonDifferentiableOptics(torch.nn.Module):
         
         return np.clip(img, 0, 1), None
 
-    def define_simple_psf(self, config: MjCambrianEyeConfig) -> torch.Tensor:
+    def define_simple_psf(self, config: "MjCambrianEyeConfig") -> torch.Tensor:
         """Define a simple point spread function (PSF) for the eye.
         """
 

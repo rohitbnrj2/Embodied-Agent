@@ -1,10 +1,9 @@
 from typing import Dict, Any, Optional, Callable
 import os
 
-import hydra_zen as zen
-
 from cambrian.ml.trainer import MjCambrianTrainerConfig
 from cambrian.envs.env import MjCambrianEnvConfig
+from cambrian.envs.maze_env import MjCambrianMazeEnvConfig
 from cambrian.ml.evo import MjCambrianEvoConfig
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 
@@ -49,8 +48,7 @@ def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, 
             after the hydra configuration is parsed.
     """
     import hydra
-
-    zen.store.add_to_hydra_store()
+    from omegaconf import DictConfig
 
     def hydra_argparse_override(fn: Callable, /):
         """This function allows us to add custom argparse parameters prior to hydra
@@ -93,13 +91,13 @@ if __name__ == "__main__":
     t0 = time.time()
 
     def main(config: MjCambrianConfig):
-        import time
-        t0 = time.time()
-        for _ in range(100000):
-            config.env
-        t1 = time.time()
-        print(f"Time: {t1 - t0:.2f}")
-        # config.save("config.yaml")
+        # import time
+        # t0 = time.time()
+        # for _ in range(100000):
+        #     config.env
+        # t1 = time.time()
+        # print(f"Time: {t1 - t0:.2f}")
+        config.save("config.yaml")
 
     setup_hydra(main)
     t1 = time.time()

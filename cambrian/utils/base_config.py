@@ -1,88 +1,206 @@
 from typing import Dict, Any, Optional, Self, Type
-from dataclasses import field
+from dataclasses import field, dataclass, fields, make_dataclass
 from pathlib import Path
 from functools import partial
 
-from omegaconf import OmegaConf, DictConfig, ListConfig, MissingMandatoryValue
 import hydra_zen as zen
+from hydra.core.config_store import ConfigStore
+from omegaconf import OmegaConf, DictConfig, ListConfig, MissingMandatoryValue
+
+# =============================================================================
+# Config classes and methods
+
 
 class MjCambrianContainerConfig:
-    _config: DictConfig
-    _content: DictConfig
+    """This is a wrapper around the OmegaConf DictConfig and ListConfig classes.
+
+    Internally, hydra use OmegaConf to parse yaml/config files. OmegaConf
+    uses an internal class DictConfig (and ListConfig for lists) to represent the
+    dictionary data types. This is immutable and inheritance isn't easy, so this class
+    allows us to wrap the DictConfig and ListConfig classes to add some additional
+    methods. OmegaConf uses functional-style programming, where the OmegaConf class
+    provides methods with which you pass a DictConfig or ListConfig instance to.
+    Instead, we wrap the DictConfig and ListConfig classes to provide object-oriented
+    programming, where we can call methods on the instance itself, as well as
+    additional custom methods.
+
+    We'll keep around two instances of DictConfig or ListConfig: `_config` and
+    `_content`. `_config` is the original, uninstantiated config. This is strictly yaml
+    and does not include any instantiated objects. `_content` is the instantiated
+    config. When getting an attribute, we'll get the attribute from `_content` and
+    return the wrapped instance by this class. `_config` is used to export in a human-
+    readable format to a yaml file.
+
+    Args:
+        content (DictConfig | ListConfig): The instantiated config.
+
+    Keyword Args:
+        config (Optional[DictConfig | ListConfig]): The original, uninstantiated
+            config. If unset, will use the content as the config.
+    """
+
+    _config: DictConfig | ListConfig
+    _content: DictConfig | ListConfig
 
     def __init__(
         self,
         content: DictConfig | ListConfig,
         /,
-        structured: Optional["MjCambrianBaseConfig"] = None,
         config: Optional[DictConfig | ListConfig] = None,
-        **kwargs,
     ):
+        # Must use __dict__ to set the attributes since we're overriding the
+        # __getattr__ method. If config is None, we'll just set it to the content.
+        self.__dict__["_content"] = content
         self.__dict__["_config"] = config or content
 
-        if structured:
-            content = self.instantiate(content, structured=structured, **kwargs)
-        self.__dict__["_content"] = content
-
+    @classmethod
     def instantiate(
-        self,
-        config: DictConfig | ListConfig | Self,
-        structured: Type,
+        cls,
+        config: DictConfig | ListConfig,
         **kwargs,
-    ) -> Self:
-        config = OmegaConf.merge(structured, zen.instantiate(config, **kwargs))
-        if keys := OmegaConf.missing_keys(config):
-            config._format_and_raise(
+    ) -> DictConfig | ListConfig:
+        """Instantiate the config using the structured config. Will check for missing
+        keys and raise an error if any are missing."""
+        # First instantiate the config (will replace _target_ with the actual class)
+        # And then merge the structured config with the instantiated config to give it
+        # validation.
+        content = zen.instantiate(config, **kwargs)
+
+        # Check for missing values. Error message will only show the first missing key.
+        if keys := OmegaConf.missing_keys(content):
+            content._format_and_raise(
                 key=next(iter(keys)),
                 value=None,
                 cause=MissingMandatoryValue("Missing mandatory value"),
             )
-        return config
-
-    @classmethod
-    def load(cls, path: Path | str) -> Self:
-        return cls.instantiate(OmegaConf.load(path))
-
-    @classmethod
-    def load_from_string(cls, string: str) -> Self:
-        import tempfile
-        with tempfile.NamedTemporaryFile("w", delete=False) as f:
-            f.write(string)
-            path = Path(f.name)
-        return cls.load(path)
-
-    def __getattr__(self, name: str):
-        content = self._content.__getattr__(name)
-        config = self._config.__getattr__(name)
         return MjCambrianContainerConfig(content, config=config)
 
-    def get_type(self):
+    @classmethod
+    def load(cls, **kwargs) -> Self:
+        """Wrapper around OmegaConf.load to instantiate the config."""
+        return cls.instantiate(OmegaConf.load(**kwargs))
+
+    @classmethod
+    def create(cls, **kwargs) -> Self:
+        """Wrapper around OmegaConf.create to instantiate the config."""
+        return cls.instantiate(OmegaConf.create(**kwargs))
+
+    def get_type(self) -> Type[Any]:
+        """Wrapper around OmegaConf.get_type to get the type of the config."""
         return OmegaConf.get_type(self._content)
 
     def to_container(self) -> Dict[str, Any]:
+        """Wrapper around OmegaConf.to_container to convert the config to a
+        dictionary."""
         return OmegaConf.to_container(self._config)
 
     def to_yaml(self) -> str:
+        """Wrapper around OmegaConf.to_yaml to convert the config to a yaml string."""
         return OmegaConf.to_yaml(self._config)
 
     def save(self, path: Path | str):
-        """Save the config to a yaml file."""
-        with open(path, "w") as f:
-            f.write(self.to_yaml())
+        """Wrapper around OmegaConf.save to save the config to a yaml file."""
+        return OmegaConf.save(self._config, path)
+
+    def __getattr__(self, name: str) -> Self | Any:
+        """Get the attribute from the content and return the wrapped instance. If the
+        attribute is a DictConfig or ListConfig, we'll wrap it in this class."""
+        content = self._content.__getattr__(name)
+        if OmegaConf.is_config(content):
+            config = self._config.__getattr__(name)
+            return MjCambrianContainerConfig(content, config=config)
+        else:
+            return content
 
     def __str__(self) -> str:
         return self.to_yaml()
 
 
 class MjCambrianDictConfig(MjCambrianContainerConfig, DictConfig):
+    """This is a wrapper around the OmegaConf DictConfig class.
+
+    It is intended that this class never actually be instantiated. Config classes
+    should inherit from this class (or a base config class should inherit from this)
+    such that when duck typing, all the methods of DictConfig and
+    MjCambrianContainerConfig are available.
+    """
+
     pass
 
+def config_wrapper(cls=None, /, **kwargs):
+    """This is a wrapper of the dataclass decorator that adds the class to the hydra
+    store.
 
-class MjCambrianListConfig(MjCambrianContainerConfig, ListConfig):
-    pass
+    The hydra store is used to construct structured configs from the yaml files.
+
+    We'll also do some preprocessing of the dataclass fields such that all type hints
+    are supported by hydra. Hydra only supports a certain subset of types, so we'll
+    convert the types to supported types using the _sanitized_type method from 
+    hydra_zen.
+
+    Keyword Args:
+        kw: The kwargs to pass to the dataclass decorator. The following defaults
+            are set:
+            - repr: False
+            - eq: False
+            - slots: True
+            - kw_only: True
+    """
+
+    # Update the kwargs for the dataclass with some defaults
+    default_dataclass_kw = dict(repr=False, eq=False, slots=True, kw_only=True)
+    kwargs = {**default_dataclass_kw, **kwargs}
+
+    def wrapper(cls):
+        # Preprocess the fields to convert the types to supported types
+        # Only certain primitives are supported by hydra/OmegaConf, so we'll convert
+        # these types to supported types using the _sanitized_type method from hydra_zen
+        new_fields = []
+        for f in fields(dataclass(cls, **kwargs)):
+            new_fields.append((f.name, zen.DefaultBuilds._sanitized_type(f.type), f))
+
+        # Create the new dataclass with the sanitized types
+        kwargs["bases"] = cls.__bases__
+        hydrated_cls = make_dataclass(cls.__name__, new_fields, **kwargs)
+
+        # Add to the hydra store
+        ConfigStore().store(cls.__name__, hydrated_cls)
+
+        return hydrated_cls
+
+    if cls is None:
+        return wrapper
+    return wrapper(cls)
 
 
-OmegaConf.register_new_resolver("eval", eval, replace=True)
+@config_wrapper
+class MjCambrianBaseConfig(MjCambrianDictConfig):
+    """Base config for all configs.
+
+    NOTE: This class inherits from MjCambrianDictConfig which is a subclass of
+    DictConfig. There are issues with inheriting from DictConfig and instantiating an
+    instance using the hydra instantiate or omegaconf.to_object methods. So these
+    classes aren't meant to be instantiated, but are used for type hinting and
+    validation of the config files.
+
+    Attributes:
+        custom (Optional[Dict[Any, str]]): Custom data to use. This is useful for
+            code-specific logic (i.e. not in yaml files) where you want to store
+            data that is not necessarily defined in the config.
+    """
+
+    custom: Optional[Dict[str, Any]] = field(default_factory=dict)
+
+
+# =============================================================================
+# OmegaConf resolvers
+
+
+def register_new_resolver(*args, replace: bool = True, **kwargs):
+    """Wrapper around OmegaConf.register_new_resolver to register a new resolver.
+    Defaults to replacing the resolver if it already exists (opposite of the default
+    in OmegaConf)."""
+    OmegaConf.register_new_resolver(*args, replace=replace, **kwargs)
 
 
 def search(
@@ -140,79 +258,164 @@ def search(
             # Otherwise, we'll keep searching up the parent chain
             return search(key, mode=mode, depth=depth + 1, _parent_=_parent_._parent)
 
-OmegaConf.register_new_resolver("search", search, replace=True)
-OmegaConf.register_new_resolver(
-    "parent", partial(search, mode="parent_key"), replace=True
-)
+
+register_new_resolver("search", search)
+register_new_resolver("parent", partial(search, mode="parent_key"))
+register_new_resolver("eval", eval)
+
+# =============================================================================
+# Utilities for config loading
 
 
-def config_wrapper(cls=None, /, dataclass_kwargs: Dict[str, Any] | None = ...):
-    """This is a wrapper of the dataclass decorator that adds the class to the hydra
-    store.
+def instance_wrapper(instance: Type[Any], **kwargs):
+    """This utility method will wrap a class instance to help with setting class
+    attributes after initialization.
 
-    The hydra store is used to construct structured configs from the yaml files.
-    NOTE: Only some primitive datatypes are supported by Hydra/OmegaConf.
+    Some classes, for instance, don't include all attributes in the constructor; this
+    method will postpone setting these attributes until after __init__ is called and
+    just set the attributes directly with setattr.
+
+    This is intended to be called from a yaml config file like so:
+
+    ```yaml
+    obj_to_instantiate:
+        _target_: <path_to>.instance_wrapper
+        instance:
+            _target_: <class>
+
+            # these will be passed to the __init__ method
+            _args_: [arg1, arg2]
+
+            # these will be passed to the __init__ method as kwargs
+            init_arg1: value1
+            init_arg2: value2
+
+        # these will be set as attributes after the __init__ method
+        set_arg1: value1
+        set_arg2: value2
+    ```
+
+    At instantiate time, init args are not always known. As such, you can leverage
+    hydras partial instantiation logic, as well. Under the hood, the instance_wrapper
+    method will wrap the partial instance created by hydra such that when it's
+    constructor is actually called, the attributes will be set.
+
+    ```yaml
+    partial_obj_to_instantiate:
+        _target_: <path_to>.instance_wrapper
+        instance:
+            _target_: <class>
+            _partial_: True
+
+            # these will be passed to the __init__ method
+            _args_: [arg1, arg2]
+
+            # these will be passed to the __init__ method as kwargs
+            init_arg1: value1
+            init_arg2: value2
+            init_arg3: '???' # this is unknown at instantiate time and can be set later
+
+        # these will be set as attributes after the __init__ method
+        set_arg1: value1
+        set_arg2: value2
+    ```
 
     Args:
-        dataclass_kwargs (Dict[str, Any] | None): The kwargs to pass to the dataclass
-            decorator. If unset, will use the defaults. If set to None, the class
-            will not be wrapped as a dataclass.
+        instance (Type[Any]): The class instance to wrap.
+
+    Keyword Args:
+        kwargs: The attributes to set on the instance.
     """
 
-    # Update the kwargs for the dataclass with some defaults
-    # NOTE: Can't use slots: https://github.com/python/cpython/issues/90562
-    default_dataclass_kwargs = dict(repr=False, eq=False, slots=True, kw_only=True)
-    if dataclass_kwargs is ...:
-        # Set to the default dataclass kwargs
-        dataclass_kwargs = default_dataclass_kwargs
-    elif isinstance(dataclass_kwargs, dict):
-        # Update the default dataclass kwargs with the given dataclass kwargs
-        dataclass_kwargs = {**default_dataclass_kwargs, **dataclass_kwargs}
+    def setattrs(instance, **kwargs):
+        try:
+            for key, value in kwargs.items():
+                setattr(instance, key, value)
+        except Exception as e:
+            raise ValueError(f"Error when setting attribute {key=} to {value=}: {e}")
+        return instance
 
-    def wrapper(cls):
-        if dataclass_kwargs is not None:
-            hydrated_cls = zen.hydrated_dataclass(cls, populate_full_signature=True, **dataclass_kwargs)(cls)
+    if isinstance(instance, partial):
+        # If the instance is a partial, we'll setup a wrapper such that once the
+        # partial is actually instantiated, we'll set the attributes of the instance
+        # with the kwargs.
+        partial_instance = instance
+        config_kwargs = kwargs
 
-        # Add to the hydra store
-        # By adding it to the zen store rather than the hydra store directly, we can
-        # support partial types (as in types that are not allowed by OmegaConf/hydra).
-        # For instance, if we want to type hint a class or function, this would not be
-        # allowed by OmegaConf/hydra. But by adding it to the zen store, we can support
-        # these types.
-        if (None, cls.__name__) not in zen.store:
-            zen.store(
-                cls,
-                name=cls.__name__,
-                populate_full_signature=True,
-                zen_dataclass=dataclass_kwargs,
-                builds_bases=(hydrated_cls,),
-            )
+        def wrapper(*args, **kwargs):
+            # First instantiate the partial
+            instance = partial_instance(*args, **kwargs)
+            # Then set the attributes
+            return setattrs(instance, **config_kwargs)
 
-        return hydrated_cls
-
-    if cls is None:
         return wrapper
-    return wrapper(cls)
+    else:
+        return setattrs(instance, **kwargs)
 
 
-@config_wrapper
-class MjCambrianBaseConfig(MjCambrianDictConfig):
-    """Base config for all configs.
+def instance_flag_wrapper(instance: Type[Any], key: str, flag_type: Type[Any], **flags):
+    """This utility method will wrap a class instance to help with setting class
+    attributes after initialization. As opposed to instance_wrapper, this method will
+    set attribute flags on the instance. This is particularly useful for mujoco enums,
+    which are stored in a list.
 
-    NOTE: This class inherits from MjCambrianDictConfig which is a subclass of 
-    DictConfig. There are issues with inheriting from DictConfig and instantiating an
-    instance using the hydra instantiate or omegaconf.to_object methods. So these
-    classes aren't meant to be instantiated, but are used for type hinting and
-    validation of the config files.
+    This is intended to be called from a yaml config file and to be used in conjunction
+    with the instance_wrapper method.
 
-    Attributes:
-        custom (Optional[Dict[Any, str]]): Custom data to use. This is useful for
-            code-specific logic (i.e. not in yaml files) where you want to store
-            data that is not necessarily defined in the config.
+    ```yaml
+    obj_to_instantiate:
+        _target_: <path_to>.instance_wrapper
+        instance:
+            _target_: <class>
+
+        # these will be set as flags on the instance
+        flags:
+            _target_: <path_to>.instance_flag_wrapper
+            instance: ${..instance}                     # get the instance
+            key: ${parent:}                             # gets the parent key; "flags"
+            flag_type:
+                _target_: <class>                       # the class of the flag
+
+            # These will be set like so:
+            # obj_to_instaniate.key[flag1] = value1
+            # obj_to_instaniate.key[flag2] = value2
+            # ...
+            flag1: value1
+            flag2: value2
+            flag3: value3
+    ```
+
+    This also works for partial instances.
+
+    Args:
+        instance (Type[Any]): The class instance to wrap.
+        key (str): The key to set the flags on.
+        flag_type (Type[Any]): The class of the flag.
+
+    Keyword Args:
+        flags: The flags to set on the instance.
     """
 
-    custom: Optional[Dict[str, Any]] = field(default_factory=dict)
+    def setattrs(instance, key, flag_type, **flags):
+        """Set the attributes on the instance."""
+        attr = getattr(instance, key)
+        for flag, value in flags.items():
+            flag = getattr(flag_type, flag)
+            attr[flag] = value
+        return attr
 
-    @classmethod
-    def instantiate(cls, dict_config: DictConfig, **kwargs) -> Self:
-        return MjCambrianContainerConfig(dict_config, structured=cls)
+    if isinstance(instance, partial):
+        partial_instance = instance
+        config_key = key
+        config_type = flag_type
+        config_flags = flags
+
+        def wrapper(*args, **kwargs):
+            # First instantiate the partial
+            instance = partial_instance(*args, **kwargs)
+            # Then set the attributes
+            return setattrs(instance, config_key, config_type, **config_flags)
+
+        return wrapper
+    else:
+        return setattrs(instance, key, flag_type, **flags)

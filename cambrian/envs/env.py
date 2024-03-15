@@ -1,4 +1,4 @@
-from typing import Dict, Any, Tuple, List, Optional, Callable, Concatenate
+from typing import Dict, Any, Tuple, List, Optional, Callable, Concatenate, TYPE_CHECKING
 from pathlib import Path
 import pickle
 
@@ -9,7 +9,6 @@ from gymnasium import spaces
 from stable_baselines3.common.utils import set_random_seed
 
 from cambrian.animal import MjCambrianAnimal, MjCambrianPointAnimal, MjCambrianAnimalConfig
-from cambrian.utils.config import MjCambrianConfig
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.logger import get_logger
@@ -25,6 +24,8 @@ from cambrian.renderer import (
     TEXT_HEIGHT,
     TEXT_MARGIN,
 )
+if TYPE_CHECKING:
+    from cambrian.utils.config import MjCambrianConfig
 
 @config_wrapper
 class MjCambrianEnvConfig(MjCambrianBaseConfig):
@@ -70,13 +71,6 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             with the env. The actual datatype is Self/MjCambrianEnvConfig but all
             attributes are optional. NOTE: This dict is only applied at reset,
             meaning mujoco xml changes will not be reflected in the eval episode.
-
-        mazes (Dict[str, MjCambrianMazeConfig]): The configs for the mazes. Each
-            maze will be loaded into the scene and the animal will be placed in a maze
-            at each reset.
-        maze_selection_fn (MjCambrianMazeSelectionFn): The function to use to select
-            the maze. The function will be called at each reset to select the maze
-            to use. See `MjCambrianMazeSelectionFn` and `maze.py` for more info.
 
         animals (List[MjCambrianAnimalConfig]): The configs for the animals.
             The key will be used as the default name for the animal, unless explicitly
@@ -134,7 +128,7 @@ class MjCambrianEnv(gym.Env):
 
     metadata = {"render_modes": ["human", "rgb_array"]}
 
-    def __init__(self, config: MjCambrianConfig):
+    def __init__(self, config: "MjCambrianConfig"):
         self.config = config
         self.logger = get_logger(self.config)
 
@@ -882,9 +876,7 @@ class MjCambrianEnv(gym.Env):
         return current_distance - prev_distance
 
 
-def make_single_env(
-    config: Path | str | MjCambrianConfig, seed: int, **kwargs
-) -> MjCambrianEnv:
+def make_single_env(config: "MjCambrianConfig", seed: int, **kwargs) -> MjCambrianEnv:
     """Utility function for multiprocessed MjCambrianEnv."""
 
     def _init():
@@ -898,6 +890,7 @@ def make_single_env(
 if __name__ == "__main__":
     import time
     from cambrian.utils.utils import MjCambrianArgumentParser
+    from cambrian.utils.config import MjCambrianConfig
 
     parser = MjCambrianArgumentParser()
 

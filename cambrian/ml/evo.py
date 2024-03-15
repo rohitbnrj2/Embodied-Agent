@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional, Dict, TYPE_CHECKING
 import os
 import subprocess
 import threading
@@ -7,10 +7,16 @@ import logging
 
 from stable_baselines3.common.utils import set_random_seed
 
-from cambrian.population import MjCambrianPopulation
-from cambrian.utils.config import MjCambrianConfig
+from cambrian.population import (
+    MjCambrianPopulation,
+    MjCambrianPopulationConfig,
+    MjCambrianSpawningConfig,
+)
 from cambrian.utils.logger import get_logger
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
+
+if TYPE_CHECKING:
+    from cambrian.utils.config import MjCambrianConfig
 
 
 @config_wrapper
@@ -80,12 +86,7 @@ class MjCambrianEvoRunner:
     allow multiple parallel environments to be run at the same time on the same node.
     """
 
-    def __init__(
-        self,
-        config: MjCambrianConfig,
-        *,
-        dry_run: bool = False,
-    ):
+    def __init__(self, config: "MjCambrianConfig", *, dry_run: bool = False):
         self.config = config
         self.evo_config = config.evo_config
         self.dry_run = dry_run
@@ -169,7 +170,7 @@ class MjCambrianEvoRunner:
         for thread in threads:
             thread.join()
 
-    def train_animal(self, config: MjCambrianConfig):
+    def train_animal(self, config: "MjCambrianConfig"):
         """Runs the training process for the given animal.
 
         Each trainer is launched using a separate process and waits until it completes.

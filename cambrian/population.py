@@ -1,15 +1,15 @@
-from typing import Dict, Tuple, List, Optional
+from typing import Dict, Tuple, List, Optional, TYPE_CHECKING, Any, Type
+from enum import Flag, auto
 from pathlib import Path
 import os
 
 import numpy as np
 
 from cambrian.animal import MjCambrianAnimal
-from cambrian.utils.config import (
-    MjCambrianConfig
-)
 from cambrian.utils.logger import get_logger
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
+if TYPE_CHECKING:
+    from cambrian.utils.config import MjCambrianConfig
 
 @config_wrapper
 class MjCambrianPopulationConfig(MjCambrianBaseConfig):
@@ -101,17 +101,17 @@ class MjCambrianPopulation:
             directory under `generation_{generation_num}/rank_{rank_num}`.
     """
 
-    def __init__(self, initial_config: MjCambrianConfig, logdir: Path | str):
+    def __init__(self, initial_config: "MjCambrianConfig", logdir: Path | str):
         self.initial_config = initial_config
         self.config = initial_config.evo_config.population_config
         self.logdir = Path(logdir)
         self.logger = get_logger()
 
-        self._all_population: Dict[Path, Tuple[float, MjCambrianConfig]] = {}
+        self._all_population: Dict[Path, Tuple[float, "MjCambrianConfig"]] = {}
         self._top_performers: List[Path] = []
 
     def add_animal(
-        self, path_or_config: Path | MjCambrianConfig, fitness: Optional[float] = None
+        self, path_or_config: Path | Type["MjCambrianConfig"], fitness: Optional[float] = None
     ):
         """Add an animal to the population. This can be called internally during an
         update or externally, such as when adding the very first animal to the
@@ -193,11 +193,11 @@ class MjCambrianPopulation:
         fitness = np.max(rewards)
         return fitness
 
-    def select_animal(self) -> MjCambrianConfig:
+    def select_animal(self) -> "MjCambrianConfig":
         """Alias to `select_animals` that selects a single animal."""
         return self.select_animals(1)[0]
 
-    def select_animals(self, num: int) -> List[MjCambrianConfig]:
+    def select_animals(self, num: int) -> List["MjCambrianConfig"]:
         """Selects `num` animals from the current population.
 
         The animal is selected based on the fitness of the animal. The animal with the
@@ -213,7 +213,7 @@ class MjCambrianPopulation:
 
         return configs
 
-    def spawn_animal(self, generation: int, rank: int) -> MjCambrianConfig:
+    def spawn_animal(self, generation: int, rank: int) -> "MjCambrianConfig":
         """Spawns a new animal based on the current population.
 
         TODO: add crossover

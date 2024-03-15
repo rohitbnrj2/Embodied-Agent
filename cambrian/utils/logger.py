@@ -14,12 +14,13 @@ LOGGER.debug("Debug")
 ```
 """
 
+from typing import Optional, TYPE_CHECKING
 import logging
 import logging.config
-from typing import Optional
 import pathlib
 
-from cambrian.utils.config import MjCambrianConfig
+if TYPE_CHECKING:
+    from cambrian.utils.config import MjCambrianConfig
 
 
 class MjCambrianTqdmStreamHandler(logging.StreamHandler):
@@ -47,7 +48,7 @@ class MjCambrianLoggerMaxLevelFilter(logging.Filter):
 
 
 def get_logger(
-    config: Optional[MjCambrianConfig] = None,
+    config: Optional["MjCambrianConfig"] = None,
     *,
     name: str = "cambrian",
     overwrite_filepath: Optional[pathlib.Path] = None,

@@ -711,18 +711,18 @@ if __name__ == "__main__":
     use_shared_context: true
 
     camera:
-        _target_: cambrian.utils.mujoco_wrapper
+        _target_: cambrian.utils.base_config.instance_wrapper
         instance: 
             _target_: mujoco.MjvCamera
 
     scene:
-        _target_: cambrian.utils.mujoco_wrapper
+        _target_: cambrian.utils.base_config.instance_wrapper
         instance:
             _target_: mujoco.MjvScene
             _partial_: true
             maxgeom: 10000
     scene_options:
-        _target_: cambrian.utils.mujoco_wrapper
+        _target_: cambrian.utils.base_config.instance_wrapper
         instance:
             _target_: mujoco.MjvOption
     """

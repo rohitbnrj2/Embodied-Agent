@@ -1,3 +1,4 @@
+from typing import TYPE_CHECKING
 from pathlib import Path
 
 import torch
@@ -9,23 +10,11 @@ from stable_baselines3.common.vec_env import (
 )
 from stable_baselines3.common.callbacks import (
     BaseCallback,
-    StopTrainingOnNoModelImprovement,
-    StopTrainingOnRewardThreshold,
     CallbackList,
 )
 from stable_baselines3.common.utils import set_random_seed
 
 from cambrian.envs.env import MjCambrianEnv
-from cambrian.ml.features_extractors import MjCambrianCombinedExtractor
-from cambrian.ml.callbacks import (
-    MjCambrianEvalCallback,
-    MjCambrianPlotMonitorCallback,
-    MjCambrianSavePolicyCallback,
-    MjCambrianPlotEvaluationsCallback,
-    MjCambrianGPUUsageCallback,
-    MjCambrianProgressBarCallback,
-    CallbackListWithSharedParent,
-)
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import (
     evaluate_policy,
@@ -33,10 +22,12 @@ from cambrian.utils import (
     get_observation_space_size,
     setattrs_temporary,
 )
-from cambrian.utils.config import MjCambrianConfig
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.wrappers import make_single_env
 from cambrian.utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from cambrian.utils.config import MjCambrianConfig
 
 @config_wrapper
 class MjCambrianTrainerConfig(MjCambrianBaseConfig):
@@ -66,13 +57,13 @@ class MjCambrianTrainer:
         config (MjCambrianConfig): The config to use for training and evaluation.
     """
 
-    def __init__(self, config: MjCambrianConfig):
+    def __init__(self, config: "MjCambrianConfig"):
         self.config = config
-        self.training_config = config.training
+        self.trainer_config = config.trainer
 
         self.logdir = Path(
-            Path(self.training_config.logdir)
-            / self.training_config.exp_name
+            Path(self.trainer_config.logdir)
+            / self.trainer_config.exp_name
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
 
@@ -84,8 +75,8 @@ class MjCambrianTrainer:
         )
         self.logger.info(f"Logging to {self.logdir / 'logs'}...")
 
-        self.logger.debug(f"Setting seed to {self.training_config.seed}...")
-        set_random_seed(self.training_config.seed)
+        self.logger.debug(f"Setting seed to {self.trainer_config.seed}...")
+        set_random_seed(self.trainer_config.seed)
 
     def train(self):
         """Train the animal."""
@@ -109,7 +100,7 @@ class MjCambrianTrainer:
         cambrian_env.xml.write(xml_path)
 
         # Start training
-        total_timesteps = self.training_config.total_timesteps
+        total_timesteps = self.trainer_config.total_timesteps
         model.learn(total_timesteps=total_timesteps, callback=callback)
         self.logger.info("Finished training the animal...")
 
@@ -141,7 +132,7 @@ class MjCambrianTrainer:
     # ========
 
     def _calc_seed(self, i: int) -> int:
-        return self.training_config.seed + i
+        return self.trainer_config.seed + i
 
     def _calc_n_envs(self) -> int:
         """Calculates the number of environments to use for training based on 
@@ -156,7 +147,7 @@ class MjCambrianTrainer:
                 number of environments specified in the config.
         """
         if not torch.cuda.is_available():
-            return self.training_config.n_envs
+            return self.trainer_config.n_envs
 
         # Get the memory usage before creating the environment
         memory_usage_before, total_memory = get_gpu_memory_usage()
@@ -180,10 +171,10 @@ class MjCambrianTrainer:
         memory_usage_per_env = (
             memory_usage_after
             - memory_usage_before
-            + observation_space_size * self.training_config.batch_size
+            + observation_space_size * self.trainer_config.batch_size
         )
 
-        return min(self.training_config.n_envs, int(total_memory // memory_usage_per_env) - 1)
+        return min(self.trainer_config.n_envs, int(total_memory // memory_usage_per_env) - 1)
 
 
     def _make_env(self, n_envs: int, monitor_csv: str | None = "monitor.csv") -> VecEnv:
@@ -204,10 +195,10 @@ class MjCambrianTrainer:
         """Makes the callbacks."""
         from functools import partial 
 
-        for i, callback in enumerate(self.training_config.callbacks):
+        for i, callback in enumerate(self.trainer_config.callbacks):
             # TODO: is this a good assumption? is there a better way to do this?
             if isinstance(callback, partial):
-                self.training_config.callbacks[i] = callback(eval_env)
+                self.trainer_config.callbacks[i] = callback(eval_env)
 
         return callback
 
@@ -220,10 +211,10 @@ class MjCambrianTrainer:
         are ignored.
         """
         model = self.config.training.model(env=env)
-        if (checkpoint_path := self.training_config.checkpoint_path) is not None:
+        if (checkpoint_path := self.trainer_config.checkpoint_path) is not None:
             model = MjCambrianModel.load(checkpoint_path, env=env)
 
-        if (policy_path := self.training_config.policy_path) is not None:
+        if (policy_path := self.trainer_config.policy_path) is not None:
             policy_path = Path(policy_path)
             assert (
                 policy_path.exists()

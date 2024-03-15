@@ -2,159 +2,105 @@ expname: ${hydra:runtime.choices.exp}
 logdir: ./logs/${now:%Y-%m-%d}/${expname}
 seed: 0
 env:
-  mazes:
-    I_MAZE_STATIC:
-      size_scaling: 4.0
-      height: 0.5
-      flip: false
-      smooth_walls: false
-      hide_targets: false
-      use_target_light_sources: true
-      wall_texture_map:
-        default:
-        - vertical_10
-      use_adversary: false
-      difficulty: 1
-      xml:
-      - mujoco:
-        - name: maze
-        - asset:
-          - material:
-            - name: floor_mat_${parent:xml}
-            - rgba: 0.1 0.1 0.1 1.0
-            - shininess: '0.0'
-            - specular: '0.0'
-        - default:
-          - default:
-            - class: maze_block_${parent:xml}
-            - geom:
-              - type: box
-              - gap: '0.05'
-              - margin: '0.1'
-              - group: '1'
-              - condim: '1'
-          - default:
-            - class: maze_target_${parent:xml}
-            - site:
-              - type: sphere
-              - group: '1'
-            - light:
-              - exponent: '0.1'
-              - cutoff: '180'
-              - dir: 0 0 -1
-              - diffuse: 1 1 1
-              - ambient: 1 1 1
-              - specular: 1 1 1
-              - castshadow: 'false'
-        - worldbody:
-          - geom:
-            - name: floor_${parent:xml}
-            - type: plane
-            - pos: 0 0 -0.05
-            - size: 1 1 1
-            - material: floor_mat_${parent:xml}
-            - condim: '1'
-            - group: '1'
-      map: "[\n  [1:L, 1:E, 1:R],\n  [1:L,   R, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,\
-        \   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n\
-        \  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0,\
-        \ 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   T, 1:R],\n  [1:L,\
-        \ 1:E, 1:R],\n]"
+  custom: {}
+  xml:
+  - mujoco:
+    - model: scene
+    - compiler:
+      - assetdir: assets
+      - angle: degree
+      - coordinate: local
+      - inertiafromgeom: 'true'
+    - option:
+      - density: '1000'
+      - integrator: implicitfast
+      - timestep: '0.02'
+      - viscosity: '1.8e-5'
+    - visual:
+      - map:
+        - znear: '0.001'
+        - zfar: '3'
+      - scale:
+        - frustum: '40'
+      - rgba:
+        - camera: 0.6 0.9 0.6 1
+    - asset:
+      - texture:
+        - type: skybox
+        - builtin: gradient
+        - width: '100'
+        - height: '100'
+        - rgb1: 0 0 0
+        - rgb2: 0 0 0
+    - worldbody: []
+  reward_fn:
+    _partial_: true
+    _target_: cambrian.envs.env.MjCambrianEnv._reward_fn_intensity_and_at_goal
+  use_goal_obs: false
+  terminate_at_goal: false
+  truncate_on_contact: false
+  distance_to_target_threshold: 2.0
+  action_penalty: 0.0
+  adversary_penalty: -1.0
+  contact_penalty: -1.0
+  force_exclusive_contact_penalty: false
+  frame_skip: 10
+  add_overlays: true
+  clear_overlays_on_reset: true
+  renderer:
+    custom: {}
+    render_modes:
+    - rgb_array
+    width: null
+    height: null
+    fullscreen: null
+    camera:
+      _target_: cambrian.utils.base_config.instance_wrapper
+      instance:
+        _target_: mujoco.MjvCamera
+      azimuth: 180.0
+      elevation: -90.0
+      distance: 1.25
+    scene:
+      _target_: cambrian.utils.base_config.instance_wrapper
+      instance:
+        _target_: mujoco.MjvScene
+        _partial_: true
+        maxgeom: 10000
+      flags:
+        _target_: cambrian.utils.base_config.instance_flag_wrapper
+        instance: ${..instance}
+        key: flags
+        flag_type:
+          _target_: mujoco.mjtRndFlag
+          value: 0
+        mjRND_SHADOW: 0
+        mjRND_WIREFRAME: 0
+        mjRND_REFLECTION: 0
+        mjRND_ADDITIVE: 0
+        mjRND_SKYBOX: 0
+        mjRND_FOG: 0
+        mjRND_HAZE: 0
+        mjRND_SEGMENT: 0
+        mjRND_IDCOLOR: 0
+        mjRND_CULL_FACE: 1
+    scene_options:
+      _target_: cambrian.utils.base_config.instance_wrapper
+      instance:
+        _target_: mujoco.MjvOption
+      flags:
+        _target_: cambrian.utils.base_config.instance_flag_wrapper
+        instance: ${..instance}
+        key: flags
+        flag_type:
+          _target_: mujoco.mjtVisFlag
+          value: 0
+        mjVIS_CAMERA: 0
+    use_shared_context: true
+  eval_overrides: null
   animals:
     point:
-      use_action_obs: true
-      use_init_pos_obs: false
-      use_current_pos_obs: false
-      n_temporal_obs: 10
-      eyes:
-        intensity_sensor:
-          mode: fixed
-          psf_filter_size:
-          - 0
-          - 0
-          enable_optics: false
-          enable_aperture: true
-          enable_lens: false
-          enable_phase_mask: false
-          scene_angular_resolution: 2.0
-          pixel_size: 0.001
-          scene_resolution:
-          - 80
-          - 80
-          sensor_resolution:
-          - 60
-          - 60
-          add_noise: false
-          noise_std: 0.01
-          aperture_open: 1.0
-          aperture_radius: 1
-          wavelengths:
-          - 6.1e-07
-          - 5.3e-07
-          - 4.7e-07
-          depth_bins: 11
-          load_height_mask_from_file: false
-          randomize_psf_init: false
-          refractive_index: 1.5
-          min_phi_defocus: -10
-          max_phi_defocus: 10
-          renderer:
-            render_modes:
-            - rgb_array
-            use_shared_context: true
-          resolution:
-          - 1
-          - 1
-          fov:
-          - 120
-          - 10
-          coord:
-          - ${eval:'sum(${....eyes_lon_range}) / len(${....eyes_lon_range})'}
-          - ${eval:'sum(${....eyes_lat_range}) / len(${....eyes_lat_range})'}
-        point_0_eye_0:
-          mode: fixed
-          psf_filter_size:
-          - 0
-          - 0
-          enable_optics: false
-          enable_aperture: true
-          enable_lens: false
-          enable_phase_mask: false
-          scene_angular_resolution: 2.0
-          pixel_size: 0.001
-          scene_resolution:
-          - 80
-          - 80
-          sensor_resolution:
-          - 60
-          - 60
-          add_noise: false
-          noise_std: 0.01
-          aperture_open: 1.0
-          aperture_radius: 1
-          wavelengths:
-          - 6.1e-07
-          - 5.3e-07
-          - 4.7e-07
-          depth_bins: 11
-          load_height_mask_from_file: false
-          randomize_psf_init: false
-          refractive_index: 1.5
-          min_phi_defocus: -10
-          max_phi_defocus: 10
-          renderer:
-            render_modes:
-            - rgb_array
-            use_shared_context: true
-          resolution:
-          - 1
-          - 1
-          fov:
-          - 45
-          - 20
-          coord:
-          - 10
-          - 0
+      custom: {}
       xml:
       - mujoco:
         - asset:
@@ -239,119 +185,147 @@ env:
       joint_name: ball_x_${parent:}
       geom_name: particle_geom_${parent:}
       eyes_lat_range:
-      - -5
-      - 25
+      - -5.0
+      - 25.0
       eyes_lon_range:
-      - -60
-      - 60
+      - -60.0
+      - 60.0
+      initial_state: null
+      constant_actions: null
+      use_action_obs: true
+      use_init_pos_obs: false
+      use_current_pos_obs: false
+      n_temporal_obs: 10
+      eyes:
+        intensity_sensor:
+          custom: {}
+          name: null
+          mode: fixed
+          resolution:
+          - 1
+          - 1
+          fov:
+          - 120.0
+          - 10.0
+          enable_optics: false
+          enable_aperture: true
+          enable_lens: false
+          enable_phase_mask: false
+          scene_resolution:
+          - 80
+          - 80
+          scene_angular_resolution: 2.0
+          pixel_size: 0.001
+          sensor_resolution:
+          - 60
+          - 60
+          add_noise: false
+          noise_std: 0.01
+          aperture_open: 1.0
+          aperture_radius: 1.0
+          wavelengths:
+          - 6.1e-07
+          - 5.3e-07
+          - 4.7e-07
+          depth_bins: 11
+          load_height_mask_from_file: false
+          height_mask_from_file: null
+          randomize_psf_init: false
+          zernike_basis_path: null
+          psf_filter_size:
+          - 0
+          - 0
+          refractive_index: 1.5
+          min_phi_defocus: -10.0
+          max_phi_defocus: 10.0
+          pos: null
+          quat: null
+          fovy: null
+          focal: null
+          sensorsize: null
+          coord:
+          - ${eval:'sum(${....eyes_lon_range}) / len(${....eyes_lon_range})'}
+          - ${eval:'sum(${....eyes_lat_range}) / len(${....eyes_lat_range})'}
+          renderer:
+            custom: {}
+            render_modes:
+            - rgb_array
+            width: null
+            height: null
+            fullscreen: null
+            camera: null
+            scene: null
+            scene_options: null
+            use_shared_context: true
+        point_0_eye_0:
+          custom: {}
+          name: null
+          mode: fixed
+          resolution:
+          - 1
+          - 1
+          fov:
+          - 45.0
+          - 20.0
+          enable_optics: false
+          enable_aperture: true
+          enable_lens: false
+          enable_phase_mask: false
+          scene_resolution:
+          - 80
+          - 80
+          scene_angular_resolution: 2.0
+          pixel_size: 0.001
+          sensor_resolution:
+          - 60
+          - 60
+          add_noise: false
+          noise_std: 0.01
+          aperture_open: 1.0
+          aperture_radius: 1.0
+          wavelengths:
+          - 6.1e-07
+          - 5.3e-07
+          - 4.7e-07
+          depth_bins: 11
+          load_height_mask_from_file: false
+          height_mask_from_file: null
+          randomize_psf_init: false
+          zernike_basis_path: null
+          psf_filter_size:
+          - 0
+          - 0
+          refractive_index: 1.5
+          min_phi_defocus: -10.0
+          max_phi_defocus: 10.0
+          pos: null
+          quat: null
+          fovy: null
+          focal: null
+          sensorsize: null
+          coord:
+          - 10.0
+          - 0.0
+          renderer:
+            custom: {}
+            render_modes:
+            - rgb_array
+            width: null
+            height: null
+            fullscreen: null
+            camera: null
+            scene: null
+            scene_options: null
+            use_shared_context: true
       mutations_from_parent: []
-  use_goal_obs: false
-  terminate_at_goal: false
-  truncate_on_contact: false
-  distance_to_target_threshold: 2.0
-  action_penalty: 0.0
-  contact_penalty: -1.0
-  force_exclusive_contact_penalty: false
-  adversary_penalty: -1.0
-  frame_skip: 10
-  add_overlays: true
-  clear_overlays_on_reset: true
-  maze_selection_fn:
-    _target_: cambrian.maze.MjCambrianMazeStore.select_maze_random
-    _partial_: true
-  reward_fn:
-    _partial_: true
-    _target_: cambrian.env.MjCambrianEnv._reward_fn_intensity_and_at_goal
-  renderer:
-    render_modes:
-    - rgb_array
-    camera:
-      _target_: cambrian.utils.mujoco_wrapper
-      instance:
-        _target_: mujoco.MjvCamera
-      azimuth: 180.0
-      elevation: -90.0
-      distance: 1.25
-    scene:
-      _target_: cambrian.utils.mujoco_wrapper
-      instance:
-        _target_: mujoco.MjvScene
-        _partial_: true
-        maxgeom: 10000
-      flags:
-        _target_: cambrian.utils.mujoco_flags_wrapper
-        instance: ${..instance}
-        key: flags
-        flag_type:
-          _target_: mujoco.mjtRndFlag
-          value: 0
-        mjRND_SHADOW: 0
-        mjRND_WIREFRAME: 0
-        mjRND_REFLECTION: 0
-        mjRND_ADDITIVE: 0
-        mjRND_SKYBOX: 0
-        mjRND_FOG: 0
-        mjRND_HAZE: 0
-        mjRND_SEGMENT: 0
-        mjRND_IDCOLOR: 0
-        mjRND_CULL_FACE: 1
-    scene_options:
-      _target_: cambrian.utils.mujoco_wrapper
-      instance:
-        _target_: mujoco.MjvOption
-      flags:
-        _target_: cambrian.utils.mujoco_flags_wrapper
-        instance: ${..instance}
-        key: flags
-        flag_type:
-          _target_: mujoco.mjtVisFlag
-          value: 0
-        mjVIS_CAMERA: 0
-    use_shared_context: true
-  xml:
-  - mujoco:
-    - model: scene
-    - compiler:
-      - assetdir: assets
-      - angle: degree
-      - coordinate: local
-      - inertiafromgeom: 'true'
-    - option:
-      - density: '1000'
-      - integrator: implicitfast
-      - timestep: '0.02'
-      - viscosity: '1.8e-5'
-    - visual:
-      - map:
-        - znear: '0.001'
-        - zfar: '3'
-      - scale:
-        - frustum: '40'
-      - rgba:
-        - camera: 0.6 0.9 0.6 1
-    - asset:
-      - texture:
-        - type: skybox
-        - builtin: gradient
-        - width: '100'
-        - height: '100'
-        - rgb1: 0 0 0
-        - rgb2: 0 0 0
-    - worldbody: []
-custom:
-  default:
-    maze:
-      size_scaling: 4.0
-      height: 0.5
-      flip: false
-      smooth_walls: false
-      hide_targets: false
-      use_target_light_sources: true
-      wall_texture_map:
-        default:
-        - vertical_10
-      use_adversary: false
-      difficulty: 1
+  mazes:
+    I_MAZE_STATIC:
+      custom: {}
+      ref: null
+      map: "[\n  [1:L, 1:E, 1:R],\n  [1:L,   R, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,
+        \  0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n
+        \ [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n
+        \ [1:L,   0, 1:R],\n  [1:L,   0, 1:R],\n  [1:L,   T, 1:R],\n  [1:L, 1:E, 1:R],\n]"
       xml:
       - mujoco:
         - name: maze
@@ -392,48 +366,25 @@ custom:
             - material: floor_mat_${parent:xml}
             - condim: '1'
             - group: '1'
-    animal:
-      use_action_obs: true
-      use_init_pos_obs: false
-      use_current_pos_obs: false
-      n_temporal_obs: 10
-      eyes: {}
-    eye:
-      mode: fixed
-      psf_filter_size:
-      - 0
-      - 0
-      enable_optics: false
-      enable_aperture: true
-      enable_lens: false
-      enable_phase_mask: false
-      scene_angular_resolution: 2.0
-      pixel_size: 0.001
-      scene_resolution:
-      - 80
-      - 80
-      sensor_resolution:
-      - 60
-      - 60
-      add_noise: false
-      noise_std: 0.01
-      aperture_open: 1.0
-      aperture_radius: 1
-      wavelengths:
-      - 6.1e-07
-      - 5.3e-07
-      - 4.7e-07
-      depth_bins: 11
-      load_height_mask_from_file: false
-      randomize_psf_init: false
-      refractive_index: 1.5
-      min_phi_defocus: -10
-      max_phi_defocus: 10
-      renderer:
-        render_modes:
-        - rgb_array
-        use_shared_context: true
-training:
+      difficulty: 1.0
+      size_scaling: 4.0
+      height: 0.5
+      flip: false
+      smooth_walls: false
+      hide_targets: false
+      use_target_light_sources: true
+      wall_texture_map:
+        default:
+        - vertical_10
+      init_goal_pos: null
+      eval_goal_pos: null
+      use_adversary: false
+      init_adversary_pos: null
+      eval_adversary_pos: null
+  maze_selection_fn:
+    _target_: cambrian.envs.maze_env.MjCambrianMazeStore.select_maze_random
+    _partial_: true
+trainer:
   model:
     _target_: cambrian.ml.model.MjCambrianModel
     _partial_: true
@@ -552,3 +503,98 @@ logging:
       filename: logs/2024-02-20/point_6eyes_1x1/logs/err.log
       level: WARNING
       mode: w
+custom:
+  default:
+    maze:
+      size_scaling: 4.0
+      height: 0.5
+      flip: false
+      smooth_walls: false
+      hide_targets: false
+      use_target_light_sources: true
+      wall_texture_map:
+        default:
+        - vertical_10
+      use_adversary: false
+      difficulty: 1
+      xml:
+      - mujoco:
+        - name: maze
+        - asset:
+          - material:
+            - name: floor_mat_${parent:xml}
+            - rgba: 0.1 0.1 0.1 1.0
+            - shininess: '0.0'
+            - specular: '0.0'
+        - default:
+          - default:
+            - class: maze_block_${parent:xml}
+            - geom:
+              - type: box
+              - gap: '0.05'
+              - margin: '0.1'
+              - group: '1'
+              - condim: '1'
+          - default:
+            - class: maze_target_${parent:xml}
+            - site:
+              - type: sphere
+              - group: '1'
+            - light:
+              - exponent: '0.1'
+              - cutoff: '180'
+              - dir: 0 0 -1
+              - diffuse: 1 1 1
+              - ambient: 1 1 1
+              - specular: 1 1 1
+              - castshadow: 'false'
+        - worldbody:
+          - geom:
+            - name: floor_${parent:xml}
+            - type: plane
+            - pos: 0 0 -0.05
+            - size: 1 1 1
+            - material: floor_mat_${parent:xml}
+            - condim: '1'
+            - group: '1'
+    animal:
+      use_action_obs: true
+      use_init_pos_obs: false
+      use_current_pos_obs: false
+      n_temporal_obs: 10
+      eyes: {}
+    eye:
+      mode: fixed
+      psf_filter_size:
+      - 0
+      - 0
+      enable_optics: false
+      enable_aperture: true
+      enable_lens: false
+      enable_phase_mask: false
+      scene_angular_resolution: 2.0
+      pixel_size: 0.001
+      scene_resolution:
+      - 80
+      - 80
+      sensor_resolution:
+      - 60
+      - 60
+      add_noise: false
+      noise_std: 0.01
+      aperture_open: 1.0
+      aperture_radius: 1
+      wavelengths:
+      - 6.1e-07
+      - 5.3e-07
+      - 4.7e-07
+      depth_bins: 11
+      load_height_mask_from_file: false
+      randomize_psf_init: false
+      refractive_index: 1.5
+      min_phi_defocus: -10
+      max_phi_defocus: 10
+      renderer:
+        render_modes:
+        - rgb_array
+        use_shared_context: true
