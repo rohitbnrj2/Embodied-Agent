@@ -96,7 +96,22 @@ class MjCambrianContainerConfig:
 
     def to_yaml(self) -> str:
         """Wrapper around OmegaConf.to_yaml to convert the config to a yaml string."""
-        return OmegaConf.to_yaml(self._config)
+        import yaml
+
+        def str_representer(dumper: yaml.Dumper, data):
+            """Will use the | style for multiline strings."""
+            style = "|" if "\n" in data else None
+            return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+        dumper = yaml.CSafeDumper
+        dumper.add_representer(str, str_representer)
+        return yaml.dump(
+            self.to_container(),
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+            Dumper=yaml.CSafeDumper,
+        )
 
     def save(self, path: Path | str):
         """Wrapper around OmegaConf.save to save the config to a yaml file."""
@@ -127,6 +142,7 @@ class MjCambrianDictConfig(MjCambrianContainerConfig, DictConfig):
 
     pass
 
+
 def config_wrapper(cls=None, /, **kwargs):
     """This is a wrapper of the dataclass decorator that adds the class to the hydra
     store.
@@ -135,7 +151,7 @@ def config_wrapper(cls=None, /, **kwargs):
 
     We'll also do some preprocessing of the dataclass fields such that all type hints
     are supported by hydra. Hydra only supports a certain subset of types, so we'll
-    convert the types to supported types using the _sanitized_type method from 
+    convert the types to supported types using the _sanitized_type method from
     hydra_zen.
 
     Keyword Args:

@@ -3,7 +3,6 @@ import os
 
 from cambrian.ml.trainer import MjCambrianTrainerConfig
 from cambrian.envs.env import MjCambrianEnvConfig
-from cambrian.envs.maze_env import MjCambrianMazeEnvConfig
 from cambrian.ml.evo import MjCambrianEvoConfig
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 
@@ -80,25 +79,12 @@ def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, 
     def main(cfg: DictConfig):
         config = MjCambrianConfig.instantiate(cfg)
 
-        main_fn(config)
+        print(config)
+        if main_fn is not None:
+            main_fn(config)
 
     main()
 
 
 if __name__ == "__main__":
-    import time
-
-    t0 = time.time()
-
-    def main(config: MjCambrianConfig):
-        # import time
-        # t0 = time.time()
-        # for _ in range(100000):
-        #     config.env
-        # t1 = time.time()
-        # print(f"Time: {t1 - t0:.2f}")
-        config.save("config.yaml")
-
-    setup_hydra(main)
-    t1 = time.time()
-    print(f"Time: {t1 - t0:.2f}s")
+    setup_hydra()
