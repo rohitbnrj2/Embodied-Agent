@@ -16,6 +16,7 @@ from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 TEXT_HEIGHT = 20
 TEXT_MARGIN = 5
 
+
 @config_wrapper
 class MjCambrianRendererConfig(MjCambrianBaseConfig):
     """The config for the renderer. Used for type hinting.
@@ -64,7 +65,6 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
     scene_options: Optional[Any] = None
 
     use_shared_context: bool
-
 
 
 def resize_with_aspect_fill(image: np.ndarray, width: int, height: int):
@@ -178,14 +178,16 @@ class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
 
 
 class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
-    """TODO: make this an image overlay where the pos is converted to pixel 
+    """TODO: make this an image overlay where the pos is converted to pixel
     coordinates.
-    
-    NOTE: This is applied only to the passed scene, so other scenes (i.e. ones for the 
+
+    NOTE: This is applied only to the passed scene, so other scenes (i.e. ones for the
     eyes) will not be affected.
     """
 
-    def __init__(self, pos: np.ndarray, rgba: Tuple[float, float, float, float], size: float):
+    def __init__(
+        self, pos: np.ndarray, rgba: Tuple[float, float, float, float], size: float
+    ):
         super().__init__(pos)
         self.rgba = rgba
         self.size = size
@@ -498,7 +500,9 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         width, height = glfw.get_framebuffer_size(window)
         reldx, reldy = dx / width, dy / height
 
-        mj.mjv_moveCamera(self.model, action, reldx, reldy, self.config.scene, self.config.camera)
+        mj.mjv_moveCamera(
+            self.model, action, reldx, reldy, self.config.scene, self.config.camera
+        )
 
         self._last_mouse_x = int(self._scale * xpos)
         self._last_mouse_y = int(self._scale * ypos)
@@ -712,7 +716,7 @@ if __name__ == "__main__":
 
     camera:
         _target_: cambrian.utils.base_config.instance_wrapper
-        instance: 
+        instance:
             _target_: mujoco.MjvCamera
 
     scene:

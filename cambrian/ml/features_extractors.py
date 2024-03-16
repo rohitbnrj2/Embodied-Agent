@@ -54,8 +54,10 @@ def maybe_transpose_obs(observation: torch.Tensor) -> torch.Tensor:
 
     return observation
 
+
 class MjCambrianBaseFeaturesExtractor(BaseFeaturesExtractor):
     pass
+
 
 class MjCambrianCombinedExtractor(MjCambrianBaseFeaturesExtractor):
     """Overwrite of the default feature extractor of Stable Baselines 3."""
@@ -174,10 +176,7 @@ class MjCambrianNatureCNNExtractor(MjCambrianBaseFeaturesExtractor):
     """
 
     def __init__(
-        self,
-        observation_space: gym.Space,
-        features_dim: int,
-        activation: nn.Module
+        self, observation_space: gym.Space, features_dim: int, activation: nn.Module
     ) -> None:
         super().__init__(observation_space, features_dim, activation)
         # We assume CxHxW images (channels first)

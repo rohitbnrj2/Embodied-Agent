@@ -13,7 +13,7 @@ smooth_walls: False
 hide_targets: false
 use_target_light_sources: True
 
-wall_texture_map: 
+wall_texture_map:
   default: [vertical_10]
 
 use_adversary: False

@@ -2,6 +2,7 @@
 
 from setuptools import setup
 
+
 def parse_requirements():
     with open("requirements.txt") as f:
         required = f.read().splitlines()
@@ -10,8 +11,8 @@ def parse_requirements():
 
 
 setup(
-    name='cambrian',
-    packages=['cambrian'],
+    name="cambrian",
+    packages=["cambrian"],
     install_requires=parse_requirements(),
-    python_requires='>=3.10',
+    python_requires=">=3.10",
 )

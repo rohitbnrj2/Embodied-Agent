@@ -2,7 +2,12 @@ from typing import Dict
 
 import numpy as np
 from cambrian.ml.features_extractors import MjCambrianLowLevel
-from cambrian.optics import MjCambrianNonDifferentiableOptics, add_gaussian_noise, electric_field, rs_prop
+from cambrian.optics import (
+    MjCambrianNonDifferentiableOptics,
+    add_gaussian_noise,
+    electric_field,
+    rs_prop,
+)
 from cambrian.utils.config import MjCambrianAnimalConfig, MjCambrianEyeConfig
 import torch
 import torch.nn as nn
@@ -62,23 +67,26 @@ class MjCambrianOpticalFeatureExtractor(BaseFeaturesExtractor):
 
         # Update the features dim manually
         self._features_dim = total_concat_size
-        
+
         raise NotImplementedError("This is not implemented yet")
 
     def forward(self, observations: TensorDict) -> torch.Tensor:
         encoded_tensor_list = []
         for key, extractor in self.extractors.items():
-            # check if observations is an image 
+            # check if observations is an image
             if len(observations[key].shape) == 5:
-                observation = self.forward_optics(key, observations[key].permute(0, 1, 4, 2, 3), observations[f"{key}_depth"])
+                observation = self.forward_optics(
+                    key,
+                    observations[key].permute(0, 1, 4, 2, 3),
+                    observations[f"{key}_depth"],
+                )
                 encoded_tensor_list.append(extractor(observation))
             else:
                 encoded_tensor_list.append(extractor(observations[key]))
         return torch.cat(encoded_tensor_list, dim=1)
 
     def _parse_config(self, config: MjCambrianAnimalConfig):
-        """Parse the configuration.
-        """
+        """Parse the configuration."""
         self.config = config
         self._eyes: Dict[str, Dict] = {}
 
@@ -93,13 +101,15 @@ class MjCambrianOpticalFeatureExtractor(BaseFeaturesExtractor):
             self._eyes[eye_config.name]["focal"] = eye_config.focal
             self._eyes[eye_config.name]["wavelengths"] = eye_config.wavelengths
 
-    def forward_optics(self, key: str, observation: torch.Tensor, depth: torch.Tensor) -> torch.Tensor:
+    def forward_optics(
+        self, key: str, observation: torch.Tensor, depth: torch.Tensor
+    ) -> torch.Tensor:
         """Forward pass through the optics.
         key: str, name of the eye
         observation: Assumes that the observation is of shape [batch, time, channels, height, width]
         depth: Assumes that the depth is of shape [batch, time, height, width]
 
-        NOTE: this is actually much more expensive than the current approach because 
+        NOTE: this is actually much more expensive than the current approach because
         it recalculates the PSF for every Time and the input is a moving image.
         """
         if self.config.add_noise:
@@ -107,35 +117,35 @@ class MjCambrianOpticalFeatureExtractor(BaseFeaturesExtractor):
 
         B = observation.shape[0]
         T = observation.shape[1]
-        observations = [] 
+        observations = []
         for b in range(B):
             psf_b = []
             for t in range(T):
-                z1 = depth[b].mean(dim=(-1,-2))
-                psf = self.depth_invariant_psf(z1[b], 
-                                               self._eyes[key]["A"], 
-                                               self._eyes[key]["X1"], 
-                                               self._eyes[key]["Y1"], 
-                                               self._eyes[key]["FX"], 
-                                               self._eyes[key]["FY"], 
-                                               self._eyes[key]["focal"],
-                                               self._eyes[key]["wavelengths"]
-                                               )
-                psf_b.append(psf.unsqueeze(0)) # [T, H, W, C]
+                z1 = depth[b].mean(dim=(-1, -2))
+                psf = self.depth_invariant_psf(
+                    z1[b],
+                    self._eyes[key]["A"],
+                    self._eyes[key]["X1"],
+                    self._eyes[key]["Y1"],
+                    self._eyes[key]["FX"],
+                    self._eyes[key]["FY"],
+                    self._eyes[key]["focal"],
+                    self._eyes[key]["wavelengths"],
+                )
+                psf_b.append(psf.unsqueeze(0))  # [T, H, W, C]
             psf_b = torch.cat(psf_b, dim=0)
-            _obs = torch.nn.functional.conv2d(observation[b], psf_b, padding='same')
-            observations.append(_obs.unsqueeze(0)) # [B, T, H, W, C]
-        
+            _obs = torch.nn.functional.conv2d(observation[b], psf_b, padding="same")
+            observations.append(_obs.unsqueeze(0))  # [B, T, H, W, C]
+
         observations = torch.cat(observations, dim=0)
         return observations
 
     def define_simple_psf(self, config: MjCambrianEyeConfig) -> torch.Tensor:
-        """Define a simple point spread function (PSF) for the eye.
-        """
-                
+        """Define a simple point spread function (PSF) for the eye."""
+
         # Create Sensor Plane
-        Mx = config.sensor_resolution[0] 
-        My = config.sensor_resolution[1] 
+        Mx = config.sensor_resolution[0]
+        My = config.sensor_resolution[1]
 
         # id mx and my are even, then change to odd
         # odd length is better for performance
@@ -143,44 +153,50 @@ class MjCambrianOpticalFeatureExtractor(BaseFeaturesExtractor):
             Mx += 1
         if My % 2 == 0:
             My += 1
-        
-        Lx = config.sensorsize[0] # length of simulation plane (m) 
-        Ly = config.sensorsize[1] # length of simulation plane (m) 
-        dx = Lx/Mx # pixel pitch of sensor (m)      
-        dy = Ly/My # pixel pitch of sensor (m)
 
-        # Image plane coords                              
-        x1 = np.linspace(-Lx/2.,Lx/2.,Mx) 
-        y1 = np.linspace(-Ly/2.,Ly/2.,My) 
-        X1,Y1 = np.meshgrid(x1,y1)
+        Lx = config.sensorsize[0]  # length of simulation plane (m)
+        Ly = config.sensorsize[1]  # length of simulation plane (m)
+        dx = Lx / Mx  # pixel pitch of sensor (m)
+        dy = Ly / My  # pixel pitch of sensor (m)
+
+        # Image plane coords
+        x1 = np.linspace(-Lx / 2.0, Lx / 2.0, Mx)
+        y1 = np.linspace(-Ly / 2.0, Ly / 2.0, My)
+        X1, Y1 = np.meshgrid(x1, y1)
 
         # Frequency coords
-        fx = np.linspace(-1./(2.*dx),1./(2.*dx),Mx)
-        fy = np.linspace(-1./(2.*dy),1./(2.*dy),My)
-        FX,FY = np.meshgrid(fx,fy)
-        
+        fx = np.linspace(-1.0 / (2.0 * dx), 1.0 / (2.0 * dx), Mx)
+        fy = np.linspace(-1.0 / (2.0 * dy), 1.0 / (2.0 * dy), My)
+        FX, FY = np.meshgrid(fx, fy)
+
         # Aperture
-        max_aperture_size = dx * int(np.maximum(Mx, My) / 2) # (m)
-        aperture_radius = np.interp(np.clip(config.aperture_open, 0, 1), [0, 1], [0, max_aperture_size])
-        A = (np.sqrt(X1**2+Y1**2)/(aperture_radius + 1.0e-7) <= 1.).astype(np.float32)
+        max_aperture_size = dx * int(np.maximum(Mx, My) / 2)  # (m)
+        aperture_radius = np.interp(
+            np.clip(config.aperture_open, 0, 1), [0, 1], [0, max_aperture_size]
+        )
+        A = (np.sqrt(X1**2 + Y1**2) / (aperture_radius + 1.0e-7) <= 1.0).astype(
+            np.float32
+        )
         return A, X1, Y1, FX, FY
 
-    def depth_invariant_psf(self, mean_depth, A, X1, Y1, FX, FY, focal, wavelengths) -> torch.Tensor:
+    def depth_invariant_psf(
+        self, mean_depth, A, X1, Y1, FX, FY, focal, wavelengths
+    ) -> torch.Tensor:
         """
         mean_depth: float, mean depth of the point source
         """
-        z1 = mean_depth # z1 is average distance of point source
+        z1 = mean_depth  # z1 is average distance of point source
         psfs = []
         for _lambda in wavelengths:
-            k = 2*np.pi/_lambda
+            k = 2 * np.pi / _lambda
             # electric field originating from point source
             u = electric_field(k, z1, X1, Y1)
             # electric field at the aperture
-            u = u * A #*t_lens*t_mask
+            u = u * A  # *t_lens*t_mask
             # electric field at the sensor plane
             u = rs_prop(u, focal[0], FX, FY, _lambda)
-            psf = np.abs(u)**2
-            # psf should sum to 1 because of energy 
-            psf /= (np.sum(psf) + 1.0e-7) 
+            psf = np.abs(u) ** 2
+            # psf should sum to 1 because of energy
+            psf /= np.sum(psf) + 1.0e-7
             psfs.append(torch.tensor(psf).unsqueeze(-1))
         return torch.cat(psfs, dim=-1).float()

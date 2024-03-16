@@ -20,14 +20,15 @@ from cambrian.utils import get_geom_id
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 
+
 class MjCambrianMapEntity(Enum):
     """
     Enum representing different states in a grid.
-    
+
     Attributes:
         RESET (str): Initial reset position of the agent.
         OBJECT (str): Possible object locations.
-        WALL (str): Represents a wall in the grid. Can include texture IDs in the 
+        WALL (str): Represents a wall in the grid. Can include texture IDs in the
             format "1:<texture id>".
         EMPTY (str): Represents an empty space in the grid.
 
@@ -36,12 +37,12 @@ class MjCambrianMapEntity(Enum):
         W (str): Alias for WALL.
         E (str): Alias for EMPTY.
     """
-    
+
     RESET = "R"
     OBJECT = "X"
     WALL = "1"
     EMPTY = "0"
-    
+
     # Alias for readability
     R = RESET
     O = OBJECT
@@ -52,10 +53,10 @@ class MjCambrianMapEntity(Enum):
     def parse(value: str) -> Tuple[Enum, str | None]:
         """
         Parse a value to handle special formats like "1:<texture id>".
-        
+
         Args:
             value (str): The value to parse.
-            
+
         Returns:
             Tuple[Enum, Optional[str]]: The parsed entity and the texture id if
                 applicable.
@@ -210,7 +211,7 @@ class MjCambrianMaze:
             self._map = np.flip(self._map)
 
     def _update_locations(self):
-        """This helper method will update the initially place the wall and reset 
+        """This helper method will update the initially place the wall and reset
         locations. These are known at construction time. It will also parse wall
         textures."""
 

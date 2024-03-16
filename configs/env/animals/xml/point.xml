@@ -16,7 +16,7 @@
     </body>
   </worldbody>
   <actuator>
-    
+
     <velocity name="act_x_${parent:xml}" joint="ball_x_${parent:xml}" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100" />
     <velocity name="act_y_${parent:xml}" joint="ball_y_${parent:xml}" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100" />
     <position name="act_z_${parent:xml}" joint="ball_z_${parent:xml}" ctrlrange="-3.14 3.14" ctrllimited="true" gear="1" />

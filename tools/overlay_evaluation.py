@@ -13,20 +13,23 @@ from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy
 from cambrian.utils.config import MjCambrianConfig
 
+
 def natural_sort(lst):
-    """ Sort the given list in the way that humans expect."""
+    """Sort the given list in the way that humans expect."""
     import re
 
     def convert(text):
         return int(text) if text.isdigit() else text.lower()
 
     def alphanum_key(key):
-        return [convert(c) for c in re.split('([0-9]+)', key)]
+        return [convert(c) for c in re.split("([0-9]+)", key)]
 
     return sorted(lst, key=alphanum_key)
 
+
 EVAL = 0
 NUM_EVALS = 0
+
 
 def callback(env: MjCambrianEnv):
     if env.episode_step % 2 != 0:
@@ -34,13 +37,13 @@ def callback(env: MjCambrianEnv):
 
     COLOR = 100
     COLOR = EVAL / NUM_EVALS * (250 - COLOR) + COLOR
-    COLOR = np.uint8(((COLOR / 255) ** 2.2) * 255) # gamma correction
+    COLOR = np.uint8(((COLOR / 255) ** 2.2) * 255)  # gamma correction
     COLOR = np.array([COLOR, COLOR, COLOR])
     SIZE = [2, 2]
     # INITIAL_POS = np.array([443, 415]) # with overlays
     # SPEED_FACTOR = 15.65 # with overlays
-    INITIAL_POS = np.array([475, 355]) # without overlays
-    SPEED_FACTOR = 19.62 # without overlays
+    INITIAL_POS = np.array([475, 355])  # without overlays
+    SPEED_FACTOR = 19.62  # without overlays
 
     animal = next(iter(env.animals.values()))
     delta = np.flip(animal.pos - animal.init_pos)
@@ -51,7 +54,9 @@ def callback(env: MjCambrianEnv):
 
     cursor = MjCambrianCursor(*pos)
     overlay = MjCambrianImageViewerOverlay(obj, cursor)
-    env.overlays[f"Tracked Position {env.episode_step + (env.num_resets * env.max_episode_steps)}"] = overlay
+    env.overlays[
+        f"Tracked Position {env.episode_step + (env.num_resets * env.max_episode_steps)}"
+    ] = overlay
 
 
 def main(args):
@@ -71,7 +76,6 @@ def main(args):
     cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
 
     def _run_eval(config: MjCambrianConfig, pkl: Path):
-
         assert Path(config.training_config.checkpoint_path).exists()
         model = MjCambrianModel.load(config.training_config.checkpoint_path)
         model.load_rollout(pkl)

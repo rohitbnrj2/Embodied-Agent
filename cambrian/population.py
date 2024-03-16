@@ -8,8 +8,10 @@ import numpy as np
 from cambrian.animal import MjCambrianAnimal
 from cambrian.utils.logger import get_logger
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
+
 if TYPE_CHECKING:
     from cambrian.utils.config import MjCambrianConfig
+
 
 @config_wrapper
 class MjCambrianPopulationConfig(MjCambrianBaseConfig):
@@ -23,6 +25,7 @@ class MjCambrianPopulationConfig(MjCambrianBaseConfig):
     """
 
     size: int
+
 
 @config_wrapper
 class MjCambrianSpawningConfig(MjCambrianBaseConfig):
@@ -71,8 +74,6 @@ class MjCambrianSpawningConfig(MjCambrianBaseConfig):
     replication_type: str
 
 
-
-
 class MjCambrianPopulation:
     """This class is an abstraction around a cambrian population.
 
@@ -111,7 +112,9 @@ class MjCambrianPopulation:
         self._top_performers: List[Path] = []
 
     def add_animal(
-        self, path_or_config: Path | Type["MjCambrianConfig"], fitness: Optional[float] = None
+        self,
+        path_or_config: Path | Type["MjCambrianConfig"],
+        fitness: Optional[float] = None,
     ):
         """Add an animal to the population. This can be called internally during an
         update or externally, such as when adding the very first animal to the

@@ -7,11 +7,16 @@ import yaml
 from omegaconf import OmegaConf
 
 from cambrian.utils import MjCambrianArgumentParser, generate_sequence_from_range
-from cambrian.utils.config import MjCambrianConfig, MjCambrianEyeConfig, MjCambrianAnimalConfig
+from cambrian.utils.config import (
+    MjCambrianConfig,
+    MjCambrianEyeConfig,
+    MjCambrianAnimalConfig,
+)
 
 list_repr = "tag:yaml.org,2002:seq"
 yaml.add_representer(list, lambda d, seq: d.represent_sequence(list_repr, seq, True))
 yaml.add_representer(tuple, lambda d, seq: d.represent_sequence(list_repr, seq, True))
+
 
 def generate_demos(args):
     import subprocess

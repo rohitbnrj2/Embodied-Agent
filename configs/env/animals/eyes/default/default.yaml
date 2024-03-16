@@ -10,7 +10,7 @@ enable_lens: False
 enable_phase_mask: False
 
 scene_angular_resolution: 2.0 # degrees
-pixel_size: 1e-3  
+pixel_size: 1e-3
 scene_resolution: [80, 80]
 sensor_resolution: [60, 60]
 add_noise: False

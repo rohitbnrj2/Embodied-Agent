@@ -845,7 +845,7 @@ def phylogenetic_tree(
         tree_style = ete.treeview.TreeStyle()
         tree_style.show_leaf_name = False
         tree_style.layout_fn = layout_fn
-        tree_style.mode = 'c'
+        tree_style.mode = "c"
         tree_style.arc_start = -180
         tree_style.arc_span = 180
         tree_style.title.add_face(

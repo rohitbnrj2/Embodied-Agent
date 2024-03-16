@@ -10,6 +10,7 @@ from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.renderer import resize_with_aspect_fill
 
+
 @config_wrapper
 class MjCambrianObjectConfig(MjCambrianBaseConfig):
     """Defines a config for an object in the environment.

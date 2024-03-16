@@ -190,7 +190,7 @@ class MjCambrianAnimal:
 
         # Create the geometries we will use for eye placement
         geom_id = get_geom_id(model, self.config.geom_name)
-        assert (geom_id != -1), f"Could not find geom {self.config.geom_name}."
+        assert geom_id != -1, f"Could not find geom {self.config.geom_name}."
         geom_rbound = model.geom_rbound[geom_id]
         geom_pos = model.geom_pos[geom_id]
         self._geom = MjCambrianGeometry(geom_id, geom_rbound, geom_pos)

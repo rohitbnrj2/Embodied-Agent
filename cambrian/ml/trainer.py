@@ -29,6 +29,7 @@ from cambrian.utils.logger import get_logger
 if TYPE_CHECKING:
     from cambrian.utils.config import MjCambrianConfig
 
+
 @config_wrapper
 class MjCambrianTrainerConfig(MjCambrianBaseConfig):
     """Settings for the training process. Used for type hinting.
@@ -62,8 +63,7 @@ class MjCambrianTrainer:
         self.trainer_config = config.trainer
 
         self.logdir = Path(
-            Path(self.trainer_config.logdir)
-            / self.trainer_config.exp_name
+            Path(self.trainer_config.logdir) / self.trainer_config.exp_name
         )
         self.logdir.mkdir(parents=True, exist_ok=True)
 
@@ -126,7 +126,9 @@ class MjCambrianTrainer:
 
             n_runs = len(self.config.env_config.maze_configs)
             filename = self.logdir / "eval" if record else None
-            record_kwargs = dict(path=filename, save_types=["webp", "png", "gif", "mp4"])
+            record_kwargs = dict(
+                path=filename, save_types=["webp", "png", "gif", "mp4"]
+            )
             evaluate_policy(env, model, n_runs, record_kwargs=record_kwargs)
 
     # ========
@@ -135,11 +137,11 @@ class MjCambrianTrainer:
         return self.trainer_config.seed + i
 
     def _calc_n_envs(self) -> int:
-        """Calculates the number of environments to use for training based on 
+        """Calculates the number of environments to use for training based on
         the memory available.
-        
-        Will be (ideally) an overestimate. We'll check how much memory is used by a 
-        single environment and then calculate the memory used by the model and it's 
+
+        Will be (ideally) an overestimate. We'll check how much memory is used by a
+        single environment and then calculate the memory used by the model and it's
         rollout buffer.
 
         Returns:
@@ -166,7 +168,7 @@ class MjCambrianTrainer:
 
         # Calculate the memory usage per environment, which is the difference in memory
         # usage after and before creating the environment plus the size of the
-        # observation space times the batch size (which is the size of the rollout 
+        # observation space times the batch size (which is the size of the rollout
         # buffer)
         memory_usage_per_env = (
             memory_usage_after
@@ -174,8 +176,9 @@ class MjCambrianTrainer:
             + observation_space_size * self.trainer_config.batch_size
         )
 
-        return min(self.trainer_config.n_envs, int(total_memory // memory_usage_per_env) - 1)
-
+        return min(
+            self.trainer_config.n_envs, int(total_memory // memory_usage_per_env) - 1
+        )
 
     def _make_env(self, n_envs: int, monitor_csv: str | None = "monitor.csv") -> VecEnv:
         assert n_envs > 0, f"n_envs must be > 0, got {n_envs}."
@@ -193,7 +196,7 @@ class MjCambrianTrainer:
 
     def _make_callback(self, env: VecEnv, eval_env: VecEnv) -> BaseCallback:
         """Makes the callbacks."""
-        from functools import partial 
+        from functools import partial
 
         for i, callback in enumerate(self.trainer_config.callbacks):
             # TODO: is this a good assumption? is there a better way to do this?
@@ -269,7 +272,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config = MjCambrianConfig.load(args.config, overrides=args.overrides, defaults=args.defaults)
+    config = MjCambrianConfig.load(
+        args.config, overrides=args.overrides, defaults=args.defaults
+    )
 
     animal_configs = config.env_config.animal_configs
     for animal_name, animal_config in animal_configs.items():

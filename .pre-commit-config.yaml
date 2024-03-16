@@ -26,4 +26,5 @@ repos:
     rev: v1.35.1
     hooks:
       - id: yamllint
-        types: [file, yaml]
+        files: ^configs/.*\.yaml$
+        args: ['-c', 'configs/.yamllint.yaml']

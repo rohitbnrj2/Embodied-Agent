@@ -1,5 +1,5 @@
 # @package _global_
-# We need to specify the package as _global_ so that hydra knows to place all the 
+# We need to specify the package as _global_ so that hydra knows to place all the
 # overridden configs defined here at the root of the config
 
 defaults:
@@ -23,7 +23,7 @@ defaults:
   - override /env: maze_env
 
   # Finally, we include _self_ such that all the configs defined herein will override
-  # the files we've included above. This isn't really necessary as hydra will 
+  # the files we've included above. This isn't really necessary as hydra will
   # automatically append _self_ to the end of the list of defaults.
   - _self_
 

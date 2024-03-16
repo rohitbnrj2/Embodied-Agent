@@ -1,4 +1,4 @@
-"""This script will create an environment with many mazes and loop through each one 
+"""This script will create an environment with many mazes and loop through each one
 and show the BEV. Each BEV will be saved as an image."""
 
 from pathlib import Path
@@ -37,12 +37,14 @@ if __name__ == "__main__":
     output_folder = Path(args.output)
     output_folder.mkdir(parents=True, exist_ok=True)
     for maze_name in tqdm(config.env_config.maze_configs, desc="Rendering mazes"):
-        config.env_config.maze_configs_store[maze_name].custom["maze_adjust_lookat"] = False
+        config.env_config.maze_configs_store[maze_name].custom[
+            "maze_adjust_lookat"
+        ] = False
 
-        # To implement this, we'll update the maze_config to be the current maze we 
+        # To implement this, we'll update the maze_config to be the current maze we
         # want to render
         with setattrs_temporary((config.env_config, dict(maze_configs=[maze_name]))):
-            # Make the environment here such that only one maze is added 
+            # Make the environment here such that only one maze is added
             env = MjCambrianEnv(config.copy())
 
             # Reset and render the image

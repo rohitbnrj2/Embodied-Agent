@@ -25,7 +25,7 @@ class MjCambrianModel(PPO):
     def load_policy(self, path: Path | str):
         """Overwrite the load method. Instead of loading the entire state, we'll just
         load the policy weights.
-        
+
         There are four cases to consider:
             - A layer in the saved policy is identical in shape to the current policy
                 - Do nothing for this layer
@@ -43,7 +43,7 @@ class MjCambrianModel(PPO):
         if not policy_path.exists():
             raise FileNotFoundError(f"Could not find policy.pt file at {policy_path}.")
 
-        # Loop through the loaded state_dict and remove any layers that don't match in 
+        # Loop through the loaded state_dict and remove any layers that don't match in
         # shape with the current policy
         saved_state_dict = torch.load(policy_path)
         policy_state_dict = self.policy.state_dict()
@@ -51,7 +51,7 @@ class MjCambrianModel(PPO):
             if saved_state_dict_key not in policy_state_dict:
                 get_logger().warning(
                     f"Key '{saved_state_dict_key}' not found in policy "
-                    "state_dict. Deleting from saved state dict." 
+                    "state_dict. Deleting from saved state dict."
                 )
                 del saved_state_dict[saved_state_dict_key]
                 continue
@@ -67,9 +67,9 @@ class MjCambrianModel(PPO):
 
     def load_rollout(self, path: Path | str):
         """Load the rollout data from a previous training run. The rollout is a list
-        of actions based on a current step. The model.predict call will then be 
+        of actions based on a current step. The model.predict call will then be
         overwritten to return the next action. This loader is "dumb" in the sense that
-        it doesn't actually process the observations when it's using rollout, it will 
+        it doesn't actually process the observations when it's using rollout, it will
         simply keep track of the current step and return the next action in the
         rollout.
         """

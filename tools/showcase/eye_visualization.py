@@ -1,4 +1,4 @@
-"""This script will create an environment and take many images which aid in 
+"""This script will create an environment and take many images which aid in
 visualizing what the agent sees."""
 
 from pathlib import Path
@@ -40,6 +40,7 @@ if __name__ == "__main__":
 
     output_folder = Path(args.output)
     output_folder.mkdir(parents=True, exist_ok=True)
+
     def run(filename, num_steps=0):
         # Reset and render the image
         env.reset(seed=args.seed)
@@ -61,7 +62,9 @@ if __name__ == "__main__":
     )
     with setattrs_temporary(*temp_attrs):
         run(f"{config.filename}_bev")
-    temp_attrs.append((env.renderer.viewer.config.scene_options, dict(flags=dict(mjVIS_CAMERA=False))))
+    temp_attrs.append(
+        (env.renderer.viewer.config.scene_options, dict(flags=dict(mjVIS_CAMERA=False)))
+    )
     with setattrs_temporary(*temp_attrs):
         run(f"{config.filename}_bev_wo_frustrum")
 
@@ -108,10 +111,14 @@ if __name__ == "__main__":
         for lat in lats:
             composite.append([])
             for lon in lons:
-                composite[-1].append(resize_with_aspect_fill(images[lat][lon], *max_res))
+                composite[-1].append(
+                    resize_with_aspect_fill(images[lat][lon], *max_res)
+                )
         composite = np.vstack([np.hstack(row) for row in composite])
         composite = resize_with_aspect_fill(np.flipud(composite), 1000, 1000) * 255.0
 
         # Save the image
-        cv2.imwrite(str(output_folder / f"{config.filename}_{animal.name}_first_person.png"), composite[:, :, ::-1])
-        
+        cv2.imwrite(
+            str(output_folder / f"{config.filename}_{animal.name}_first_person.png"),
+            composite[:, :, ::-1],
+        )

@@ -6,7 +6,7 @@ defaults:
   # - _self_
   # This refers to the default maze configuration defined below. At runtime, the user
   # can then specify a different default maze configuration, if desired. Furthermore,
-  # the order below is important: mazes must come first because then the snippet 
+  # the order below is important: mazes must come first because then the snippet
   # mentioned earlier (specifically the ${env/mazes/default} part) won't be
   # resolved correctly. The exp file you write should therefore define the mazes
   # _before_ including the default file (this file).
@@ -20,7 +20,7 @@ defaults:
   # Option 2:
   # - /env/mazes: [MAZE1, MAZE2, ...]
   # or
-  # - /env/mazes: 
+  # - /env/mazes:
   #   - <MAZE1>
   #   - <MAZE2>
   #   - ...

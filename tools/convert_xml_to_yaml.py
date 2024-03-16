@@ -14,7 +14,7 @@ This would create the following xml:
 parent_key:
     - child_key:
         - attribute_key: attribute_value
-        - subchild_key: 
+        - subchild_key:
             - attribute_key: attribute_value
             - attribute_key: attribute_value
         - subchild_key:

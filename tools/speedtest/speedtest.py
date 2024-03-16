@@ -23,6 +23,7 @@ def rollout_one_trajectory(model, data, controls):
         qs.append(data.qpos.copy())
     return qs
 
+
 def call_rollout(model, ctrl):
     data = mujoco.MjData(model)
     rollout_one_trajectory(model, data, ctrl)
@@ -39,7 +40,9 @@ def main():
 
     if not Path(args_lists.xml_path).exists():
         args_lists.xml_path = Path(__file__).parent / "models" / args_lists.xml_path
-        assert args_lists.xml_path.exists(), f"File {args_lists.xml_path} does not exist"
+        assert (
+            args_lists.xml_path.exists()
+        ), f"File {args_lists.xml_path} does not exist"
     model = mujoco.MjModel.from_xml_path(str(args_lists.xml_path))
 
     controls = np.random.randn(N_TIME, model.nu)
@@ -68,7 +71,9 @@ def main():
         processes = []
         cmd = f"python {__file__} {args.xml_path} thread -n 1"
         for args_list in args_lists:
-            processes.append(subprocess.Popen(cmd.split(" "), stdout=subprocess.DEVNULL))
+            processes.append(
+                subprocess.Popen(cmd.split(" "), stdout=subprocess.DEVNULL)
+            )
 
         for process in processes:
             process.wait()

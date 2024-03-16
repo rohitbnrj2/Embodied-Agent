@@ -171,7 +171,6 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
         return kwargs
 
 
-
 class MjCambrianEye:
     """Defines an eye for the cambrian environment. It essentially wraps a mujoco Camera
     object and provides some helper methods for rendering and generating the XML. The

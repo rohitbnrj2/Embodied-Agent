@@ -81,7 +81,7 @@ for config in $configs; do
                     echo "Error running command. Stopping..."
                     exit 1
                 fi
-            fi 
+            fi
         done
     done
 done

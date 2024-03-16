@@ -3,6 +3,7 @@ from typing import Tuple
 import cv2
 import numpy as np
 
+
 def generate(args):
     import subprocess
 
@@ -28,11 +29,14 @@ def generate(args):
                 else:
                     cmd += [f"--{k} {v}"]
 
-            cmd = ' '.join(cmd)
+            cmd = " ".join(cmd)
             print(f"Running {cmd}")
             subprocess.run(cmd, shell=True)
 
-def generate_texture(shape: Tuple[int, int], num_repeats: int, checkered: bool) -> np.ndarray:
+
+def generate_texture(
+    shape: Tuple[int, int], num_repeats: int, checkered: bool
+) -> np.ndarray:
     img = np.zeros(shape, dtype=np.uint8)
     if num_repeats == 0:
         return img
@@ -45,17 +49,23 @@ def generate_texture(shape: Tuple[int, int], num_repeats: int, checkered: bool) 
         for i in range(num_repeats):
             for j in range(num_repeats):
                 if (i + j) % 2 == 0:
-                    img[i * bar_height:(i + 1) * bar_height, j * bar_width:(j + 1) * bar_width] = 255
+                    img[
+                        i * bar_height : (i + 1) * bar_height,
+                        j * bar_width : (j + 1) * bar_width,
+                    ] = 255
     else:
         assert shape[1] % num_repeats == 0
         bar_width = shape[1] // num_repeats
         for i in range(num_repeats):
             if i % 2 == 0:
-                img[:, i * bar_width:(i + 1) * bar_width] = 255
+                img[:, i * bar_width : (i + 1) * bar_width] = 255
 
     return img
 
-def generate_cube_texture(shape: Tuple[int, int], num_repeats: int, checkered: bool, horizontal: bool) -> np.ndarray:
+
+def generate_cube_texture(
+    shape: Tuple[int, int], num_repeats: int, checkered: bool, horizontal: bool
+) -> np.ndarray:
     # (row, col): is_horizontal
     texture_map = {
         (0, 1): horizontal,
@@ -77,12 +87,12 @@ def generate_cube_texture(shape: Tuple[int, int], num_repeats: int, checkered: b
                 img = generate_texture(shape, num_repeats, checkered)
                 if is_horizontal_or_none:
                     img = np.rot90(img)
-            
+
             image_row.append(img)
         images.append(image_row)
-            
+
     return np.vstack([np.hstack(image_row) for image_row in images])
-            
+
 
 if __name__ == "__main__":
     import argparse
@@ -94,7 +104,9 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--shape", type=int, nargs=2, default=(120, 120))
     parser.add_argument("-n", "--num-repeats", type=int, default=10)
     parser.add_argument("--horizontal", action="store_true")
-    parser.add_argument("--transparent", action="store_true", help="Converts black to transparent")
+    parser.add_argument(
+        "--transparent", action="store_true", help="Converts black to transparent"
+    )
     parser.add_argument("--checkered", action="store_true")
     parser.add_argument("--cube", action="store_true")
     parser.add_argument("--save", type=str)
@@ -109,7 +121,9 @@ if __name__ == "__main__":
         exit()
 
     if args.cube:
-        img = generate_cube_texture(args.shape, args.num_repeats, args.checkered, args.horizontal)
+        img = generate_cube_texture(
+            args.shape, args.num_repeats, args.checkered, args.horizontal
+        )
     else:
         img = generate_texture(args.shape, args.num_repeats, args.checkered)
         if args.horizontal:
@@ -124,5 +138,6 @@ if __name__ == "__main__":
 
     if args.show:
         import matplotlib.pyplot as plt
+
         plt.imshow(img, cmap="gray")
         plt.show()

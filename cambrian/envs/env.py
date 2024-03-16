@@ -8,7 +8,11 @@ import mujoco as mj
 from gymnasium import spaces
 from stable_baselines3.common.utils import set_random_seed
 
-from cambrian.animal import MjCambrianAnimal, MjCambrianPointAnimal, MjCambrianAnimalConfig
+from cambrian.animal import (
+    MjCambrianAnimal,
+    MjCambrianPointAnimal,
+    MjCambrianAnimalConfig,
+)
 from cambrian.renderer import (
     MjCambrianRenderer,
     MjCambrianRendererConfig,
@@ -23,6 +27,7 @@ from cambrian.renderer import (
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.logger import get_logger
+
 
 @config_wrapper
 class MjCambrianEnvConfig(MjCambrianBaseConfig):
@@ -66,7 +71,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         eval_overrides (Optional[Self]): Overrides to apply to the env config during
             evaluation. Merged directly with the env. The actual datatype is
             Self/MjCambrianEnvConfig but all attributes are optional.
-        
+
         animals (List[MjCambrianAnimalConfig]): The configs for the animals.
             The key will be used as the default name for the animal, unless explicitly
             set in the animal config.
@@ -86,6 +91,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     renderer: Optional[MjCambrianRendererConfig] = None
 
     animals: Dict[str, MjCambrianAnimalConfig]
+
 
 class MjCambrianEnv(gym.Env):
     """A MjCambrianEnv defines a gymnasium environment that's based off mujoco.
@@ -221,7 +227,9 @@ class MjCambrianEnv(gym.Env):
 
         return self._update_obs(obs), self._update_info(info)
 
-    def step(self, action: Dict[str, Any]) -> Tuple[
+    def step(
+        self, action: Dict[str, Any]
+    ) -> Tuple[
         Dict[str, Any],
         Dict[str, float],
         Dict[str, bool],
@@ -340,7 +348,7 @@ class MjCambrianEnv(gym.Env):
     def _compute_terminated(self) -> Dict[str, bool]:
         """Compute whether the env has terminated. Termination indicates success,
         whereas truncated indicates failure.
-        
+
         The default implementation will always return False for all animals. This can
         be overridden in subclasses to provide custom termination conditions.
         """
@@ -353,8 +361,8 @@ class MjCambrianEnv(gym.Env):
 
     def _compute_truncated(self) -> bool:
         """Compute whether the env has terminated. Termination indicates success,
-        whereas truncated indicates failure. 
-        
+        whereas truncated indicates failure.
+
         The default implementation will always return False for all animals. This can
         be overridden in subclasses to provide custom termination conditions.
         """
@@ -503,7 +511,7 @@ class MjCambrianEnv(gym.Env):
         This is part of the PettingZoo API.
 
         By default, this environment will support multi-animal
-        observations/actions/etc. This method will create _all_ the observation 
+        observations/actions/etc. This method will create _all_ the observation
         spaces for the environment. But note that stable baselines3 only supports single
         agent environments (i.e. non-nested spaces.Dict), so ensure you wrap this env
         with a `wrappers.MjCambrianSingleAnimalEnvWrapper` if you want to use stable
@@ -560,7 +568,6 @@ class MjCambrianEnv(gym.Env):
             with open(path.with_suffix(".pkl"), "wb") as f:
                 pickle.dump(self._rollout, f)
             self.logger.debug(f"Saved rollout to {path.with_suffix('.pkl')}")
-
 
 
 if __name__ == "__main__":

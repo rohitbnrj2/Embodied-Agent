@@ -8,13 +8,13 @@ MjCambrianXMLConfig: TypeAlias = List[Dict[str, Self]]
 """
 We use a list here because then we can have non-unique keys.
 
-This defines a custom xml config. This can be used to define custom xmls which 
-are built from during the initialization phase of the environment. The config is 
+This defines a custom xml config. This can be used to define custom xmls which
+are built from during the initialization phase of the environment. The config is
 structured as follows:
 
 ```yaml
 parent_key1:
-    - child_key1: 
+    - child_key1:
         - attr1: val1
         - attr2: val2
     - child_key2:
@@ -48,6 +48,7 @@ for a complex xml parser omegaconf resolver.
 
 TODO: I think this type (minus the Self) is supported as of OmegaConf issue #890.
 """
+
 
 class MjCambrianXML:
     """Helper class for manipulating mujoco xml files. Provides some helper methods for
@@ -95,12 +96,12 @@ class MjCambrianXML:
         parent_key:
             - child_key:
                 - attribute_key: attribute_value
-                - subchild_key: 
+                - subchild_key:
                     - attribute_key: attribute_value
                     - attribute_key: attribute_value
                 - subchild_key:
                     - subsubchild_key: attribute_value
-        
+
         This would create the following xml:
 
         <parent_key>
@@ -126,12 +127,16 @@ class MjCambrianXML:
                 return parent
 
             # Make the search path
-            path = tag + "".join([f"[@{key}='{value}']" for key, value in kwargs.items()])
+            path = tag + "".join(
+                [f"[@{key}='{value}']" for key, value in kwargs.items()]
+            )
             if (element := parent.find(path)) is None:
-                element = xml.add(parent, tag, **kwargs) 
+                element = xml.add(parent, tag, **kwargs)
             return element
 
-        def get_attribs(config: MjCambrianXMLConfig, *, depth: int = 0) -> Dict[str, str]:
+        def get_attribs(
+            config: MjCambrianXMLConfig, *, depth: int = 0
+        ) -> Dict[str, str]:
             attribs = {}
             for key, value in config.items():
                 if isinstance(value, str):
@@ -141,7 +146,7 @@ class MjCambrianXML:
                     for sub_config in value:
                         attribs.update(get_attribs(sub_config, depth=depth + 1))
             return attribs
-        
+
         def add_to_xml(parent: ET.Element, config: MjCambrianXMLConfig):
             for key, value in config.items():
                 if isinstance(value, list):
@@ -157,7 +162,6 @@ class MjCambrianXML:
         for root in config:
             add_to_xml(xml.root, root)
         return xml
-
 
     def add(self, parent: ET.Element, tag: str, *args, **kwargs) -> ET.Element:
         """Add an element to the xml tree.
@@ -245,6 +249,7 @@ class MjCambrianXML:
 
         Taken from here: https://stackoverflow.com/a/29896847/20125256
         """
+
         class hashabledict(dict):
             def __hash__(self):
                 return hash(tuple(sorted(self.items())))

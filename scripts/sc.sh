@@ -21,4 +21,4 @@ export PMIX_MCA_gds=hash
 shift
 
 >&2 echo "Running script $PWD..."
-MUJOCO_GL=egl bash $SCRIPT "$@" 
+MUJOCO_GL=egl bash $SCRIPT "$@"

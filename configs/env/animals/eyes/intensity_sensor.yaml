@@ -5,7 +5,7 @@ resolution: [1, 1]
 fov: [120, 10]
 
 # Place the intensity sensor at the average position of the eyes
-coord: 
+coord:
   - ${eval:'sum(${....eyes_lon_range}) / len(${....eyes_lon_range})'}
   - ${eval:'sum(${....eyes_lat_range}) / len(${....eyes_lat_range})'}
 
