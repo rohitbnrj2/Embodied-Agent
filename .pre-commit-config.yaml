@@ -1,0 +1,29 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+      - id: trailing-whitespace
+      - id: check-ast # check that python can parse files
+      - id: check-case-conflict # check for files with names that would conflict on a case-insensitive filesystem
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-symlinks
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: check-yaml
+      - id: check-xml
+  - repo: https://github.com/psf/black
+    rev: 23.7.0
+    hooks:
+      - id: black
+  - repo: https://github.com/tcort/markdown-link-check
+    rev: v3.11.2
+    hooks:
+      - id: markdown-link-check
+        args: [-q, -a, "200,202"]
+        files: \.md$
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        types: [file, yaml]

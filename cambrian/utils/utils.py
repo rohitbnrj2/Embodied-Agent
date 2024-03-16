@@ -3,7 +3,6 @@ from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable, Dict, Ge
 from pathlib import Path
 from dataclasses import dataclass
 import contextlib
-from functools import partial
 
 import gymnasium as gym
 import mujoco as mj
