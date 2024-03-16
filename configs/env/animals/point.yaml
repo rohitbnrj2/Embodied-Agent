@@ -1,5 +1,5 @@
 defaults:
-  - /env/animals@_here_: default/${env/animals/default}
+  - /default/${env/animals/default}@_here_
   - xml: point
   - _self_
 

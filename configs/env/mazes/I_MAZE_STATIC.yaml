@@ -1,8 +1,5 @@
-# @package env.mazes.I_MAZE_STATIC
-
 defaults:
-  - /env/mazes@_here_: default/${env/mazes/default}
-  - _self_
+  - /default/${env/mazes/default}@_here_
 
 map: |
   [

@@ -516,4 +516,4 @@ class MjCambrianMazeStore:
 
     def select_maze_cycle(self, env: "MjCambrianEnv") -> MjCambrianMaze:
         """Selects a maze based on a cycle."""
-        pass
+        raise NotImplementedError

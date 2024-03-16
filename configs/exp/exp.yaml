@@ -26,8 +26,11 @@ defaults:
   #   - ...
   # Option 3:
   # - /env/mazes/MAZE1@env.mazes.CUSTOM_NAME
-  - /env/mazes/default: default
+  - /env/mazes/default: maze
 
   # Similar to the mazes, you must also specify the animal configuration.
-  - /env/animals/default: default
-  - /env/animals/eyes/default: default
+  - /env/animals/default: animal
+  - /env/animals/eyes/default: eye
+
+  # Simular to mazes, you must also specify the object configuration.
+  - /env/objects/default: object

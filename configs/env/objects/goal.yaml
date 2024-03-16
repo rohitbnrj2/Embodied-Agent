@@ -1,0 +1,3 @@
+defaults:
+  - /default/${env/objects/default}@_here_
+  - xml: goal

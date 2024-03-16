@@ -40,22 +40,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         reward_fn (MjCambrianRewardFn): The reward function type to use. See the
             `MjCambrianRewardFn` for more info.
 
-        use_goal_obs (bool): Whether to use the goal observation or not.
-        terminate_at_goal (bool): Whether to terminate the episode when the animal
-            reaches the goal or not.
-        truncate_on_contact (bool): Whether to truncate the episode when the animal
-            makes contact with an object or not.
-        distance_to_target_threshold (float): The distance to the target at which the
-            animal is assumed to be "at the target".
-        action_penalty (float): The action penalty when it moves.
-        adversary_penalty (float): The adversary penalty when it goes to the wrong target.
-        contact_penalty (float): The contact penalty when it contacts the wall.
-        force_exclusive_contact_penalty (bool): Whether to force exclusive contact
-            penalty or not. If True, the contact penalty will be used exclusively for
-            the reward. If False, the contact penalty will be used in addition to the
-            calculated reward.
-
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
+        max_episode_steps (int): The maximum number of steps per episode.
 
         add_overlays (bool): Whether to add overlays or not.
         clear_overlays_on_reset (bool): Whether to clear the overlays on reset or not.

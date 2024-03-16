@@ -6,11 +6,11 @@ defaults:
 
   - _self_ # Ordered such that subsequent defaults override self
 
-  - env: default
-  - trainer: default
-  - evo: default
+  - env: env
+  - trainer: trainer
+  - evo: evo
   - logging: basic
-  - hydra: default
+  - hydra: hydra
 
   - required exp: '???'
 

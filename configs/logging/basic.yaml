@@ -1,9 +1,8 @@
 defaults:
-  - default
+  - logging
   - stdout
   - stderr
   - file
-  - _self_
 
 loggers:
   cambrian:

@@ -1,0 +1,27 @@
+- mujoco:
+    - asset:
+        - texture:
+            - name: ${parent:xml}_tex
+            - type: 2d
+        - material:
+            - name: ${parent:xml}_mat
+            - rgba: 0.8 0.2 0.2 1.0
+            - texture: ${parent:xml}_tex
+        - material:
+            - name: ${parent:xml}_top_mat
+            - emission: 5
+            - rgba: 0 1 0 1
+    - worldbody:
+        - body:
+            - name: ${parent:xml}_body
+            - childclass: object
+            - site:
+                - name: ${parent:xml}_site
+                - size: 1.0
+                - material: ${parent:xml}_mat
+            - site:
+                - name: ${parent:xml}_top_site
+                - size: 0.2
+                - material: ${parent:xml}_top_mat
+                - pos: 0 0 1.0
+                - group: 3 # any group > 2 will be hidden to the agents

@@ -1,7 +1,6 @@
 defaults:
   - tracking
   - bev
-  - _self_
 
 camera:
   distance: 0.5

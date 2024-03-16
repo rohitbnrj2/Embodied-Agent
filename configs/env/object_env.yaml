@@ -1,0 +1,5 @@
+defaults:
+  - env
+  - /MjCambrianObjectEnvConfig
+
+  - objects@objects.goal: goal

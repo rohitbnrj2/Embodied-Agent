@@ -1,5 +1,5 @@
 defaults:
-  - /env/animals/eyes/@_here_: default/${env/animals/eyes/default}
+  - /default/${env/animals/eyes/default}@_here_
 
 resolution: [1, 1]
 fov: [120, 10]

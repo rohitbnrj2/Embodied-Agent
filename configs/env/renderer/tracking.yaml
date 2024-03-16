@@ -1,5 +1,5 @@
 defaults:
-  - default
+  - renderer
 
 camera:
   azimuth: -60.0

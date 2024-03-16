@@ -8,7 +8,6 @@ from cambrian.envs.env import MjCambrianEnvConfig, MjCambrianEnv
 from cambrian.utils import get_body_id
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
-from cambrian.renderer import resize_with_aspect_fill
 
 
 @config_wrapper
@@ -205,8 +204,8 @@ class MjCambrianObject:
         return MjCambrianXML.from_string(self.config.xml)
 
     def reset(self, model: mj.MjModel) -> np.ndarray:
-        body_id = get_body_id(model, f"{name}_body")
-        assert body_id != -1, f"Body {name}_body not found in model"
+        body_id = get_body_id(model, f"{self.name}_body")
+        assert body_id != -1, f"Body {self.name}_body not found in model"
 
         model.body_pos[body_id] = self.config.pos
 
@@ -217,137 +216,3 @@ class MjCambrianObject:
             np.linalg.norm(pos - self.config.pos)
             < self.config.distance_to_target_threshold
         )
-
-
-if __name__ == "__main__":
-    import time
-    from cambrian.utils.utils import MjCambrianArgumentParser
-    from cambrian.utils.config import MjCambrianConfig
-
-    parser = MjCambrianArgumentParser()
-
-    parser.add_argument(
-        "--mj-viewer",
-        action="store_true",
-        help="Whether to use the mujoco viewer.",
-        default=False,
-    )
-
-    parser.add_argument(
-        "-t",
-        "--total-timesteps",
-        type=int,
-        help="The number of timesteps to run the environment for.",
-        default=np.inf,
-    )
-    parser.add_argument(
-        "--record-path",
-        type=str,
-        help="The path to save the video to. It will save a gif and mp4. "
-        "Don't specify an extension. If not specified, will not record.",
-        default=None,
-    )
-    parser.add_argument(
-        "--record-composites",
-        action="store_true",
-        help="Whether to record the composite image in addition to the full rendered "
-        "image. Only used if `--record-path` is specified.",
-    )
-
-    parser.add_argument(
-        "--speed-test",
-        action="store_true",
-        help="Whether to run a speed test.",
-        default=False,
-    )
-
-    args = parser.parse_args()
-
-    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
-    if args.mj_viewer:
-        config.env_config.use_renderer = False
-    env = MjCambrianEnv(config)
-    env.reset(seed=config.training_config.seed)
-    # env.xml.write("test.xml")
-
-    action = {
-        name: np.zeros_like(animal.action_space.sample())
-        for name, animal in env.animals.items()
-    }
-
-    print("Running...")
-    if args.mj_viewer:
-        import mujoco.viewer
-
-        with mujoco.viewer.launch_passive(
-            env.model, env.data  # , show_left_ui=False, show_right_ui=False
-        ) as viewer:
-            while viewer.is_running():
-                env.step(action)
-                viewer.sync()
-    else:
-        record_composites = False
-        if args.record_path is not None:
-            assert (
-                args.total_timesteps < np.inf
-            ), "Must specify `-t\--total-timesteps` if recording."
-            env.renderer.record = True
-            if args.record_composites:
-                record_composites = True
-                composites = {k: [] for k in env.animals}
-
-        action_map = {
-            0: np.array([-0.9, -0.1])
-        }  # {0: np.array([0, -0.5]), 10: np.array([1, -0.5])}
-
-        t0 = time.time()
-        step = 0
-        while step < args.total_timesteps:
-            if step in action_map:
-                action = {
-                    name: action_map[step] for name, animal in env.animals.items()
-                }
-
-            _, reward, _, _, _ = env.step(action)
-            env.overlays["Step Reward"] = f"{next(iter(reward.values())):.2f}"
-
-            if env.config.env_config.use_renderer:
-                if not env.renderer.is_running():
-                    break
-                env.render()
-            if record_composites:
-                for name, animal in env.animals.items():
-                    composite = animal.create_composite_image()
-                    resized_composite = resize_with_aspect_fill(
-                        composite, composite.shape[0] * 20, composite.shape[1] * 20
-                    )
-                    composites[name].append(resized_composite)
-
-            if args.speed_test and step % 100 == 0:
-                fps = step / (time.time() - t0)
-                print(f"FPS: {fps}")
-
-            step += 1
-        t1 = time.time()
-        if args.speed_test:
-            print(f"Total time: {t1 - t0}")
-            print(f"FPS: {env._episode_step / (t1 - t0)}")
-
-        env.close()
-
-        if args.record_path is not None:
-            env.renderer.save(args.record_path)
-            print(f"Saved video to {args.record_path}")
-            if record_composites:
-                import imageio
-
-                for name, composite in composites.items():
-                    path = f"{args.record_path}_{name}_composites"
-                    imageio.mimwrite(
-                        f"{path}.gif",
-                        composite,
-                        duration=1000 * 1 / 30,
-                    )
-                    imageio.imwrite(f"{path}.png", composite[-1])
-
-    print("Exiting...")

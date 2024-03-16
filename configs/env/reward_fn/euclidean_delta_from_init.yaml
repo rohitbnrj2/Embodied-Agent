@@ -1,0 +1,4 @@
+defaults:
+  - reward_fn
+
+_target_: cambrian.envs.reward_fns.euclidean_delta_from_init
