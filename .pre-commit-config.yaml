@@ -27,4 +27,14 @@ repos:
     hooks:
       - id: yamllint
         files: ^configs/.*\.yaml$
-        args: ['-c', 'configs/.yamllint.yaml']
+        # args: ['-c', 'configs/.yamllint.yaml']
+        args: ['-d', '
+          {
+            extends: default,
+            rules: {
+              line-length: {max: 120},
+              document-start: {present: false},
+              comments: {min-spaces-from-content: 1},
+              truthy: {allowed-values: ["true", "True", "false", "False"], check-keys: false}
+            }
+          }']
