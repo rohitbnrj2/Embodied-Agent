@@ -39,4 +39,4 @@ repos:
                 comments: {min-spaces-from-content: 1},
                 truthy: {allowed-values: ["true", "True", "false", "False"], check-keys: false}
               }
-            }']
+            }

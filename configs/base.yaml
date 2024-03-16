@@ -1,18 +1,18 @@
 defaults:
-    # NOTE: There is a bug in hydra such that when you specify a config group (i.e. try to build a structured config),
-    # you can't do nested interpolation (like if I include two defaults here, they can't interpolate such
-    # that it resolves to each other). We'll fix this by explicitly setting the target in the instantiate call in code.
-    - /MjCambrianConfig # Specify the config group (i.e. the class to instantiate this config as)
+  # NOTE: There is a bug in hydra such that when you specify a config group (i.e. try to build a structured config),
+  # you can't do nested interpolation (like if I include two defaults here, they can't interpolate such
+  # that it resolves to each other). We'll fix this by explicitly setting the target in the instantiate call in code.
+  - /MjCambrianConfig # Specify the config group (i.e. the class to instantiate this config as)
 
-    - _self_ # Ordered such that subsequent defaults override self
+  - _self_ # Ordered such that subsequent defaults override self
 
-    - env: env
-    - trainer: trainer
-    - evo: evo
-    - logging: basic
-    - hydra: hydra
+  - env: env
+  - trainer: trainer
+  - evo: evo
+  - logging: basic
+  - hydra: hydra
 
-    - required exp: '???'
+  - required exp: "???"
 
 expname: ${hydra:runtime.choices.exp}
 logdir: ./logs/${now:%Y-%m-%d}/${expname}
