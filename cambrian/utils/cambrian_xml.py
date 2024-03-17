@@ -3,8 +3,13 @@ from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
 
-MjCambrianXMLConfig: TypeAlias = List[Dict[str, Self]]
+from cambrian.utils.base_config import MjCambrianContainerConfig
+
+MjCambrianXMLConfig: TypeAlias = MjCambrianContainerConfig | List[Dict[str, Self]]
 """
+Actual type: List[Dict[str, Self]]
+OmegaConf complains since we have a Dict inside a List
+
 We use a list here because then we can have non-unique keys.
 
 This defines a custom xml config. This can be used to define custom xmls which
@@ -169,6 +174,9 @@ class MjCambrianXML:
                     # If it's a value, we need to add it as an attribute
                     parent.set(key, str(value))
 
+        if isinstance(config, MjCambrianContainerConfig):
+            config = config.to_container()
+
         for root in config:
             add_to_xml(xml.root, root)
         return xml
@@ -326,9 +334,11 @@ def load_xml(input_xml_file: str) -> MjCambrianXML:
     return MjCambrianXML(input_xml_file)
 
 
-def convert_xml_to_yaml(input_xml_file: str) -> List:
-    tree = ET.parse(input_xml_file)
-    root = tree.getroot()
+def convert_xml_to_yaml(
+    base_xml_path: str, *, overrides: Optional[MjCambrianXMLConfig] = None
+) -> MjCambrianXMLConfig:
+    xml = MjCambrianXML(base_xml_path, overrides=overrides)
+    root = xml.root
 
     def parse_element(element: ET.Element, result: list) -> list:
         # Set's attributes
@@ -340,8 +350,7 @@ def convert_xml_to_yaml(input_xml_file: str) -> List:
             result.append({child.tag: parse_element(child, [])})
         return result
 
-    yaml_out = parse_element(root, [])
-    return yaml_out
+    return parse_element(root, [])
 
 
 if __name__ == "__main__":

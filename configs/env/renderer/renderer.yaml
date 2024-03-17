@@ -14,7 +14,7 @@ scene:
   flags:
     _target_: cambrian.utils.base_config.instance_flag_wrapper
     instance: ${..instance}
-    key: flags
+    key: ${parent:}
     flag_type:
       _target_: mujoco.mjtRndFlag
       value: 0 # placeholder
@@ -32,13 +32,25 @@ scene_options:
   _target_: cambrian.utils.base_config.instance_wrapper
   instance:
     _target_: mujoco.MjvOption
+
+  # Visualize the camera frustums
   flags:
     _target_: cambrian.utils.base_config.instance_flag_wrapper
     instance: ${..instance}
-    key: flags
+    key: ${parent:}
     flag_type:
       _target_: mujoco.mjtVisFlag
       value: 0 # placeholder
-    mjVIS_CAMERA: 0
+    mjVIS_CAMERA: 1
+
+  # The env renderer can see all sites and geoms
+  # This is done by setting the _all_ sitegroups and geomgroups to True
+  geomgroup:
+    _target_: cambrian.utils.base_config.instance_flag_wrapper
+    instance: ${..instance}
+    key: ${parent:}
+    eval_flags: true
+    slice(None): true
+  sitegroup: ${.geomgroup}
 
 use_shared_context: true

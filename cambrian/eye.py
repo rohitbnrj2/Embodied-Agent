@@ -142,7 +142,7 @@ class MjCambrianEye:
         xml.add(
             parent,
             "camera",
-            name=self.config.name,
+            name=self.name,
             mode="fixed",
             pos=" ".join(map(str, self.config.pos)),
             quat=" ".join(map(str, self.config.quat)),
@@ -162,11 +162,6 @@ class MjCambrianEye:
         self._renderer.reset(model, data, *self.config.resolution)
         if self._optics is not None:
             self._optics.reset(model)
-
-        # We'll hide all the geomgroups and sitegroups after 2
-        # We can then put stuff at groups > 2 and it will be hidden to the animal
-        self._renderer.set_option("geomgroup", False, slice(2, None))
-        self._renderer.set_option("sitegroup", False, slice(2, None))
 
         return self.step()
 
@@ -231,14 +226,14 @@ class MjCambrianEye:
         """
 
         observation_space = spaces.Box(
-            0.0, 1.0, shape=(*self.resolution[::-1], 3), dtype=np.float32
+            0.0, 1.0, shape=(*self.config.resolution[::-1], 3), dtype=np.float32
         )
         return observation_space
 
     @property
     def num_pixels(self) -> int:
         """The number of pixels in the image."""
-        return np.prod(self.resolution)
+        return np.prod(self.config.resolution)
 
     @property
     def prev_obs(self) -> np.ndarray:

@@ -27,7 +27,7 @@ from cambrian.renderer.overlays import (
     TEXT_MARGIN,
 )
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
-from cambrian.utils.cambrian_xml import MjCambrianXML
+from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.logger import get_logger
 
 
@@ -36,7 +36,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     """Defines a config for the cambrian environment.
 
     Attributes:
-        xml (MjCambrianXML): The xml for the scene. This is the xml that will be
+        xml (MjCambrianXMLConfig): The xml for the scene. This is the xml that will be
             used to create the environment. See `MjCambrianXML` for more info.
 
         reward_fn (MjCambrianRewardFn): The reward function type to use. See the
@@ -65,7 +65,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             set in the animal config.
     """
 
-    xml: MjCambrianXML
+    xml: MjCambrianXMLConfig
 
     reward_fn: Callable[Concatenate[MjCambrianAnimal, Dict[str, Any], ...], float]
 
@@ -98,7 +98,7 @@ class MjCambrianEnv(gym.Env):
 
     def __init__(self, config: MjCambrianEnvConfig):
         self.config = config
-        self.logger = get_logger(self.config)
+        self.logger = get_logger()
 
         self.animals: Dict[str, MjCambrianAnimal] = {}
         self._create_animals()
@@ -108,11 +108,12 @@ class MjCambrianEnv(gym.Env):
         self.model = mj.MjModel.from_xml_string(self.xml.to_string())
         self.data = mj.MjData(self.model)
 
-        self.render_mode = (
-            "human" if "human" in self.config.renderer.render_modes else "rgb_array"
-        )
+        self.render_mode = "rgb_array"
         self.renderer: MjCambrianRenderer = None
         if renderer_config := self.config.renderer:
+            self.render_mode = (
+                "human" if "human" in self.config.renderer.render_modes else "rgb_array"
+            )
             self.renderer = MjCambrianRenderer(renderer_config)
 
         self._episode_step = 0
@@ -141,7 +142,7 @@ class MjCambrianEnv(gym.Env):
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
-        xml = MjCambrianXML.make_empty()
+        xml = MjCambrianXML.from_config(self.config.xml)
 
         # Add the animals to the xml
         for idx, animal in enumerate(self.animals.values()):
@@ -182,11 +183,6 @@ class MjCambrianEnv(gym.Env):
         self._step_mujoco_simulation(1)
 
         if self.renderer is not None:
-            # The env renderer can see all sites and geoms
-            # This is done by setting the _all_ sitegroups and geomgroups to True
-            self.renderer.set_option("sitegroup", True, slice(None))
-            self.renderer.set_option("geomgroup", True, slice(None))
-
             self.renderer.reset(self.model, self.data)
 
         # Update metadata variables
@@ -211,7 +207,8 @@ class MjCambrianEnv(gym.Env):
             self._rollout.setdefault("positions", [])
             self._rollout["positions"].append([a.pos for a in self.animals.values()])
 
-        self._overlays["Exp"] = self.config.expname
+        # if expname := options.get("expname"):
+        #     self._overlays["Exp"] = expname
 
         return self._update_obs(obs), self._update_info(info)
 
@@ -559,134 +556,16 @@ class MjCambrianEnv(gym.Env):
 
 
 if __name__ == "__main__":
-    import time
-    from cambrian.utils.utils import MjCambrianArgumentParser
-    from cambrian.utils.config import MjCambrianConfig, setup_hydra
+    from cambrian.utils.config import MjCambrianConfig, run_hydra
 
-    parser = MjCambrianArgumentParser()
-
-    parser.add_argument(
-        "--mj-viewer",
-        action="store_true",
-        help="Whether to use the mujoco viewer.",
-        default=False,
-    )
-
-    parser.add_argument(
-        "-t",
-        "--total-timesteps",
-        type=int,
-        help="The number of timesteps to run the environment for.",
-        default=np.inf,
-    )
-    parser.add_argument(
-        "--record-path",
-        type=str,
-        help="The path to save the video to. It will save a gif and mp4. "
-        "Don't specify an extension. If not specified, will not record.",
-        default=None,
-    )
-    parser.add_argument(
-        "--record-composites",
-        action="store_true",
-        help="Whether to record the composite image in addition to the full rendered "
-        "image. Only used if `--record-path` is specified.",
-    )
-
-    parser.add_argument(
-        "--speed-test",
-        action="store_true",
-        help="Whether to run a speed test.",
-        default=False,
-    )
-
-    args = parser.parse_args()
-
-    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
-    if args.mj_viewer:
-        config.env_config.use_renderer = False
-    env = MjCambrianEnv(config)
-    env.reset(seed=config.training_config.seed)
-    # env.xml.write("test.xml")
-
-    action = {
-        name: np.zeros_like(animal.action_space.sample())
-        for name, animal in env.animals.items()
-    }
-
-    print("Running...")
-    if args.mj_viewer:
+    def run_mj_viewer(config: MjCambrianConfig):
         import mujoco.viewer
 
-        with mujoco.viewer.launch_passive(
-            env.model, env.data  # , show_left_ui=False, show_right_ui=False
-        ) as viewer:
+        env = MjCambrianEnv(config.env)
+        env.reset(seed=config.seed)
+        with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
             while viewer.is_running():
-                env.step(action)
+                env.step(env.action_spaces.sample())
                 viewer.sync()
-    else:
-        record_composites = False
-        if args.record_path is not None:
-            assert (
-                args.total_timesteps < np.inf
-            ), "Must specify `-t\--total-timesteps` if recording."
-            env.renderer.record = True
-            if args.record_composites:
-                record_composites = True
-                composites = {k: [] for k in env.animals}
 
-        action_map = {
-            0: np.array([-0.9, -0.1])
-        }  # {0: np.array([0, -0.5]), 10: np.array([1, -0.5])}
-
-        t0 = time.time()
-        step = 0
-        while step < args.total_timesteps:
-            if step in action_map:
-                action = {
-                    name: action_map[step] for name, animal in env.animals.items()
-                }
-
-            _, reward, _, _, _ = env.step(action)
-            env.overlays["Step Reward"] = f"{next(iter(reward.values())):.2f}"
-
-            if env.config.env_config.use_renderer:
-                if not env.renderer.is_running():
-                    break
-                env.render()
-            if record_composites:
-                for name, animal in env.animals.items():
-                    composite = animal.create_composite_image()
-                    resized_composite = resize_with_aspect_fill(
-                        composite, composite.shape[0] * 20, composite.shape[1] * 20
-                    )
-                    composites[name].append(resized_composite)
-
-            if args.speed_test and step % 100 == 0:
-                fps = step / (time.time() - t0)
-                print(f"FPS: {fps}")
-
-            step += 1
-        t1 = time.time()
-        if args.speed_test:
-            print(f"Total time: {t1 - t0}")
-            print(f"FPS: {env._episode_step / (t1 - t0)}")
-
-        env.close()
-
-        if args.record_path is not None:
-            env.renderer.save(args.record_path)
-            print(f"Saved video to {args.record_path}")
-            if record_composites:
-                import imageio
-
-                for name, composite in composites.items():
-                    path = f"{args.record_path}_{name}_composites"
-                    imageio.mimwrite(
-                        f"{path}.gif",
-                        composite,
-                        duration=1000 * 1 / 30,
-                    )
-                    imageio.imwrite(f"{path}.png", composite[-1])
-
-    print("Exiting...")
+    run_hydra(run_mj_viewer)

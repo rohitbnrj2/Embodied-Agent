@@ -21,7 +21,7 @@ from cambrian.utils import (
     setattrs_temporary,
     generate_sequence_from_range,
 )
-from cambrian.utils.cambrian_xml import MjCambrianXML
+from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.base_config import MjCambrianBaseConfig, config_wrapper
 from cambrian.utils.logger import get_logger
 
@@ -31,7 +31,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     """Defines the config for an animal. Used for type hinting.
 
     Attributes:
-        xml (MjCambrianXML): The xml for the animal. This is the xml that will be
+        xml (MjCambrianXMLConfig): The xml for the animal. This is the xml that will be
             used to create the animal. You should use ${parent:xml} to generate
             named attributes. This will search upwards in the yaml file to find the
             name of the animal.
@@ -76,7 +76,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             is a record of the mutations that were applied to the parent.
     """
 
-    xml: MjCambrianXML
+    xml: MjCambrianXMLConfig
 
     body_name: str
     joint_name: str
@@ -157,7 +157,8 @@ class MjCambrianAnimal:
             - parse the geometry
             - place eyes at the appropriate locations
         """
-        model = mj.MjModel.from_xml_string(self.config.xml)
+        xml_string = MjCambrianXML.from_config(self.config.xml).to_string()
+        model = mj.MjModel.from_xml_string(xml_string)
 
         self._parse_geometry(model)
         self._parse_actuators(model)
@@ -271,24 +272,22 @@ class MjCambrianAnimal:
         """Generates the xml for the animal. Will generate the xml from the model file
         and then add eyes to it.
         """
-        self.xml = MjCambrianXML.from_string(self.config.xml)
+        xml = MjCambrianXML.from_config(self.config.xml)
 
         # Set each geom in this animal to be a certain group for rendering utils
         # The group number is the index the animal was created + 2
         # + 2 because the default group used in mujoco is 0 and our animal indexes start
         # at 0 and we'll put our scene stuff on group 1
-        for geom in self.xml.findall(f".//*[@name='{self.config.body_name}']//geom"):
+        for geom in xml.findall(f".//*[@name='{self.config.body_name}']//geom"):
             geom.set("group", str(idx + 2))
 
         # Add eyes
         for eye in self.eyes.values():
-            self.xml += eye.generate_xml(self.xml, self.config.body_name)
+            xml += eye.generate_xml(xml, self.config.body_name)
 
-        return self.xml
+        return xml
 
-    def reset(
-        self, model: mj.MjModel, data: mj.MjData, init_qpos: np.ndarray
-    ) -> Dict[str, Any]:
+    def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, Any]:
         """Sets up the animal in the environment. Uses the model/data to update
         positions during the simulation.
         """
@@ -305,7 +304,8 @@ class MjCambrianAnimal:
         self._reset_adrs(model)
 
         # Update the animal's position using the freejoint
-        self.pos = init_qpos
+        if self.config.initial_state is not None:
+            self.pos = self.config.initial_state
 
         # step here so that the observations are updated
         mj.mj_forward(model, data)
@@ -520,8 +520,7 @@ class MjCambrianAnimal:
             observation_space[name] = spaces.Box(
                 low=eye_observation_space.low.min(),
                 high=eye_observation_space.high.max(),
-                shape=(n_temporal_obs, eye.resolution[1], eye.resolution[0], 3),
-                # shape=(n_temporal_obs, eye.resolution[0], eye.resolution[1], 3),
+                shape=(n_temporal_obs, *eye.config.resolution, 3),
                 dtype=eye_observation_space.dtype,
             )
 

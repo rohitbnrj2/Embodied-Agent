@@ -1,5 +1,16 @@
-from typing import Dict, Any, Optional, Self, Type
-from dataclasses import field, dataclass, fields, make_dataclass, is_dataclass
+from typing import (
+    Dict,
+    Any,
+    Optional,
+    Self,
+    Type,
+    ItemsView,
+    List,
+    Iterator,
+    Sequence,
+    Tuple,
+)
+from dataclasses import field, dataclass, fields, make_dataclass
 from pathlib import Path
 from functools import partial
 
@@ -66,6 +77,11 @@ class MjCambrianContainerConfig:
         # validation.
         content: DictConfig | ListConfig = zen.instantiate(config, **kwargs)
 
+        # This is redundant for most cases, but instantiated logic may return strings
+        # which may have interpolations. We'll explicitly call resolve to resolve these
+        # interpolations.
+        OmegaConf.resolve(content)
+
         # Check for missing values. Error message will only show the first missing key.
         if keys := OmegaConf.missing_keys(content):
             content._format_and_raise(
@@ -89,10 +105,10 @@ class MjCambrianContainerConfig:
         """Wrapper around OmegaConf.get_type to get the type of the config."""
         return OmegaConf.get_type(self._content)
 
-    def to_container(self) -> Dict[str, Any]:
+    def to_container(self) -> Dict[Any, Any]:
         """Wrapper around OmegaConf.to_container to convert the config to a
         dictionary."""
-        return OmegaConf.to_container(self._config)
+        return OmegaConf.to_container(self._content)
 
     def to_yaml(self) -> str:
         """Wrapper around OmegaConf.to_yaml to convert the config to a yaml string."""
@@ -117,6 +133,19 @@ class MjCambrianContainerConfig:
         """Wrapper around OmegaConf.save to save the config to a yaml file."""
         return OmegaConf.save(self._config, path)
 
+    def items(self) -> ItemsView[Any, Any]:
+        """Wrapper of the items method to return the items of the content as a
+        MjCambrianContainrConfig if the item is a OmegaConf config."""
+        items: List[Dict[Any, Any]] = []
+
+        for key, value in self._content.items():
+            if OmegaConf.is_config(value):
+                config = getattr(self._config, key)
+                items.append((key, MjCambrianContainerConfig(value, config=config)))
+            else:
+                items.append((key, value))
+        return items
+
     def __getattr__(self, name: str) -> Self | Any:
         """Get the attribute from the content and return the wrapped instance. If the
         attribute is a DictConfig or ListConfig, we'll wrap it in this class.
@@ -126,12 +155,22 @@ class MjCambrianContainerConfig:
         means {_target_: ...} will be returned rather than the actual instantiated
         Dict object.
         """
-        content = self._content.__getattr__(name)
+        content = getattr(self._content, name)
         if OmegaConf.is_config(content):
-            config = self._config.__getattr__(name)
+            config = getattr(self._config, name)
             return MjCambrianContainerConfig(content, config=config)
         else:
             return content
+
+    def __iter__(self) -> Iterator[Any]:
+        """Only supported by ListConfig. Wrapper around the __iter__ method to return
+        the iterator of the content. Will convert any DictConfig or ListConfig to this
+        class."""
+        for content, config in zip(self._content, self._config):
+            if OmegaConf.is_config(content):
+                yield MjCambrianContainerConfig(content, config=config)
+            else:
+                yield content
 
     def __str__(self) -> str:
         return self.to_yaml()
@@ -293,7 +332,7 @@ register_new_resolver("eval", eval)
 # Utilities for config loading
 
 
-def instance_wrapper(instance: Type[Any], **kwargs):
+def instance_wrapper(*, instance: Type[Any], **kwargs):
     """This utility method will wrap a class instance to help with setting class
     attributes after initialization.
 
@@ -379,7 +418,14 @@ def instance_wrapper(instance: Type[Any], **kwargs):
         return setattrs(instance, **kwargs)
 
 
-def instance_flag_wrapper(instance: Type[Any], key: str, flag_type: Type[Any], **flags):
+def instance_flag_wrapper(
+    *,
+    instance: Type[Any],
+    key: str,
+    flag_type: Optional[Type[Any]] = None,
+    eval_flags: Optional[bool] = False,
+    **flags,
+):
     """This utility method will wrap a class instance to help with setting class
     attributes after initialization. As opposed to instance_wrapper, this method will
     set attribute flags on the instance. This is particularly useful for mujoco enums,
@@ -403,8 +449,8 @@ def instance_flag_wrapper(instance: Type[Any], key: str, flag_type: Type[Any], *
                 _target_: <class>                       # the class of the flag
 
             # These will be set like so:
-            # obj_to_instaniate.key[flag1] = value1
-            # obj_to_instaniate.key[flag2] = value2
+            # obj_to_instantiate.key[flag1] = value1
+            # obj_to_instantiate.key[flag2] = value2
             # ...
             flag1: value1
             flag2: value2
@@ -416,7 +462,11 @@ def instance_flag_wrapper(instance: Type[Any], key: str, flag_type: Type[Any], *
     Args:
         instance (Type[Any]): The class instance to wrap.
         key (str): The key to set the flags on.
-        flag_type (Type[Any]): The class of the flag.
+        flag_type (Optional[Type[Any]]): The class of the flag. If unset, will use the
+            flag directly.
+        eval_flags (Optional[bool]): Whether to evaluate the flags. If True, will
+            call eval on the flags. This is helpful if you want to use slices.
+            Default: False. NOTE: this is note safe and should be used with caution.
 
     Keyword Args:
         flags: The flags to set on the instance.
@@ -426,7 +476,9 @@ def instance_flag_wrapper(instance: Type[Any], key: str, flag_type: Type[Any], *
         """Set the attributes on the instance."""
         attr = getattr(instance, key)
         for flag, value in flags.items():
-            flag = getattr(flag_type, flag)
+            flag = getattr(flag_type, flag, flag)
+            if eval_flags:
+                flag = eval(flag)
             attr[flag] = value
         return attr
 

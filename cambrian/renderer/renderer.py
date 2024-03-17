@@ -56,9 +56,9 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
 
     fullscreen: Optional[bool] = None
 
-    camera: Optional[mj.MjvCamera] = None
-    scene: Optional[mj.MjvScene] = None
-    scene_options: Optional[mj.MjvOption] = None
+    camera: mj.MjvCamera
+    scene: mj.MjvScene
+    scene_options: mj.MjvOption
 
     use_shared_context: bool
 
@@ -75,6 +75,9 @@ class MjCambrianViewer(ABC):
         self.model: mj.MjModel = None
         self.data: mj.MjData = None
         self.viewport: mj.MjrRect = None
+        self.scene: mj.MjvScene = None
+        self.scene_options: mj.MjvOption = None
+        self.camera: mj.MjvCamera = None
 
         self._gl_context: mj.gl_context.GLContext = None
         self._mjr_context: mj.MjrContext = None
@@ -83,7 +86,9 @@ class MjCambrianViewer(ABC):
         self.model = model
         self.data = data
 
-        self.config.scene = self.config.scene(model=model)
+        self.scene = self.config.scene(model=model)
+        self.scene_options = self.config.scene_options
+        self.camera = self.config.camera
 
         # NOTE: All shared contexts must match either onscreen or offscreen. And their
         # height and width most likely must match as well. If the existing context
@@ -132,11 +137,11 @@ class MjCambrianViewer(ABC):
         mj.mjv_updateScene(
             self.model,
             self.data,
-            self.config.scene_options,
+            self.scene_options,
             None,  # mjvPerturb
-            self.config.camera,
+            self.camera,
             mj.mjtCatBit.mjCAT_ALL,
-            self.config.scene,
+            self.scene,
         )
 
     def render(self, *, overlays: List[MjCambrianViewerOverlay] = []):
@@ -144,9 +149,9 @@ class MjCambrianViewer(ABC):
         self.update(self.viewport.width, self.viewport.height)
 
         for overlay in overlays:
-            overlay.draw_before_render(self.config.scene)
+            overlay.draw_before_render(self.scene)
 
-        mj.mjr_render(self.viewport, self.config.scene, self._mjr_context)
+        mj.mjr_render(self.viewport, self.scene, self._mjr_context)
 
         for overlay in overlays:
             overlay.draw_after_render(self._mjr_context, self.viewport)
@@ -353,9 +358,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         width, height = glfw.get_framebuffer_size(window)
         reldx, reldy = dx / width, dy / height
 
-        mj.mjv_moveCamera(
-            self.model, action, reldx, reldy, self.config.scene, self.config.camera
-        )
+        mj.mjv_moveCamera(self.model, action, reldx, reldy, self.scene, self.camera)
 
         self._last_mouse_x = int(self._scale * xpos)
         self._last_mouse_y = int(self._scale * ypos)
@@ -371,8 +374,8 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
             mj.mjtMouse.mjMOUSE_ZOOM,
             0,
             -0.05 * yoffset,
-            self.config.scene,
-            self.config.camera,
+            self.scene,
+            self.camera,
         )
 
     def _key_callback(self, window, key, scancode, action, mods):
@@ -385,11 +388,11 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
         # Switch cameras
         if key == glfw.KEY_TAB:
-            self.config.camera.fixedcamid += 1
-            self.config.camera.type = mj.mjtCamera.mjCAMERA_FIXED
-            if self.config.camera.fixedcamid >= self.model.ncam:
-                self.config.camera.fixedcamid = -1
-                self.config.camera.type = mj.mjtCamera.mjCAMERA_FREE
+            self.camera.fixedcamid += 1
+            self.camera.type = mj.mjtCamera.mjCAMERA_FIXED
+            if self.camera.fixedcamid >= self.model.ncam:
+                self.camera.fixedcamid = -1
+                self.camera.type = mj.mjtCamera.mjCAMERA_FREE
 
         # Pause simulation
         if key == glfw.KEY_SPACE:
@@ -427,8 +430,8 @@ class MjCambrianRenderer:
         width: Optional[int] = None,
         height: Optional[int] = None,
     ) -> np.ndarray | None:
-        self.config.setdefault("width", width or model.vis.global_.offwidth)
-        self.config.setdefault("height", height or model.vis.global_.offheight)
+        self.config.width = width or self.config.width or model.vis.global_.offwidth
+        self.config.height = height or self.config.height or model.vis.global_.offheight
 
         if self.config.width > model.vis.global_.offwidth:
             model.vis.global_.offwidth = self.config.width
@@ -463,15 +466,6 @@ class MjCambrianRenderer:
 
     def __del__(self):
         self.close()
-
-    # ===================
-
-    def set_option(self, option: str, value: Any, index: Optional[slice | int]):
-        assert hasattr(self.viewer.scene_option, option), f"Invalid option {option}."
-        if index is not None:
-            getattr(self.viewer.scene_option, option)[index] = value
-        else:
-            setattr(self.viewer.scene_option, option, value)
 
     # ===================
 

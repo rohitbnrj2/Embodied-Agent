@@ -8,11 +8,7 @@ from cambrian.animal import MjCambrianAnimal
 # Reward functions
 
 
-def euclidean_delta_from_init(
-    self,
-    animal: MjCambrianAnimal,
-    info: Dict[str, Any],
-) -> float:
+def euclidean_delta_from_init(animal: MjCambrianAnimal, info: Dict[str, Any]) -> float:
     """
     Rewards the change in distance over the previous step scaled by the timestep.
     """

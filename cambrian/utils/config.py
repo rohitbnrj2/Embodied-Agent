@@ -1,5 +1,5 @@
-from typing import Dict, Any, Optional, Callable
-import os
+from typing import Dict, Any, Optional, Callable, Concatenate
+import argparse
 
 from cambrian.ml.trainer import MjCambrianTrainerConfig
 from cambrian.envs.env import MjCambrianEnvConfig
@@ -42,18 +42,46 @@ class MjCambrianConfig(MjCambrianBaseConfig):
 # =============
 
 
-def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, /):
+def run_hydra(
+    main_fn: Optional[
+        Callable[[Concatenate[MjCambrianConfig, ...]], None]
+    ] = lambda *_, **__: None,
+    /,
+    *,
+    parser: Optional[argparse.ArgumentParser] = argparse.ArgumentParser(),
+):
     """This function is the main entry point for the hydra application.
 
     The benefits of using this setup rather than the compose API is that we can
     use the sweeper and launcher APIs, which are not available in the compose API.
 
     Args:
-        main_fn (Callable[["MjCambrianConfig"], None]): The main function to be called
-            after the hydra configuration is parsed.
+        main_fn (Callable[[Concatenate[[MjCambrianConfig], ...], None]): The main
+            function to be called after the hydra configuration is parsed. It should
+            take the config as an argument and kwargs which correspond to the argument
+            parser returns. We don't return the config directly because hydra allows
+            multi-run sweeps and it doesn't make sense to return multiple configs in
+            this case.
+
+            Example:
+
+            ```python
+            def main(config: MjCambrianConfig, *, verbose: int):
+                print(config, verbose)
+
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--verbose", type=int, default=0)
+
+            run_hydra(main_fn=main, parser=parser)
+            ```
+
+    Keyword Args:
+        parser (Optional[argparse.ArgumentParser]): The parser to use for the hydra
+            application. If None, a new parser will be created.
     """
     import hydra
     from omegaconf import DictConfig
+    import os
 
     def hydra_argparse_override(fn: Callable, /):
         """This function allows us to add custom argparse parameters prior to hydra
@@ -66,9 +94,8 @@ def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, 
             Augmented from hydra discussion #2598.
         """
         import sys
-        import argparse
+        from functools import partial
 
-        parser = argparse.ArgumentParser()
         parsed_args, unparsed_args = parser.parse_known_args()
 
         # By default, argparse uses sys.argv[1:] to search for arguments, so update
@@ -76,24 +103,30 @@ def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, 
         # argparse).
         sys.argv[1:] = unparsed_args
 
-        return fn if fn is not None else lambda fn: fn
+        return partial(fn, **vars(parsed_args))
 
+    # Define the config path relative to the running script, which is assumed to be
+    # at the root of the project.
+    config_path = f"{os.getcwd()}/configs"
+    config_name = "base"
+
+    @hydra.main(version_base=None, config_path=config_path, config_name=config_name)
     @hydra_argparse_override
-    @hydra.main(
-        version_base=None, config_path=f"{os.getcwd()}/configs", config_name="base"
-    )
-    def main(cfg: DictConfig):
+    def main(cfg: DictConfig, **kwargs):
         config = MjCambrianConfig.instantiate(cfg)
-
-        import mujoco as mj
-
-        model = mj.MjModel.from_xml_string(str(config.env.xml))
-        mj.mj_saveLastXML("last.xml", model)
-        if main_fn is not None:
-            main_fn(config)
+        main_fn(config, **kwargs)
 
     main()
 
 
 if __name__ == "__main__":
-    setup_hydra()
+
+    def main(config: MjCambrianConfig):
+        import mujoco as mj
+        from cambrian.envs.env import MjCambrianEnv
+
+        env = MjCambrianEnv(config.env)
+        mj.mj_saveLastXML("last.xml", env.model)
+        pass
+
+    run_hydra(main)
