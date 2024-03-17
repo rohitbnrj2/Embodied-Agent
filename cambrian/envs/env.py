@@ -16,11 +16,13 @@ from cambrian.animal import (
 from cambrian.renderer import (
     MjCambrianRenderer,
     MjCambrianRendererConfig,
+    resize_with_aspect_fill,
+)
+from cambrian.renderer.overlays import (
     MjCambrianViewerOverlay,
     MjCambrianTextViewerOverlay,
     MjCambrianImageViewerOverlay,
     MjCambrianCursor,
-    resize_with_aspect_fill,
     TEXT_HEIGHT,
     TEXT_MARGIN,
 )
@@ -559,7 +561,7 @@ class MjCambrianEnv(gym.Env):
 if __name__ == "__main__":
     import time
     from cambrian.utils.utils import MjCambrianArgumentParser
-    from cambrian.utils.config import MjCambrianConfig
+    from cambrian.utils.config import MjCambrianConfig, setup_hydra
 
     parser = MjCambrianArgumentParser()
 

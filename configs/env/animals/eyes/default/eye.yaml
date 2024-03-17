@@ -1,30 +1,7 @@
 # @package custom.default.eye
 # We aren't actually going to use this eye, so store it in custom just to put it somewhere
 
-mode: fixed
-psf_filter_size: [0, 0]
-
-enable_optics: False
-enable_aperture: True
-enable_lens: False
-enable_phase_mask: False
-
-scene_angular_resolution: 2.0 # degrees
-pixel_size: 1e-3
-scene_resolution: [80, 80]
-sensor_resolution: [60, 60]
-add_noise: False
-noise_std: 0.01
-aperture_open: 1.0
-aperture_radius: 1
-wavelengths: [610e-9, 530e-9, 470e-9]
-depth_bins: 11
-
-load_height_mask_from_file: False
-randomize_psf_init: False
-refractive_index: 1.5
-min_phi_defocus: -10
-max_phi_defocus: 10
+focal: [0.1, 0.1]
 
 renderer:
   render_modes: [rgb_array]

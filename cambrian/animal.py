@@ -263,10 +263,9 @@ class MjCambrianAnimal:
         rot_rot = R.from_euler("z", lat) * R.from_euler("y", -lon) * default_rot
 
         geom = self._geom
-        config.name = name
         config.pos = (pos_rot.apply([-geom.rbound, 0, 0]) + geom.pos).tolist()
         config.quat = rot_rot.as_quat().tolist()
-        return MjCambrianEye(config)
+        return MjCambrianEye(config, name)
 
     def generate_xml(self, idx: int) -> MjCambrianXML:
         """Generates the xml for the animal. Will generate the xml from the model file
@@ -917,7 +916,7 @@ if __name__ == "__main__":
         exit()
 
     if args.viewer:
-        from renderer import MjCambrianRenderer
+        from cambrian.renderer.renderer import MjCambrianRenderer
 
         renderer_config = config.env_config.renderer_config
         renderer_config.render_modes = ["human", "rgb_array"]

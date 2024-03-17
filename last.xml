@@ -1,0 +1,13 @@
+<mujoco model="scene">
+  <compiler angle="radian" meshdir="assets/" texturedir="assets/"/>
+  <option timestep="0.02" density="1000" viscosity="1.8e-05" integrator="implicitfast"/>
+  <visual>
+    <map znear="0.001" zfar="3"/>
+    <scale frustum="40"/>
+    <rgba camera="0.6 0.9 0.6 1"/>
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0 0 0" rgb2="0 0 0" width="100" height="600"/>
+  </asset>
+  <worldbody/>
+</mujoco>

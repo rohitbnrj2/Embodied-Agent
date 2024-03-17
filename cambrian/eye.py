@@ -7,7 +7,7 @@ import mujoco as mj
 from gymnasium import spaces
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
-from cambrian.optics import MjCambrianNonDifferentiableOptics
+from cambrian.optics import MjCambrianOptics, MjCambrianOpticsConfig
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
 
@@ -17,158 +17,45 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     """Defines the config for an eye. Used for type hinting.
 
     Attributes:
-        name (Optional[str]): Placeholder for the name of the eye. If set, used
-            directly. If unset, the name is set to `{animal.name}_eye_{eye_index}`.
-
-        mode (str): The mode of the camera. Should always be "fixed". See the mujoco
-            documentation for more info.
-        resolution (Tuple[int, int]): The width and height of the rendered image.
-            Fmt: width height.
+        pos (Optional[Tuple[float, float, float]]): The initial position of the camera.
+            This is computed by the animal from the coord during placement. Fmt: xyz
+        quat (Optional[Tuple[float, float, float, float]]): The initial rotation of the
+            camera. This is computed by the animal from the coord during placement.
+            Fmt: wxyz.
         fov (Tuple[float, float]): Independent of the `fovy` field in the MJCF
             xml. Used to calculate the sensorsize field. Specified in degrees. Mutually
             exclusive with `fovy`. If `focal` is unset, it is set to 1, 1. Will override
             `sensorsize`, if set. Fmt: fovx fovy.
-
-        enable_optics (bool): Whether to enable optics or not.
-        enable_aperture (bool): Whether to enable the aperture or not.
-        enable_lens (bool): Whether to enable the lens or not.
-        enable_phase_mask (bool): Whether to enable the phase mask or not.
-
-        scene_angular_resolution: The angular resolution of the scene. This is used to
-            determine the field of view of the scene. Specified in degrees.
-        pixel_size: The pixel size of the sensor in meters.
-        sensor_resolution (Tuple[int, int]): TODO
-        add_noise (bool): TODO
-        noise_std (float): TODO
-        aperture_open (float): The aperture open value. This is the radius of the
-            aperture. The aperture is a circle that is used to determine which light
-            rays to let through. Only used if `enable_aperture` is True. Must be
-            between 0 and 1.
-        aperture_radius (float): The aperture radius value.
-        wavelengths (Tuple[float, float, float]): The wavelengths to use for the
-            intensity sensor. Fmt: wavelength_1 wavelength_2 wavelength_3
-        depth_bins (int): The number of depth bins to use for the depth dependent psf.
-
-        load_height_mask_from_file (bool): Whether to load the height mask from file or
-            not. If True, the height mask will be loaded from the file specified in
-            `height_mask_from_file`. If False, the psf wil be randomized or set to zeros
-            using `randomize_psf_init`.
-        height_mask_from_file (Optional[str]): The path to the height mask file to load.
-        randomize_psf_init (bool): Whether to randomize the psf or not. If True, the psf
-            will be randomized. If False, the psf will be set to zeros. Only used if
-            `load_height_mask_from_file` is False.
-        zernike_basis_path (Optional[str]): The path to the zernike basis file to load.
-        psf_filter_size (Tuple[int, int]): The psf filter size. This is
-            convolved across the image, so the actual resolution of the image is plus
-            psf_filter_size / 2. Only used if `load_height_mask_from_file` is False.
-            Otherwise the psf filter size is determined by the height mask.
-        refractive_index (float): The refractive index of the eye.
-        min_phi_defocus (float): TODO
-        max_phi_defocus (float): TODO
-
-        load_height_mask_from_file (bool): Whether to load the height mask from file or
-            not. If True, the height mask will be loaded from the file specified in
-            `height_mask_from_file`. If False, the psf wil be randomized or set to zeros
-            using `randomize_psf_init`.
-        height_mask_from_file (Optional[str]): The path to the height mask file to load.
-        randomize_psf_init (bool): Whether to randomize the psf or not. If True, the psf
-            will be randomized. If False, the psf will be set to zeros. Only used if
-            `load_height_mask_from_file` is False.
-        zernike_basis_path (Optional[str]): The path to the zernike basis file to load.
-
-        psf_filter_size (Tuple[int, int]): The psf filter size. This is
-            convolved across the image, so the actual resolution of the image is plus
-            psf_filter_size / 2. Only used if `load_height_mask_from_file` is False.
-            Otherwise the psf filter size is determined by the height mask.
-        refractive_index (float): The refractive index of the eye.
-        depth_bins (int): The number of depth bins to use for the depth sensor.
-        min_phi_defocus (float): The minimum depth to use for the depth sensor.
-        max_phi_defocus (float): The maximum depth to use for the depth sensor.
-        wavelengths (Tuple[float, float, float]): The wavelengths to use for the
-            intensity sensor. Fmt: wavelength_1 wavelength_2 wavelength_3
-        #### Optics Params
-
-        pos (Optional[Tuple[float, float, float]]): The initial position of the camera.
-            Fmt: xyz
-        quat (Optional[Tuple[float, float, float, float]]): The initial rotation of the
-            camera. Fmt: wxyz.
-        fovy (Optional[float]): The vertical field of view of the camera.
-        focal (Optional[Tuple[float, float]]): The focal length of the camera.
+        focal (Tuple[float, float]): The focal length of the camera.
             Fmt: focal_x focal_y.
-        sensorsize (Optional[Tuple[float, float]]): The sensor size of the camera.
-            Fmt: sensor_x sensor_y.
+        resolution (Tuple[int, int]): The width and height of the rendered image.
+            Fmt: width height.
 
         coord (Tuple[float, float]): The x and y coordinates of the eye.
             This is used to determine the placement of the eye on the animal.
-            Specified in degrees. Mutually exclusive with `pos` and `quat`. This attr
-            isn't actually used by eye, but by the animal. The eye has no knowledge
-            of the geometry it's trying to be placed on. Fmt: lat lon
+            Specified in degrees. This attr isn't actually used by eye, but by the
+            animal. The eye has no knowledge of the geometry it's trying to be placed
+            on. Fmt: lat lon
+
+        optics (Optional[MjCambrianOpticsConfig]): The optics config to use for the eye.
+            Optics is disabled if this is unset.
 
         renderer (MjCambrianRendererConfig): The renderer config to use for the
             underlying renderer. The width and height of the renderer will be set to the
             padded resolution (resolution + int(psf_filter_size/2)) of the eye.
     """
 
-    name: Optional[str] = None
-
-    mode: str
-    resolution: Tuple[int, int]
-    fov: Tuple[float, float]
-
-    enable_optics: bool
-    enable_aperture: bool
-    enable_lens: bool
-    enable_phase_mask: bool
-
-    scene_resolution: Tuple[int, int]
-    scene_angular_resolution: float
-    pixel_size: float
-    sensor_resolution: Tuple[int, int]
-    add_noise: bool
-    noise_std: float
-    aperture_open: float
-    aperture_radius: float
-    wavelengths: Tuple[float, float, float]
-    depth_bins: int
-
-    load_height_mask_from_file: bool
-    height_mask_from_file: Optional[str] = None
-    randomize_psf_init: bool
-    zernike_basis_path: Optional[str] = None
-    psf_filter_size: Tuple[int, int]
-    refractive_index: float
-    min_phi_defocus: float
-    max_phi_defocus: float
-
     pos: Optional[Tuple[float, float, float]] = None
     quat: Optional[Tuple[float, float, float, float]] = None
-    fovy: Optional[float] = None
-    focal: Optional[Tuple[float, float]] = None
-    sensorsize: Optional[Tuple[float, float]] = None
+    fov: Tuple[float, float]
+    focal: Tuple[float, float]
+    resolution: Tuple[int, int]
 
     coord: Tuple[float, float]
 
+    optics: Optional[MjCambrianOpticsConfig] = None
+
     renderer: MjCambrianRendererConfig
-
-    def to_xml_kwargs(self) -> Dict[str, Any]:
-        kwargs = dict()
-
-        def set_if_not_none(key: str, val: Any):
-            if val is not None:
-                if isinstance(val, Iterable) and not isinstance(val, str):
-                    val = " ".join(map(str, val))
-                kwargs[key] = val
-
-        set_if_not_none("name", self.name)
-        set_if_not_none("mode", self.mode)
-        set_if_not_none("pos", self.pos)
-        set_if_not_none("quat", self.quat)
-        set_if_not_none("resolution", self.resolution)
-        set_if_not_none("fovy", self.fovy)
-        set_if_not_none("focal", self.focal)
-        set_if_not_none("sensorsize", self.sensorsize)
-
-        return kwargs
 
 
 class MjCambrianEye:
@@ -179,95 +66,31 @@ class MjCambrianEye:
 
     Args:
         config (MjCambrianEyeConfig): The configuration for the eye.
+        name (str): The name of the eye.
     """
 
-    def __init__(self, config: MjCambrianEyeConfig):
-        self.config = self._check_config(config)
+    def __init__(self, config: MjCambrianEyeConfig, name: str):
+        self.config = config
+        self.name = name
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
-        self._last_obs: np.ndarray = None
+        self._prev_obs: np.ndarray = None
 
-        self._optics: MjCambrianNonDifferentiableOptics = None
-        if self.config.enable_optics:
-            self._optics = MjCambrianNonDifferentiableOptics(self.config)
-
-        self._renderer = MjCambrianRenderer(config.renderer_config)
-
-    def _check_config(self, config: MjCambrianEyeConfig) -> MjCambrianEyeConfig:
-        """This will automatically set some of the config values if they are not
-        specified.
-
-        psf_filter_size: set to [0, 0] if not specified
-        fovy: if set, it must be between 0 and 180. focal, sensorsize, and fov must not
-            be set.
-        fov: if set, both values must be between 0 and 180. fovy and sensorsize must
-            not be set.
-        focal: if unset, set to [0.1, 0.1]. only set if fov is set.
-        sensorsize: if unset, will set to the value calculated from fov and the padded
-            resolution. the equation is sensorsize = (2 * focal * tan(fov / 2) * scale)
-            where scale is padded_resolution / resolution. only set if fov is set.
-        """
-        assert config.name is not None, "Must specify a name for the eye."
-        assert config.mode is not None, "Must specify a mode for the eye."
-        assert config.pos is not None, "Must specify a position for the eye."
-        assert config.quat is not None, "Must specify a quaternion for the eye."
-        assert config.resolution is not None, "Must specify a resolution for the eye."
-        assert (
-            "rgb_array" or "depth_array" in config.renderer_config.render_modes
-        ), "Must specify 'rgb_array' or 'depth_array' in the render modes for the renderer config."
-
-        self._render_depth = "depth_array" in config.renderer_config.render_modes
-        if config.enable_optics:
-            assert self._render_depth, "Must render depth if optics is enabled"
-
-        if config.fovy is not None:
-            assert 0 < config.fovy < 180, f"Invalid fovy: {config.fovy=}"
-            assert config.focal is None, "Cannot set both fovy and focal"
-            assert config.sensorsize is None, "Cannot set both fovy and sensorsize"
-            assert config.fov is None, "Cannot set both fovy and fov"
-
-        if config.fov is not None:
+        self._optics: MjCambrianOptics = None
+        if self.config.optics is not None:
+            self._optics = MjCambrianOptics(self.config.optics)
             assert (
-                0 < config.fov[0] < 180 and 0 < config.fov[1] < 180
-            ), f"Invalid fov: {config.fov=}."
-            assert config.fovy is None, "Cannot set both fov and fovy"
-            assert config.sensorsize is None, "Cannot set both fov and sensorsize"
+                "depth_array" in self.config.renderer.render_modes
+            ), "Must specify 'depth_array' in the render modes for the renderer config."
 
-            # the rendering resolution must be set wrt the scene resoution not the eye resolution
-            if self._render_depth:
-                # if optics is enabled, then render at the scene resolution
-                sensor_fov = [
-                    config.scene_resolution[1] * config.scene_angular_resolution,
-                    config.scene_resolution[0] * config.scene_angular_resolution,
-                ]
-                config.setdefault("focal", [0.1, 0.1])
-                fovx, fovy = sensor_fov
-                focalx, focaly = config.focal
-                config.sensorsize = [
-                    float(2 * focalx * np.tan(np.radians(fovx) / 2)),
-                    float(2 * focaly * np.tan(np.radians(fovy) / 2)),
-                ]
-                config.pixel_size = config.sensorsize[0] / config.scene_resolution[0]
-                # if config.pixel_size > 1e-3:
-                #     print(f"Warning: Pixel size {config.pixel_size} m > 0.001m. Required Scene Resolution: {config.sensorsize[0]/1e-3} for input fov and  sensorsize.")
+            # If optics is enabled, update the resolution to the padded resolution
+            self.config.resolution = self.config.optics.padded_resolution
 
-                config.renderer_config.width = config.scene_resolution[1]
-                config.renderer_config.height = config.scene_resolution[0]
-                config.fov = [fovx, fovy]
-            else:
-                # if optics is not enabled, then render at the eye resolution
-                config.setdefault("focal", [0.1, 0.1])
-                fovx, fovy = config.fov
-                focalx, focaly = config.focal
-                config.sensorsize = [
-                    float(2 * focalx * np.tan(np.radians(fovx) / 2)),
-                    float(2 * focaly * np.tan(np.radians(fovy) / 2)),
-                ]
-                config.renderer_config.width = config.resolution[0]
-                config.renderer_config.height = config.resolution[1]
-
-        return config
+        assert (
+            "rgb_array" in self.config.renderer.render_modes
+        ), "Must specify 'rgb_array' in the render modes for the renderer config."
+        self._renderer = MjCambrianRenderer(config.renderer)
 
     def generate_xml(
         self, parent_xml: MjCambrianXML, parent_body_name: str
@@ -305,10 +128,28 @@ class MjCambrianEye:
                 parent = temp_parent
                 continue
             parent = xml.add(parent, element.tag, **element.attrib)
+        assert parent is not None, f"Could not find parent for '{parent_body_name}'"
+
+        # Calculate the mujoco parameters for the camera
+        fovx, fovy = self.config.fov
+        focalx, focaly = self.config.focal
+        sensorsize = [
+            float(2 * focalx * np.tan(np.radians(fovx) / 2)),
+            float(2 * focaly * np.tan(np.radians(fovy) / 2)),
+        ]
 
         # Finally add the camera element at the end
-        assert parent is not None
-        xml.add(parent, "camera", **self.config.to_xml_kwargs())
+        xml.add(
+            parent,
+            "camera",
+            name=self.config.name,
+            mode="fixed",
+            pos=" ".join(map(str, self.config.pos)),
+            quat=" ".join(map(str, self.config.quat)),
+            resolution=" ".join(map(str, self.config.resolution)),
+            focal=" ".join(map(str, self.config.focal)),
+            sensorsize=" ".join(map(str, sensorsize)),
+        )
 
         return xml
 
@@ -318,26 +159,14 @@ class MjCambrianEye:
         self._model = model
         self._data = data
 
-        if self._render_depth:
-            self.config.renderer_config.width = self.config.scene_resolution[1]
-            self.config.renderer_config.height = self.config.scene_resolution[0]
-        else:
-            self.config.renderer_config.width = self.config.resolution[0]
-            self.config.renderer_config.height = self.config.resolution[1]
+        self._renderer.reset(model, data, *self.config.resolution)
+        if self._optics is not None:
+            self._optics.reset(model)
 
-        self._renderer.reset(model, data)
-        if self.config.enable_optics:
-            self._optics.reset(config=self.config)
-
-        # All animal geomgroups start at 2, and so we'll hide all them
-        # We'll also hide all the sites after 2
+        # We'll hide all the geomgroups and sitegroups after 2
+        # We can then put stuff at groups > 2 and it will be hidden to the animal
         self._renderer.set_option("geomgroup", False, slice(2, None))
         self._renderer.set_option("sitegroup", False, slice(2, None))
-
-        fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, self.name)
-        assert fixedcamid != -1, f"Camera '{self.name}' not found."
-        self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
-        self._renderer.viewer.camera.fixedcamid = fixedcamid
 
         return self.step()
 
@@ -345,7 +174,7 @@ class MjCambrianEye:
         """Simply calls `render` and sets the last observation.
         See `render()` for more information."""
         obs = self.render()
-        self._last_obs = obs.copy()
+        self._prev_obs = obs.copy()
         return obs
 
     def render(self) -> np.ndarray:
@@ -359,7 +188,7 @@ class MjCambrianEye:
 
         rgb = self._renderer.render()
 
-        if self.config.enable_optics:
+        if self._optics is not None:
             rgb, depth = rgb
             rgb = rgb.astype(np.float32) / 255.0
             rgb, _ = self._optics.forward(rgb, depth)
@@ -374,7 +203,7 @@ class MjCambrianEye:
         """
         # 1. Apply animal angular resolution (downsample the image)
         # 2. crop the imaging plane to the eye resolution
-        if self._render_depth:
+        if self._optics is not None:
             image = self._crop(image)
             return np.clip(image, 0, 1).astype(np.float32)
         return image
@@ -393,10 +222,6 @@ class MjCambrianEye:
         return cv2.resize(image, self.resolution)
 
     @property
-    def name(self) -> str:
-        return self.config.name
-
-    @property
     def observation_space(self) -> spaces.Box:
         """The observation space is just the rgb image.
 
@@ -411,37 +236,14 @@ class MjCambrianEye:
         return observation_space
 
     @property
-    def resolution(self) -> Tuple[int, int]:
-        """Get the resolution of the camera.
-
-        This method might be called before `self._model` is set, so we need to parse
-        the config to get the resolution
-        """
-        return self.config.resolution
-
-    @resolution.setter
-    def resolution(self, value: Tuple[int, int]):
-        """Set the resolution of the camera.
-
-        Like the getter, this might be called before `self._model` is set, so we need to
-        parse the config to get the resolution
-        """
-        self.config.resolution = value
-
-    @property
     def num_pixels(self) -> int:
         """The number of pixels in the image."""
-        return self.resolution[0] * self.resolution[1]
+        return np.prod(self.resolution)
 
     @property
-    def last_obs(self) -> np.ndarray:
+    def prev_obs(self) -> np.ndarray:
         """The last observation returned by `self.render()`."""
-        return self._last_obs
-
-    @property
-    def fov(self) -> Tuple[float, float]:
-        """The field of view of the camera in degrees."""
-        return self.config.fov
+        return self._prev_obs
 
 
 if __name__ == "__main__":

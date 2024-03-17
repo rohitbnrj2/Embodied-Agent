@@ -39,8 +39,14 @@ class MjCambrianConfig(MjCambrianBaseConfig):
     logging: Optional[Dict[str, Any]] = None
 
 
+# =============
+
+
 def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, /):
     """This function is the main entry point for the hydra application.
+
+    The benefits of using this setup rather than the compose API is that we can
+    use the sweeper and launcher APIs, which are not available in the compose API.
 
     Args:
         main_fn (Callable[["MjCambrianConfig"], None]): The main function to be called

@@ -137,14 +137,6 @@ class MjCambrianArgumentParser(argparse.ArgumentParser):
             help="Override config values. Do <config>.<key>=<value>",
             default=[],
         )
-        self.add_argument(
-            "--defaults",
-            type=str,
-            action="extend",
-            nargs="+",
-            help="Path to yaml files containing defaults. Merged with the config file.",
-            default=[],
-        )
 
         self._args = None
 
@@ -153,18 +145,6 @@ class MjCambrianArgumentParser(argparse.ArgumentParser):
         self._args = args
 
         return args
-
-    def parse_config(self, **kwargs) -> "MjCambrianConfig":
-        assert self._args is not None, "parse_args() must be called first"
-
-        from cambrian.utils.config import MjCambrianConfig
-
-        return MjCambrianConfig.load(
-            self._args.config,
-            overrides=self._args.overrides,
-            defaults=self._args.defaults,
-            **kwargs,
-        )
 
 
 # =============

@@ -1,7 +1,6 @@
 from typing import List, Optional, Any, Tuple
 from abc import ABC, abstractmethod
 from pathlib import Path
-from dataclasses import dataclass, replace
 
 import glfw
 import numpy as np
@@ -9,12 +8,9 @@ import mujoco as mj
 import OpenGL.GL as GL
 import cv2
 
-from cambrian.utils import get_camera_id, get_body_id
+from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.utils.logger import get_logger
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
-
-TEXT_HEIGHT = 20
-TEXT_MARGIN = 5
 
 
 @config_wrapper
@@ -61,153 +57,10 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
     fullscreen: Optional[bool] = None
 
     camera: Optional[mj.MjvCamera] = None
-    scene: Optional[Any] = None
-    scene_options: Optional[Any] = None
+    scene: Optional[mj.MjvScene] = None
+    scene_options: Optional[mj.MjvOption] = None
 
     use_shared_context: bool
-
-
-def resize_with_aspect_fill(image: np.ndarray, width: int, height: int):
-    # original_width, original_height = image.shape[:2]
-    original_height, original_width = image.shape[:2]
-    ratio_original = original_width / original_height
-    ratio_new = width / height
-
-    # Resize the image while maintaining the aspect ratio
-    border_type = cv2.BORDER_CONSTANT
-    if ratio_original > ratio_new:
-        # Original is wider relative to the new size
-        resize_height = round(width / ratio_original)
-        resized_image = cv2.resize(image, (width, resize_height))
-        top = (height - resize_height) // 2
-        bottom = height - resize_height - top
-        result = cv2.copyMakeBorder(resized_image, top, bottom, 0, 0, border_type)
-    else:
-        # Original is taller relative to the new size
-        # import pdb; pdb.set_trace()
-        resize_width = round(height * ratio_original)
-        resized_image = cv2.resize(image, (resize_width, height))
-        left = (width - resize_width) // 2
-        right = width - resize_width - left
-        result = cv2.copyMakeBorder(resized_image, 0, 0, left, right, border_type)
-
-    return result
-
-
-def convert_depth_to_rgb(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
-    """https://github.com/google-deepmind/mujoco/blob/main/python/mujoco/renderer.py"""
-    # Get the distances to the near and far clipping planes.
-    extent = model.stat.extent
-    near = model.vis.map.znear * extent
-    far = model.vis.map.zfar * extent
-
-    # Calculate OpenGL perspective matrix values in float32 precision
-    # so they are close to what glFrustum returns
-    # https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glFrustum.xml
-    zfar = np.float32(far)
-    znear = np.float32(near)
-    c_coef = -(zfar + znear) / (zfar - znear)
-    d_coef = -(np.float32(2) * zfar * znear) / (zfar - znear)
-
-    # In reverse Z mode the perspective matrix is transformed by the following
-    c_coef = np.float32(-0.5) * c_coef - np.float32(0.5)
-    d_coef = np.float32(-0.5) * d_coef
-
-    # We need 64 bits to convert Z from ndc to metric depth without noticeable
-    # losses in precision
-    out_64 = depth.astype(np.float64)
-
-    # Undo OpenGL projection
-    # Note: We do not need to take action to convert from window coordinates
-    # to normalized device coordinates because in reversed Z mode the mapping
-    # is identity
-    out_64 = d_coef / (out_64 + c_coef)
-
-    # Cast result back to float32 for backwards compatibility
-    # This has a small accuracy cost
-    depth[:] = out_64.astype(np.float32)
-
-    return depth
-
-
-@dataclass
-class MjCambrianCursor:
-    x: int
-    y: int
-
-    def __iter__(self):
-        return iter((self.x, self.y))
-
-    def copy(self):
-        return replace(self)
-
-
-class MjCambrianViewerOverlay:
-    def __init__(
-        self, obj: np.ndarray | str, cursor: Optional[MjCambrianCursor] = None
-    ):
-        self.obj = obj
-        self.cursor = cursor.copy() if cursor is not None else None
-
-    def draw_before_render(self, scene: mj.MjvScene):
-        """Called before rendering the scene."""
-        pass
-
-    def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
-        """Called after rendering the scene."""
-        pass
-
-
-class MjCambrianTextViewerOverlay(MjCambrianViewerOverlay):
-    def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
-        viewport = viewport if self.cursor is None else mj.MjrRect(*self.cursor, 1, 1)
-        mj.mjr_overlay(
-            mj.mjtFont.mjFONT_NORMAL,
-            mj.mjtGridPos.mjGRID_BOTTOMLEFT,
-            viewport,
-            self.obj,
-            "",
-            mjr_context,
-        )
-
-
-class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
-    def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
-        viewport = mj.MjrRect(*self.cursor, self.obj.shape[1], self.obj.shape[0])
-        mj.mjr_drawPixels(self.obj.ravel(), None, viewport, mjr_context)
-
-
-class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
-    """TODO: make this an image overlay where the pos is converted to pixel
-    coordinates.
-
-    NOTE: This is applied only to the passed scene, so other scenes (i.e. ones for the
-    eyes) will not be affected.
-    """
-
-    def __init__(
-        self, pos: np.ndarray, rgba: Tuple[float, float, float, float], size: float
-    ):
-        super().__init__(pos)
-        self.rgba = rgba
-        self.size = size
-
-    def draw_before_render(self, scene: mj.MjvScene):
-        if scene.ngeom >= scene.maxgeom:
-            get_logger().warning(
-                f"Max geom reached ({scene.maxgeom}). Cannot add more sites."
-            )
-            return
-
-        scene.ngeom += 1
-        mj.mjv_initGeom(
-            scene.geoms[scene.ngeom - 1],
-            mj.mjtGeom.mjGEOM_SPHERE,
-            [self.size] * 3,
-            self.obj,
-            np.eye(3).flatten(),
-            self.rgba,
-        )
 
 
 GL_CONTEXT: mj.gl_context.GLContext = None
@@ -567,9 +420,15 @@ class MjCambrianRenderer:
 
         self._record: bool = False
 
-    def reset(self, model: mj.MjModel, data: mj.MjData) -> np.ndarray | None:
-        self.config.setdefault("width", model.vis.global_.offwidth)
-        self.config.setdefault("height", model.vis.global_.offheight)
+    def reset(
+        self,
+        model: mj.MjModel,
+        data: mj.MjData,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> np.ndarray | None:
+        self.config.setdefault("width", width or model.vis.global_.offwidth)
+        self.config.setdefault("height", height or model.vis.global_.offheight)
 
         if self.config.width > model.vis.global_.offwidth:
             model.vis.global_.offwidth = self.config.width
@@ -585,15 +444,14 @@ class MjCambrianRenderer:
     ) -> np.ndarray | Tuple[np.ndarray, np.ndarray] | None:
         self.viewer.render(overlays=overlays)
 
-        # self.render_modes
-        # if not any(mode in self.render_modes for mode in ["rgb_array", "depth_array"]):
-        #     return
+        if not any(mode in self.render_modes for mode in ["rgb_array", "depth_array"]):
+            return
 
-        # rgb, depth = self.viewer.read_pixels("depth_array" in self.render_modes)
-        # if self._record and not resetting:
-        #     self._rgb_buffer.append(rgb)
+        rgb, depth = self.viewer.read_pixels("depth_array" in self.render_modes)
+        if self._record and not resetting:
+            self._rgb_buffer.append(rgb)
 
-        # return (rgb, depth) if "depth_array" in self.render_modes else rgb
+        return (rgb, depth) if "depth_array" in self.render_modes else rgb
 
     def is_running(self):
         return self.viewer.is_running()

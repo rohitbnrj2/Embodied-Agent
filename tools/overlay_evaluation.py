@@ -6,7 +6,7 @@ import numpy as np
 import mujoco as mj
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from cambrian.renderer import MjCambrianImageViewerOverlay, MjCambrianCursor
+from cambrian.renderer.renderer import MjCambrianImageViewerOverlay, MjCambrianCursor
 from cambrian.env import MjCambrianEnv
 from cambrian.utils.wrappers import make_single_env
 from cambrian.ml.model import MjCambrianModel
