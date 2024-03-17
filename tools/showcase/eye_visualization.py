@@ -97,10 +97,10 @@ if __name__ == "__main__":
         for i, eye in enumerate(animal.eyes.values()):
             lat, lon = eye.config.coord
             if lat not in images:
-                images[lat] = {lon: eye.last_obs}
+                images[lat] = {lon: eye.prev_obs}
             else:
                 assert lon not in images[lat]
-                images[lat][lon] = eye.last_obs
+                images[lat][lon] = eye.prev_obs
 
         # Now sort the images
         lats = sorted(images.keys())

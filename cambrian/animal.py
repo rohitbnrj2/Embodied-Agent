@@ -435,10 +435,10 @@ class MjCambrianAnimal:
         for eye in self.eyes.values():
             lat, lon = eye.config.coord
             if lat not in images:
-                images[lat] = {lon: eye.last_obs}
+                images[lat] = {lon: eye.prev_obs}
             else:
                 assert lon not in images[lat]
-                images[lat][lon] = eye.last_obs
+                images[lat][lon] = eye.prev_obs
 
         # Construct the composite image
         # Loop through the sorted list of images based on lat/lon

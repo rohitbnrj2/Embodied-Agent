@@ -596,7 +596,7 @@ if __name__ == "__main__":
     data = mj.MjData(model)
     mj.mj_step(model, data)
 
-    config = MjCambrianRendererConfig.load_from_string(YAML)
+    config = MjCambrianRendererConfig.create(YAML)
     renderer = MjCambrianRenderer(config)
     renderer.reset(model, data)
 

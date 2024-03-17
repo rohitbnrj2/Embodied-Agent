@@ -212,6 +212,7 @@ class MjCambrianEnv(gym.Env):
             self._rollout.setdefault("positions", [])
             self._rollout["positions"].append([a.pos for a in self.animals.values()])
 
+        # TODO
         # if expname := options.get("expname"):
         #     self._overlays["Exp"] = expname
 
@@ -406,7 +407,7 @@ class MjCambrianEnv(gym.Env):
         for i, (name, animal) in enumerate(self.animals.items()):
             cursor.x += 2 * i * overlay_width
             cursor.y = 0
-            if cursor.x + overlay_width * 2 > renderer_width:
+            if cursor.x + overlay_width > renderer_width:
                 self.logger.warning("Renderer width is too small!!")
                 continue
 
@@ -429,10 +430,10 @@ class MjCambrianEnv(gym.Env):
             cursor.y += TEXT_HEIGHT
             if animal.num_eyes > 0:
                 eye0 = next(iter(animal.eyes.values()))
-                overlay_text = f"Res: {tuple(eye0.resolution)}"
+                overlay_text = f"Res: {tuple(eye0.config.resolution)}"
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
                 cursor.y += TEXT_HEIGHT
-                overlay_text = f"FOV: {tuple(eye0.fov)}"
+                overlay_text = f"FOV: {tuple(eye0.config.fov)}"
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
                 cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
             overlay_text = f"Animal: {name}"
@@ -563,14 +564,30 @@ class MjCambrianEnv(gym.Env):
 if __name__ == "__main__":
     from cambrian.utils.config import MjCambrianConfig, run_hydra
 
+    def environment_factory(config: MjCambrianEnvConfig):
+        from cambrian.envs.object_env import MjCambrianObjectEnvConfig
+        from cambrian.envs.maze_env import MjCambrianMazeEnvConfig
+
+        if config.get_type() == MjCambrianObjectEnvConfig:
+            from cambrian.envs.object_env import MjCambrianObjectEnv
+
+            return MjCambrianObjectEnv(config)
+        elif config.get_type() == MjCambrianMazeEnvConfig:
+            from cambrian.envs.maze_env import MjCambrianMazeEnv
+
+            return MjCambrianMazeEnv(config)
+        else:
+            return MjCambrianEnv(config)
+
     def run_mj_viewer(config: MjCambrianConfig):
         import mujoco.viewer
 
-        env = MjCambrianEnv(config.env)
+        env = environment_factory(config.env)
         env.reset(seed=config.seed)
         with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
-            while viewer.is_running():
+            while viewer.is_running() and env.renderer.is_running():
                 env.step(env.action_spaces.sample())
+                env.render()
                 viewer.sync()
 
     run_hydra(run_mj_viewer)

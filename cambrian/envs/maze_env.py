@@ -31,23 +31,12 @@ class MjCambrianMapEntity(Enum):
         WALL (str): Represents a wall in the grid. Can include texture IDs in the
             format "1:<texture id>".
         EMPTY (str): Represents an empty space in the grid.
-
-        R (str): Alias for RESET.
-        O (str): Alias for OBJECT.
-        W (str): Alias for WALL.
-        E (str): Alias for EMPTY.
     """
 
     RESET = "R"
     OBJECT = "X"
     WALL = "1"
     EMPTY = "0"
-
-    # Alias for readability
-    R = RESET
-    O = OBJECT
-    W = WALL
-    E = EMPTY
 
     @staticmethod
     def parse(value: str) -> Tuple[Enum, str | None]:
@@ -544,19 +533,3 @@ class MjCambrianMazeStore:
     def select_maze_cycle(self, env: "MjCambrianEnv") -> MjCambrianMaze:
         """Selects a maze based on a cycle."""
         raise NotImplementedError
-
-
-if __name__ == "__main__":
-    from cambrian.utils.config import MjCambrianConfig, run_hydra
-
-    def run_mj_viewer(config: MjCambrianConfig):
-        import mujoco.viewer
-
-        env = MjCambrianMazeEnv(config.env)
-        env.reset(seed=config.seed)
-        with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
-            while viewer.is_running():
-                env.step(env.action_spaces.sample())
-                viewer.sync()
-
-    run_hydra(run_mj_viewer)
