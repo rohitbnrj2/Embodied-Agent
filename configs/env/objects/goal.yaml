@@ -2,6 +2,6 @@ defaults:
   - /default/${env/objects/default}@_here_
 
 xml:
-  _target_: cambrian.utils.cambrian_xml.MjCambrianXML
-  _convert_: "all"
+  _target_: cambrian.utils.cambrian_xml.convert_xml_to_yaml
+  _convert_: all
   base_xml_path: models/objects/goal.xml

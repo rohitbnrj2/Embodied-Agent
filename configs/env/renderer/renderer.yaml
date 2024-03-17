@@ -6,28 +6,26 @@ camera:
     _target_: mujoco.MjvCamera
 
 scene:
-  _target_: cambrian.utils.base_config.instance_wrapper
+  _target_: cambrian.utils.base_config.instance_flag_wrapper
   instance:
     _target_: mujoco.MjvScene
     _partial_: true
     maxgeom: 10000
-  flags:
-    _target_: cambrian.utils.base_config.instance_flag_wrapper
-    instance: ${..instance}
-    key: ${parent:}
-    flag_type:
-      _target_: mujoco.mjtRndFlag
-      value: 0 # placeholder
-    mjRND_SHADOW: 0
-    mjRND_WIREFRAME: 0
-    mjRND_REFLECTION: 0
-    mjRND_ADDITIVE: 0
-    mjRND_SKYBOX: 0
-    mjRND_FOG: 0
-    mjRND_HAZE: 0
-    mjRND_SEGMENT: 0
-    mjRND_IDCOLOR: 0
-    mjRND_CULL_FACE: 1
+  key: flags
+  flag_type:
+    _target_: mujoco.mjtRndFlag
+    value: 0 # placeholder
+  mjRND_SHADOW: 0
+  mjRND_WIREFRAME: 0
+  mjRND_REFLECTION: 0
+  mjRND_ADDITIVE: 0
+  mjRND_SKYBOX: 0
+  mjRND_FOG: 0
+  mjRND_HAZE: 0
+  mjRND_SEGMENT: 0
+  mjRND_IDCOLOR: 0
+  mjRND_CULL_FACE: 1
+
 scene_options:
   _target_: cambrian.utils.base_config.instance_wrapper
   instance:

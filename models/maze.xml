@@ -3,13 +3,8 @@
         <material name="floor_mat_${parent:xml}" rgba="0.1 0.1 0.1 1.0" shininess="0.0" specular="0.0" />
     </asset>
     <default>
-        <default class="maze_block_${parent:xml}">
+        <default class="maze_wall_${parent:xml}">
             <geom type="box" gap="0.05" margin="0.1" group="1" condim="1" />
-        </default>
-        <default class="maze_target_${parent:xml}">
-            <site type="sphere" group="1" />
-            <light exponent="0.1" cutoff="180" dir="0 0 -1" diffuse="1 1 1" ambient="1 1 1"
-                specular="1 1 1" castshadow="false" />
         </default>
     </default>
     <worldbody>

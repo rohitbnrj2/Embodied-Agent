@@ -56,16 +56,19 @@ class MjCambrianObjectEnv(MjCambrianEnv):
     """This is a subclass of `MjCambrianEnv` that adds support for goals."""
 
     def __init__(self, config: MjCambrianObjectEnvConfig):
-        super().__init__(config)
-        self.config: MjCambrianObjectEnvConfig  # type hint to our custom config version
+        self.config = config
 
+        # Have to initialize the objects first since generate_xml is called from the
+        # MjCambrianEnv constructor
         self.objects: Dict[str, MjCambrianObject] = {}
         self._create_objects()
+
+        super().__init__(config)
 
     def _create_objects(self):
         """Creates the objects in the environment."""
         for name, obj_config in self.config.objects.items():
-            self.objects[name] = MjCambrianObject(obj_config)
+            self.objects[name] = MjCambrianObject(obj_config, name)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
@@ -113,6 +116,7 @@ class MjCambrianObjectEnv(MjCambrianEnv):
         info = super()._update_info(info)
 
         # Update the object info
+        info["objects"] = {}
         for name, obj in self.objects.items():
             info["objects"][name] = obj.config.pos
 
@@ -201,13 +205,13 @@ class MjCambrianObject:
         self.name = name
 
     def generate_xml(self) -> MjCambrianXML:
-        return MjCambrianXML.from_string(self.config.xml)
+        return MjCambrianXML.from_config(self.config.xml)
 
     def reset(self, model: mj.MjModel) -> np.ndarray:
         body_id = get_body_id(model, f"{self.name}_body")
         assert body_id != -1, f"Body {self.name}_body not found in model"
 
-        model.body_pos[body_id] = self.config.pos
+        model.body_pos[body_id][:2] = self.config.pos
 
         return model.body_pos[body_id]
 

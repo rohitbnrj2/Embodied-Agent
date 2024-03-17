@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <mujoco>
+    <include file="models/objects/object.xml" />
     <worldbody>
         <body name="${parent:xml}_body" childclass="object">
             <site name="${parent:xml}_site" material="${parent:xml}_mat" size="1.0" />
@@ -8,7 +9,7 @@
         </body>
     </worldbody>
     <asset>
-        <texture name="${parent:xml}_tex" type="2d" />
+        <texture name="${parent:xml}_tex" type="2d" file="maze_textures/vertical_square_20.png" />
         <material name="${parent:xml}_mat" rgba="0.8 0.2 0.2 1.0" texture="${parent:xml}_tex" />
         <material name="${parent:xml}_top_mat" rgba="0 1 0 1" emission="5" />
     </asset>

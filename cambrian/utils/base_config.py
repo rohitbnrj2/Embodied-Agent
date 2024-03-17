@@ -162,6 +162,16 @@ class MjCambrianContainerConfig:
         else:
             return content
 
+    def __getitem__(self, key: Any) -> Self | Any:
+        """Get the item from the content and return the wrapped instance. If the item is
+        a DictConfig or ListConfig, we'll wrap it in this class."""
+        content = self._content[key]
+        if OmegaConf.is_config(content):
+            config = self._config[key]
+            return MjCambrianContainerConfig(content, config=config)
+        else:
+            return content
+
     def __iter__(self) -> Iterator[Any]:
         """Only supported by ListConfig. Wrapper around the __iter__ method to return
         the iterator of the content. Will convert any DictConfig or ListConfig to this
@@ -395,6 +405,11 @@ def instance_wrapper(*, instance: Type[Any], **kwargs):
     def setattrs(instance, **kwargs):
         try:
             for key, value in kwargs.items():
+                # Special case if value is the wrapper in flag_wrapper
+                if callable(value):
+                    print(key, value)
+                    value = value()
+                    print(value)
                 setattr(instance, key, value)
         except Exception as e:
             raise ValueError(f"Error when setting attribute {key=} to {value=}: {e}")
@@ -472,7 +487,7 @@ def instance_flag_wrapper(
         flags: The flags to set on the instance.
     """
 
-    def setattrs(instance, key, flag_type, **flags):
+    def setattrs(instance, key, flag_type, return_instance, **flags):
         """Set the attributes on the instance."""
         attr = getattr(instance, key)
         for flag, value in flags.items():
@@ -480,7 +495,7 @@ def instance_flag_wrapper(
             if eval_flags:
                 flag = eval(flag)
             attr[flag] = value
-        return attr
+        return attr if not return_instance else instance
 
     if isinstance(instance, partial):
         partial_instance = instance
@@ -492,8 +507,8 @@ def instance_flag_wrapper(
             # First instantiate the partial
             instance = partial_instance(*args, **kwargs)
             # Then set the attributes
-            return setattrs(instance, config_key, config_type, **config_flags)
+            return setattrs(instance, config_key, config_type, True, **config_flags)
 
         return wrapper
     else:
-        return setattrs(instance, key, flag_type, **flags)
+        return setattrs(instance, key, flag_type, False, **flags)

@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <mujoco>
+    <include file="models/objects/object.xml" />
     <worldbody>
         <body name="${parent:xml}_body" childclass="object">
             <site name="${parent:xml}_site" material="${parent:xml}_mat" size="1.0" />

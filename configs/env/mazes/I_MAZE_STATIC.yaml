@@ -16,6 +16,11 @@ map: |
     [1:L,   0, 1:R],
     [1:L,   0, 1:R],
     [1:L,   0, 1:R],
-    [1:L,   T, 1:R],
+    [1:L,   X, 1:R],
     [1:L, 1:E, 1:R],
   ]
+
+wall_texture_map:
+  L: [vertical_10]
+  R: [vertical_10]
+  E: [vertical_10]

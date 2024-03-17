@@ -2,8 +2,8 @@
 # We aren't actually going to use this maze, so store it in the special attr `custom` which isn't read
 
 xml:
-  _target_: cambrian.utils.cambrian_xml.MjCambrianXML
-  _convert_: "all"
+  _target_: cambrian.utils.cambrian_xml.convert_xml_to_yaml
+  _convert_: all
   base_xml_path: models/maze.xml
 
 scale: 4.0

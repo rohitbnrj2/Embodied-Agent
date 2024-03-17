@@ -130,13 +130,16 @@ class MjCambrianMazeEnvConfig(MjCambrianObjectEnvConfig):
 
 class MjCambrianMazeEnv(MjCambrianObjectEnv):
     def __init__(self, config: MjCambrianMazeEnvConfig):
-        super().__init__(config)
-        self.config: MjCambrianMazeEnvConfig
+        self.config: MjCambrianMazeEnvConfig = config
 
+        # Have to initialize the mazes first since generate_xml is called from the
+        # MjCambrianEnv constructor
         self.maze: MjCambrianMaze = None
         self.maze_store = MjCambrianMazeStore(
             self.config.mazes, self.config.maze_selection_fn
         )
+
+        super().__init__(config)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
@@ -225,22 +228,46 @@ class MjCambrianMaze:
                 loc = np.array([x, y])
 
                 entity, texture_id = MjCambrianMapEntity.parse(struct)
-                if entity == MjCambrianMapEntity.OBJECT:
+                if entity == MjCambrianMapEntity.WALL:
                     self._wall_locations.append(loc)
 
                     # Do a check for the texture
                     assert texture_id in self.config.wall_texture_map, (
-                        f"Invalid texture: {texture_id}."
+                        f"Invalid texture: {texture_id}. "
                         f"Available textures: {self.config.wall_texture_map.keys()}"
                     )
                     self._wall_textures.append(texture_id)
                 elif entity == MjCambrianMapEntity.RESET:
                     self._reset_locations.append(loc)
+                elif entity == MjCambrianMapEntity.OBJECT:
+                    self._object_locations.append(loc)
 
     def generate_xml(self) -> MjCambrianXML:
-        xml = MjCambrianXML.from_string(self.config.xml)
+        xml = MjCambrianXML.from_config(self.config.xml)
+
         worldbody = xml.find(".//worldbody")
         assert worldbody is not None, "xml must have a worldbody tag"
+        assets = xml.find(".//asset")
+        assert assets is not None, "xml must have an asset tag"
+
+        # Add the wall textures
+        for t, textures in self.config.wall_texture_map.items():
+            for texture in textures:
+                name_prefix = f"wall_{self.name}_{t}_{texture}"
+                xml.add(
+                    assets,
+                    "material",
+                    name=f"{name_prefix}_mat",
+                    texture=f"{name_prefix}_tex",
+                )
+                xml.add(
+                    assets,
+                    "texture",
+                    name=f"{name_prefix}_tex",
+                    file=f"maze_textures/{texture}.png",
+                    gridsize="3 4",
+                    gridlayout=".U..LFRB.D..",
+                )
 
         # Add the walls. Each wall has it's own geom.
         scale = self.config.scale / 2
@@ -284,7 +311,7 @@ class MjCambrianMaze:
         texture_map: Dict[str, str] = {}
         for t in self._wall_textures:
             if t not in texture_map:
-                texture_map[t] = np.random.choice(self.config.wall_texture_map[t])
+                texture_map[t] = np.random.choice(list(self.config.wall_texture_map[t]))
 
         # Now, update the wall textures
         for i, t in zip(range(len(self._wall_locations)), self._wall_textures):
@@ -517,3 +544,19 @@ class MjCambrianMazeStore:
     def select_maze_cycle(self, env: "MjCambrianEnv") -> MjCambrianMaze:
         """Selects a maze based on a cycle."""
         raise NotImplementedError
+
+
+if __name__ == "__main__":
+    from cambrian.utils.config import MjCambrianConfig, run_hydra
+
+    def run_mj_viewer(config: MjCambrianConfig):
+        import mujoco.viewer
+
+        env = MjCambrianMazeEnv(config.env)
+        env.reset(seed=config.seed)
+        with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
+            while viewer.is_running():
+                env.step(env.action_spaces.sample())
+                viewer.sync()
+
+    run_hydra(run_mj_viewer)

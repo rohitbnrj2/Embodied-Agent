@@ -3,6 +3,7 @@ defaults:
 
 xml:
   _target_: cambrian.utils.cambrian_xml.convert_xml_to_yaml
+  _convert_: all
   base_xml_path: models/animals/point.xml
 
 body_name: "particle_${parent:}"

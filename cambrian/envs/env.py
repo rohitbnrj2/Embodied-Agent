@@ -105,7 +105,12 @@ class MjCambrianEnv(gym.Env):
 
         self.xml = self.generate_xml()
 
-        self.model = mj.MjModel.from_xml_string(self.xml.to_string())
+        try:
+            self.model = mj.MjModel.from_xml_string(self.xml.to_string())
+        except ValueError as e:
+            print(self.xml)
+            raise e
+
         self.data = mj.MjData(self.model)
 
         self.render_mode = "rgb_array"
