@@ -1,2 +1,7 @@
 defaults:
   - /default/${env/objects/default}@_here_
+
+xml:
+  _target_: cambrian.utils.cambrian_xml.MjCambrianXML
+  _convert_: "all"
+  base_xml_path: models/objects/adversary.xml

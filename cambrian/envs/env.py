@@ -25,7 +25,7 @@ from cambrian.renderer import (
     TEXT_MARGIN,
 )
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
-from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
+from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.logger import get_logger
 
 
@@ -34,8 +34,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     """Defines a config for the cambrian environment.
 
     Attributes:
-        xml (MjCambrianXMLConfig): The xml for the scene. This is the xml that will be
-            used to create the environment. See `MjCambrianXMLConfig` for more info.
+        xml (MjCambrianXML): The xml for the scene. This is the xml that will be
+            used to create the environment. See `MjCambrianXML` for more info.
 
         reward_fn (MjCambrianRewardFn): The reward function type to use. See the
             `MjCambrianRewardFn` for more info.
@@ -63,7 +63,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             set in the animal config.
     """
 
-    xml: MjCambrianXMLConfig
+    xml: MjCambrianXML
 
     reward_fn: Callable[Concatenate[MjCambrianAnimal, Dict[str, Any], ...], float]
 

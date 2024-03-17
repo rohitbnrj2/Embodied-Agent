@@ -12,7 +12,7 @@ defaults:
   - logging: basic
   - hydra: hydra
 
-  - required exp: '???'
+  - required exp: "???"
 
 expname: ${hydra:runtime.choices.exp}
 logdir: ./logs/${now:%Y-%m-%d}/${expname}

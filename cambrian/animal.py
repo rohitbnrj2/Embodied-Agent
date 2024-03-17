@@ -21,7 +21,7 @@ from cambrian.utils import (
     setattrs_temporary,
     generate_sequence_from_range,
 )
-from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
+from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.base_config import MjCambrianBaseConfig, config_wrapper
 from cambrian.utils.logger import get_logger
 
@@ -31,9 +31,10 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     """Defines the config for an animal. Used for type hinting.
 
     Attributes:
-        xml (str): The xml for the animal. This is the xml that will be used to create
-            the animal. You should use ${parent:xml} to generate named attributes. This
-            will search upwards in the yaml file to find the name of the animal.
+        xml (MjCambrianXML): The xml for the animal. This is the xml that will be
+            used to create the animal. You should use ${parent:xml} to generate
+            named attributes. This will search upwards in the yaml file to find the
+            name of the animal.
 
         body_name (str): The name of the body that defines the main body of the animal.
         joint_name (str): The root joint name for the animal. For positioning (see qpos)
@@ -75,7 +76,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             is a record of the mutations that were applied to the parent.
     """
 
-    xml: MjCambrianXMLConfig
+    xml: MjCambrianXML
 
     body_name: str
     joint_name: str

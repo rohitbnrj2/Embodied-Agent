@@ -18,7 +18,7 @@ from cambrian.envs.object_env import MjCambrianObjectEnv, MjCambrianObjectEnvCon
 from cambrian.animal import MjCambrianAnimal
 from cambrian.utils import get_geom_id
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
-from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
+from cambrian.utils.cambrian_xml import MjCambrianXML
 
 
 class MjCambrianMapEntity(Enum):
@@ -74,7 +74,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
     """Defines a map config. Used for type hinting.
 
     Attributes:
-        xml (MjCambrianXMLConfig): The xml for the maze. This is the xml that will be
+        xml (MjCambrianXML): The xml for the maze. This is the xml that will be
             used to create the maze.
         map (str): The map to use for the maze. It's a 2D array where
             each element is a string and corresponds to a "pixel" in the map. See
@@ -97,7 +97,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
             Other walls are specified as 1/W:<texture id>.
     """
 
-    xml: MjCambrianXMLConfig
+    xml: MjCambrianXML
     map: str
 
     scale: float

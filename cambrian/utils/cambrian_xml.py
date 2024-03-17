@@ -1,8 +1,7 @@
-from typing import List, Tuple, Dict, TypeAlias, Self
+from typing import List, Tuple, Dict, TypeAlias, Self, Optional
 from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
-import xml.dom.minidom as minidom
 
 MjCambrianXMLConfig: TypeAlias = List[Dict[str, Self]]
 """
@@ -13,14 +12,14 @@ are built from during the initialization phase of the environment. The config is
 structured as follows:
 
 ```yaml
-parent_key1:
+- parent_key1:
     - child_key1:
         - attr1: val1
         - attr2: val2
     - child_key2:
         - attr1: val1
         - attr2: val2
-child_key1:
+- child_key1:
     - child_key2:
         - attr1: ${parent_key1.child_key1.attr2}
 - child_key2:
@@ -45,8 +44,6 @@ which will construct an xml that looks like:
 This is a verbose representation for xml files. This is done
 to allow interpolation through hydra/omegaconf in the xml files and without the need
 for a complex xml parser omegaconf resolver.
-
-TODO: I think this type (minus the Self) is supported as of OmegaConf issue #890.
 """
 
 
@@ -56,15 +53,28 @@ class MjCambrianXML:
 
     Args:
         base_xml_path (Path | str): The path to the base xml file to load.
+
+    Keyword Args:
+        overrides (Optional[MjCambrianXMLConfig]): The xml config to override the base
+            xml file with. This is a list of dictionaries. See `MjCambrianXMLConfig`
+            for more information.
     """
 
-    def __init__(self, base_xml_path: Path | str):
+    def __init__(
+        self,
+        base_xml_path: Path | str,
+        *,
+        overrides: Optional[MjCambrianXMLConfig] = None,
+    ):
         self._base_xml_path = Path(base_xml_path)
 
         self.load(self._base_xml_path)
+        if overrides is not None:
+            self += MjCambrianXML.from_config(overrides)
 
     def load(self, path: Path | str):
         """Load the xml from a file."""
+        assert Path(path).exists(), f"File does not exist: {path}"
         self._tree = ET.parse(path)
         self._root = self._tree.getroot()
 
@@ -93,7 +103,7 @@ class MjCambrianXML:
         """Adds to the xml based on the passed config.
 
         The MjCambrianXMLConfig is structured as follows:
-        parent_key:
+        - parent_key:
             - child_key:
                 - attribute_key: attribute_value
                 - subchild_key:
@@ -147,7 +157,7 @@ class MjCambrianXML:
                         attribs.update(get_attribs(sub_config, depth=depth + 1))
             return attribs
 
-        def add_to_xml(parent: ET.Element, config: MjCambrianXMLConfig):
+        def add_to_xml(parent: ET.Element, config: Dict[str, MjCambrianXMLConfig]):
             for key, value in config.items():
                 if isinstance(value, list):
                     attribs = get_attribs(config)
@@ -300,14 +310,23 @@ class MjCambrianXML:
         return self
 
     def to_string(self) -> str:
-        str = ET.tostring(self._root, encoding="unicode").replace("\n", "")
-        return minidom.parseString(str).toprettyxml(indent=" ")
+        """This pretty prints the xml to a string. toprettyxml adds a newline at the end
+        of the string, so we'll remove any empty lines."""
+        import xml.dom.minidom as minidom
+
+        string = ET.tostring(self._root, encoding="unicode")
+        string = minidom.parseString(string).toprettyxml(indent=" ")
+        return "\n".join([line for line in string.split("\n") if line.strip()])
 
     def __str__(self) -> str:
         return self.to_string()
 
 
-def convert_xml_to_yaml(input_xml_file: str) -> str:
+def load_xml(input_xml_file: str) -> MjCambrianXML:
+    return MjCambrianXML(input_xml_file)
+
+
+def convert_xml_to_yaml(input_xml_file: str) -> List:
     tree = ET.parse(input_xml_file)
     root = tree.getroot()
 
@@ -331,7 +350,23 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="MujocoXML Tester")
 
+    parser.add_argument(
+        "--convert-yaml", type=str, help="Convert a yaml to xml", default=None
+    )
+    parser.add_argument("--load-xml", type=str, help="Load an xml file", default=None)
+
     args = parser.parse_args()
+
+    if args.convert_yaml is not None:
+        with open(args.convert_yaml, "r") as f:
+            config = yaml.safe_load(f)
+        xml = MjCambrianXML.from_config(config)
+        print(xml)
+        exit()
+    if args.load_xml is not None:
+        xml = load_xml(args.load_xml)
+        print(xml)
+        exit()
 
     xml = MjCambrianXML.make_empty()
 
@@ -339,7 +374,6 @@ if __name__ == "__main__":
     # Unclear whether this is an issue or not
     config = [{"mujoco": [{"compiler": [{"angle": "degree"}]}]}]
     xml += MjCambrianXML.from_config(config)
-    print(xml)
 
     config = [{"mujoco": [{"compiler": [{"coordinate": "local"}]}]}]
     xml += MjCambrianXML.from_config(config)

@@ -16,7 +16,7 @@ defaults:
   - /env/animals/eyes/default@env.animals.point.eyes.point_0_eye_0: ${env/animals/eyes/default}
 
   # First, we'll include the default config (located at in the same folder as this file
-  # i.e. configs/exp/default.yaml). This file defines required attributes we'll need
+  # i.e. configs/exp/exp.yaml). This file defines required attributes we'll need
   # to specify here to set things up correctly.
   - exp
 

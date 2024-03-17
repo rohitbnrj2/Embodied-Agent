@@ -7,7 +7,7 @@ from gymnasium import spaces
 from cambrian.envs.env import MjCambrianEnvConfig, MjCambrianEnv
 from cambrian.utils import get_body_id
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
-from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
+from cambrian.utils.cambrian_xml import MjCambrianXML
 
 
 @config_wrapper
@@ -15,7 +15,7 @@ class MjCambrianObjectConfig(MjCambrianBaseConfig):
     """Defines a config for an object in the environment.
 
     Attributes:
-        xml: The xml for the object.
+        xml (MjCambrianXML): The xml for the object.
 
         terminate_if_close (bool): Whether to terminate the episode if the animal is
             close to the object. Termination indicates success.
@@ -29,7 +29,7 @@ class MjCambrianObjectConfig(MjCambrianBaseConfig):
         use_as_obs (bool): Whether to use the object as an observation or not.
     """
 
-    xml: MjCambrianXMLConfig
+    xml: MjCambrianXML
 
     terminate_if_close: bool
     truncate_if_close: bool

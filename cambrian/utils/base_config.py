@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional, Self, Type
-from dataclasses import field, dataclass, fields, make_dataclass
+from dataclasses import field, dataclass, fields, make_dataclass, is_dataclass
 from pathlib import Path
 from functools import partial
 
@@ -58,13 +58,13 @@ class MjCambrianContainerConfig:
         cls,
         config: DictConfig | ListConfig,
         **kwargs,
-    ) -> DictConfig | ListConfig:
+    ) -> Self:
         """Instantiate the config using the structured config. Will check for missing
         keys and raise an error if any are missing."""
         # First instantiate the config (will replace _target_ with the actual class)
         # And then merge the structured config with the instantiated config to give it
         # validation.
-        content = zen.instantiate(config, **kwargs)
+        content: DictConfig | ListConfig = zen.instantiate(config, **kwargs)
 
         # Check for missing values. Error message will only show the first missing key.
         if keys := OmegaConf.missing_keys(content):
@@ -119,7 +119,13 @@ class MjCambrianContainerConfig:
 
     def __getattr__(self, name: str) -> Self | Any:
         """Get the attribute from the content and return the wrapped instance. If the
-        attribute is a DictConfig or ListConfig, we'll wrap it in this class."""
+        attribute is a DictConfig or ListConfig, we'll wrap it in this class.
+
+        TODO: Possible bug: if an attribute is instantiated with _target_ and the
+        target returns a Dict, it will be wrapped by OmegaConf as a DictConfig. This
+        means {_target_: ...} will be returned rather than the actual instantiated
+        Dict object.
+        """
         content = self._content.__getattr__(name)
         if OmegaConf.is_config(content):
             config = self._config.__getattr__(name)
@@ -171,8 +177,12 @@ def config_wrapper(cls=None, /, **kwargs):
         # Preprocess the fields to convert the types to supported types
         # Only certain primitives are supported by hydra/OmegaConf, so we'll convert
         # these types to supported types using the _sanitized_type method from hydra_zen
+        # We'll just include the fields that are defined in this class and not in a base
+        # class.
+        cls = dataclass(cls, **kwargs)
+
         new_fields = []
-        for f in fields(dataclass(cls, **kwargs)):
+        for f in fields(cls):
             new_fields.append((f.name, zen.DefaultBuilds._sanitized_type(f.type), f))
 
         # Create the new dataclass with the sanitized types
@@ -205,7 +215,7 @@ class MjCambrianBaseConfig(MjCambrianDictConfig):
             data that is not necessarily defined in the config.
     """
 
-    custom: Optional[Dict[str, Any]] = field(default_factory=dict)
+    custom: Optional[Dict[str, Any]] = field(default_factory=dict, init=False)
 
 
 # =============================================================================

@@ -34,3 +34,22 @@ defaults:
 
   # Simular to mazes, you must also specify the object configuration.
   - /env/objects/default: object
+
+  # NOTE: there is a bug in OmegaConf that doesn't allow optional dataclass objects
+  # that are inherited to be specified via the defaults list. For instance,
+  # if you have the following structured configs:
+  #
+  # @dataclass
+  # class A:
+  #   a: Optional[int] = None
+  #
+  # @dataclass
+  # class B(A):
+  #   pass
+  #
+  # And you define B in a config file where you specify it's config group such that
+  # OmegaConf thinks it's a structured config, a will always be None unless you
+  # explicitly set it in B. Like if you set a default value to it in A, that won't carry
+  # over to B. This is the case for renderer since it's Optional. Therefore, we define
+  # it here rather than the env config.
+  - /env/renderer: bev

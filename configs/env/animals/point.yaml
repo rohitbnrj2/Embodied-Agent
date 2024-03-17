@@ -1,7 +1,10 @@
 defaults:
   - /default/${env/animals/default}@_here_
-  - xml: point
-  - _self_
+
+xml:
+  _target_: cambrian.utils.cambrian_xml.MjCambrianXML
+  _convert_: "all"
+  base_xml_path: models/animals/point.xml
 
 body_name: "particle_${parent:}"
 joint_name: "ball_x_${parent:}"

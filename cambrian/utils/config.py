@@ -79,7 +79,10 @@ def setup_hydra(main_fn: Optional[Callable[["MjCambrianConfig"], None]] = None, 
     def main(cfg: DictConfig):
         config = MjCambrianConfig.instantiate(cfg)
 
-        print(config)
+        import mujoco as mj
+
+        model = mj.MjModel.from_xml_string(str(config.env.xml))
+        mj.mj_saveLastXML("last.xml", model)
         if main_fn is not None:
             main_fn(config)
 
