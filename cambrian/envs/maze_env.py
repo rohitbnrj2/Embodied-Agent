@@ -152,21 +152,24 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
 
         # For each object, generate an initial position
         for obj in self.objects.values():
-            obj.config.pos = self.maze.generate_object_pos()
+            obj.config.pos[:2] = self.maze.generate_object_pos()
+            obj.config.pos[2] = self.maze.config.scale // 4
 
         # Now reset the environment
         obs, info = super().reset(seed=seed, options=options)
 
-        if self.renderer is not None:
+        if (renderer := self.renderer) and (viewer := renderer.viewer):
             # Update the camera positioning to match the current maze
-            self.renderer.viewer.config.camera.lookat = self.maze.lookat
+            # Only update if the camera lookat is not set in the config file
+            if viewer.config.select("camera.lookat") is None:
+                viewer.config.camera.lookat = self.maze.lookat
 
-            distance = (
-                self.renderer.ratio * self.maze.min_dim
-                if self.maze.ratio < 2
-                else self.maze.max_dim / self.renderer.ratio
-            )
-            self.renderer.viewer.config.camera.distance = distance
+            # Update the camera distance to match the current maze's extent
+            viewer.camera.distance = viewer.config.select("camera.distance", default=1)
+            if self.maze.ratio < 2:
+                viewer.camera.distance *= renderer.ratio * self.maze.min_dim
+            else:
+                viewer.camera.distance *= self.maze.max_dim / renderer.ratio
 
         return obs, info
 
@@ -321,12 +324,22 @@ class MjCambrianMaze:
     def _generate_pos(
         self,
         locations: List[np.ndarray],
-        *,
         add_as_occupied: bool = True,
         tries: int = 20,
     ) -> np.ndarray:
         """Helper method to generate a position. The generated position must be at a
-        unique location from self._occupied_locations."""
+        unique location from self._occupied_locations.
+
+        Args:
+            locations (List[np.ndarray]): The locations to choose from.
+            add_as_occupied (bool): Whether to add the chosen location to the
+                occupied locations. Defaults to True.
+            tries (int): The number of tries to attempt to find a unique position.
+                Defaults to 20.
+
+        Returns:
+            np.ndarray: The chosen position. Is of size (2,).
+        """
         assert len(locations) > 0, "No locations to choose from"
 
         for _ in range(tries):
@@ -348,16 +361,20 @@ class MjCambrianMaze:
         )
 
     def generate_reset_pos(self, *, add_as_occupied: bool = True) -> np.ndarray:
-        """Generates a random reset position for an agent."""
-        return self._generate_pos(
-            self._reset_locations, add_as_occupied=add_as_occupied
-        )
+        """Generates a random reset position for an agent.
+
+        Returns:
+            np.ndarray: The chosen position. Is of size (2,).
+        """
+        return self._generate_pos(self._reset_locations, add_as_occupied)
 
     def generate_object_pos(self, *, add_as_occupied: bool = True) -> np.ndarray:
-        """Generates a random object position."""
-        return self._generate_pos(
-            self._object_locations, add_as_occupied=add_as_occupied
-        )
+        """Generates a random object position.
+
+        Returns:
+            np.ndarray: The chosen position. Is of size (2,).
+        """
+        return self._generate_pos(self._object_locations, add_as_occupied)
 
     # ==================
 
@@ -400,14 +417,6 @@ class MjCambrianMaze:
     def lookat(self) -> np.ndarray:
         """Returns a point which aids in placement of a camera to visualize this maze."""
         return np.array([self._starting_x, 0, 0])
-
-    # ==================
-
-    def __repr__(self) -> str:
-        return f"MjCambrianMaze(name={self.name})"
-
-    def __str__(self) -> str:
-        return self.__repr__()
 
 
 # ================================

@@ -7,8 +7,6 @@ from typing import (
     ItemsView,
     List,
     Iterator,
-    Sequence,
-    Tuple,
 )
 from dataclasses import field, dataclass, fields, make_dataclass
 from pathlib import Path
@@ -101,14 +99,23 @@ class MjCambrianContainerConfig:
         """Wrapper around OmegaConf.create to instantiate the config."""
         return cls.instantiate(OmegaConf.create(**kwargs))
 
-    def get_type(self) -> Type[Any]:
-        """Wrapper around OmegaConf.get_type to get the type of the config."""
-        return OmegaConf.get_type(self._content)
+    def select(self, key: str, *, use_instantiated: bool = False, **kwargs) -> Any:
+        """This is a wrapper around OmegaConf.select to select a key from the config.
 
-    def to_container(self) -> Dict[Any, Any]:
+        NOTE: By default, this will use the uninstantiated config object to select the
+        key. Pass `use_instantiated=True` to use the instantiated config object.
+        """
+        config = self._content if use_instantiated else self._config
+        return OmegaConf.select(config, key, **kwargs)
+
+    def get_type(self, **kwargs) -> Type[Any]:
+        """Wrapper around OmegaConf.get_type to get the type of the config."""
+        return OmegaConf.get_type(self._content, **kwargs)
+
+    def to_container(self, **kwargs) -> Dict[Any, Any]:
         """Wrapper around OmegaConf.to_container to convert the config to a
         dictionary."""
-        return OmegaConf.to_container(self._content)
+        return OmegaConf.to_container(self._content, **kwargs)
 
     def to_yaml(self) -> str:
         """Wrapper around OmegaConf.to_yaml to convert the config to a yaml string."""
@@ -171,6 +178,15 @@ class MjCambrianContainerConfig:
             return MjCambrianContainerConfig(content, config=config)
         else:
             return content
+
+    def __setitem__(self, key: Any, value: Any):
+        """Set the item in the content."""
+        if isinstance(value, MjCambrianContainerConfig):
+            self._content[key] = value._content
+            self._config[key] = value._config
+        else:
+            self._content[key] = value
+            self._config[key] = value
 
     def __iter__(self) -> Iterator[Any]:
         """Only supported by ListConfig. Wrapper around the __iter__ method to return

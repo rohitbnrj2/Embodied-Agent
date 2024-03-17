@@ -7,5 +7,4 @@ camera:
   distance: 0.5
 
   trackbodyid: 1 # guess the first animal's body id
-  type:
-    _target_: mujoco.mjtCamera.mjCAMERA_TRACKING
+  type: 1 # mjCAMERA_TRACKING

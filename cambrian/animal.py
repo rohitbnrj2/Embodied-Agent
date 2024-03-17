@@ -531,12 +531,12 @@ class MjCambrianAnimal:
 
         if self.config.use_init_pos_obs:
             observation_space["init_pos"] = spaces.Box(
-                low=-1, high=1, shape=(2,), dtype=np.float64
+                low=-1, high=1, shape=(3,), dtype=np.float64
             )
 
         if self.config.use_current_pos_obs:
             observation_space["current_pos"] = spaces.Box(
-                low=-1, high=1, shape=(2,), dtype=np.float64
+                low=-1, high=1, shape=(3,), dtype=np.float64
             )
 
         return spaces.Dict(observation_space)
@@ -571,7 +571,7 @@ class MjCambrianAnimal:
 
         Use qpos to get _all_ the positions of the animal.
         """
-        return self._data.qpos[self._joint_qposadr : self._joint_qposadr + 2].copy()
+        return self._data.qpos[self._joint_qposadr : self._joint_qposadr + 3].copy()
 
     @property
     def xpos(self) -> np.ndarray:

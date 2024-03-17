@@ -9,6 +9,9 @@ defaults:
   # Also note that you can't include the same maze twice; it will overwrite the previous
   # definition since the mazes attribute is a dictionary
   - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC
+  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC2
+  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC3
+  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC4
 
   # Same here; we define all the animals we want to use (in this case, just one)
   - /env/animals/point@env.animals.point

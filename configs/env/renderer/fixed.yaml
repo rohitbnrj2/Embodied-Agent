@@ -1,0 +1,6 @@
+defaults:
+  - renderer
+
+camera:
+  fixedcamid: 0 # use the first camera
+  type: 2 # mjCAMERA_FIXED

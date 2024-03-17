@@ -1,4 +1,4 @@
-from typing import List, Optional, Any, Tuple
+from typing import List, Optional, Tuple
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -393,6 +393,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
             if self.camera.fixedcamid >= self.model.ncam:
                 self.camera.fixedcamid = -1
                 self.camera.type = mj.mjtCamera.mjCAMERA_FREE
+            print(self.camera)
 
         # Pause simulation
         if key == glfw.KEY_SPACE:
@@ -545,90 +546,21 @@ class MjCambrianRenderer:
 
 
 if __name__ == "__main__":
-    import argparse
-    import time
-    from pathlib import Path
     from cambrian.utils.cambrian_xml import MjCambrianXML
+    from cambrian.utils.config import MjCambrianConfig, run_hydra
 
-    parser = argparse.ArgumentParser()
+    def main(config: MjCambrianConfig):
+        xml = MjCambrianXML.from_config(config.env.xml)
+        model = mj.MjModel.from_xml_string(xml.to_string())
+        data = mj.MjData(model)
+        mj.mj_step(model, data)
 
-    parser.add_argument("--speed-test", action="store_true", help="Run speed test.")
+        renderer = MjCambrianRenderer(config.env.renderer)
+        renderer.reset(model, data)
 
-    args = parser.parse_args()
-
-    YAML = """
-    render_modes: ['rgb_array', 'depth_array']
-
-    width: 640
-    height: 480
-
-    fullscreen: true
-
-    use_shared_context: true
-
-    camera:
-        _target_: cambrian.utils.base_config.instance_wrapper
-        instance:
-            _target_: mujoco.MjvCamera
-
-    scene:
-        _target_: cambrian.utils.base_config.instance_wrapper
-        instance:
-            _target_: mujoco.MjvScene
-            _partial_: true
-            maxgeom: 10000
-    scene_options:
-        _target_: cambrian.utils.base_config.instance_wrapper
-        instance:
-            _target_: mujoco.MjvOption
-    """
-
-    xml = MjCambrianXML(Path("models") / "test.xml")
-    xml.add(
-        xml.find(".//worldbody"),
-        "camera",
-        pos="0 0 0.5",
-        quat="0.5 0.5 0.5 0.5",
-        resolution="10 10",
-    )
-
-    model = mj.MjModel.from_xml_string(xml.to_string())
-    data = mj.MjData(model)
-    mj.mj_step(model, data)
-
-    config = MjCambrianRendererConfig.create(YAML)
-    renderer = MjCambrianRenderer(config)
-    renderer.reset(model, data)
-
-    if args.speed_test:
-        print("Starting speed test...")
-        num_frames = 1000
-        t0 = time.time()
-        for _ in range(num_frames):
+        while renderer.is_running():
             renderer.render()
-        t1 = time.time()
-        print(f"Rendered {num_frames} frames in {t1 - t0} seconds.")
-        print(f"Average FPS: {num_frames / (t1 - t0)}")
-        exit()
 
-    while renderer.is_running():
-        out = renderer.render()
-        if out is None:
-            continue
-
-        if isinstance(out, tuple):
-            rgb, depth = out
-        else:
-            rgb, depth = out, None
-
-        cv2.imshow("image", rgb[:, :, ::-1])
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
-
-        if depth is not None:
-            depth_rgb = convert_depth_to_rgb(model, depth)
-            cv2.imshow("depth", depth_rgb)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
-
-    renderer.close()
+    # Recommended to use these args:
+    # env.xml.base_xml_path=models/test.xml env/renderer=fixed
+    run_hydra(main)

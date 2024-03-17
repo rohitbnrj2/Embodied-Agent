@@ -1,6 +1,7 @@
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, Annotated, Literal
 
 import numpy as np
+import numpy.typing as npt
 import mujoco as mj
 from gymnasium import spaces
 
@@ -38,7 +39,7 @@ class MjCambrianObjectConfig(MjCambrianBaseConfig):
 
     use_as_obs: bool
 
-    pos: Tuple[float, float, float]
+    pos: Annotated[npt.NDArray[np.float32], Literal[3]]
 
 
 @config_wrapper
@@ -211,12 +212,10 @@ class MjCambrianObject:
         body_id = get_body_id(model, f"{self.name}_body")
         assert body_id != -1, f"Body {self.name}_body not found in model"
 
-        model.body_pos[body_id][:2] = self.config.pos
+        model.body_pos[body_id] = self.config.pos
 
         return model.body_pos[body_id]
 
     def is_close(self, pos: np.ndarray) -> bool:
-        return (
-            np.linalg.norm(pos - self.config.pos)
-            < self.config.distance_to_target_threshold
-        )
+        distance = np.linalg.norm(pos - self.config.pos)
+        return distance < self.config.distance_to_target_threshold
