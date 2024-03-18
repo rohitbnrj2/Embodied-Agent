@@ -38,8 +38,18 @@ defaults:
 env:
   animals:
     point:
+      initial_qpos:
+        _target_: numpy.array
+        object:
+          - null
+          - null
+          - ${eval:'-3.14159 / 2'}
+      constant_actions:
+        - -1
+        - -0.5
+
       eyes:
         point_0_eye_0:
-          resolution: [1, 1]
+          resolution: [100, 100]
           fov: [45, 20]
           coord: [10, 0]

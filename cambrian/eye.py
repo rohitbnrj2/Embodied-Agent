@@ -1,6 +1,7 @@
 from typing import Tuple, Dict, Optional
 import time
 import numpy as np
+from copy import deepcopy
 
 import cv2
 import mujoco as mj
@@ -79,7 +80,9 @@ class MjCambrianEye:
 
         self._optics: MjCambrianOptics = None
         if self.config.optics is not None:
-            self._optics = MjCambrianOptics(self.config.optics)
+            self._optics = MjCambrianOptics(
+                self.config.optics, self.name, deepcopy(self.config.resolution)
+            )
             assert (
                 "depth_array" in self.config.renderer.render_modes
             ), "Must specify 'depth_array' in the render modes for the renderer config."
@@ -163,6 +166,11 @@ class MjCambrianEye:
         if self._optics is not None:
             self._optics.reset(model)
 
+        fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, self.name)
+        assert fixedcamid != -1, f"Camera '{self.name}' not found."
+        self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
+        self._renderer.viewer.camera.fixedcamid = fixedcamid
+
         return self.step()
 
     def step(self) -> np.ndarray:
@@ -181,54 +189,23 @@ class MjCambrianEye:
         the psf is applied, the image will be cropped to `self.resolution`.
         """
 
-        rgb = self._renderer.render()
-
-        if self._optics is not None:
-            rgb, depth = rgb
-            rgb = rgb.astype(np.float32) / 255.0
-            rgb, _ = self._optics.forward(rgb, depth)
+        if "depth_array" in self.config.renderer.render_modes:
+            rgb, depth = self._renderer.render()
         else:
-            rgb = rgb.astype(np.float32) / 255.0
+            rgb = self._renderer.render()
+        rgb = rgb.astype(np.float32) / 255.0
 
-        return self._postprocess(rgb)
-
-    def _postprocess(self, image: np.ndarray) -> np.ndarray:
-        """Downsamples image and normalizes it to [0, 1].
-        image: (H, W, 3) float32 array in [0, 1]
-        """
-        # 1. Apply animal angular resolution (downsample the image)
-        # 2. crop the imaging plane to the eye resolution
         if self._optics is not None:
-            image = self._crop(image)
-            return np.clip(image, 0, 1).astype(np.float32)
-        return image
+            rgb = self._optics.forward(rgb, depth)
 
-    def _crop(self, image: np.ndarray) -> np.ndarray:
-        """Crop the image to the resolution specified in the config."""
-        resolution = [self.resolution[1], self.resolution[0]]
-        cw, ch = int(np.ceil(resolution[0] / 2)), int(np.ceil(resolution[1] / 2))
-        ox, oy = 1 if resolution[0] % 2 == 1 else 0, 1 if resolution[1] % 2 == 1 else 0
-        bl = (image.shape[0] // 2 - cw + ox, image.shape[1] // 2 - ch + oy)
-        tr = (image.shape[0] // 2 + cw, image.shape[1] // 2 + ch)
-        return image[bl[0] : tr[0], bl[1] : tr[1]]
-
-    def _downsample(self, image: np.ndarray) -> np.ndarray:
-        """Downsample the image to the resolution specified in the config."""
-        return cv2.resize(image, self.resolution)
+        return rgb
 
     @property
     def observation_space(self) -> spaces.Box:
-        """The observation space is just the rgb image.
+        """The observation space is just the rgb image."""
 
-        NOTE:
-        - The input resolution in the yaml file is (W, H) but the eye output is
-            (H, W, 3) so we flip the order here.
-        """
-
-        observation_space = spaces.Box(
-            0.0, 1.0, shape=(*self.config.resolution[::-1], 3), dtype=np.float32
-        )
-        return observation_space
+        shape = (*self.config.resolution, 3)
+        return spaces.Box(0.0, 1.0, shape=shape, dtype=np.float32)
 
     @property
     def num_pixels(self) -> int:

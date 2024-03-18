@@ -3,6 +3,7 @@ from typing import Tuple, Optional
 import torch
 import mujoco as mj
 
+from cambrian.utils import get_camera_id
 from cambrian.utils.base_config import MjCambrianBaseConfig, config_wrapper
 
 
@@ -30,26 +31,40 @@ class MjCambrianOpticsConfig(MjCambrianBaseConfig):
 
 
 class MjCambrianOptics(torch.nn.Module):
-    def __init__(self, config: MjCambrianOpticsConfig, cam_id: int):
+    """This class applies the depth invariant PSF to the image.
+
+    Args:
+        config (MjCambrianOpticsConfig): Config for the optics module.
+
+        name (str): Name of the camera in the MJCF file. Also the name of the eye.
+        resolution (Tuple[int, int]): Resolution of the eye's sensor.
+    """
+
+    def __init__(
+        self, config: MjCambrianOpticsConfig, name: str, resolution: Tuple[int, int]
+    ):
         self.config = config
-        self.cam_id = cam_id
+
+        self._name = name
+        self._resolution = resolution
 
     def reset(self, model: mj.MjModel):
+        self._fixedcamid = get_camera_id(model, self._name)
         self._reset_psf(model)
 
     def _reset_psf(self, model: mj.MjModel):
         """Define a simple point spread function (PSF) for the eye."""
 
-        focal, _ = model.cam_intrinsic[self.cam_id]
+        focal, _ = model.cam_intrinsic[self._fixedcamid]
 
         # Mx,My defines the number of pixels in x,y direction (i.e. width, height)
-        Mx, My = model.cam_resolution[self.cam_id]
+        Mx, My = model.cam_resolution[self._fixedcamid]
         assert Mx > 2 and My > 2, f"Sensor resolution must be > 2: {Mx=}, {My=}"
         assert Mx % 2 and My % 2, f"Sensor resolution must be odd: {Mx=}, {My=}"
 
         # dx/dy defines the pixel pitch (m) (i.e. distance between the centers of
         # adjacent pixels) of the sensor
-        sx, sy = model.cam_sensorsize[self.cam_id]
+        sx, sy = model.cam_sensorsize[self._fixedcamid]
         dx, dy = sx / Mx, sy / My
 
         # Lx/Ly defines the length of the sensor plane (m)
@@ -86,7 +101,16 @@ class MjCambrianOptics(torch.nn.Module):
         psf = self._calc_depth_invariant_psf(torch.mean(depth))
 
         # Apply the PSF to the image
-        return torch.nn.functional.conv2d(image, psf, padding="same")
+        image = torch.nn.functional.conv2d(image, psf, padding="same")
+
+        # Post-process the image
+        image = self._crop(image)
+        return torch.clip(image, 0, 1)
+
+    def _apply_noise(self, image: torch.Tensor, std: float) -> torch.Tensor:
+        """Add Gaussian noise to the image."""
+        noise = torch.normal(mean=0.0, std=std, size=image.shape)
+        return torch.clamp(image + noise, 0, 1)
 
     def _calc_depth_invariant_psf(self, mean_depth: torch.Tensor) -> torch.Tensor:
         """Calculate the depth invariant PSF.
@@ -132,7 +156,11 @@ class MjCambrianOptics(torch.nn.Module):
 
         return psf
 
-    def _apply_noise(self, image: torch.Tensor, std: float) -> torch.Tensor:
-        """Add Gaussian noise to the image."""
-        noise = torch.normal(mean=0.0, std=std, size=image.shape)
-        return torch.clamp(image + noise, 0, 1)
+    def _crop(self, image: torch.Tensor) -> torch.Tensor:
+        """Crop the image to the resolution specified in the config. This crops the
+        center part of the image."""
+        width, height = image.shape[0], image.shape[1]
+        target_width, target_height = self._resolution
+        top = (height - target_height) // 2
+        left = (width - target_width) // 2
+        return image[top : top + target_height, left : left + target_width]

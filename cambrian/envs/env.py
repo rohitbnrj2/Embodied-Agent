@@ -182,7 +182,7 @@ class MjCambrianEnv(gym.Env):
         for name, animal in self.animals.items():
             obs[name] = animal.reset(self.model, self.data)
 
-            info[name]["pos"] = animal.pos
+            info[name]["qpos"] = animal.qpos
 
         # We'll step the simulation once to allow for states to propogate
         self._step_mujoco_simulation(1)
@@ -210,7 +210,7 @@ class MjCambrianEnv(gym.Env):
                 [np.zeros_like(a.action_space.sample()) for a in self.animals.values()]
             )
             self._rollout.setdefault("positions", [])
-            self._rollout["positions"].append([a.pos for a in self.animals.values()])
+            self._rollout["positions"].append([a.qpos for a in self.animals.values()])
 
         # TODO
         # if expname := options.get("expname"):
@@ -219,7 +219,7 @@ class MjCambrianEnv(gym.Env):
         return self._update_obs(obs), self._update_info(info)
 
     def step(
-        self, action: Optional[Dict[str, Any]] = None
+        self, action: Dict[str, Any]
     ) -> Tuple[
         Dict[str, Any],
         Dict[str, float],
@@ -232,11 +232,9 @@ class MjCambrianEnv(gym.Env):
         The dynamics is updated through the `_step_mujoco_simulation` method.
 
         Args:
-            action (Optional[Dict[str, Any]]): The action to take for each animal.
+            action (Dict[str, Any]): The action to take for each animal.
                 The keys define the animal name, and the values define the action for
-                that animal. This is a deviation from the standard gym API, which
-                requires action, as this is optional. If not passed, an action won't
-                be applied to the animals but the simulation will still be stepped.
+                that animal.
 
         Returns:
             Dict[str, Any]: The observations for each animal.
@@ -249,9 +247,8 @@ class MjCambrianEnv(gym.Env):
 
         # First, apply the actions to the animals and step the simulation
         for name, animal in self.animals.items():
-            if action is not None:
-                animal.apply_action(action[name])
-            info[name]["prev_pos"] = animal.pos
+            animal.apply_action(action[name])
+            info[name]["prev_pos"] = animal.qpos
 
         # Then, step the mujoco simulation
         self._step_mujoco_simulation(self.config.frame_skip)
@@ -261,9 +258,10 @@ class MjCambrianEnv(gym.Env):
         for name, animal in self.animals.items():
             obs[name] = animal.step()
 
-            if action is not None:
-                info[name]["action"] = action[name]
+            info[name]["qpos"] = animal.qpos
+            info[name]["action"] = action[name]
 
+        # Call helper methods to update the observations, rewards, terminated, and info
         obs = self._update_obs(obs)
         terminated = self._compute_terminated()
         truncated = self._compute_truncated()
@@ -278,8 +276,7 @@ class MjCambrianEnv(gym.Env):
         self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
 
         if self.record:
-            if action is not None:
-                self._rollout["actions"].append(list(action.values()))
+            self._rollout["actions"].append(list(action.values()))
             self._rollout["positions"].append([a.pos for a in self.animals.values()])
 
         return obs, reward, terminated, truncated, info
@@ -430,7 +427,7 @@ class MjCambrianEnv(gym.Env):
 
             cursor.x -= TEXT_MARGIN
             cursor.y -= TEXT_MARGIN
-            overlay_text = f"Num Eyes: {len(animal.eyes)}"
+            overlay_text = f"Num Eyes: {animal.num_eyes}"
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
             cursor.y += TEXT_HEIGHT
             if animal.num_eyes > 0:
@@ -600,7 +597,7 @@ if __name__ == "__main__":
         env.reset(seed=config.seed)
         with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
             while viewer.is_running():
-                env.step()
+                env.step(env.action_spaces.sample())
                 viewer.sync()
 
     @register_fn
@@ -618,7 +615,7 @@ if __name__ == "__main__":
             env.renderer.viewer.custom_key_callback = custom_key_callback
 
         while env.renderer.is_running():
-            env.step()
+            env.step(env.action_spaces.sample())
             env.render()
 
     def main(config: MjCambrianConfig, *, fn: str):

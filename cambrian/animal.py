@@ -1,10 +1,11 @@
-from typing import Dict, Any, List, Deque, Tuple, Optional
+from typing import Dict, Any, List, Deque, Tuple, Optional, Literal, Annotated
 from enum import Flag, auto
 from functools import reduce
 from collections import deque
 import uuid
 
 import numpy as np
+import numpy.typing as npt
 import mujoco as mj
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
@@ -49,11 +50,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             is the longitudinal/horizontal range of the evenly placed eye about the
             animal's bounding sphere.
 
-        initial_state (Optional[List[float | None]]): The initial state of the animal.
-            The length of the list should be equal or less than the number of qpos
-            variables that correspond to the joint defined by `joint_name`. If less
-            than the number of qpos variables, the remaining qpos variables will be
-            unchanged. If None, the intial state will be generated randomly using
+        initial_qpos (Optional[np.array[float]]]): The initial qpos of the animal.
+            If None, the initial qpos will be generated randomly using
             `maze.generate_reset_pos` method.
         constant_actions (Optional[List[float | None]]): The constant velocity to use for
             the animal. If not None, the len(constant_actions) must equal number of
@@ -85,7 +83,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     eyes_lat_range: Tuple[float, float]
     eyes_lon_range: Tuple[float, float]
 
-    initial_state: Optional[List[float | None]] = None
+    initial_qpos: Optional[np.ndarray[float | None]] = None
     constant_actions: Optional[List[float | None]] = None
 
     use_action_obs: bool
@@ -163,7 +161,6 @@ class MjCambrianAnimal:
         self._parse_geometry(model)
         self._parse_actuators(model)
 
-        self._num_pixels: int = 0
         self._place_eyes()
 
         del model
@@ -248,8 +245,6 @@ class MjCambrianAnimal:
             name = f"{self.name}_eye_{i}"
             self._eyes[name] = self._create_eye(eye_config, name)
 
-            self._num_pixels += self._eyes[name].num_pixels
-
     def _create_eye(self, config: MjCambrianEyeConfig, name: str) -> MjCambrianEye:
         """Creates an eye with the given config.
 
@@ -303,13 +298,14 @@ class MjCambrianAnimal:
         # Accumulate the qpos/qvel/act adrs
         self._reset_adrs(model)
 
-        # Update the animal's position using the freejoint
-        if self.config.initial_state is not None:
-            self.pos = self.config.initial_state
+        # Update the animal's pos/quat
+        if self.config.initial_qpos is not None:
+            print(self.config.initial_qpos)
+            self.qpos = self.config.initial_qpos
 
         # step here so that the observations are updated
         mj.mj_forward(model, data)
-        self.init_pos = self.pos.copy()
+        self.init_pos = self.qpos.copy()
 
         self._eye_obs: Dict[str, Deque[np.ndarray]] = {}
         for name, eye in self.eyes.items():
@@ -476,21 +472,8 @@ class MjCambrianAnimal:
             body2 = self._model.geom_bodyid[geom2]
             rootbody2 = self._model.body_rootid[body2]
 
-            body = rootbody = geom = None
-            otherbody = otherrootbody = othergeom = None
-            if rootbody1 == self._body_id:
-                body, rootbody, geom = body1, rootbody1, geom1
-                otherbody, otherrootbody, othergeom = body2, rootbody2, geom2
-            elif rootbody2 == self._body_id:
-                body, rootbody, geom = body2, rootbody2, geom2
-                otherbody, otherrootbody, othergeom = body1, rootbody1, geom1
-            else:
+            if rootbody1 != self._body_id and rootbody2 != self._body_id:
                 # Not a contact with this animal
-                continue
-
-            # Verify it's not a ground contact
-            groundbody = get_body_id(self._model, "floor")
-            if otherrootbody == groundbody:
                 continue
 
             return True
@@ -547,46 +530,43 @@ class MjCambrianAnimal:
         return spaces.Box(low=-1, high=1, shape=(self._numctrl,), dtype=np.float32)
 
     @property
-    def eyes(self) -> Dict[str, MjCambrianEye]:
-        return self._eyes
+    def name(self) -> str:
+        return self._name
 
     @property
-    def num_pixels(self) -> int:
-        return self._num_pixels
+    def eyes(self) -> Dict[str, MjCambrianEye]:
+        return self._eyes
 
     @property
     def num_eyes(self) -> int:
         return len(self._eyes)
 
     @property
-    def name(self) -> str:
-        return self._name
+    def qpos(self) -> np.ndarray:
+        """Gets the qpos of the animal. The qpos is the state of the joints defined
+        in the animal's xml. This method is used to get the state of the qpos."""
+        return self._data.qpos[self._qposadrs].copy()
+
+    @qpos.setter
+    def qpos(self, value: np.ndarray[float | None]):
+        """Set's the qpos of the animal. The qpos is the state of the joints defined
+        in the animal's xml. This method is used to set the state of the qpos. The
+        value input is a numpy array where the entries are either values to set
+        to the corresponding qpos adr or None. If None, the qpos adr is not
+        updated.
+
+        It's allowed for `value` to be less than the total number of joints in the
+        animal. If this is the case, only the first `len(value)` joints will be
+        updated.
+        """
+        for qposadr, val in zip(self._qposadrs[: len(value)], value):
+            if val is not None:
+                self._data.qpos[qposadr] = val
 
     @property
     def pos(self) -> np.ndarray:
-        """Gets the freejoint position of the animal. The freejoint should be at the
-        root of the body of the animal. A free joint in mujoco is capable of being
-        explicitly positioned using the `qpos` attribute (which is actually pos and
-        quat). This property is for accessing. See the setter.
-
-        Use qpos to get _all_ the positions of the animal.
-        """
-        return self._data.qpos[self._joint_qposadr : self._joint_qposadr + 3].copy()
-
-    @property
-    def xpos(self) -> np.ndarray:
-        """Gets the xyz position of the animal."""
-        return self._data.xpos[self._body_id]
-
-    @pos.setter
-    def pos(self, value: np.ndarray):
-        """See the getter for more info. Sets the freejoint qpos of the animal. If you
-        want to set the quat, you have to pass the first 3 elements of the array as pos
-        and the remaining 4 as the quat (wxyz).
-
-        Use qpos to set _all_ the positions of the animal.
-        """
-        self._data.qpos[self._joint_qposadr : self._joint_qposadr + len(value)] = value
+        """Returns the position of the animal in the environment."""
+        return self._data.xpos[self._body_id].copy()
 
     @property
     def init_pos(self) -> np.ndarray:
@@ -854,119 +834,3 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
         theta = np.arctan2(vy, vx) - theta
 
         return np.array([v, theta], dtype=np.float32)
-
-
-if __name__ == "__main__":
-    import time
-    import matplotlib.pyplot as plt
-    from cambrian.utils.config import MjCambrianConfig
-    from cambrian.utils.utils import MjCambrianArgumentParser
-
-    parser = MjCambrianArgumentParser(description="Animal Test")
-
-    parser.add_argument(
-        "--title", type=str, help="Title of the demo.", default="Animal Test Demo"
-    )
-
-    parser.add_argument("--save", action="store_true", help="Save the demo")
-    parser.add_argument("--mutate", action="store_true", help="Mutate the animal")
-    action = parser.add_mutually_exclusive_group(required=True)
-    action.add_argument("--plot", action="store_true", help="Plot the demo")
-    action.add_argument("--viewer", action="store_true", help="Launch the viewer")
-    action.add_argument("--speed-test", action="store_true", help="Speed test")
-
-    args = parser.parse_args()
-
-    config = MjCambrianConfig.load(args.config, overrides=args.overrides)
-    logger = get_logger(config)
-
-    animal_config: MjCambrianAnimalConfig = list(
-        config.env_config.animal_configs.values()
-    )[0]
-
-    if args.mutate:
-        mutations = [m.name for m in MjCambrianAnimal.MutationType]
-        mutations = ["ADD_EYE"]
-        animal_config = MjCambrianAnimal.mutate(
-            animal_config,
-            np.random.choice(list(animal_config.eye_configs.values())),
-            mutations=mutations,
-        )
-        print(len(animal_config.eye_configs))
-    animal = MjCambrianPointAnimal(animal_config)
-
-    env_xml = MjCambrianXML(get_include_path("models/test.xml"))
-    model = mj.MjModel.from_xml_string(str(env_xml + animal.generate_xml(0)))
-    data = mj.MjData(model)
-
-    animal.reset(model, data, [-3, 0])
-
-    if args.speed_test:
-        print("Starting speed test...")
-        num_frames = 200
-        t0 = time.time()
-        for i in range(num_frames):
-            print(i)
-            animal.step(np.zeros(animal.action_space.shape))
-            mj.mj_step(model, data)
-        t1 = time.time()
-        print(f"Rendered {num_frames} frames in {t1 - t0} seconds.")
-        print(f"Average FPS: {num_frames / (t1 - t0)}")
-        exit()
-
-    if args.viewer:
-        from cambrian.renderer.renderer import MjCambrianRenderer
-
-        renderer_config = config.env_config.renderer_config
-        renderer_config.render_modes = ["human", "rgb_array"]
-        renderer_config.camera_config.lookat = [-3, 0, 0.25]
-        renderer_config.camera_config.elevation = -20
-        renderer_config.camera_config.azimuth = 10
-        renderer_config.camera_config.distance = model.stat.extent * 2.5
-
-        renderer = MjCambrianRenderer(renderer_config)
-        renderer.reset(model, data)
-
-        renderer.viewer.scene_option.flags[mj.mjtVisFlag.mjVIS_CAMERA] = True
-        renderer.viewer.model.vis.scale.camera = 1.0
-
-        i = 0
-        while renderer.is_running():
-            print(f"Step {i}")
-            renderer.render()
-            mj.mj_step(model, data)
-            i += 1
-
-            if i == 600 and args.save:
-                filename = args.title.lower().replace(" ", "_")
-                renderer.record = True
-                renderer.render()
-                print(f"Saving to {filename}...")
-                renderer.save(filename, save_types=["png"])
-                renderer.record = False
-                break
-
-        exit()
-
-    plt.imshow(animal.create_composite_image())
-    plt.xticks([])
-    plt.yticks([])
-    plt.gca().set_xticklabels([])
-    plt.gca().set_yticklabels([])
-
-    if args.plot or args.save:
-        plt.title(args.title)
-        plt.subplots_adjust(wspace=0, hspace=0)
-
-    if args.save:
-        filename = f"{args.title.lower().replace(' ', '_')}.png"
-        print(f"Saving to {filename}...")
-
-        # save the figure without the frame
-        plt.axis("off")
-        plt.savefig(filename, bbox_inches="tight", dpi=300)
-
-    if args.plot and not args.save:
-        fig_manager = plt.get_current_fig_manager()
-        fig_manager.full_screen_toggle()
-        plt.show()
