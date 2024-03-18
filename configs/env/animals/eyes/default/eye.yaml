@@ -1,6 +1,8 @@
 # @package custom.default.eye
 # We aren't actually going to use this eye, so store it in custom just to put it somewhere
 
+pos: [0, 0, 0] # placeholder
+quat: [1, 0, 0, 0] # placeholder
 fov: [45, 20]
 focal: [0.1, 0.1]
 resolution: [1, 1]

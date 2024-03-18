@@ -122,11 +122,6 @@ def run_hydra(
 if __name__ == "__main__":
 
     def main(config: MjCambrianConfig):
-        import mujoco as mj
-        from cambrian.envs.env import MjCambrianEnv
-
-        env = MjCambrianEnv(config.env)
-        mj.mj_saveLastXML("last.xml", env.model)
         pass
 
     run_hydra(main)

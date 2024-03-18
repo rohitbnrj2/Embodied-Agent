@@ -81,6 +81,10 @@ class MjCambrianViewer(ABC):
         self._gl_context: mj.gl_context.GLContext = None
         self._mjr_context: mj.MjrContext = None
 
+        self._rgb_uint8: np.ndarray = None
+        self._rgb_float32: np.ndarray = None
+        self._depth: np.ndarray = None
+
     def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
         self.model = model
         self.data = data
@@ -126,6 +130,10 @@ class MjCambrianViewer(ABC):
 
         self.viewport = mj.MjrRect(0, 0, width, height)
 
+        self._rgb_uint8 = np.zeros((height, width, 3), dtype=np.uint8)
+        self._rgb_float32 = np.zeros((height, width, 3), dtype=np.float32)
+        self._depth = np.zeros((height, width), dtype=np.float32)
+
         mj.mjr_setBuffer(self.get_framebuffer_option(), self._mjr_context)
 
     @abstractmethod
@@ -155,14 +163,16 @@ class MjCambrianViewer(ABC):
         for overlay in overlays:
             overlay.draw_after_render(self._mjr_context, self.viewport)
 
-    def read_pixels(self, read_depth: bool = True) -> Tuple[np.ndarray, np.ndarray]:
-        width, height = self.viewport.width, self.viewport.height
-        rgb = np.zeros((height, width, 3), dtype=np.uint8)
-        depth = np.zeros((height, width), dtype=np.float32) if read_depth else None
+    def read_pixels(self, read_depth: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+        rgb_uint8, depth = self._rgb_uint8, self._depth if read_depth else None
+        mj.mjr_readPixels(rgb_uint8, depth, self.viewport, self._mjr_context)
 
-        mj.mjr_readPixels(rgb, depth, self.viewport, self._mjr_context)
+        # Convert to float32
+        rgb_float32 = self._rgb_float32
+        np.divide(rgb_uint8, np.array([255.0], np.float32), out=rgb_float32)
 
-        return np.flipud(rgb), np.flipud(depth) if read_depth else None
+        # Return the flipped images
+        return rgb_float32[::-1, ...], depth[::-1, ...] if read_depth else None
 
     @abstractmethod
     def make_context_current(self):

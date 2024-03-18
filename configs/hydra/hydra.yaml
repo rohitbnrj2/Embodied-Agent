@@ -1,6 +1,12 @@
+# yaml-language-server: $schema=./hydra.yaml
 run:
   dir: ${logdir}/hydra/run/${now:%H-%M-%S}/
 sweep:
-  dir: ${logdir}/hydra/sweep/${now:%H-%M-%S}/
+  # Issue here is that the hydra.sweep.dir is created before the config file is fully
+  # resolved. This is an issue because ${logdir} is part of the config which hasn't
+  # been resolved. We set it explicitly to the value of logdir instead to get around
+  # this. NOTE: this may fail in the future if logdir changes.
+  # See https://github.com/facebookresearch/hydra/issues/1786#issuecomment-1017005470
+  dir: ./logs/${now:%Y-%m-%d}/${hydra.runtime.choices.exp}/hydra/run/${now:%H-%M-%S}/
 job:
   name: ${expname}_${now:%H-%M-%S}

@@ -13,4 +13,4 @@ MUJOCO_LOG.TXT
 *.mp4
 *.gif
 *.webp
-!configs/logging/
+.vscode

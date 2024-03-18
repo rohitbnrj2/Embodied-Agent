@@ -18,9 +18,9 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     """Defines the config for an eye. Used for type hinting.
 
     Attributes:
-        pos (Optional[Tuple[float, float, float]]): The initial position of the camera.
+        pos (Tuple[float, float, float]): The initial position of the camera.
             This is computed by the animal from the coord during placement. Fmt: xyz
-        quat (Optional[Tuple[float, float, float, float]]): The initial rotation of the
+        quat (Tuple[float, float, float, float]): The initial rotation of the
             camera. This is computed by the animal from the coord during placement.
             Fmt: wxyz.
         fov (Tuple[float, float]): Independent of the `fovy` field in the MJCF
@@ -46,8 +46,8 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
             padded resolution (resolution + int(psf_filter_size/2)) of the eye.
     """
 
-    pos: Optional[Tuple[float, float, float]] = None
-    quat: Optional[Tuple[float, float, float, float]] = None
+    pos: Tuple[float, float, float]
+    quat: Tuple[float, float, float, float]
     fov: Tuple[float, float]
     focal: Tuple[float, float]
     resolution: Tuple[int, int]
@@ -171,13 +171,15 @@ class MjCambrianEye:
         self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
         self._renderer.viewer.camera.fixedcamid = fixedcamid
 
+        self._prev_obs = np.zeros((*self.config.resolution, 3), dtype=np.float32)
+
         return self.step()
 
     def step(self) -> np.ndarray:
         """Simply calls `render` and sets the last observation.
         See `render()` for more information."""
         obs = self.render()
-        self._prev_obs = obs.copy()
+        np.copyto(self._prev_obs, obs)
         return obs
 
     def render(self) -> np.ndarray:
@@ -193,7 +195,6 @@ class MjCambrianEye:
             rgb, depth = self._renderer.render()
         else:
             rgb = self._renderer.render()
-        rgb = rgb.astype(np.float32) / 255.0
 
         if self._optics is not None:
             rgb = self._optics.forward(rgb, depth)

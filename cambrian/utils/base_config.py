@@ -5,6 +5,7 @@ from typing import (
     Self,
     Type,
     ItemsView,
+    ValuesView,
     List,
     Iterator,
 )
@@ -112,10 +113,15 @@ class MjCambrianContainerConfig:
         """Wrapper around OmegaConf.get_type to get the type of the config."""
         return OmegaConf.get_type(self._content, **kwargs)
 
-    def to_container(self, **kwargs) -> Dict[Any, Any]:
+    def to_container(
+        self, *, use_instantiated: bool = True, **kwargs
+    ) -> Dict[Any, Any]:
         """Wrapper around OmegaConf.to_container to convert the config to a
         dictionary."""
-        return OmegaConf.to_container(self._content, **kwargs)
+        if use_instantiated:
+            return OmegaConf.to_container(self._content, **kwargs)
+        else:
+            return OmegaConf.to_container(self._config, **kwargs)
 
     def to_yaml(self) -> str:
         """Wrapper around OmegaConf.to_yaml to convert the config to a yaml string."""
@@ -126,19 +132,20 @@ class MjCambrianContainerConfig:
             style = "|" if "\n" in data else None
             return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
 
-        dumper = yaml.CSafeDumper
+        dumper = yaml.CDumper
         dumper.add_representer(str, str_representer)
         return yaml.dump(
-            self.to_container(),
+            self.to_container(use_instantiated=False),
             default_flow_style=False,
             allow_unicode=True,
             sort_keys=False,
-            Dumper=yaml.CSafeDumper,
+            Dumper=dumper,
         )
 
     def save(self, path: Path | str):
-        """Wrapper around OmegaConf.save to save the config to a yaml file."""
-        return OmegaConf.save(self._config, path)
+        """Saves the config to a yaml file."""
+        with open(path, "w") as f:
+            f.write(self.to_yaml())
 
     def items(self) -> ItemsView[Any, Any]:
         """Wrapper of the items method to return the items of the content as a
@@ -152,6 +159,19 @@ class MjCambrianContainerConfig:
             else:
                 items.append((key, value))
         return items
+
+    def values(self) -> ValuesView[Any]:
+        """Wrapper of the values method to return the values of the content as a
+        MjCambrianContainrConfig if the item is a OmegaConf config."""
+        values: List[Any] = []
+
+        for key, value in self._content.items():
+            if OmegaConf.is_config(value):
+                config = getattr(self._config, key)
+                values.append(MjCambrianContainerConfig(value, config=config))
+            else:
+                values.append(value)
+        return values
 
     def __getattr__(self, name: str) -> Self | Any:
         """Get the attribute from the content and return the wrapped instance. If the
