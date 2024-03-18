@@ -2,7 +2,7 @@ from typing import Dict, Any
 
 import numpy as np
 
-from cambrian.animal import MjCambrianAnimal
+from cambrian.animals.animal import MjCambrianAnimal
 
 # =====================
 # Reward functions

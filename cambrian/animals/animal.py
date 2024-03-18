@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Deque, Tuple, Optional, Literal, Annotated
+from typing import Dict, Any, List, Deque, Tuple, Optional, Callable, Self
 from enum import Flag, auto
 from functools import reduce
 from collections import deque
@@ -12,14 +12,12 @@ from scipy.spatial.transform import Rotation as R
 
 from cambrian.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.utils import (
-    get_include_path,
     get_body_id,
     get_geom_id,
     get_joint_id,
     MjCambrianJoint,
     MjCambrianActuator,
     MjCambrianGeometry,
-    setattrs_temporary,
     generate_sequence_from_range,
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
@@ -32,6 +30,9 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     """Defines the config for an animal. Used for type hinting.
 
     Attributes:
+        instance (Callable[[Self, str], "MjCambrianAnimal"]): The class instance for the
+            animal. This is used to create the animal.
+
         xml (MjCambrianXMLConfig): The xml for the animal. This is the xml that will be
             used to create the animal. You should use ${parent:xml} to generate
             named attributes. This will search upwards in the yaml file to find the
@@ -73,6 +74,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             (this animal) from the parent. This is unused during mutation; it simply
             is a record of the mutations that were applied to the parent.
     """
+
+    instance: Callable[[Self, str], "MjCambrianAnimal"]
 
     xml: MjCambrianXMLConfig
 
@@ -300,7 +303,6 @@ class MjCambrianAnimal:
 
         # Update the animal's pos/quat
         if self.config.initial_qpos is not None:
-            print(self.config.initial_qpos)
             self.qpos = self.config.initial_qpos
 
         # step here so that the observations are updated
@@ -760,77 +762,3 @@ class MjCambrianAnimal:
         parent2: MjCambrianAnimalConfig,
     ) -> MjCambrianAnimalConfig:
         raise NotImplementedError("Crossover not implemented.")
-
-
-class MjCambrianPointAnimal(MjCambrianAnimal):
-    """
-    This is a hardcoded class which implements the animal as actuated by a forward
-    velocity and a rotational position. In mujoco, to the best of my knowledge, all
-    translational joints are actuated in reference to the _global_ frame rather than
-    the local frame. This means a velocity actuator applied along the x-axis will move
-    the agent along the global x-axis rather than the local x-axis. Therefore, the
-    agent will have 3 actuators: two for x and y global velocities and one for
-    rotational position. From the perspective the calling class (i.e. MjCambrianEnv),
-    this animal has two actuators: a forward velocity and a rotational position. We will
-    calculate the global velocities and rotational position from these two "actuators".
-
-    TODO: Will create an issue on mujoco and see if it's possible to implement this
-    in xml.
-
-    NOTE: The action obs is still the global velocities and rotational position.
-    """
-
-    def apply_action(self, action: List[float]):
-        """This differs from the base implementation as action only has two elements,
-        but the model has three actuators. Calculate the global velocities here."""
-        assert len(action) == 2, f"Action must have two elements, got {len(action)}."
-
-        # Apply the constant actions if they exist
-        if self.config.constant_actions:
-            assert len(action) == 2, (
-                f"Number of actions ({len(action)}) does not match "
-                f"constant_actions ({self.config.constant_actions})."
-            )
-            action = [
-                constant_action or action
-                for action, constant_action in zip(action, self.config.constant_actions)
-            ]
-
-        # map the v action to be between 0 and 1
-        v = np.interp(action[0], [-1, 1], [0, 1])
-
-        # Calculate the global velocities
-        theta = self._data.qpos[self._joint_qposadr + 2]
-        action = [v * np.cos(theta), v * np.sin(theta), action[1]]
-
-        # Update the constant actions to be None so that they're not applied again
-        with setattrs_temporary((self.config, dict(constant_actions=None))):
-            super().apply_action(action)
-
-    @property
-    def observation_space(self) -> spaces.Space:
-        """Overrides the base implementation so the action obs is only two elements."""
-        observation_space = super().observation_space
-        if "action" in observation_space.spaces:
-            observation_space["action"] = spaces.Box(
-                low=-1, high=1, shape=(2,), dtype=np.float32
-            )
-        return observation_space
-
-    @property
-    def action_space(self) -> spaces.Space:
-        """Overrides the base implementation to only have two elements."""
-        return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
-
-    @property
-    def last_action(self) -> np.ndarray:
-        """Overrides the base implementation to only have two elements."""
-
-        vx, vy, theta = super().last_action
-
-        # Calculate the global velocities
-        theta = self._data.qpos[self._joint_qposadr + 2]
-        v = np.sqrt(vx**2 + vy**2)
-        theta = np.arctan2(vy, vx) - theta
-
-        return np.array([v, theta], dtype=np.float32)

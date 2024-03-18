@@ -1,6 +1,13 @@
-<mujoco model="MuJoCo Model">
-  <compiler angle="radian"/>
+<mujoco model="scene">
+  <compiler angle="radian" meshdir="models/assets/" texturedir="models/assets/"/>
+  <option timestep="0.02" density="1000" viscosity="1.8e-05" integrator="implicitfast"/>
+  <visual>
+    <map znear="0.001" zfar="3"/>
+    <scale frustum="40"/>
+    <rgba camera="0.6 0.9 0.6 1"/>
+  </visual>
   <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0 0 0" rgb2="0 0 0" width="100" height="600"/>
     <material name="particle_mat" emission="1" rgba="0.3 0.6 0.3 1"/>
     <material name="particle_direction_mat" emission="1" rgba="0.6 0.3 0.3 1"/>
   </asset>
@@ -12,8 +19,7 @@
       <geom name="particle_geom_point" size="0.2" condim="1" group="2" friction="0.5 0.1 0.1" margin="0.002" rgba="0 0 1 0"/>
       <site name="particle_site_point" pos="0 0 0" size="0.2" material="particle_mat"/>
       <site name="particle_direction_site_point" pos="0.3 0 0" quat="0.5 0.5 0.5 0.5" size="0.05 0.15" group="2" type="cylinder" material="particle_direction_mat" rgba="1 0 0 1"/>
-      <camera name="point_eye_0" pos="0.196962 0.0347296 0" quat="-0.541675 -0.541675 0.454519 0.454519" sensorsize="0.34641 0.0174977" focal="0.1 0.1"/>
-      <camera name="point_eye_1" pos="0.196962 0 0.0347296" quat="-0.454519 -0.541675 0.541675 0.454519" sensorsize="0.0828427 0.0352654" focal="0.1 0.1"/>
+      <camera name="point_eye_0" pos="0.196962 0 0.0347296" quat="-0.454519 -0.541675 0.541675 0.454519" sensorsize="0.0828427 0.0352654" focal="0.1 0.1"/>
     </body>
   </worldbody>
   <actuator>

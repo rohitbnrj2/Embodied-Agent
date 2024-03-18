@@ -15,7 +15,7 @@ import numpy as np
 
 from cambrian.envs.env import MjCambrianEnv
 from cambrian.envs.object_env import MjCambrianObjectEnv, MjCambrianObjectEnvConfig
-from cambrian.animal import MjCambrianAnimal
+from cambrian.animals.animal import MjCambrianAnimal
 from cambrian.utils import get_geom_id
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML

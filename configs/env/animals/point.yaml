@@ -1,6 +1,10 @@
 defaults:
   - /default/${env/animals/default}@_here_
 
+instance:
+  _target_: cambrian.animals.point.MjCambrianPointAnimal
+  _partial_: true
+
 xml:
   _target_: cambrian.utils.cambrian_xml.convert_xml_to_yaml
   _convert_: all

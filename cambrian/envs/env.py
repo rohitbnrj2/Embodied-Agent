@@ -8,11 +8,7 @@ import mujoco as mj
 from gymnasium import spaces
 from stable_baselines3.common.utils import set_random_seed
 
-from cambrian.animal import (
-    MjCambrianAnimal,
-    MjCambrianPointAnimal,
-    MjCambrianAnimalConfig,
-)
+from cambrian.animals.animal import MjCambrianAnimal, MjCambrianAnimalConfig
 from cambrian.renderer import (
     MjCambrianRenderer,
     MjCambrianRendererConfig,
@@ -36,6 +32,9 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     """Defines a config for the cambrian environment.
 
     Attributes:
+        instance (Callable[[Self], "MjCambrianEnv"]): The class method to use to
+            instantiate the environment.
+
         xml (MjCambrianXMLConfig): The xml for the scene. This is the xml that will be
             used to create the environment. See `MjCambrianXML` for more info.
 
@@ -64,6 +63,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             The key will be used as the default name for the animal, unless explicitly
             set in the animal config.
     """
+
+    instance: Callable[[Self], "MjCambrianEnv"]
 
     xml: MjCambrianXMLConfig
 
@@ -105,11 +106,7 @@ class MjCambrianEnv(gym.Env):
 
         self.xml = self.generate_xml()
 
-        try:
-            self.model = mj.MjModel.from_xml_string(self.xml.to_string())
-        except ValueError as e:
-            print(self.xml)
-            raise e
+        self.model = mj.MjModel.from_xml_string(self.xml.to_string())
 
         self.data = mj.MjData(self.model)
 
@@ -143,7 +140,7 @@ class MjCambrianEnv(gym.Env):
         """
         for name, animal_config in self.config.animals.items():
             assert name not in self.animals
-            self.animals[name] = MjCambrianPointAnimal(animal_config, name)
+            self.animals[name] = animal_config.instance(animal_config, name)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
@@ -574,26 +571,11 @@ if __name__ == "__main__":
         REGISTRY[fn.__name__] = fn
         return fn
 
-    def environment_factory(config: MjCambrianEnvConfig):
-        from cambrian.envs.object_env import MjCambrianObjectEnvConfig
-        from cambrian.envs.maze_env import MjCambrianMazeEnvConfig
-
-        if config.get_type() == MjCambrianObjectEnvConfig:
-            from cambrian.envs.object_env import MjCambrianObjectEnv
-
-            return MjCambrianObjectEnv(config)
-        elif config.get_type() == MjCambrianMazeEnvConfig:
-            from cambrian.envs.maze_env import MjCambrianMazeEnv
-
-            return MjCambrianMazeEnv(config)
-        else:
-            return MjCambrianEnv(config)
-
     @register_fn
     def run_mj_viewer(config: MjCambrianConfig):
         import mujoco.viewer
 
-        env = environment_factory(config.env)
+        env = config.env.instance(config.env)
         env.reset(seed=config.seed)
         with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
             while viewer.is_running():
@@ -602,7 +584,7 @@ if __name__ == "__main__":
 
     @register_fn
     def run_renderer(config: MjCambrianConfig):
-        env = environment_factory(config.env)
+        env = config.env.instance(config.env)
         env.reset(seed=config.seed)
 
         if "human" in config.env.renderer.render_modes:

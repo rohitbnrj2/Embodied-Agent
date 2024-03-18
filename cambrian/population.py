@@ -5,7 +5,7 @@ import os
 
 import numpy as np
 
-from cambrian.animal import MjCambrianAnimal
+from cambrian.animals.animal import MjCambrianAnimal
 from cambrian.utils.logger import get_logger
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 
