@@ -1,0 +1,45 @@
+# @package _global_
+# We need to specify the package as _global_ so that hydra knows to place all the
+# overridden configs defined here at the root of the config
+
+defaults:
+  # Here we define all the mazes we want to use in this experiment in a list.
+  # Note the override keyword; this is necessary since we define this attribute as a
+  # requirement in the default file listed above
+  # Also note that you can't include the same maze twice; it will overwrite the previous
+  # definition since the mazes attribute is a dictionary
+  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC
+  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC2
+  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC3
+  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC4
+
+  # Same here; we define all the animals we want to use (in this case, just one)
+  - /env/animals/point@env.animals.point
+
+  # We also need to define the eyes for the animal. We'll use the default eye to serve
+  # as the base for the single eye.
+  - /env/animals/eyes/default@env.animals.point.eyes.point_0_eye_0: ${env/animals/eyes/default}
+
+  # First, we'll include the default config (located at in the same folder as this file
+  # i.e. configs/exp/exp.yaml). This file defines required attributes we'll need
+  # to specify here to set things up correctly.
+  - exp
+
+  # Override the default environment to be a maze_env. We are using mazes above, and so
+  # we need to specify the environment base which corresponds to the maze environment.
+  # This will also register the env config group as an MjCambrianMazeEnvConfig
+  - override /env: maze_env
+
+  # Finally, we include _self_ such that all the configs defined herein will override
+  # the files we've included above. This actually isn't necessary as hydra will
+  # automatically append _self_ to the end of the list of defaults.
+  - _self_
+
+env:
+  animals:
+    point:
+      eyes:
+        point_0_eye_0:
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [10, 0]

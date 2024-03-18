@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Callable
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -6,7 +6,6 @@ import glfw
 import numpy as np
 import mujoco as mj
 import OpenGL.GL as GL
-import cv2
 
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.utils.logger import get_logger
@@ -221,6 +220,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         self._last_mouse_x: int = None
         self._last_mouse_y: int = None
         self._is_paused: bool = None
+        self.custom_key_callback: Callable = None
 
     def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
         self._last_mouse_x: int = 0
@@ -393,11 +393,14 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
             if self.camera.fixedcamid >= self.model.ncam:
                 self.camera.fixedcamid = -1
                 self.camera.type = mj.mjtCamera.mjCAMERA_FREE
-            print(self.camera)
 
         # Pause simulation
         if key == glfw.KEY_SPACE:
             self._is_paused = not self._is_paused
+
+        # Custom key callback
+        if self.custom_key_callback is not None:
+            self.custom_key_callback(window, key, scancode, action, mods)
 
 
 class MjCambrianRenderer:

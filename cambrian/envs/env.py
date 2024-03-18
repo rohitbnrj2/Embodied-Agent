@@ -219,7 +219,7 @@ class MjCambrianEnv(gym.Env):
         return self._update_obs(obs), self._update_info(info)
 
     def step(
-        self, action: Dict[str, Any]
+        self, action: Optional[Dict[str, Any]] = None
     ) -> Tuple[
         Dict[str, Any],
         Dict[str, float],
@@ -232,9 +232,11 @@ class MjCambrianEnv(gym.Env):
         The dynamics is updated through the `_step_mujoco_simulation` method.
 
         Args:
-            action (Dict[str, Any]): The action to take for each animal. The keys
-                define the animal name, and the values define the action for that
-                animal.
+            action (Optional[Dict[str, Any]]): The action to take for each animal.
+                The keys define the animal name, and the values define the action for
+                that animal. This is a deviation from the standard gym API, which
+                requires action, as this is optional. If not passed, an action won't
+                be applied to the animals but the simulation will still be stepped.
 
         Returns:
             Dict[str, Any]: The observations for each animal.
@@ -247,7 +249,8 @@ class MjCambrianEnv(gym.Env):
 
         # First, apply the actions to the animals and step the simulation
         for name, animal in self.animals.items():
-            animal.apply_action(action[name])
+            if action is not None:
+                animal.apply_action(action[name])
             info[name]["prev_pos"] = animal.pos
 
         # Then, step the mujoco simulation
@@ -258,7 +261,8 @@ class MjCambrianEnv(gym.Env):
         for name, animal in self.animals.items():
             obs[name] = animal.step()
 
-            info[name]["action"] = action[name]
+            if action is not None:
+                info[name]["action"] = action[name]
 
         obs = self._update_obs(obs)
         terminated = self._compute_terminated()
@@ -274,7 +278,8 @@ class MjCambrianEnv(gym.Env):
         self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
 
         if self.record:
-            self._rollout["actions"].append(list(action.values()))
+            if action is not None:
+                self._rollout["actions"].append(list(action.values()))
             self._rollout["positions"].append([a.pos for a in self.animals.values()])
 
         return obs, reward, terminated, truncated, info
@@ -562,7 +567,15 @@ class MjCambrianEnv(gym.Env):
 
 
 if __name__ == "__main__":
+    import argparse
+
     from cambrian.utils.config import MjCambrianConfig, run_hydra
+
+    REGISTRY = {}
+
+    def register_fn(fn: Callable):
+        REGISTRY[fn.__name__] = fn
+        return fn
 
     def environment_factory(config: MjCambrianEnvConfig):
         from cambrian.envs.object_env import MjCambrianObjectEnvConfig
@@ -579,15 +592,42 @@ if __name__ == "__main__":
         else:
             return MjCambrianEnv(config)
 
+    @register_fn
     def run_mj_viewer(config: MjCambrianConfig):
         import mujoco.viewer
 
         env = environment_factory(config.env)
         env.reset(seed=config.seed)
         with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
-            while viewer.is_running() and env.renderer.is_running():
-                env.step(env.action_spaces.sample())
-                env.render()
+            while viewer.is_running():
+                env.step()
                 viewer.sync()
 
-    run_hydra(run_mj_viewer)
+    @register_fn
+    def run_renderer(config: MjCambrianConfig):
+        env = environment_factory(config.env)
+        env.reset(seed=config.seed)
+
+        if "human" in config.env.renderer.render_modes:
+            import glfw
+
+            def custom_key_callback(_, key, *args, **kwargs):
+                if key == glfw.KEY_R:
+                    env.reset()
+
+            env.renderer.viewer.custom_key_callback = custom_key_callback
+
+        while env.renderer.is_running():
+            env.step()
+            env.render()
+
+    def main(config: MjCambrianConfig, *, fn: str):
+        if fn not in REGISTRY:
+            raise ValueError(f"Unknown function {fn}")
+        REGISTRY[fn](config)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "fn", type=str, help="The method to run.", choices=REGISTRY.keys()
+    )
+    run_hydra(main, parser=parser)

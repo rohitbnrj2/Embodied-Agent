@@ -1,15 +1,14 @@
+# This eye is a simple ocellus, which is a simple eye with a single photoreceptor.
+# It is used to detect the intensity of light in the environment. It is placed
+# centered on the animal's head.
+
 defaults:
   - /default/${env/animals/eyes/default}@_here_
 
-resolution: [1, 1]
 fov: [120, 10]
+resolution: [1, 1]
 
 # Place the intensity sensor at the average position of the eyes
 coord:
   - ${eval:'sum(${....eyes_lon_range}) / len(${....eyes_lon_range})'}
   - ${eval:'sum(${....eyes_lat_range}) / len(${....eyes_lat_range})'}
-
-renderer:
-  render_modes: [rgb_array]
-
-  use_shared_context: True

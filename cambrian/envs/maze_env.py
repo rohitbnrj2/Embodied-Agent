@@ -279,8 +279,10 @@ class MjCambrianMaze:
         floor_name = f"floor_{self.name}"
         floor = xml.find(f".//geom[@name='{floor_name}']")
         assert floor is not None, f"`{floor_name}` not found"
-        floor.attrib["size"] = f"{self.map_width_scaled} {self.map_length_scaled} 0.1"
-        floor.attrib["pos"] = f"{self.x_map_center} {self.y_map_center} -0.05"
+        floor.attrib[
+            "size"
+        ] = f"{self.map_width_scaled // 2} {self.map_length_scaled // 2} 0.1"
+        floor.attrib["pos"] = " ".join(map(str, [*self.lookat[:2], -0.05]))
 
         return xml
 
@@ -406,7 +408,7 @@ class MjCambrianMaze:
     @property
     def x_map_center(self) -> float:
         """Returns the x map center."""
-        return self.map_width_scaled / 2 + self._starting_x
+        return self.map_width_scaled // 2 + self._starting_x
 
     @property
     def y_map_center(self) -> float:
@@ -416,7 +418,8 @@ class MjCambrianMaze:
     @property
     def lookat(self) -> np.ndarray:
         """Returns a point which aids in placement of a camera to visualize this maze."""
-        return np.array([self._starting_x, 0, 0])
+        # TODO: Negative because of convention based on BEV camera
+        return np.array([-self._starting_x, 0, 0])
 
 
 # ================================
@@ -448,7 +451,7 @@ class MjCambrianMazeStore:
             # It'll be placed next to the previous one
             # The positions of the maze is calculated from one corner (defined as x
             # in this case)
-            x = prev_x + prev_width / 2 + config.scale / 2
+            x = prev_x + prev_width / 2 + config.scale
 
             # Now create the maze
             self._mazes[name] = MjCambrianMaze(config, name, x)
@@ -541,4 +544,5 @@ class MjCambrianMazeStore:
 
     def select_maze_cycle(self, env: "MjCambrianEnv") -> MjCambrianMaze:
         """Selects a maze based on a cycle."""
-        raise NotImplementedError
+        idx = self.maze_list.index(self._current_maze) if self._current_maze else -1
+        return self.maze_list[(idx + 1) % len(self.maze_list)]

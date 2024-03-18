@@ -4,7 +4,7 @@
 xml:
   _target_: cambrian.utils.cambrian_xml.convert_xml_to_yaml
   _convert_: all
-  base_xml_path: models/maze.xml
+  base_xml_path: models/mazes/maze.xml
 
 scale: 4.0
 height: 0.5
