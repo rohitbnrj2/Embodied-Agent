@@ -1,9 +1,7 @@
-from typing import Tuple, Dict, Optional
-import time
+from typing import Tuple, Optional
 import numpy as np
 from copy import deepcopy
 
-import cv2
 import mujoco as mj
 from gymnasium import spaces
 
@@ -81,19 +79,20 @@ class MjCambrianEye:
         self._optics: MjCambrianOptics = None
         if self.config.optics is not None:
             self._optics = MjCambrianOptics(
-                self.config.optics, self.name, deepcopy(self.config.resolution)
+                self.config.optics, self.name, self.config.resolution
             )
             assert (
                 "depth_array" in self.config.renderer.render_modes
             ), "Must specify 'depth_array' in the render modes for the renderer config."
 
-            # If optics is enabled, update the resolution to the padded resolution
-            self.config.resolution = self.config.optics.padded_resolution
+            # If optics is enabled, update the renderer w/h to the padded resolution
+            self.config.renderer.width = self.config.optics.padded_resolution[0]
+            self.config.renderer.height = self.config.optics.padded_resolution[1]
 
         assert (
             "rgb_array" in self.config.renderer.render_modes
         ), "Must specify 'rgb_array' in the render modes for the renderer config."
-        self._renderer = MjCambrianRenderer(config.renderer)
+        self._renderer = MjCambrianRenderer(self.config.renderer)
 
     def generate_xml(
         self, parent_xml: MjCambrianXML, parent_body_name: str
@@ -140,6 +139,7 @@ class MjCambrianEye:
             float(2 * focalx * np.tan(np.radians(fovx) / 2)),
             float(2 * focaly * np.tan(np.radians(fovy) / 2)),
         ]
+        resolution = [self._renderer.config.width, self._renderer.config.height]
 
         # Finally add the camera element at the end
         xml.add(
@@ -149,7 +149,7 @@ class MjCambrianEye:
             mode="fixed",
             pos=" ".join(map(str, self.config.pos)),
             quat=" ".join(map(str, self.config.quat)),
-            resolution=" ".join(map(str, self.config.resolution)),
+            resolution=" ".join(map(str, resolution)),
             focal=" ".join(map(str, self.config.focal)),
             sensorsize=" ".join(map(str, sensorsize)),
         )

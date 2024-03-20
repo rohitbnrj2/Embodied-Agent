@@ -52,3 +52,5 @@ scene_options:
   sitegroup: ${.geomgroup}
 
 use_shared_context: true
+
+save_mode: WEBP

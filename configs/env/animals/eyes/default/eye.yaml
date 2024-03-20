@@ -10,6 +10,9 @@ resolution: [1, 1]
 renderer:
   render_modes: [rgb_array]
 
+  width: ${..resolution.0}
+  height: ${..resolution.1}
+
   camera:
     _target_: cambrian.utils.base_config.instance_wrapper
     instance:

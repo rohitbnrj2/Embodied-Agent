@@ -437,7 +437,9 @@ class MjCambrianEnv(gym.Env):
                 cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
             overlay_text = f"Animal: {name}"
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-            overlay_text = f"Action: {[f'{a: 0.3f}' for a in animal.last_action]}"
+            overlay_text = (
+                f"Action: {', '.join([f'{a: .3f}' for a in animal.last_action])}"
+            )
             cursor.y -= TEXT_HEIGHT
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
 

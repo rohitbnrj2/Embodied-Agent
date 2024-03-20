@@ -51,7 +51,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             is the longitudinal/horizontal range of the evenly placed eye about the
             animal's bounding sphere.
 
-        initial_qpos (Optional[np.array[float]]]): The initial qpos of the animal.
+        initial_qpos (np.array[float]]): The initial qpos of the animal.
             If None, the initial qpos will be generated randomly using
             `maze.generate_reset_pos` method.
         constant_actions (Optional[List[float | None]]): The constant velocity to use for
@@ -62,10 +62,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             applied.
 
         use_action_obs (bool): Whether to use the action observation or not.
-        use_init_pos_obs (bool): Whether to use the initial position observation or not.
-        use_current_pos_obs (bool): Whether to use the current position observation or
-            not.
-        n_temporal_obs (int): The number of temporal observations to use.
+        n_temporal_obs (int): The number of temporal observations to use, i.e. the
+            size of the queue for the eye observations.
 
         eyes (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
             The key will be used as the name for the eye.
@@ -86,12 +84,10 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     eyes_lat_range: Tuple[float, float]
     eyes_lon_range: Tuple[float, float]
 
-    initial_qpos: Optional[np.ndarray[float | None]] = None
+    initial_qpos: np.ndarray[float | None] = None
     constant_actions: Optional[List[float | None]] = None
 
     use_action_obs: bool
-    use_init_pos_obs: bool
-    use_current_pos_obs: bool
     n_temporal_obs: int
 
     eyes: Dict[str, MjCambrianEyeConfig]
@@ -105,18 +101,14 @@ class MjCambrianAnimal:
     This object serves as an agent in a multi-agent mujoco environment. Therefore,
     it must have a uniquely identifiable name.
 
-    In our context, an animal has at least one eye and a body which an eye can be
+    In our context, an animal has at any number of eyes and a body which an eye can be
     attached to. This class abstracts away the inner workings of the mujoco model itself
     to the xml generation/loading. It uses existing xml files that only define the
     animals, with which are going to be accumulating into one large xml file that will
     be loaded into mujoco.
 
     To support specific animal types, you should define subclasses that include animal
-    specific configs (i.e. model_path, num_joints). Furthermore, the main advantage of
-    subclassing is for defining the `add_eye` method. This method should position a new
-    eye on the animal, which may be unique across animals given geometry. This is
-    important because the XML is required to position the eye and we don't actually know
-    the geometry at this time.
+    specific configs (i.e. model_path, num_joints).
 
     Args:
         config (MjCambrianAnimalConfig): The configuration for the animal.
@@ -127,7 +119,7 @@ class MjCambrianAnimal:
     def __init__(self, config: MjCambrianAnimalConfig, name: str):
         self.config = self._check_config(config)
         self._name = name
-        self.logger = get_logger()
+        self._logger = get_logger()
 
         self._eyes: Dict[str, MjCambrianEye] = {}
 
@@ -136,8 +128,10 @@ class MjCambrianAnimal:
         self._initialize()
 
         self._eye_obs: Dict[str, Deque[np.ndarray]] = None
-        self._init_pos: np.ndarray = None
         self._extent: float = None
+
+        self.init_pos: np.ndarray = None
+        self.last_action: np.ndarray = None
 
     def _check_config(self, config: MjCambrianAnimalConfig) -> MjCambrianAnimalConfig:
         """Run some checks/asserts on the config to make sure everything's there. Also,
@@ -285,6 +279,31 @@ class MjCambrianAnimal:
 
         return xml
 
+    def apply_action(self, actions: List[float]):
+        """Applies the action to the animal.
+
+        It is assumed that the actions are normalized between -1 and 1.
+        """
+        if self.config.constant_actions:
+            assert len(actions) == self.config.constant_actions, (
+                f"Number of actions ({len(actions)}) does not match "
+                f"constant_actions ({self.config.constant_actions})."
+            )
+            actions = [
+                constant_action or action
+                for action, constant_action in zip(
+                    actions, self.config.constant_actions
+                )
+            ]
+
+        for action, actuator in zip(actions, self._actuators):
+            # Map from -1, 1 to ctrlrange
+            action = np.interp(action, [-1, 1], [actuator.low, actuator.high])
+            self._data.ctrl[actuator.adr] = action
+
+        # Set the last action class variable
+        self.last_action = np.array(actions)
+
     def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, Any]:
         """Sets up the animal in the environment. Uses the model/data to update
         positions during the simulation.
@@ -307,7 +326,7 @@ class MjCambrianAnimal:
 
         # step here so that the observations are updated
         mj.mj_forward(model, data)
-        self.init_pos = self.qpos.copy()
+        self.init_pos = self.pos.copy()
 
         self._eye_obs: Dict[str, Deque[np.ndarray]] = {}
         for name, eye in self.eyes.items():
@@ -316,13 +335,11 @@ class MjCambrianAnimal:
             # The initial obs is a list of black images and the first obs returned
             # by reset
             num_obs = self.config.n_temporal_obs
-            init_eye_obs = deque(
+            self._eye_obs[name] = deque(
                 [np.zeros(reset_obs.shape, dtype=reset_obs.dtype)] * num_obs,
                 maxlen=num_obs,
             )
-            init_eye_obs.append(reset_obs)
-
-            self._eye_obs[name] = init_eye_obs
+            self._eye_obs[name].append(reset_obs)
 
         return self._get_obs()
 
@@ -355,28 +372,6 @@ class MjCambrianAnimal:
         self._actadrs = [act.adr for act in self._actuators]
         assert len(self._actadrs) == self._numctrl
 
-    def apply_action(self, actions: List[float]):
-        """Applies the action to the animal.
-
-        It is assumed that the actions are normalized between -1 and 1.
-        """
-        if self.config.constant_actions:
-            assert len(actions) == self.config.constant_actions, (
-                f"Number of actions ({len(actions)}) does not match "
-                f"constant_actions ({self.config.constant_actions})."
-            )
-            actions = [
-                constant_action or action
-                for action, constant_action in zip(
-                    actions, self.config.constant_actions
-                )
-            ]
-
-        for action, actuator in zip(actions, self._actuators):
-            # Map from -1, 1 to ctrlrange
-            action = np.interp(action, [-1, 1], [actuator.low, actuator.high])
-            self._data.ctrl[actuator.adr] = action
-
     def step(self) -> Dict[str, Any]:
         """Steps the eyes, updates the ctrl inputs, and returns the observation.
 
@@ -399,12 +394,6 @@ class MjCambrianAnimal:
 
         if self.config.use_action_obs:
             obs["action"] = self.last_action
-
-        if self.config.use_init_pos_obs:
-            obs["init_pos"] = self.init_pos / self._extent
-
-        if self.config.use_current_pos_obs:
-            obs["current_pos"] = self.pos / self._extent
 
         return obs
 
@@ -450,7 +439,7 @@ class MjCambrianAnimal:
         composite = np.vstack(composite)
 
         if composite.size == 0:
-            self.logger.warning(
+            self._logger.warning(
                 f"Animal `{self.name}` observations. "
                 "Maybe you forgot to call `render`?."
             )
@@ -514,16 +503,6 @@ class MjCambrianAnimal:
                 low=-1, high=1, shape=(self._numctrl,), dtype=np.float32
             )
 
-        if self.config.use_init_pos_obs:
-            observation_space["init_pos"] = spaces.Box(
-                low=-1, high=1, shape=(3,), dtype=np.float64
-            )
-
-        if self.config.use_current_pos_obs:
-            observation_space["current_pos"] = spaces.Box(
-                low=-1, high=1, shape=(3,), dtype=np.float64
-            )
-
         return spaces.Dict(observation_space)
 
     @property
@@ -569,27 +548,6 @@ class MjCambrianAnimal:
     def pos(self) -> np.ndarray:
         """Returns the position of the animal in the environment."""
         return self._data.xpos[self._body_id].copy()
-
-    @property
-    def init_pos(self) -> np.ndarray:
-        """Returns the initial position of the animal."""
-        return self._init_pos
-
-    @init_pos.setter
-    def init_pos(self, value: np.ndarray):
-        """Sets the initial position of the animal."""
-        self._init_pos = value
-
-    @property
-    def last_action(self) -> np.ndarray:
-        """Returns the last action applied to the animal."""
-        action: np.ndarray = self._data.ctrl[self._actadrs].copy()
-        # convert back to original range
-        for actuator, act in zip(self._actuators, action):
-            action[actuator.adr] = np.interp(
-                act, [actuator.low, actuator.high], [-1, 1]
-            )
-        return action.astype(np.float32)
 
     # ==========================
 

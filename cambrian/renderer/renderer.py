@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple, Callable
 from abc import ABC, abstractmethod
 from pathlib import Path
+from enum import Flag, auto, EnumMeta
 
 import glfw
 import numpy as np
@@ -9,7 +10,18 @@ import OpenGL.GL as GL
 
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.utils.logger import get_logger
-from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
+from cambrian.utils.base_config import (
+    config_wrapper,
+    MjCambrianBaseConfig,
+    MjCambrianFlagWrapperMeta,
+)
+
+
+class MjCambrianRendererSaveMode(Flag, metaclass=MjCambrianFlagWrapperMeta):
+    GIF = auto()
+    MP4 = auto()
+    PNG = auto()
+    WEBP = auto()
 
 
 @config_wrapper
@@ -23,29 +35,30 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
         render_modes (List[str]): The render modes to use for the renderer. See
             `MjCambrianRenderer.metadata["render.modes"]` for options.
 
-        maxgeom (Optional[int]): The maximum number of geoms to render.
-
-        width (int): The width of the rendered image. For onscreen renderers, if this
-            is set, the window cannot be resized. Must be set for offscreen renderers.
-        height (int): The height of the rendered image. For onscreen renderers, if this
-            is set, the window cannot be resized. Must be set for offscreen renderers.
+        width (Optional[int]): The width of the rendered image. For onscreen renderers,
+            if this is set, the window cannot be resized. Must be set for offscreen
+            renderers.
+        height (Optional[int]): The height of the rendered image. For onscreen
+            renderers, if this is set, the window cannot be resized. Must be set for
+            offscreen renderers.
 
         fullscreen (Optional[bool]): Whether to render in fullscreen or not. If True,
             the width and height are ignored and the window is rendered in fullscreen.
             This is only valid for onscreen renderers.
 
-        camera (Optional[MjCambrianCameraConfig]): The camera config to use for
-            the renderer.
-        scene_options (Optional[Dict[str, Any]]): The scene options to use for the
-            renderer. Keys are the name of the option as defined in MjvOption. For
-            array options (like `flags`), the value should be another dict where the
-            keys are the indices/mujoco enum keys and the values are the values to set.
+        scene (mj.MjvScene): The scene to render.
+        scene_options (mj.MjvOption): The options to use for rendering.
+        camera (mj.MjvCamera): The camera to use for rendering.
 
         use_shared_context (bool): Whether to use a shared context or not.
             If True, the renderer will share a context with other renderers. This is
             useful for rendering multiple renderers at the same time. If False, the
             renderer will create its own context. This is computationally expensive if
             there are many renderers.
+
+        save_mode (Optional[MjCambrianRendererSaveMode]): The save modes to use for
+            saving the rendered images. See `MjCambrianRenderer.SaveMode` for options.
+            Must be set if `save` is called without save modes passed directly.
     """
 
     render_modes: List[str]
@@ -55,18 +68,19 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
 
     fullscreen: Optional[bool] = None
 
-    camera: mj.MjvCamera
     scene: mj.MjvScene
     scene_options: mj.MjvOption
+    camera: mj.MjvCamera
 
     use_shared_context: bool
 
-
-GL_CONTEXT: mj.gl_context.GLContext = None
-MJR_CONTEXT: mj.MjrContext = None
+    save_mode: Optional[MjCambrianRendererSaveMode] = None
 
 
 class MjCambrianViewer(ABC):
+    GL_CONTEXT: mj.gl_context.GLContext = None
+    MJR_CONTEXT: mj.MjrContext = None
+
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
         self.logger = get_logger()
@@ -80,6 +94,7 @@ class MjCambrianViewer(ABC):
 
         self._gl_context: mj.gl_context.GLContext = None
         self._mjr_context: mj.MjrContext = None
+        self._font = mj.mjtFontScale.mjFONTSCALE_50
 
         self._rgb_uint8: np.ndarray = None
         self._rgb_float32: np.ndarray = None
@@ -93,47 +108,50 @@ class MjCambrianViewer(ABC):
         self.scene_options = self.config.scene_options
         self.camera = self.config.camera
 
+        self._initialize_contexts(width, height)
+
+        self.viewport = mj.MjrRect(0, 0, width, height)
+
+        # Initialize the buffers
+        self._rgb_uint8 = np.empty((height, width, 3), dtype=np.uint8)
+        self._rgb_float32 = np.empty((height, width, 3), dtype=np.float32)
+        self._depth = np.empty((height, width), dtype=np.float32)
+
+    def _initialize_contexts(self, width: int, height: int):
         # NOTE: All shared contexts must match either onscreen or offscreen. And their
         # height and width most likely must match as well. If the existing context
         # is onscreen and we're requesting offscreen, override use_shared_context (and
         # vice versa).
-        global GL_CONTEXT, MJR_CONTEXT
-        if self.config.use_shared_context:
-            if (
-                MJR_CONTEXT
-                and MJR_CONTEXT.currentBuffer != self.get_framebuffer_option()
-            ):
+        if self.config.use_shared_context and self.MJR_CONTEXT:
+            if self.MJR_CONTEXT.currentBuffer != self.get_framebuffer_option():
                 self.logger.warning(
-                    "Overriding use_shared_context. First buffer and current buffer don't match."
+                    "Overriding use_shared_context. "
+                    "First buffer and current buffer don't match."
                 )
                 self.config.use_shared_context = False
 
-        font_scale = mj.mjtFontScale.mjFONTSCALE_50
         if self.config.use_shared_context:
-            if GL_CONTEXT is None:
-                GL_CONTEXT = mj.gl_context.GLContext(width, height)
-            self._gl_context = GL_CONTEXT
+            # Initialize or reuse the GL context
+            self.GL_CONTEXT = self.GL_CONTEXT or mj.gl_context.GLContext(width, height)
+            self._gl_context = self.GL_CONTEXT
             self.make_context_current()
-            if MJR_CONTEXT is None:
-                MJR_CONTEXT = mj.MjrContext(self.model, font_scale)
-            self._mjr_context = MJR_CONTEXT
+
+            self.MJR_CONTEXT = self.MJR_CONTEXT or mj.MjrContext(self.model, self._font)
+            self._mjr_context = self.MJR_CONTEXT
         elif self.viewport is None or width != self.width or height != self.height:
+            # If the viewport is None (i.e. this is the first reset), or the window
+            # has been resized, create a new context. We'll need to clean up the old
+            # context if it exists.
             if self._gl_context is not None:
                 del self._gl_context
             if self._mjr_context is not None:
                 del self._mjr_context
 
+            # Initialize the new contexts
             self._gl_context = mj.gl_context.GLContext(width, height)
             self.make_context_current()
-            self._mjr_context = mj.MjrContext(self.model, font_scale)
+            self._mjr_context = mj.MjrContext(self.model, self._font)
         self._mjr_context.readDepthMap = mj.mjtDepthMap.mjDEPTH_ZEROFAR
-
-        self.viewport = mj.MjrRect(0, 0, width, height)
-
-        self._rgb_uint8 = np.zeros((height, width, 3), dtype=np.uint8)
-        self._rgb_float32 = np.zeros((height, width, 3), dtype=np.float32)
-        self._depth = np.zeros((height, width), dtype=np.float32)
-
         mj.mjr_setBuffer(self.get_framebuffer_option(), self._mjr_context)
 
     @abstractmethod
@@ -167,12 +185,19 @@ class MjCambrianViewer(ABC):
         rgb_uint8, depth = self._rgb_uint8, self._depth if read_depth else None
         mj.mjr_readPixels(rgb_uint8, depth, self.viewport, self._mjr_context)
 
+        # Flipud the images
+        # NOTE: If you plan to convert to a pytorch tensor, negative indices aren't
+        # supported, so you may need to copy the array later on.
+        rgb_uint8, depth = rgb_uint8[::-1, ...], (
+            depth[::-1, ...] if read_depth else None
+        )
+
         # Convert to float32
         rgb_float32 = self._rgb_float32
         np.divide(rgb_uint8, np.array([255.0], np.float32), out=rgb_float32)
 
         # Return the flipped images
-        return rgb_float32[::-1, ...], depth[::-1, ...] if read_depth else None
+        return rgb_float32, depth
 
     @abstractmethod
     def make_context_current(self):
@@ -185,9 +210,6 @@ class MjCambrianViewer(ABC):
     @abstractmethod
     def is_running(self):
         pass
-
-    def close(self):
-        self._gl_context.free()
 
     # ===================
 
@@ -238,25 +260,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         self._is_paused: bool = False
 
         if self.window is None:
-            if not glfw.init():
-                raise Exception("GLFW failed to initialize.")
-
-            gl_context = None
-            if self.config.use_shared_context:
-                global GL_CONTEXT
-                if GL_CONTEXT is None:
-                    GL_CONTEXT = mj.gl_context.GLContext(width, height)
-                gl_context = GL_CONTEXT._context
-            self.window = glfw.create_window(
-                width, height, "MjCambrian", None, gl_context
-            )
-            if not self.window:
-                glfw.terminate()
-                raise Exception("GLFW failed to create window.")
-
-            glfw.show_window(self.window)
-
-            self.default_window_pos = glfw.get_window_pos(self.window)
+            self._initialize_window(width, height)
         glfw.set_window_size(self.window, width, height)
         self.fullscreen(self.config.fullscreen if self.config.fullscreen else False)
 
@@ -271,6 +275,23 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         glfw.set_key_callback(self.window, self._key_callback)
 
         glfw.swap_interval(1)
+
+    def _initialize_window(self, width: int, height: int):
+        if not glfw.init():
+            raise Exception("GLFW failed to initialize.")
+
+        gl_context = None
+        if self.config.use_shared_context:
+            self.GL_CONTEXT = self.GL_CONTEXT or mj.gl_context.GLContext(width, height)
+            gl_context = self.GL_CONTEXT._context
+        self.window = glfw.create_window(width, height, "MjCambrian", None, gl_context)
+        if not self.window:
+            glfw.terminate()
+            raise Exception("GLFW failed to create window.")
+
+        glfw.show_window(self.window)
+
+        self.default_window_pos = glfw.get_window_pos(self.window)
 
     def make_context_current(self):
         glfw.make_context_current(self.window)
@@ -309,18 +330,6 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
     def is_running(self):
         return not (self.window is None or glfw.window_should_close(self.window))
-
-    def close(self):
-        if self.window is not None:
-            if glfw.get_current_context() == self.window:
-                glfw.make_context_current(None)
-            glfw.set_window_should_close(self.window, True)
-            glfw.destroy_window(self.window)
-            self.window = None
-
-            glfw.terminate()
-
-        super().close()
 
     # ===================
 
@@ -473,21 +482,15 @@ class MjCambrianRenderer:
     def is_running(self):
         return self.viewer.is_running()
 
-    def close(self):
-        return
-        if hasattr(self, "viewer") and self.viewer is not None:
-            self.viewer.close()
-
-    def __del__(self):
-        self.close()
-
     # ===================
 
-    def save(self, path: Path | str, *, save_types: List[str] = ["webp"]):
-        AVAILABLE_SAVE_TYPES = ["gif", "mp4", "png", "webp"]
-        assert all(
-            save_type in AVAILABLE_SAVE_TYPES for save_type in save_types
-        ), f"Invalid save type found. Valid types are {AVAILABLE_SAVE_TYPES}."
+    def save(
+        self,
+        path: Path | str,
+        *,
+        save_mode: Optional[MjCambrianRendererSaveMode] = None,
+    ):
+        save_mode = save_mode or self.config.save_mode
 
         assert self._record, "Cannot save without recording."
         assert len(self._rgb_buffer) > 0, "Cannot save empty buffer."
@@ -499,7 +502,8 @@ class MjCambrianRenderer:
         if len(rgb_buffer) > 1:
             rgb_buffer = rgb_buffer[:-1]
         fps = 50
-        if "mp4" in save_types:
+
+        if save_mode & MjCambrianRendererSaveMode.MP4:
             import imageio
 
             mp4 = path.with_suffix(".mp4")
@@ -507,18 +511,18 @@ class MjCambrianRenderer:
             for image in rgb_buffer:
                 writer.append_data(image)
             writer.close()
-        if "png" in save_types:
+        if save_mode & MjCambrianRendererSaveMode.PNG:
             import imageio
 
             png = path.with_suffix(".png")
             imageio.imwrite(png, rgb_buffer[-1])
-        if "gif" in save_types:
+        if save_mode & MjCambrianRendererSaveMode.GIF:
             import imageio
 
             duration = 1000 / fps
             gif = path.with_suffix(".gif")
             imageio.mimwrite(gif, rgb_buffer, loop=0, duration=duration)
-        if "webp" in save_types:
+        if save_mode & MjCambrianRendererSaveMode.WEBP:
             import webp
 
             webp.mimwrite(path.with_suffix(".webp"), rgb_buffer, fps=fps, lossless=True)

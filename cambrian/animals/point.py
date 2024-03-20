@@ -46,11 +46,14 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
 
         # Calculate the global velocities
         theta = self._data.qpos[self._joint_qposadr + 2]
-        action = [v * np.cos(theta), v * np.sin(theta), action[1]]
+        new_action = [v * np.cos(theta), v * np.sin(theta), action[1]]
 
         # Update the constant actions to be None so that they're not applied again
         with setattrs_temporary((self.config, dict(constant_actions=None))):
-            super().apply_action(action)
+            super().apply_action(new_action)
+
+        # Override the last action to be the global velocities
+        self.last_action = action
 
     @property
     def observation_space(self) -> spaces.Space:
@@ -66,16 +69,3 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
     def action_space(self) -> spaces.Space:
         """Overrides the base implementation to only have two elements."""
         return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
-
-    @property
-    def last_action(self) -> np.ndarray:
-        """Overrides the base implementation to only have two elements."""
-
-        vx, vy, theta = super().last_action
-
-        # Calculate the global velocities
-        theta = self._data.qpos[self._joint_qposadr + 2]
-        v = np.sqrt(vx**2 + vy**2)
-        theta = np.arctan2(vy, vx) - theta
-
-        return np.array([v, theta], dtype=np.float32)

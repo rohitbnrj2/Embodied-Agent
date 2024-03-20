@@ -12,6 +12,7 @@ from typing import (
 from dataclasses import field, dataclass, fields, make_dataclass
 from pathlib import Path
 from functools import partial
+import enum
 
 import hydra_zen as zen
 from hydra.core.config_store import ConfigStore
@@ -189,6 +190,15 @@ class MjCambrianContainerConfig:
         else:
             return content
 
+    def __setattr__(self, name: str, value: Any):
+        """Set the attribute in the content."""
+        if isinstance(value, MjCambrianContainerConfig):
+            setattr(self._content, name, value._content)
+            setattr(self._config, name, value._config)
+        else:
+            setattr(self._content, name, value)
+            setattr(self._config, name, value)
+
     def __getitem__(self, key: Any) -> Self | Any:
         """Get the item from the content and return the wrapped instance. If the item is
         a DictConfig or ListConfig, we'll wrap it in this class."""
@@ -217,6 +227,11 @@ class MjCambrianContainerConfig:
                 yield MjCambrianContainerConfig(content, config=config)
             else:
                 yield content
+
+    def __len__(self) -> int:
+        """Only supported by ListConfig. Wrapper around the __len__ method to return the
+        length of the content."""
+        return len(self._content)
 
     def __str__(self) -> str:
         return self.to_yaml()
@@ -548,3 +563,23 @@ def instance_flag_wrapper(
         return wrapper
     else:
         return setattrs(instance, key, flag_type, False, **flags)
+
+
+class MjCambrianFlagWrapperMeta(enum.EnumMeta):
+    """This is a simple metaclass to allow for the use of the | operator to combine
+    flags. This means you can simply put `flag1 | flag2` in the yaml file and it will
+    be combined into a single flag.
+
+    The following forms are supported and any combination thereof:
+    - flag1 | flag2 | flag3 | ...
+    - flag1|flag2|flag3|...
+    - flag1
+    """
+
+    def __getitem__(cls, item):
+        if isinstance(item, str) and "|" in item:
+            from functools import reduce
+
+            items = [cls.__getitem__(i.strip()) for i in item.split("|")]
+            return reduce(lambda x, y: x | y, items)
+        return super().__getitem__(item)

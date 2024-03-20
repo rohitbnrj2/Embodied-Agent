@@ -1,0 +1,7 @@
+# @package custom.default.optics
+# We aren't actually going to use this config, so store it in custom just to put it somewhere
+
+padded_resolution: [100, 100]
+
+aperture: 0.1
+wavelengths: [610e-9, 530e-9, 470e-9]
