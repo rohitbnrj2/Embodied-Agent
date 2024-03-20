@@ -20,7 +20,7 @@ There is a runner in `env.py` that will visualize the world. You have a few run 
 ```bash
 # Interactive + Display
 # Run with the custom visualization viewer in birds-eye view mode. This is interactive, so you can move around.
-python cambrian/env.py <CONFIG_PATH> -o env_config.renderer_config.render_modes="[human, rgb_array]"
+python cambrian/env.py <CONFIG_PATH> -o env.renderer.render_modes="[human, rgb_array]"
 
 # Noninteractive + headless
 # Run the custom viewer but headless and save the output

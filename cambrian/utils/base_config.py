@@ -89,17 +89,17 @@ class MjCambrianContainerConfig:
                 value=None,
                 cause=MissingMandatoryValue("Missing mandatory value"),
             )
-        return MjCambrianContainerConfig(content, config=config)
+        return MjCambrianContainerConfig(content, config=config.copy())
 
     @classmethod
-    def load(cls, **kwargs) -> Self:
+    def load(cls, *args, **kwargs) -> Self:
         """Wrapper around OmegaConf.load to instantiate the config."""
-        return cls.instantiate(OmegaConf.load(**kwargs))
+        return cls.instantiate(OmegaConf.load(*args, **kwargs))
 
     @classmethod
-    def create(cls, **kwargs) -> Self:
+    def create(cls, *args, **kwargs) -> Self:
         """Wrapper around OmegaConf.create to instantiate the config."""
-        return cls.instantiate(OmegaConf.create(**kwargs))
+        return cls.instantiate(OmegaConf.create(*args, **kwargs))
 
     def select(self, key: str, *, use_instantiated: bool = False, **kwargs) -> Any:
         """This is a wrapper around OmegaConf.select to select a key from the config.
@@ -173,6 +173,19 @@ class MjCambrianContainerConfig:
             else:
                 values.append(value)
         return values
+
+    def copy(self) -> Self:
+        """Wrapper around the copy method to return a new instance of this class."""
+        return MjCambrianContainerConfig(
+            self._content.copy(), config=self._config.copy()
+        )
+
+    # overwrite the pickle dunder
+    def __getstate__(self) -> Dict[str, Any]:
+        return self.to_container(use_instantiated=False, resolve=True)
+
+    def __setstate__(self, state: Dict[str, Any]):
+        self.__init__(self.create(state))
 
     def __getattr__(self, name: str) -> Self | Any:
         """Get the attribute from the content and return the wrapped instance. If the

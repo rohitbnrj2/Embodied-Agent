@@ -9,7 +9,7 @@ import mujoco as mj
 import OpenGL.GL as GL
 
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
-from cambrian.utils.logger import get_logger
+from cambrian.utils.logging import get_logger
 from cambrian.utils.base_config import (
     config_wrapper,
     MjCambrianBaseConfig,
@@ -77,10 +77,12 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
     save_mode: Optional[MjCambrianRendererSaveMode] = None
 
 
-class MjCambrianViewer(ABC):
-    GL_CONTEXT: mj.gl_context.GLContext = None
-    MJR_CONTEXT: mj.MjrContext = None
+# TODO: If these are in the global scope, they don't throw an error when the script ends
+GL_CONTEXT: mj.gl_context.GLContext = None
+MJR_CONTEXT: mj.MjrContext = None
 
+
+class MjCambrianViewer(ABC):
     def __init__(self, config: MjCambrianRendererConfig):
         self.config = config
         self.logger = get_logger()
@@ -118,12 +120,14 @@ class MjCambrianViewer(ABC):
         self._depth = np.empty((height, width), dtype=np.float32)
 
     def _initialize_contexts(self, width: int, height: int):
+        global GL_CONTEXT, MJR_CONTEXT
+
         # NOTE: All shared contexts must match either onscreen or offscreen. And their
         # height and width most likely must match as well. If the existing context
         # is onscreen and we're requesting offscreen, override use_shared_context (and
         # vice versa).
-        if self.config.use_shared_context and self.MJR_CONTEXT:
-            if self.MJR_CONTEXT.currentBuffer != self.get_framebuffer_option():
+        if self.config.use_shared_context and MJR_CONTEXT:
+            if MJR_CONTEXT.currentBuffer != self.get_framebuffer_option():
                 self.logger.warning(
                     "Overriding use_shared_context. "
                     "First buffer and current buffer don't match."
@@ -132,12 +136,12 @@ class MjCambrianViewer(ABC):
 
         if self.config.use_shared_context:
             # Initialize or reuse the GL context
-            self.GL_CONTEXT = self.GL_CONTEXT or mj.gl_context.GLContext(width, height)
-            self._gl_context = self.GL_CONTEXT
+            GL_CONTEXT = GL_CONTEXT or mj.gl_context.GLContext(width, height)
+            self._gl_context = GL_CONTEXT
             self.make_context_current()
 
-            self.MJR_CONTEXT = self.MJR_CONTEXT or mj.MjrContext(self.model, self._font)
-            self._mjr_context = self.MJR_CONTEXT
+            MJR_CONTEXT = MJR_CONTEXT or mj.MjrContext(self.model, self._font)
+            self._mjr_context = MJR_CONTEXT
         elif self.viewport is None or width != self.width or height != self.height:
             # If the viewport is None (i.e. this is the first reset), or the window
             # has been resized, create a new context. We'll need to clean up the old
@@ -277,13 +281,15 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         glfw.swap_interval(1)
 
     def _initialize_window(self, width: int, height: int):
+        global GL_CONTEXT, MJR_CONTEXT
+
         if not glfw.init():
             raise Exception("GLFW failed to initialize.")
 
         gl_context = None
         if self.config.use_shared_context:
-            self.GL_CONTEXT = self.GL_CONTEXT or mj.gl_context.GLContext(width, height)
-            gl_context = self.GL_CONTEXT._context
+            GL_CONTEXT = GL_CONTEXT or mj.gl_context.GLContext(width, height)
+            gl_context = GL_CONTEXT._context
         self.window = glfw.create_window(width, height, "MjCambrian", None, gl_context)
         if not self.window:
             glfw.terminate()
@@ -430,14 +436,15 @@ class MjCambrianRenderer:
         self.logger = get_logger()
 
         assert all(
-            mode in self.metadata["render.modes"] for mode in self.render_modes
+            mode in self.metadata["render.modes"] for mode in self.config.render_modes
         ), f"Invalid render mode found. Valid modes are {self.metadata['render.modes']}"
         assert (
-            "depth_array" not in self.render_modes or "rgb_array" in self.render_modes
+            "depth_array" not in self.config.render_modes
+            or "rgb_array" in self.config.render_modes
         ), "Cannot render depth_array without rgb_array."
 
         self.viewer: MjCambrianViewer = None
-        if "human" in self.render_modes:
+        if "human" in self.config.render_modes:
             self.viewer = MjCambrianOnscreenViewer(self.config)
         else:
             self.viewer = MjCambrianOffscreenViewer(self.config)
@@ -470,14 +477,16 @@ class MjCambrianRenderer:
     ) -> np.ndarray | Tuple[np.ndarray, np.ndarray] | None:
         self.viewer.render(overlays=overlays)
 
-        if not any(mode in self.render_modes for mode in ["rgb_array", "depth_array"]):
+        if not any(
+            mode in self.config.render_modes for mode in ["rgb_array", "depth_array"]
+        ):
             return
 
-        rgb, depth = self.viewer.read_pixels("depth_array" in self.render_modes)
+        rgb, depth = self.viewer.read_pixels("depth_array" in self.config.render_modes)
         if self._record and not resetting:
             self._rgb_buffer.append(rgb)
 
-        return (rgb, depth) if "depth_array" in self.render_modes else rgb
+        return (rgb, depth) if "depth_array" in self.config.render_modes else rgb
 
     def is_running(self):
         return self.viewer.is_running()
@@ -536,16 +545,14 @@ class MjCambrianRenderer:
     @record.setter
     def record(self, record: bool):
         assert not (record and self._record), "Already recording."
-        assert "rgb_array" in self.render_modes, "Cannot record without rgb_array mode."
+        assert (
+            "rgb_array" in self.config.render_modes
+        ), "Cannot record without rgb_array mode."
 
         if not record:
             self._rgb_buffer.clear()
 
         self._record = record
-
-    @property
-    def render_modes(self) -> List[str]:
-        return self.config.render_modes
 
     # ===================
 

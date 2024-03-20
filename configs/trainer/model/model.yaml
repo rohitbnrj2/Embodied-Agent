@@ -12,7 +12,7 @@ policy_kwargs:
     _partial_: true
   features_extractor_kwargs:
     output_dim: 256
-    normalize_image: True
+    normalized_image: True
     activation:
       _target_: torch.nn.Tanh
       _partial_: true

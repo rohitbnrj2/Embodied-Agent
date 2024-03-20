@@ -1,9 +1,0 @@
-defaults:
-  - logging
-  - stdout
-  - stderr
-  - file
-
-loggers:
-  cambrian:
-    handlers: [file_out, file_err, stdout, stderr]

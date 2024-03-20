@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional, Callable, Concatenate
 import argparse
+from pathlib import Path
 
 from cambrian.ml.trainer import MjCambrianTrainerConfig
 from cambrian.envs.env import MjCambrianEnvConfig
@@ -12,7 +13,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
     """The base config for the mujoco cambrian environment. Used for type hinting.
 
     Attributes:
-        logdir (str): The directory to log training data to.
+        logdir (Path): The directory to log training data to.
         expname (str): The name of the experiment. Used to name the logging
             subdirectory. If unset, will set to the name of the config file.
 
@@ -28,7 +29,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
             Passed to `logging.config.dictConfig`.
     """
 
-    logdir: str
+    logdir: Path
     expname: str
 
     seed: int

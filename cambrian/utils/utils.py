@@ -76,7 +76,7 @@ def evaluate_policy(
     """
     # To avoid circular imports
     from cambrian.envs.env import MjCambrianEnv
-    from cambrian.utils.logger import get_logger
+    from cambrian.utils.logging import get_logger
 
     cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
     if record_kwargs is not None:

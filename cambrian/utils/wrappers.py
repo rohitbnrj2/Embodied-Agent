@@ -1,12 +1,9 @@
-from typing import Dict, Any, Tuple, Optional, TYPE_CHECKING
+from typing import Dict, Any, Tuple, Optional
 
 import gymnasium as gym
 from stable_baselines3.common.env_checker import check_env
 
-from cambrian.envs.env import MjCambrianEnv
-
-if TYPE_CHECKING:
-    from cambrian.utils.config import MjCambrianConfig
+from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 
 
 class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
@@ -41,12 +38,12 @@ class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
 
 
 def make_single_env(
-    config: "MjCambrianConfig", seed: Optional[int] = None, **kwargs
+    config: MjCambrianEnvConfig, seed: Optional[int] = None, **kwargs
 ) -> MjCambrianSingleAnimalEnvWrapper:
     """Utility function for multiprocessed MjCambrianSingleAnimalEnvWrapper."""
 
     def _init():
-        env = MjCambrianEnv(config, **kwargs)
+        env = config.instance(config, **kwargs)
         env = MjCambrianSingleAnimalEnvWrapper(env)
         env.reset(seed=seed)
         check_env(env, warn=False)

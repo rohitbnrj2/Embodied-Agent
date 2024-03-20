@@ -18,7 +18,7 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy
 from cambrian.envs.env import MjCambrianEnv
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import setattrs_temporary
-from cambrian.utils.logger import get_logger
+from cambrian.utils.logging import get_logger
 
 
 class MjCambrianPlotMonitorCallback(BaseCallback):
@@ -145,24 +145,17 @@ class MjCambrianEvalCallback(EvalCallback):
             return True
 
         env: MjCambrianEnv = self.eval_env.envs[0].unwrapped
-        env_config = env.config.env_config
 
         # Add some overlays
-        env.overlays["Exp"] = env.config.training_config.exp_name
+        # env.overlays["Exp"] = env.config.training_config.exp_name # TODO
         env.overlays["Best Mean Reward"] = f"{self.best_mean_reward:.2f}"
         env.overlays["Total Timesteps"] = f"{self.num_timesteps}"
 
         # Set temporary attributes for the evaluation
         temp_attrs = []
         temp_attrs.append((env, dict(record=True, maze=None)))
-        if (eval_overrides := env_config.eval_overrides) is not None:
-            temp_attrs.append((env_config, eval_overrides))
-        if eval_goal_pos := env.maze.config.eval_goal_pos:
-            temp_attrs.append((env.maze.config, dict(init_goal_pos=eval_goal_pos)))
-        if eval_adversary_pos := env.maze.config.eval_adversary_pos:
-            temp_attrs.append(
-                (env.maze.config, dict(init_adversary_pos=eval_adversary_pos))
-            )
+        if (eval_overrides := env.config.eval_overrides) is not None:
+            temp_attrs.append((env.config, eval_overrides))
 
         # Run the evaluation
         with setattrs_temporary(*temp_attrs):

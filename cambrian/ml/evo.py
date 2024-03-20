@@ -12,7 +12,7 @@ from cambrian.population import (
     MjCambrianPopulationConfig,
     MjCambrianSpawningConfig,
 )
-from cambrian.utils.logger import get_logger
+from cambrian.utils.logging import get_logger
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 
 if TYPE_CHECKING:
@@ -99,20 +99,10 @@ class MjCambrianEvoRunner:
         self.evo_config.generation_config.rank *= self.evo_config.population_config.size
 
         # Create the logdir
-        self.logdir = Path(
-            Path(self.config.training_config.logdir)
-            / self.config.training_config.exp_name
-        )
-        self.logdir.mkdir(parents=True, exist_ok=True)
+        # Will also create the logdir if it doesn't exist
+        (self.config.logdir / "logs").mkdir(parents=True, exist_ok=True)
 
-        # Get the logger _after_ creating the logdir. Also, overwrite the filepath
-        # only for this logger (subprocesses will use the default filepath).
-        (self.logdir / "logs").mkdir(parents=True, exist_ok=True)
-        self.logger = get_logger(
-            config,
-            overwrite_filepath=self.logdir / "logs",
-            overwrite_filename_suffix=f"_{node_num}",
-        )
+        self.logger = get_logger()
 
         self.population = MjCambrianPopulation(self.config, self.logdir)
 

@@ -1,0 +1,8 @@
+defaults:
+  - logging
+  - stderr
+  - custom_stdout
+  - file
+
+root:
+  handlers: [file_out, file_err, stdout, stderr]

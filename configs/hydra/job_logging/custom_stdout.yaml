@@ -1,0 +1,21 @@
+# NOTE: have to call it custom_stdout since hydra has a stdout config already
+# and we want hydra to read this one.
+
+defaults:
+  - logging
+
+filters:
+  max_level:
+    (): cambrian.utils.logging.MjCambrianLoggerMaxLevelFilter
+    max_level: INFO
+handlers:
+  stdout:
+    class: cambrian.utils.logging.MjCambrianTqdmStreamHandler
+    formatter: simple
+    stream: ext://sys.stdout
+    level: DEBUG
+    filters: [max_level]
+loggers:
+  root:
+    level: DEBUG
+    handlers: [stdout]

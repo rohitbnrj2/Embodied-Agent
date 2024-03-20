@@ -1,4 +1,10 @@
 # yaml-language-server: $schema=./hydra.yaml
+
+defaults:
+  - callbacks:
+      - log_job_return_callback
+  - override job_logging: basic
+
 run:
   dir: ${logdir}/hydra/run/${now:%H-%M-%S}/
 sweep:

@@ -1,35 +1,32 @@
 # TODO: Make dictionary and instantiate in python to make it more readable and overridable?
 
-_target_: stable_baselines3.common.callbacks.CallbackList
-_partial_: true
-callbacks:
-  - _target_: cambrian.ml.callbacks.MjCambrianEvalCallback
-    _partial_: true
-    best_model_save_path: ${logdir}
-    log_path: ${logdir}
-    deterministic: true
-    render: True
-    eval_freq: 10000
-    verbose: 0
-    n_eval_episodes: "???"
-    eval_env: "???"
-    callbacks_on_new_best:
-      _target_: cambrian.ml.callbacks.MjCambrianCallbackListWithSharedParent
-      callbacks:
-        - _target_: stable_baselines3.common.callbacks.StopTrainingOnNoModelImprovement
-          max_no_improvement_evals: 10 # check_freq * max_no_improvement_evals steps
-          min_evals: 10 # check_freq * min_no_improvement_evals steps
-        - _target_: stable_baselines3.common.callbacks.StopTrainingOnRewardThreshold
-          reward_threshold: 1e3
-        - _target_: cambrian.ml.callbacks.MjCambrianSavePolicyCallback
-          logdir: ${logdir}
-    callbacks_after_eval:
-      _target_: cambrian.ml.callbacks.MjCambrianCallbackListWithSharedParent
-      callbacks:
-        - _target_: cambrian.ml.callbacks.MjCambrianPlotMonitorCallback
-          logdir: ${logdir}
-        - _target_: cambrian.ml.callbacks.MjCambrianPlotEvaluationsCallback
-          logdir: ${logdir}
-        - _target_: cambrian.ml.callbacks.MjCambrianGPUUsageCallback
-          logdir: ${logdir}
-  - _target_: cambrian.ml.callbacks.MjCambrianProgressBarCallback
+- _target_: cambrian.ml.callbacks.MjCambrianEvalCallback
+  _partial_: true
+  best_model_save_path: ${logdir}
+  log_path: ${logdir}
+  deterministic: true
+  render: True
+  eval_freq: 10000
+  verbose: 0
+  n_eval_episodes: "???"
+  eval_env: "???"
+  callback_on_new_best:
+    _target_: cambrian.ml.callbacks.MjCambrianCallbackListWithSharedParent
+    callbacks:
+      - _target_: stable_baselines3.common.callbacks.StopTrainingOnNoModelImprovement
+        max_no_improvement_evals: 10 # check_freq * max_no_improvement_evals steps
+        min_evals: 10 # check_freq * min_no_improvement_evals steps
+      - _target_: stable_baselines3.common.callbacks.StopTrainingOnRewardThreshold
+        reward_threshold: 1e3
+      - _target_: cambrian.ml.callbacks.MjCambrianSavePolicyCallback
+        logdir: ${logdir}
+  callback_after_eval:
+    _target_: cambrian.ml.callbacks.MjCambrianCallbackListWithSharedParent
+    callbacks:
+      - _target_: cambrian.ml.callbacks.MjCambrianPlotMonitorCallback
+        logdir: ${logdir}
+      - _target_: cambrian.ml.callbacks.MjCambrianPlotEvaluationsCallback
+        logdir: ${logdir}
+      - _target_: cambrian.ml.callbacks.MjCambrianGPUUsageCallback
+        logdir: ${logdir}
+- _target_: cambrian.ml.callbacks.MjCambrianProgressBarCallback

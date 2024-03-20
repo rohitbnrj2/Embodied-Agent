@@ -22,7 +22,7 @@ from cambrian.utils import (
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.base_config import MjCambrianBaseConfig, config_wrapper
-from cambrian.utils.logger import get_logger
+from cambrian.utils.logging import get_logger
 
 
 @config_wrapper
@@ -319,6 +319,9 @@ class MjCambrianAnimal:
 
         # Accumulate the qpos/qvel/act adrs
         self._reset_adrs(model)
+
+        # Set the last_action to the current action
+        self.last_action = self._data.ctrl[self._actadrs].copy()
 
         # Update the animal's pos/quat
         if self.config.initial_qpos is not None:

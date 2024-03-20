@@ -1,5 +1,6 @@
-from typing import List
+from typing import Dict, List, Any
 
+from mujoco import MjData, MjModel
 import numpy as np
 from gymnasium import spaces
 
@@ -24,6 +25,19 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
 
     NOTE: The action obs is still the global velocities and rotational position.
     """
+
+    def _get_obs(self) -> Dict[str, Any]:
+        """Creates the entire obs dict."""
+        obs = super()._get_obs()
+
+        # Update the action obs
+        # Calculate the global velocities
+        if self.config.use_action_obs:
+            vx, vy, theta = self.last_action
+            v, theta = np.sqrt(vx**2 + vy**2), np.arctan2(vy, vx) - self.qpos[2]
+            obs["action"] = np.array([v, theta], dtype=np.float32)
+
+        return obs
 
     def apply_action(self, action: List[float]):
         """This differs from the base implementation as action only has two elements,
@@ -51,9 +65,6 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
         # Update the constant actions to be None so that they're not applied again
         with setattrs_temporary((self.config, dict(constant_actions=None))):
             super().apply_action(new_action)
-
-        # Override the last action to be the global velocities
-        self.last_action = action
 
     @property
     def observation_space(self) -> spaces.Space:

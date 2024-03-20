@@ -1,0 +1,12 @@
+defaults:
+  - logging
+
+handlers:
+  stderr:
+    class: cambrian.utils.logging.MjCambrianTqdmStreamHandler
+    formatter: simple
+    stream: ext://sys.stderr
+    level: WARNING
+root:
+  level: DEBUG
+  handlers: [stderr]

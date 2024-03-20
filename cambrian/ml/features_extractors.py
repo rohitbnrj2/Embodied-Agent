@@ -132,7 +132,7 @@ class MjCambrianLowLevelExtractor(MjCambrianBaseFeaturesExtractor):
         activation: nn.Module,
     ) -> None:
         # We assume TxHxWxC images (channels last as input)
-        super().__init__(observation_space, features_dim, activation)
+        super().__init__(observation_space, features_dim)
 
         time_steps = observation_space.shape[0]
         n_input_channels = observation_space.shape[1]

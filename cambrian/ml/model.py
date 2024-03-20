@@ -5,7 +5,7 @@ import pickle
 import torch
 from stable_baselines3 import PPO
 
-from cambrian.utils.logger import get_logger
+from cambrian.utils.logging import get_logger
 
 
 class MjCambrianModel(PPO):
