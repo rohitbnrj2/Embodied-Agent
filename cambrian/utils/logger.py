@@ -4,7 +4,7 @@ Provides a custom logger object.
 Should be used like the following:
 
 ```
-from cambrian.utils.logging import get_logger
+from cambrian.utils.logger import get_logger
 
 get_logger().fatal("Fatal")
 get_logger().error("Error")

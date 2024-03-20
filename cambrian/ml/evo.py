@@ -12,7 +12,7 @@ from cambrian.population import (
     MjCambrianPopulationConfig,
     MjCambrianSpawningConfig,
 )
-from cambrian.utils.logging import get_logger
+from cambrian.utils.logger import get_logger
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 
 if TYPE_CHECKING:

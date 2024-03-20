@@ -447,7 +447,7 @@ def plot_average_line(ax: plt.Axes):
 
     # Plot the data
     plt.plot(x, y, "C0-", alpha=0.5)
-    plt.fill_between(x, y - y.std(), y + y.std(), alpha=0.2, facecolor="C0")
+    plt.fill_between(x, y - y_std, y + y_std, alpha=0.2, facecolor="C0")
 
 
 def plot(

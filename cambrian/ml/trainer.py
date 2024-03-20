@@ -1,4 +1,4 @@
-from typing import List, TYPE_CHECKING
+from typing import Dict, TYPE_CHECKING
 from pathlib import Path
 
 from stable_baselines3.common.vec_env import (
@@ -15,7 +15,7 @@ from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy, setattrs_temporary
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.wrappers import make_single_env
-from cambrian.utils.logging import get_logger
+from cambrian.utils.logger import get_logger
 
 if TYPE_CHECKING:
     from cambrian.utils.config import MjCambrianConfig
@@ -31,7 +31,7 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
         n_envs (int): The number of parallel environments to use for training.
 
         model (MjCambrianModelType): The model to use for training.
-        callbacks (List[BaseCallback]): The callbacks to use for training.
+        callbacks (Dict[str, BaseCallback]): The callbacks to use for training.
     """
 
     total_timesteps: int
@@ -39,7 +39,7 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
     n_envs: int
 
     model: MjCambrianModel
-    callbacks: List[BaseCallback]
+    callbacks: Dict[str, BaseCallback]
 
 
 class MjCambrianTrainer:
@@ -59,8 +59,6 @@ class MjCambrianTrainer:
         self.logger.info(f"Logging to {self.config.logdir / 'logs'}...")
 
         self.logger.debug(f"Setting seed to {self.config.seed}...")
-        raise Exception("TEST")
-        exit()
         set_random_seed(self.config.seed)
 
     def train(self):
@@ -140,7 +138,7 @@ class MjCambrianTrainer:
         from functools import partial
 
         callbacks = []
-        for callback in self.trainer_config.callbacks:
+        for callback in self.trainer_config.callbacks.values():
             # TODO: is this a good assumption? is there a better way to do this?
             if isinstance(callback, partial):
                 callback = callback(eval_env)

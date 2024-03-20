@@ -1,32 +1,42 @@
 # TODO: Make dictionary and instantiate in python to make it more readable and overridable?
 
-- _target_: cambrian.ml.callbacks.MjCambrianEvalCallback
+eval_callback:
+  _target_: cambrian.ml.callbacks.MjCambrianEvalCallback
   _partial_: true
+  eval_env: "???" # required arg
+  n_eval_episodes: "???" # required arg
   best_model_save_path: ${logdir}
   log_path: ${logdir}
   deterministic: true
   render: True
   eval_freq: 10000
   verbose: 0
-  n_eval_episodes: "???"
-  eval_env: "???"
   callback_on_new_best:
     _target_: cambrian.ml.callbacks.MjCambrianCallbackListWithSharedParent
+    _convert_: all
     callbacks:
-      - _target_: stable_baselines3.common.callbacks.StopTrainingOnNoModelImprovement
+      stop_training_on_no_improvement_callback:
+        _target_: stable_baselines3.common.callbacks.StopTrainingOnNoModelImprovement
         max_no_improvement_evals: 10 # check_freq * max_no_improvement_evals steps
         min_evals: 10 # check_freq * min_no_improvement_evals steps
-      - _target_: stable_baselines3.common.callbacks.StopTrainingOnRewardThreshold
+      stop_training_on_reward_threshold_callback:
+        _target_: stable_baselines3.common.callbacks.StopTrainingOnRewardThreshold
         reward_threshold: 1e3
-      - _target_: cambrian.ml.callbacks.MjCambrianSavePolicyCallback
+      save_policy_callback:
+        _target_: cambrian.ml.callbacks.MjCambrianSavePolicyCallback
         logdir: ${logdir}
   callback_after_eval:
     _target_: cambrian.ml.callbacks.MjCambrianCallbackListWithSharedParent
+    _convert_: all
     callbacks:
-      - _target_: cambrian.ml.callbacks.MjCambrianPlotMonitorCallback
+      plot_monitor_callback:
+        _target_: cambrian.ml.callbacks.MjCambrianPlotMonitorCallback
         logdir: ${logdir}
-      - _target_: cambrian.ml.callbacks.MjCambrianPlotEvaluationsCallback
+      plot_evaluations_callback:
+        _target_: cambrian.ml.callbacks.MjCambrianPlotEvaluationsCallback
         logdir: ${logdir}
-      - _target_: cambrian.ml.callbacks.MjCambrianGPUUsageCallback
+      gpu_usage_callback:
+        _target_: cambrian.ml.callbacks.MjCambrianGPUUsageCallback
         logdir: ${logdir}
-- _target_: cambrian.ml.callbacks.MjCambrianProgressBarCallback
+progress_bar_callback:
+  _target_: cambrian.ml.callbacks.MjCambrianProgressBarCallback

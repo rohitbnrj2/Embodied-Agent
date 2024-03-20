@@ -18,11 +18,17 @@ defaults:
 
   # We also need to define the eyes for the animal. We'll use the default eye to serve
   # as the base for the single eye.
-  - /env/animals/eyes/default@env.animals.point.eyes.point_0_eye_0: ${env/animals/eyes/default}
+  # This basically says load "eye.yaml" in ./env/animals/eyes and place it at
+  # env.animals.point.eyes.point_0_eye_0 in the config
+  - /env/animals/eyes/eye@env.animals.point.eyes.point_0_eye_0
+  # Same idea excecpt now the eye is at env.animals.point.eyes.point_0_eye_1
+  - /env/animals/eyes/eye@env.animals.point.eyes.point_0_eye_1
 
-  # First, we'll include the default config (located at in the same folder as this file
+  # We then include the default config (located at in the same folder as this file
   # i.e. configs/exp/exp.yaml). This file defines required attributes we'll need
-  # to specify here to set things up correctly.
+  # to specify here to set things up correctly. This _must_ come after the above
+  # includes because it defines default values for specific config files and the above
+  # files use those as interpolations in their default lists.
   - exp
 
   # Override the default environment to be a maze_env. We are using mazes above, and so
@@ -64,3 +70,7 @@ env:
 
           renderer:
             render_modes: [rgb_array, depth_array]
+        point_0_eye_1:
+          resolution: [1, 1]
+          fov: [45, 20]
+          coord: [10, 0]

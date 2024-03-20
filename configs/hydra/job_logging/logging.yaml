@@ -5,4 +5,5 @@ formatters:
 root:
   level: DEBUG
 
-disable_existing_loggers: false
+# NOTE: unclear what the consequences of this are
+disable_existing_loggers: true

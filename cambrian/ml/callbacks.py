@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import glob
 import shutil
 import csv
+import subprocess
 
 import torch
 from stable_baselines3.common.callbacks import (
@@ -18,7 +19,7 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy
 from cambrian.envs.env import MjCambrianEnv
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import setattrs_temporary
-from cambrian.utils.logging import get_logger
+from cambrian.utils.logger import get_logger
 
 
 class MjCambrianPlotMonitorCallback(BaseCallback):
@@ -48,11 +49,11 @@ class MjCambrianPlotMonitorCallback(BaseCallback):
         if not (self.logdir / "monitor.csv").exists():
             return
 
-        get_logger().info(f"Plotting monitor results at {self.evaldir}")
-
         x, y = ts2xy(load_results(self.logdir), "timesteps")
-        if len(x) <= 1 or len(y) <= 1:
+        if len(x) <= 100 or len(y) <= 100:
             return True
+
+        get_logger().info(f"Plotting monitor results at {self.evaldir}")
 
         def moving_average(values, window) -> np.ndarray:
             weights = np.repeat(1.0, window) / window
@@ -99,15 +100,14 @@ class MjCambrianPlotEvaluationsCallback(BaseCallback):
         if not (self.logdir / "evaluations.npz").exists():
             return
 
-        get_logger().info(f"Plotting evaluation results at {self.evaldir}")
-
         # Load the evaluation results
         with np.load(self.logdir / "evaluations.npz") as data:
             x = data["timesteps"].flatten()
-            y = np.mean(data["results"], axis=1).flatten()
-
-        if len(x) <= 1 or len(y) <= 1:
+            y: np.ndarray = np.mean(data["results"], axis=1).flatten()
+        if len(x) <= 100 or len(y) <= 100:
             return True
+
+        get_logger().info(f"Plotting evaluation results at {self.evaldir}")
 
         # Plot the results
         plt.plot(x, y)
@@ -244,7 +244,9 @@ class MjCambrianGPUUsageCallback(BaseCallback):
                 )
 
             # Log to stdout
-            get_logger().debug(torch.cuda.memory_summary())
+            if self.verbose > 0:
+                get_logger().debug(subprocess.getoutput("nvidia-smi"))
+                get_logger().debug(torch.cuda.memory_summary())
 
         return True
 
@@ -291,7 +293,10 @@ class MjCambrianProgressBarCallback(ProgressBarCallback):
 
 
 class MjCambrianCallbackListWithSharedParent(CallbackList):
-    def __init__(self, callbacks: Iterable[BaseCallback]):
+    def __init__(self, callbacks: Iterable[BaseCallback] | Dict[str, BaseCallback]):
+        if isinstance(callbacks, dict):
+            callbacks = callbacks.values()
+
         self.callbacks = []
         super().__init__(list(callbacks))
 

@@ -24,7 +24,7 @@ from cambrian.renderer.overlays import (
 )
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
-from cambrian.utils.logging import get_logger
+from cambrian.utils.logger import get_logger
 
 
 @config_wrapper

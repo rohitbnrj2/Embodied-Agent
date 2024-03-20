@@ -180,13 +180,6 @@ class MjCambrianContainerConfig:
             self._content.copy(), config=self._config.copy()
         )
 
-    # overwrite the pickle dunder
-    def __getstate__(self) -> Dict[str, Any]:
-        return self.to_container(use_instantiated=False, resolve=True)
-
-    def __setstate__(self, state: Dict[str, Any]):
-        self.__init__(self.create(state))
-
     def __getattr__(self, name: str) -> Self | Any:
         """Get the attribute from the content and return the wrapped instance. If the
         attribute is a DictConfig or ListConfig, we'll wrap it in this class.
@@ -245,6 +238,15 @@ class MjCambrianContainerConfig:
         """Only supported by ListConfig. Wrapper around the __len__ method to return the
         length of the content."""
         return len(self._content)
+
+    def __getstate__(self) -> Dict[str, Any]:
+        """Get the state of the object to pickle it. Will only pickle the config since
+        it's not guaranteed the instances in content can be pickled."""
+        return self.to_container(use_instantiated=False, resolve=True)
+
+    def __setstate__(self, state: Dict[str, Any]):
+        """Set the state of the object from the pickled state."""
+        self.__init__(self.create(state))
 
     def __str__(self) -> str:
         return self.to_yaml()

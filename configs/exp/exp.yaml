@@ -31,6 +31,7 @@ defaults:
   # Similar to the mazes, you must also specify the animal configuration.
   - /env/animals/default: animal
   - /env/animals/eyes/default: eye
+  - /env/animals/eyes/optics/default: optics
 
   # Simular to mazes, you must also specify the object configuration.
   - /env/objects/default: object

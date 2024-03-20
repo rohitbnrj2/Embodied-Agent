@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 import numpy as np
 import mujoco as mj
 
-from cambrian.utils.logging import get_logger
+from cambrian.utils.logger import get_logger
 
 TEXT_HEIGHT = 20
 TEXT_MARGIN = 5

@@ -22,7 +22,7 @@ from cambrian.utils import (
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.base_config import MjCambrianBaseConfig, config_wrapper
-from cambrian.utils.logging import get_logger
+from cambrian.utils.logger import get_logger
 
 
 @config_wrapper

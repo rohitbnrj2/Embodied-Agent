@@ -3,7 +3,7 @@ defaults:
 
 handlers:
   stderr:
-    class: cambrian.utils.logging.MjCambrianTqdmStreamHandler
+    class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
     formatter: simple
     stream: ext://sys.stderr
     level: WARNING

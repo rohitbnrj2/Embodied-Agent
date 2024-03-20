@@ -11,7 +11,6 @@ import torch
 from stable_baselines3.common.vec_env import VecEnv
 
 if TYPE_CHECKING:
-    from cambrian.utils.config import MjCambrianConfig
     from cambrian.ml.model import MjCambrianModel
 
 
@@ -76,7 +75,7 @@ def evaluate_policy(
     """
     # To avoid circular imports
     from cambrian.envs.env import MjCambrianEnv
-    from cambrian.utils.logging import get_logger
+    from cambrian.utils.logger import get_logger
 
     cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
     if record_kwargs is not None:
@@ -175,13 +174,15 @@ def setattrs_temporary(
             else:
                 prev_values[-1][attr] = getattr(obj, attr)
                 setattr(obj, attr, value)
-    yield
-    for (obj, _), kwargs in zip(args, prev_values):
-        for attr, value in kwargs.items():
-            if isinstance(obj, dict):
-                obj[attr] = value
-            else:
-                setattr(obj, attr, value)
+    try:
+        yield
+    finally:
+        for (obj, _), kwargs in zip(args, prev_values):
+            for attr, value in kwargs.items():
+                if isinstance(obj, dict):
+                    obj[attr] = value
+                else:
+                    setattr(obj, attr, value)
 
 
 def get_gpu_memory_usage(return_total_memory: bool = True) -> Tuple[float, float]:
