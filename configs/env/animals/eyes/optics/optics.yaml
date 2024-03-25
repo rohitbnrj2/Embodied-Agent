@@ -1,0 +1,14 @@
+# @package custom.default.eye.optics
+# Store this optics in the custom attribute in case we don't actually use this optics
+
+padded_resolution: [23, 23]
+
+noise_std: 0.01
+
+aperture: 0.1
+wavelengths: [610e-9, 530e-9, 470e-9]
+
+eye_resolution: ${..resolution}
+eye_sensorsize: ${..sensorsize}
+
+use_depth_obs: True

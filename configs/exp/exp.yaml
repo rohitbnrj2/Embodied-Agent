@@ -2,7 +2,7 @@
 
 defaults:
   # Below is how mazes are specified. Each maze should include the following in it's defaults list:
-  # - /env/mazes@_here_: default/${env/mazes/default}
+  # - /env/mazes@_here_: ${env/mazes}
   # - _self_
   # This refers to the default maze configuration defined below. At runtime, the user
   # can then specify a different default maze configuration, if desired. Furthermore,
@@ -26,15 +26,15 @@ defaults:
   #   - ...
   # Option 3:
   # - /env/mazes/MAZE1@env.mazes.CUSTOM_NAME
-  - /env/mazes/default: maze
+  - /env/mazes: maze
 
   # Similar to the mazes, you must also specify the animal configuration.
-  - /env/animals/default: animal
-  - /env/animals/eyes/default: eye
-  - /env/animals/eyes/optics/default: optics
+  - /env/animals: animal
+  - /env/animals/eyes: eye
+  - /env/animals/eyes/optics: optics
 
   # Simular to mazes, you must also specify the object configuration.
-  - /env/objects/default: object
+  - /env/objects: object
 
   # NOTE: there is a bug in OmegaConf that doesn't allow optional dataclass objects
   # that are inherited to be specified via the defaults list. For instance,

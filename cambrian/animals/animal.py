@@ -5,7 +5,6 @@ from collections import deque
 import uuid
 
 import numpy as np
-import numpy.typing as npt
 import mujoco as mj
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
@@ -128,8 +127,8 @@ class MjCambrianAnimal:
         self._initialize()
 
         self._eye_obs: Dict[str, Deque[np.ndarray]] = None
-        self._extent: float = None
 
+        # Public attributes
         self.init_pos: np.ndarray = None
         self.last_action: np.ndarray = None
 
@@ -280,7 +279,9 @@ class MjCambrianAnimal:
         return xml
 
     def apply_action(self, actions: List[float]):
-        """Applies the action to the animal.
+        """Applies the action to the animal. This probably happens before step
+        so that the observations reflect the state of the animal after the new action
+        is applied.
 
         It is assumed that the actions are normalized between -1 and 1.
         """
@@ -310,9 +311,6 @@ class MjCambrianAnimal:
         """
         self._model = model
         self._data = data
-
-        # Update the environment extent. Used to normalize the observations.
-        self._extent = model.stat.extent
 
         # Parse actuators
         self._parse_actuators(model)
@@ -420,7 +418,7 @@ class MjCambrianAnimal:
         )
 
         # Sort the eyes based on their lat/lon
-        lats, lons = set(), set()
+        lons = set()
         images = {}
         for eye in self.eyes.values():
             lat, lon = eye.config.coord
@@ -497,7 +495,7 @@ class MjCambrianAnimal:
             observation_space[name] = spaces.Box(
                 low=eye_observation_space.low.min(),
                 high=eye_observation_space.high.max(),
-                shape=(n_temporal_obs, *eye.config.resolution, 3),
+                shape=(n_temporal_obs, *eye_observation_space.shape),
                 dtype=eye_observation_space.dtype,
             )
 

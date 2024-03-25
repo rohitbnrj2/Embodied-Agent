@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Callable
 import torch
 import torch.nn as nn
 
@@ -7,6 +7,11 @@ from gymnasium import spaces
 from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim
+
+from cambrian.optics import MjCambrianOptics, MjCambrianOpticsConfig
+
+# ==================
+# Utils
 
 
 def is_image_space(
@@ -53,6 +58,10 @@ def maybe_transpose_obs(observation: torch.Tensor) -> torch.Tensor:
         observation = observation.permute(0, 1, 4, 2, 3)
 
     return observation
+
+
+# ==================
+# Feature Extractors
 
 
 class MjCambrianBaseFeaturesExtractor(BaseFeaturesExtractor):
@@ -122,7 +131,29 @@ class MjCambrianCombinedExtractor(MjCambrianBaseFeaturesExtractor):
         return features
 
 
-class MjCambrianLowLevelExtractor(MjCambrianBaseFeaturesExtractor):
+class MjCambrianImageFeaturesExtractor(MjCambrianBaseFeaturesExtractor):
+    """This is a feature extractor for images. Will implement an image queue for
+    temporal features. Should be inherited by other classes."""
+
+    def __init__(
+        self,
+        observation_space: gym.Space,
+        features_dim: int,
+        activation: nn.Module,
+    ):
+        super().__init__(observation_space, features_dim)
+
+        queue_size = observation_space.shape[0]
+        self.temporal_linear = torch.nn.Sequential(
+            torch.nn.Linear(features_dim * queue_size, features_dim),
+            activation(),
+        )
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        return self.temporal_linear(observations)
+
+
+class MjCambrianLowLevelExtractor(MjCambrianImageFeaturesExtractor):
     """MLP feature extractor for small images. Essentially NatureCNN but with MLPs."""
 
     def __init__(
@@ -131,11 +162,9 @@ class MjCambrianLowLevelExtractor(MjCambrianBaseFeaturesExtractor):
         features_dim: int,
         activation: nn.Module,
     ) -> None:
-        # We assume TxHxWxC images (channels last as input)
-        super().__init__(observation_space, features_dim)
+        super().__init__(observation_space, features_dim, activation)
 
-        time_steps = observation_space.shape[0]
-        n_input_channels = observation_space.shape[1]
+        n_input_channels = 3  # observation_space.shape[1]
         height = observation_space.shape[2]
         width = observation_space.shape[3]
         self.num_pixels = n_input_channels * height * width
@@ -150,22 +179,16 @@ class MjCambrianLowLevelExtractor(MjCambrianBaseFeaturesExtractor):
             activation(),
         )
 
-        self.temporal_linear = torch.nn.Sequential(
-            torch.nn.Linear(features_dim * time_steps, features_dim),
-            activation(),
-        )
-
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         B = observations.shape[0]
 
-        observations = observations.reshape(-1, self.num_pixels)  # [B, C * T * H * W]
+        observations = observations.reshape(B, self.num_pixels)  # [B, C * H * W]
         encodings = self.mlp(observations)
-        encodings = encodings.view(B, -1)  # [B, T * features_dim]
 
-        return self.temporal_linear(encodings)
+        return super().forward(encodings)
 
 
-class MjCambrianNatureCNNExtractor(MjCambrianBaseFeaturesExtractor):
+class MjCambrianNatureCNNExtractor(MjCambrianImageFeaturesExtractor):
     """This class overrides the default CNN feature extractor of Stable Baselines 3.
 
     The default feature extractor doesn't support images smaller than 36x36 because of
@@ -176,13 +199,14 @@ class MjCambrianNatureCNNExtractor(MjCambrianBaseFeaturesExtractor):
     """
 
     def __init__(
-        self, observation_space: gym.Space, features_dim: int, activation: nn.Module
-    ) -> None:
+        self,
+        observation_space: gym.Space,
+        features_dim: int,
+        activation: nn.Module,
+    ):
         super().__init__(observation_space, features_dim, activation)
         # We assume CxHxW images (channels first)
-        # Re-ordering will be done by pre-preprocessing or wrapper
 
-        time_steps = observation_space.shape[0]
         n_input_channels = observation_space.shape[1]
         if min(observation_space.shape[1:]) > 36:
             self.cnn = torch.nn.Sequential(
@@ -215,11 +239,6 @@ class MjCambrianNatureCNNExtractor(MjCambrianBaseFeaturesExtractor):
             torch.nn.Linear(n_flatten, features_dim), activation()
         )
 
-        self.temporal_linear = torch.nn.Sequential(
-            torch.nn.Linear(features_dim * time_steps, features_dim),
-            activation(),
-        )
-
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         T = observations.shape[1]
 
@@ -228,5 +247,58 @@ class MjCambrianNatureCNNExtractor(MjCambrianBaseFeaturesExtractor):
             encoding = self.linear(self.cnn(observations[:, t]))
             encoding_list.append(encoding)
 
-        encodings = torch.cat(encoding_list, dim=1)
-        return self.temporal_linear(encodings)
+        return super().forward(torch.stack(encoding_list, dim=1))
+
+
+class MjCambrianOpticsFeaturesExtractor(MjCambrianImageFeaturesExtractor):
+    """This is an optimized version of the optics implementation which applies
+    optics (i.e. aperture, lens) at the feature extractor level rather than at
+    render time. There is negligible decrease in speed as compared to other
+    feature extractors.
+
+    Args:
+        config (MjCambrianOpticsConfig): Optics configuration. Unlike the implementation
+            where optics is defined in MjCambrianEye, the optics is fixed for all
+            eyes.
+        base_feature_extractor (MjCambrianBaseFeaturesExtractor): Base feature
+            extractor.
+    """
+
+    def __init__(
+        self,
+        observation_space: gym.Space,
+        features_dim: int,
+        activation: nn.Module,
+        *,
+        config: MjCambrianOpticsConfig,
+        base_feature_extractor: Callable[
+            [gym.Space, int, nn.Module], MjCambrianBaseFeaturesExtractor
+        ],
+    ):
+        super().__init__(observation_space, features_dim, activation)
+        self._base_feature_extractor = base_feature_extractor(
+            observation_space, features_dim, activation
+        )
+
+        n_input_channels = observation_space.shape[1]
+        assert n_input_channels == 4, f"Expected 4 channels, got {n_input_channels}. "
+        "Ensure `use_depth_obs` is set to True in the eye config."
+
+        self._optics = MjCambrianOptics(config)
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        # B, T, C, H, W = observations.shape where T is temporal dim
+        # The number of channels should be == 4 where the first 3 are RGB and the last
+        # is depth.
+        rgb = observations[:, :, :3]
+        depth = observations[:, :, 3:]
+        with torch.no_grad():
+            # Call optics on all image observations first
+            B, T, _, H, W = observations.shape
+
+            rgb = rgb.reshape(B * T, 3, H, W)  # [B * T, C, H, W]
+            depth = depth.reshape(B * T, 1, H, W)  # [B * T, C, H, W]
+            rgb = self._optics.step(rgb, depth)
+            rgb = rgb.reshape(B, T, 3, H, W)
+
+        return self._base_feature_extractor(rgb)

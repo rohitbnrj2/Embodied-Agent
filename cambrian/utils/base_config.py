@@ -14,6 +14,7 @@ from pathlib import Path
 from functools import partial
 import enum
 
+import numpy as np
 import hydra_zen as zen
 from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf, DictConfig, ListConfig, MissingMandatoryValue
@@ -163,7 +164,7 @@ class MjCambrianContainerConfig:
 
     def values(self) -> ValuesView[Any]:
         """Wrapper of the values method to return the values of the content as a
-        MjCambrianContainrConfig if the item is a OmegaConf config."""
+        MjCambrianContainerConfig if the item is a OmegaConf config."""
         values: List[Any] = []
 
         for key, value in self._content.items():
@@ -402,7 +403,8 @@ def search(
 
 register_new_resolver("search", search)
 register_new_resolver("parent", partial(search, mode="parent_key"))
-register_new_resolver("eval", eval)
+register_new_resolver("eval", lambda src: eval(src, {}, {"np": np}))
+
 
 # =============================================================================
 # Utilities for config loading
@@ -473,9 +475,7 @@ def instance_wrapper(*, instance: Type[Any], **kwargs):
             for key, value in kwargs.items():
                 # Special case if value is the wrapper in flag_wrapper
                 if callable(value):
-                    print(key, value)
                     value = value()
-                    print(value)
                 setattr(instance, key, value)
         except Exception as e:
             raise ValueError(f"Error when setting attribute {key=} to {value=}: {e}")

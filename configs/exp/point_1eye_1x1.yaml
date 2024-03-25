@@ -19,13 +19,13 @@ env:
           fov: [45, 20]
           coord: [10, 0]
 
-          optics:
-            padded_resolution: [23, 23]
+          # optics:
+          #   padded_resolution: [23, 23]
 
-            noise_std: 0.01
+          #   noise_std: 0.01
 
-            aperture: 1.0
-            wavelengths: [610e-9, 530e-9, 470e-9]
+          #   aperture: 1.0
+          #   wavelengths: [610e-9, 530e-9, 470e-9]
 
           renderer:
             render_modes: [rgb_array, depth_array]

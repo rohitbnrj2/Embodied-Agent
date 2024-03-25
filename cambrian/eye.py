@@ -1,6 +1,5 @@
 from typing import Tuple, Optional
 import numpy as np
-from copy import deepcopy
 
 import mujoco as mj
 from gymnasium import spaces
@@ -27,15 +26,18 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
             `sensorsize`, if set. Fmt: fovx fovy.
         focal (Tuple[float, float]): The focal length of the camera.
             Fmt: focal_x focal_y.
+        sensorsize (Tuple[float, float]): The size of the sensor. Fmt: width height.
         resolution (Tuple[int, int]): The width and height of the rendered image.
             Fmt: width height.
-
         coord (Tuple[float, float]): The x and y coordinates of the eye.
             This is used to determine the placement of the eye on the animal.
             Specified in degrees. This attr isn't actually used by eye, but by the
             animal. The eye has no knowledge of the geometry it's trying to be placed
             on. Fmt: lat lon
 
+        use_depth_obs (bool): Whether to use depth observations. If True, the depth
+            observation will be included in the observation space. If False, only the
+            rgb observation will be included.
         optics (Optional[MjCambrianOpticsConfig]): The optics config to use for the eye.
             Optics is disabled if this is unset.
 
@@ -48,10 +50,11 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     quat: Tuple[float, float, float, float]
     fov: Tuple[float, float]
     focal: Tuple[float, float]
+    sensorsize: Tuple[float, float]
     resolution: Tuple[int, int]
-
     coord: Tuple[float, float]
 
+    use_depth_obs: bool
     optics: Optional[MjCambrianOpticsConfig] = None
 
     renderer: MjCambrianRendererConfig
@@ -78,9 +81,7 @@ class MjCambrianEye:
 
         self._optics: MjCambrianOptics = None
         if self.config.optics is not None:
-            self._optics = MjCambrianOptics(
-                self.config.optics, self.name, self.config.resolution
-            )
+            self._optics = MjCambrianOptics(self.config.optics)
             assert (
                 "depth_array" in self.config.renderer.render_modes
             ), "Must specify 'depth_array' in the render modes for the renderer config."
@@ -132,16 +133,8 @@ class MjCambrianEye:
             parent = xml.add(parent, element.tag, **element.attrib)
         assert parent is not None, f"Could not find parent for '{parent_body_name}'"
 
-        # Calculate the mujoco parameters for the camera
-        fovx, fovy = self.config.fov
-        focalx, focaly = self.config.focal
-        sensorsize = [
-            float(2 * focalx * np.tan(np.radians(fovx) / 2)),
-            float(2 * focaly * np.tan(np.radians(fovy) / 2)),
-        ]
-        resolution = [self._renderer.config.width, self._renderer.config.height]
-
         # Finally add the camera element at the end
+        resolution = [self._renderer.config.width, self._renderer.config.height]
         xml.add(
             parent,
             "camera",
@@ -149,9 +142,9 @@ class MjCambrianEye:
             mode="fixed",
             pos=" ".join(map(str, self.config.pos)),
             quat=" ".join(map(str, self.config.quat)),
-            resolution=" ".join(map(str, resolution)),
             focal=" ".join(map(str, self.config.focal)),
-            sensorsize=" ".join(map(str, sensorsize)),
+            sensorsize=" ".join(map(str, self.config.sensorsize)),
+            resolution=" ".join(map(str, resolution)),
         )
 
         return xml
@@ -163,15 +156,13 @@ class MjCambrianEye:
         self._data = data
 
         self._renderer.reset(model, data, *self.config.resolution)
-        if self._optics is not None:
-            self._optics.reset(model)
 
         fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, self.name)
         assert fixedcamid != -1, f"Camera '{self.name}' not found."
         self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
         self._renderer.viewer.camera.fixedcamid = fixedcamid
 
-        self._prev_obs = np.zeros((*self.config.resolution, 3), dtype=np.float32)
+        self._prev_obs = np.zeros(self.observation_space.shape, dtype=np.float32)
 
         return self.step()
 
@@ -197,15 +188,26 @@ class MjCambrianEye:
             rgb = self._renderer.render()
 
         if self._optics is not None:
-            rgb = self._optics.forward(rgb, depth)
+            rgb = self._optics.step(rgb, depth)
 
+        if self.config.use_depth_obs:
+            return np.concatenate([rgb, depth[..., None]], axis=-1)
         return rgb
 
     @property
     def observation_space(self) -> spaces.Box:
-        """The observation space is just the rgb image."""
+        """Constructs the observation space for the eye. The observation space is a
+        `spaces.Box` with the shape of the resolution of the eye. If `use_depth_obs` is
+        True, then the observation space will have 4 channels (r, g, b, depth). If
+        `use_depth_obs` is False, then the observation space will have 3 channels (r, g,
+        b). The values are in the range [0, 1]."""
 
-        shape = (*self.config.resolution, 3)
+        if self.config.use_depth_obs:
+            # (r, g, b, depth)
+            shape = (*self.config.resolution, 4)
+        else:
+            shape = (*self.config.resolution, 3)
+
         return spaces.Box(0.0, 1.0, shape=shape, dtype=np.float32)
 
     @property

@@ -6,7 +6,7 @@ instance:
   _partial_: true
 
 use_action_obs: true
-n_temporal_obs: 5
+n_temporal_obs: 1
 
 # Default configuration is no eyes
 eyes: {}

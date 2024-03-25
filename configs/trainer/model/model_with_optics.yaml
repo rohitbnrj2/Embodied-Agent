@@ -1,0 +1,20 @@
+defaults:
+  - model@_here_
+  - /env/animals/eyes/optics@policy_kwargs.features_extractor_kwargs.image_extractor.config: ${env/animals/eyes/optics}
+
+policy_kwargs:
+  features_extractor_kwargs:
+    image_extractor:
+      _target_: cambrian.ml.features_extractors.MjCambrianOpticsFeaturesExtractor
+      _partial_: true
+      features_dim: ${..output_dim}
+      activation: ${..activation}
+      config:
+        # All defaults are stored at custom.default.*. Grab them here for the defaults.
+        # Usually the interpolation ${..resolution}/${..sensorsize} is used, but an eye
+        # is not the above config in this case like it is in the animal configs.
+        eye_resolution: ${custom.default.eye.resolution}
+        eye_sensorsize: ${custom.default.eye.sensorsize}
+      base_feature_extractor:
+        _target_: cambrian.ml.features_extractors.MjCambrianLowLevelExtractor
+        _partial_: true

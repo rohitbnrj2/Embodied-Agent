@@ -1,10 +1,8 @@
-from typing import Tuple, Optional
+from typing import Tuple
 
 import torch
 import numpy as np
-import mujoco as mj
 
-from cambrian.utils import get_camera_id
 from cambrian.utils.base_config import MjCambrianBaseConfig, config_wrapper
 
 
@@ -30,44 +28,36 @@ class MjCambrianOpticsConfig(MjCambrianBaseConfig):
     noise_std: float
     wavelengths: Tuple[float, float, float]
 
+    # These should be copies of the attributes from the eye config
+    eye_resolution: Tuple[int, int]
+    eye_sensorsize: Tuple[float, float]
 
-class MjCambrianOptics(torch.nn.Module):
+
+class MjCambrianOptics:
     """This class applies the depth invariant PSF to the image.
 
     Args:
         config (MjCambrianOpticsConfig): Config for the optics module.
-
-        name (str): Name of the camera in the MJCF file. Also the name of the eye.
-        resolution (Tuple[int, int]): Resolution of the eye's sensor.
     """
 
-    def __init__(
-        self, config: MjCambrianOpticsConfig, name: str, resolution: Tuple[int, int]
-    ):
+    def __init__(self, config: MjCambrianOpticsConfig):
         self.config = config
-
-        self._name = name
-        self._resolution = resolution
 
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def reset(self, model: mj.MjModel):
-        self._fixedcamid = get_camera_id(model, self._name)
-        self._reset_psf(model)
+        self._reset_psf()
 
-    def _reset_psf(self, model: mj.MjModel):
+    def _reset_psf(self):
         """Define a simple point spread function (PSF) for the eye."""
 
-        focal = model.cam_intrinsic[self._fixedcamid][:2]
-
         # Mx,My defines the number of pixels in x,y direction (i.e. width, height)
-        Mx, My = model.cam_resolution[self._fixedcamid]
+        Mx, My = self.config.padded_resolution
         assert Mx > 2 and My > 2, f"Sensor resolution must be > 2: {Mx=}, {My=}"
         assert Mx % 2 and My % 2, f"Sensor resolution must be odd: {Mx=}, {My=}"
 
         # dx/dy defines the pixel pitch (m) (i.e. distance between the centers of
         # adjacent pixels) of the sensor
-        sx, sy = model.cam_sensorsize[self._fixedcamid]
+        sx, sy = self.config.eye_sensorsize
         dx, dy = sx / Mx, sy / My
 
         # Lx/Ly defines the length of the sensor plane (m)
@@ -97,7 +87,6 @@ class MjCambrianOptics(torch.nn.Module):
         self.Y1 = Y1.to(self._device)
         self.FX = FX.to(self._device)
         self.FY = FY.to(self._device)
-        self.focal = focal
 
         self.wavelengths = torch.tensor(self.config.wavelengths).to(self._device)
         self.wavelengths = self.wavelengths.unsqueeze(-1).unsqueeze(-1)
@@ -126,7 +115,7 @@ class MjCambrianOptics(torch.nn.Module):
         self.u3 = torch.empty_like(self.u1)
         self.psf = torch.empty_like(self.u1)
 
-    def forward(
+    def step(
         self, image: torch.Tensor | np.ndarray, depth: torch.Tensor | np.ndarray
     ) -> torch.Tensor | np.ndarray:
         """Apply the depth invariant PSF to the image."""
@@ -141,7 +130,7 @@ class MjCambrianOptics(torch.nn.Module):
             return_np = True
         else:
             assert (
-                image.device == self._device
+                image.device.type == self._device.type
             ), f"Device mismatch: {image.device=}, {self._device=}"
 
         # Add noise to the image if specified
@@ -150,12 +139,15 @@ class MjCambrianOptics(torch.nn.Module):
 
         # Apply the depth invariant PSF
         psf = self._calc_depth_invariant_psf(torch.mean(depth))
-        image = image.permute(2, 0, 1).unsqueeze(0)
+        # Image may be batched in the form
+        if len(image.shape) == 3:
+            image = image.permute(2, 0, 1).unsqueeze(0)
         psf = psf.unsqueeze(1)
         image = torch.nn.functional.conv2d(image, psf, padding="same", groups=3)
 
         # Post-process the image
-        image = image.squeeze(0).permute(1, 2, 0)
+        if len(image.shape) == 3:
+            image = image.squeeze(0).permute(1, 2, 0)
         image = self._crop(image)
         image = torch.clip(image, 0, 1)
 
@@ -197,10 +189,20 @@ class MjCambrianOptics(torch.nn.Module):
         return self.psf.real
 
     def _crop(self, image: torch.Tensor) -> torch.Tensor:
-        """Crop the image to the resolution specified in the config. This crops the
-        center part of the image."""
-        width, height = image.shape[0], image.shape[1]
-        target_width, target_height = self._resolution
-        top = (height - target_height) // 2
-        left = (width - target_width) // 2
-        return image[top : top + target_height, left : left + target_width]
+        """Crop the image to the resolution specified in the config. This method supports
+        input shapes [W, H, 3] and [B, 3, W, H]. It crops the center part of the image.
+        """
+        if image.dim() == 4:  # [B, 3, W, H]
+            _, _, width, height = image.shape
+            target_width, target_height = self.config.eye_resolution
+            top = (height - target_height) // 2
+            left = (width - target_width) // 2
+            return image[:, :, top : top + target_height, left : left + target_width]
+        elif image.dim() == 3:  # [W, H, 3]
+            width, height, _ = image.shape
+            target_width, target_height = self.config.eye_resolution
+            top = (height - target_height) // 2
+            left = (width - target_width) // 2
+            return image[top : top + target_height, left : left + target_width, :]
+        else:
+            raise ValueError("Unsupported image shape.")

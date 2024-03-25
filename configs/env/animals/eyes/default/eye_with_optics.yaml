@@ -1,6 +1,0 @@
-# @package custom.default.eye_with_optics
-# We aren't actually going to use this eye, so store it in custom just to put it somewhere
-
-defaults:
-  - eye@_here_
-  - /env/animals/eyes/optics/default@optics: ${env/animals/eyes/optics/default}

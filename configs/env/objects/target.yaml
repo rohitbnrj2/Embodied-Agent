@@ -1,5 +1,5 @@
 defaults:
-  - /default/${env/objects/default}@_here_
+  - /${env/objects}@_here_
 
 xml:
   _target_: cambrian.utils.cambrian_xml.convert_xml_to_yaml

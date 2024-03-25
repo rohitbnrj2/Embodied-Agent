@@ -1,7 +1,7 @@
 from typing import List, Optional, Tuple, Callable
 from abc import ABC, abstractmethod
 from pathlib import Path
-from enum import Flag, auto, EnumMeta
+from enum import Flag, auto
 
 import glfw
 import numpy as np
