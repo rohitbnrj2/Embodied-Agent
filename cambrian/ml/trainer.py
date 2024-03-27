@@ -1,4 +1,4 @@
-from typing import Dict, TYPE_CHECKING
+from typing import Dict, Callable, TYPE_CHECKING
 from pathlib import Path
 
 from stable_baselines3.common.vec_env import (
@@ -14,7 +14,7 @@ from cambrian.envs.env import MjCambrianEnv
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy, setattrs_temporary
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
-from cambrian.utils.wrappers import make_single_env
+from cambrian.utils.wrappers import make_wrapped_env
 from cambrian.utils.logger import get_logger
 
 if TYPE_CHECKING:
@@ -39,7 +39,8 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
     n_envs: int
 
     model: MjCambrianModel
-    callbacks: Dict[str, BaseCallback]
+    callbacks: Dict[str, BaseCallback | Callable[[VecEnv], BaseCallback]]
+    wrappers: Dict[str, Callable[[VecEnv], VecEnv]]
 
 
 class MjCambrianTrainer:
@@ -123,7 +124,11 @@ class MjCambrianTrainer:
         assert n_envs > 0, f"n_envs must be > 0, got {n_envs}."
 
         env_config = self.config.env.copy()
-        envs = [make_single_env(env_config, self._calc_seed(i)) for i in range(n_envs)]
+        envs = []
+        for i in range(n_envs):
+            env_config = self.config.env.copy()
+            wrappers = list(self.trainer_config.wrappers.values())
+            envs.append(make_wrapped_env(env_config, wrappers, self._calc_seed(i)))
 
         if n_envs == 1:
             vec_env = DummyVecEnv(envs)

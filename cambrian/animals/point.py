@@ -1,10 +1,9 @@
 from typing import Dict, List, Any
 
-from mujoco import MjData, MjModel
 import numpy as np
 from gymnasium import spaces
 
-from cambrian.animals.animal import MjCambrianAnimal
+from cambrian.animals.animal import MjCambrianAnimal, MjCambrianAnimalConfig
 from cambrian.utils import setattrs_temporary
 
 
@@ -26,6 +25,24 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
     NOTE: The action obs is still the global velocities and rotational position.
     """
 
+    def __init__(self, config: MjCambrianAnimalConfig):
+        super().__init__(config)
+
+        # Store the constant action. Set the constant actions to None so they're not 
+        # applied in the base animal class.
+        self._constant_actions = self.config.constant_actions.copy()
+        self.config.constant_actions = None
+
+    def _check_config(self, config: MjCambrianAnimalConfig) -> MjCambrianAnimalConfig:
+        config = super()._check_config(config)
+
+        # Check constant actions
+        if config.constant_actions:
+            assert len(config.constant_actions) == 2, (
+                "constant_actions must have two elements, "
+                f"got {len(config.constant_actions)}."
+            )
+
     def _get_obs(self) -> Dict[str, Any]:
         """Creates the entire obs dict."""
         obs = super()._get_obs()
@@ -34,7 +51,7 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
         # Calculate the global velocities
         if self.config.use_action_obs:
             vx, vy, theta = self.last_action
-            v, theta = np.sqrt(vx**2 + vy**2), np.arctan2(vy, vx) - self.qpos[2]
+            v, theta = np.hypot(vx, vy), np.arctan2(vy, vx) - self.qpos[2]
             obs["action"] = np.array([v, theta], dtype=np.float32)
 
         return obs
@@ -45,26 +62,21 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
         assert len(action) == 2, f"Action must have two elements, got {len(action)}."
 
         # Apply the constant actions if they exist
-        if self.config.constant_actions:
-            assert len(action) == 2, (
-                f"Number of actions ({len(action)}) does not match "
-                f"constant_actions ({self.config.constant_actions})."
-            )
+        if self._constant_actions is not None:
             action = [
                 constant_action or action
-                for action, constant_action in zip(action, self.config.constant_actions)
+                for action, constant_action in zip(action, self._constant_actions)
             ]
 
         # map the v action to be between 0 and 1
-        v = np.interp(action[0], [-1, 1], [0, 1])
+        v = (action[0] + 1) / 2
 
         # Calculate the global velocities
         theta = self._data.qpos[self._joint_qposadr + 2]
         new_action = [v * np.cos(theta), v * np.sin(theta), action[1]]
 
-        # Update the constant actions to be None so that they're not applied again
-        with setattrs_temporary((self.config, dict(constant_actions=None))):
-            super().apply_action(new_action)
+        # Call the base implementation with the new action
+        super().apply_action(new_action)
 
     @property
     def observation_space(self) -> spaces.Space:

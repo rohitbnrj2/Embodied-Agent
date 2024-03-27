@@ -1,6 +1,7 @@
 defaults:
   - model: model
   - callbacks: callbacks
+  - wrappers: wrappers
 
 total_timesteps: 1_000_000
 max_episode_steps: 256

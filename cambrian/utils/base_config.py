@@ -1,9 +1,11 @@
 from typing import (
+    Tuple,
     Dict,
     Any,
     Optional,
     Self,
     Type,
+    KeysView,
     ItemsView,
     ValuesView,
     List,
@@ -17,7 +19,8 @@ import enum
 import numpy as np
 import hydra_zen as zen
 from hydra.core.config_store import ConfigStore
-from omegaconf import OmegaConf, DictConfig, ListConfig, MissingMandatoryValue
+from omegaconf import OmegaConf, DictConfig, ListConfig, MissingMandatoryValue, Node
+
 
 # =============================================================================
 # Config classes and methods
@@ -149,18 +152,9 @@ class MjCambrianContainerConfig:
         with open(path, "w") as f:
             f.write(self.to_yaml())
 
-    def items(self) -> ItemsView[Any, Any]:
-        """Wrapper of the items method to return the items of the content as a
-        MjCambrianContainrConfig if the item is a OmegaConf config."""
-        items: List[Dict[Any, Any]] = []
-
-        for key, value in self._content.items():
-            if OmegaConf.is_config(value):
-                config = getattr(self._config, key)
-                items.append((key, MjCambrianContainerConfig(value, config=config)))
-            else:
-                items.append((key, value))
-        return items
+    def keys(self) -> KeysView[Any]:
+        """Wrapper of the keys method to return the keys of the content."""
+        return self._content.keys()
 
     def values(self) -> ValuesView[Any]:
         """Wrapper of the values method to return the values of the content as a
@@ -169,17 +163,32 @@ class MjCambrianContainerConfig:
 
         for key, value in self._content.items():
             if OmegaConf.is_config(value):
-                config = getattr(self._config, key)
+                # Grab the config without validation. This uses internal methods.
+                config = self._config._get_child(key, False, False)
                 values.append(MjCambrianContainerConfig(value, config=config))
             else:
                 values.append(value)
         return values
 
+    def items(self) -> ItemsView[Any, Any]:
+        """Wrapper of the items method to return the items of the content as a
+        MjCambrianContainrConfig if the item is a OmegaConf config."""
+        items: List[Dict[Any, Any]] = []
+
+        for key, value in self._content.items():
+            if OmegaConf.is_config(value):
+                # Grab the config without validation. This uses internal methods.
+                config = self._config._get_child(key, False, False)
+                items.append((key, MjCambrianContainerConfig(value, config=config)))
+            else:
+                items.append((key, value))
+        return items
+
+
     def copy(self) -> Self:
         """Wrapper around the copy method to return a new instance of this class."""
-        return MjCambrianContainerConfig(
-            self._content.copy(), config=self._config.copy()
-        )
+        content, config = self._content.copy(), self._config.copy()
+        return MjCambrianContainerConfig(content, config=config)
 
     def __getattr__(self, name: str) -> Self | Any:
         """Get the attribute from the content and return the wrapped instance. If the
@@ -190,12 +199,12 @@ class MjCambrianContainerConfig:
         means {_target_: ...} will be returned rather than the actual instantiated
         Dict object.
         """
-        content = getattr(self._content, name)
-        if OmegaConf.is_config(content):
-            config = getattr(self._config, name)
-            return MjCambrianContainerConfig(content, config=config)
-        else:
-            return content
+        return self._get_impl(name)
+
+    def __getitem__(self, key: Any) -> Self | Any:
+        """Get the item from the content and return the wrapped instance. If the item is
+        a DictConfig or ListConfig, we'll wrap it in this class."""
+        return self._get_impl(key)
 
     def __setattr__(self, name: str, value: Any):
         """Set the attribute in the content."""
@@ -205,16 +214,6 @@ class MjCambrianContainerConfig:
         else:
             setattr(self._content, name, value)
             setattr(self._config, name, value)
-
-    def __getitem__(self, key: Any) -> Self | Any:
-        """Get the item from the content and return the wrapped instance. If the item is
-        a DictConfig or ListConfig, we'll wrap it in this class."""
-        content = self._content[key]
-        if OmegaConf.is_config(content):
-            config = self._config[key]
-            return MjCambrianContainerConfig(content, config=config)
-        else:
-            return content
 
     def __setitem__(self, key: Any, value: Any):
         """Set the item in the content."""
@@ -252,6 +251,32 @@ class MjCambrianContainerConfig:
     def __str__(self) -> str:
         return self.to_yaml()
 
+    # ===========
+    # Internal utils
+
+    def _get_impl(self, key: Any, default_value: Any = None) -> Any:
+        """Perform access of the underlying data structures. This is an optimized 
+        version which uses internal methods of OmegaConf."""
+
+        try:
+            node = self._content._get_child(key)
+        except (AttributeError, KeyError) as e:
+            if default_value is not None:
+                return default_value
+            self._content._format_and_raise(key, None, cause=e)
+
+        assert isinstance(node, Node)
+        content = self._content._resolve_with_default(key, node, default_value)
+
+        # If the content is a config, we'll wrap it in this class
+        if OmegaConf.is_config(content):
+            # Get the same key from the config. Since we have already checked types 
+            # and the key exists, we can safely access the key from the config without 
+            # validation.
+            config = self._config._get_child(key, False, False)
+            return MjCambrianContainerConfig(content, config=config)
+        else:
+            return content
 
 class MjCambrianDictConfig(MjCambrianContainerConfig, DictConfig):
     """This is a wrapper around the OmegaConf DictConfig class.

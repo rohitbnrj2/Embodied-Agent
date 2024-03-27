@@ -1,4 +1,4 @@
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, Callable, List
 
 import gymnasium as gym
 from stable_baselines3.common.env_checker import check_env
@@ -36,15 +36,35 @@ class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
             info[self.animal.name],
         )
 
+class MjCambrianConstantActionWrapper(gym.Wrapper):
+    """This wrapper will apply a constant action at specific indices of the action 
+    space.
+    
+    Args:
+        constant_actions: A dictionary where the keys are the indices of the action 
+            space and the values are the constant actions to apply.
+    """
 
-def make_single_env(
-    config: MjCambrianEnvConfig, seed: Optional[int] = None, **kwargs
-) -> MjCambrianSingleAnimalEnvWrapper:
-    """Utility function for multiprocessed MjCambrianSingleAnimalEnvWrapper."""
+    def __init__(self, env: MjCambrianEnv, constant_actions: Dict[Any, Any]):
+        super().__init__(env)
+
+        self.constant_action_indices = list(constant_actions.keys())
+        self.constant_action_values = list(constant_actions.values())
+
+    def step(self, action: Any) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
+        action[self.constant_action_indices] = self.constant_action_values
+
+        return self.env.step(action)
+
+def make_wrapped_env(
+    config: MjCambrianEnvConfig, wrappers: List[Callable[[gym.Env], gym.Env]], seed: Optional[int] = None, **kwargs
+) -> gym.Env:
+    """Utility function for creating a MjCambrianEnv."""
 
     def _init():
         env = config.instance(config, **kwargs)
-        env = MjCambrianSingleAnimalEnvWrapper(env)
+        for wrapper in wrappers:
+            env = wrapper(env)
         env.reset(seed=seed)
         check_env(env, warn=False)
         return env
