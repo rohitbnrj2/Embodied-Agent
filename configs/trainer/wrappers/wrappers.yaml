@@ -1,10 +1,4 @@
-wrappers:
-  single_animal_env_wrapper:
-    _target_: cambrian.utils.wrappers.MjCambrianSingleAnimalEnvWrapper
-    _partial_: true
-  constant_action_wrapper:
-    _target_: cambrian.utils.wrappers.ConstantActionWrapper
-    _partial_: true
-    constant_actions:
-      0: -1.0
-      1: 0.0
+# Wrappers are applied in the order they are listed here (top to bottom)
+single_animal_env_wrapper:
+  _target_: cambrian.utils.wrappers.MjCambrianSingleAnimalEnvWrapper
+  _partial_: true

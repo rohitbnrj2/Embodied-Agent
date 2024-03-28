@@ -36,12 +36,13 @@ class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
             info[self.animal.name],
         )
 
+
 class MjCambrianConstantActionWrapper(gym.Wrapper):
-    """This wrapper will apply a constant action at specific indices of the action 
+    """This wrapper will apply a constant action at specific indices of the action
     space.
-    
+
     Args:
-        constant_actions: A dictionary where the keys are the indices of the action 
+        constant_actions: A dictionary where the keys are the indices of the action
             space and the values are the constant actions to apply.
     """
 
@@ -56,8 +57,12 @@ class MjCambrianConstantActionWrapper(gym.Wrapper):
 
         return self.env.step(action)
 
+
 def make_wrapped_env(
-    config: MjCambrianEnvConfig, wrappers: List[Callable[[gym.Env], gym.Env]], seed: Optional[int] = None, **kwargs
+    config: MjCambrianEnvConfig,
+    wrappers: List[Callable[[gym.Env], gym.Env]],
+    seed: Optional[int] = None,
+    **kwargs
 ) -> gym.Env:
     """Utility function for creating a MjCambrianEnv."""
 

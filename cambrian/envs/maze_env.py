@@ -147,9 +147,11 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
         self.maze_store.reset(self.model)
 
         # For each animal, generate an initial position
+        # TODO: is there a better way to do this?
         for animal in self.animals.values():
             reset_pos = self.maze.generate_reset_pos()
-            animal.config.initial_qpos[: len(reset_pos)] = reset_pos
+            for i in range(len(reset_pos)):
+                animal.config.initial_qpos[i] = float(reset_pos[i])
 
         # For each object, generate an initial position
         for obj in self.objects.values():

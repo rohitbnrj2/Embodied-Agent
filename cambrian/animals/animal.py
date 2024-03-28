@@ -50,17 +50,15 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             is the longitudinal/horizontal range of the evenly placed eye about the
             animal's bounding sphere.
 
-        initial_qpos (np.array[float]]): The initial qpos of the animal.
-            If None, the initial qpos will be generated randomly using
-            `maze.generate_reset_pos` method.
-        constant_actions (Optional[List[float | None]]): The constant velocity to use for
-            the animal. If not None, the len(constant_actions) must equal number of
-            actuators defined in the model. For instance, if there are 3 actuators
-            defined and it's desired to have the 2nd actuator be constant, then
-            constant_actions = [None, 0, None]. If None, no constant action will be
-            applied.
+        initial_qpos (Dict[int, float]): The initial qpos of the animal. Indices are
+            the qpos adr and the values are the initial values. This is used to set the
+            initial position of the animal in the environment. The indices are 
+            actually calculated as the qpos adr of the joints associated with the 
+            animal plus the index specified in the dict.
 
-        use_action_obs (bool): Whether to use the action observation or not.
+        use_action_obs (bool): Whether to use the action observation or not. NOTE: If
+            the MjCambrianConstantActionWrapper is used, this is not reflected in the
+            observation.
         n_temporal_obs (int): The number of temporal observations to use, i.e. the
             size of the queue for the eye observations.
 
@@ -83,8 +81,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     eyes_lat_range: Tuple[float, float]
     eyes_lon_range: Tuple[float, float]
 
-    initial_qpos: np.ndarray[float | None] = None
-    constant_actions: Optional[List[float | None]] = None
+    initial_qpos: Dict[int, float]
 
     use_action_obs: bool
     n_temporal_obs: int
@@ -285,18 +282,6 @@ class MjCambrianAnimal:
 
         It is assumed that the actions are normalized between -1 and 1.
         """
-        if self.config.constant_actions:
-            assert len(actions) == self.config.constant_actions, (
-                f"Number of actions ({len(actions)}) does not match "
-                f"constant_actions ({self.config.constant_actions})."
-            )
-            actions = [
-                constant_action or action
-                for action, constant_action in zip(
-                    actions, self.config.constant_actions
-                )
-            ]
-
         for action, actuator in zip(actions, self._actuators):
             # Map from -1, 1 to ctrlrange
             action = np.interp(action, [-1, 1], [actuator.low, actuator.high])
@@ -321,9 +306,9 @@ class MjCambrianAnimal:
         # Set the last_action to the current action
         self.last_action = self._data.ctrl[self._actadrs].copy()
 
-        # Update the animal's pos/quat
-        if self.config.initial_qpos is not None:
-            self.qpos = self.config.initial_qpos
+        # Update the animal's qpos
+        for idx, val in self.config.initial_qpos.items():
+            self.qpos[idx] = val
 
         # step here so that the observations are updated
         mj.mj_forward(model, data)

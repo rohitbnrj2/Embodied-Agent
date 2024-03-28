@@ -179,10 +179,12 @@ class MjCambrianEnv(gym.Env):
         for name, animal in self.animals.items():
             obs[name] = animal.reset(self.model, self.data)
 
-            info[name]["qpos"] = animal.qpos
-
-        # We'll step the simulation once to allow for states to propogate
+        # We'll step the simulation once to allow for states to propagate
         self._step_mujoco_simulation(1)
+
+        # Now update the info dict
+        for name, animal in self.animals.items():
+            info[name]["qpos"] = animal.qpos
 
         if self.renderer is not None:
             self.renderer.reset(self.model, self.data)
@@ -215,9 +217,7 @@ class MjCambrianEnv(gym.Env):
 
         return self._update_obs(obs), self._update_info(info)
 
-    def step(
-        self, action: Dict[str, Any]
-    ) -> Tuple[
+    def step(self, action: Dict[str, Any]) -> Tuple[
         Dict[str, Any],
         Dict[str, float],
         Dict[str, bool],

@@ -1,5 +1,4 @@
 from typing import (
-    Tuple,
     Dict,
     Any,
     Optional,
@@ -72,8 +71,10 @@ class MjCambrianContainerConfig:
     def instantiate(
         cls,
         config: DictConfig | ListConfig,
+        *,
+        as_container: bool = False,
         **kwargs,
-    ) -> Self:
+    ) -> Self | DictConfig | ListConfig:
         """Instantiate the config using the structured config. Will check for missing
         keys and raise an error if any are missing."""
         # First instantiate the config (will replace _target_ with the actual class)
@@ -93,7 +94,12 @@ class MjCambrianContainerConfig:
                 value=None,
                 cause=MissingMandatoryValue("Missing mandatory value"),
             )
-        return MjCambrianContainerConfig(content, config=config.copy())
+        OmegaConf.set_struct(config, False)
+        
+        if as_container:
+            return content
+        else:
+            return MjCambrianContainerConfig(content, config=config.copy())
 
     @classmethod
     def load(cls, *args, **kwargs) -> Self:
@@ -184,7 +190,6 @@ class MjCambrianContainerConfig:
                 items.append((key, value))
         return items
 
-
     def copy(self) -> Self:
         """Wrapper around the copy method to return a new instance of this class."""
         content, config = self._content.copy(), self._config.copy()
@@ -199,12 +204,30 @@ class MjCambrianContainerConfig:
         means {_target_: ...} will be returned rather than the actual instantiated
         Dict object.
         """
-        return self._get_impl(name)
+        try:
+            return self._get_impl(name)
+        except Exception as e:
+            if isinstance(self._content, ListConfig):
+                # Special case here that if it's a ListConfig, we have to return an
+                # AttributeError since lists don't have keys
+                self._content._format_and_raise(
+                    name, None, cause=e, type_override=AttributeError
+                )
+            raise
 
     def __getitem__(self, key: Any) -> Self | Any:
         """Get the item from the content and return the wrapped instance. If the item is
         a DictConfig or ListConfig, we'll wrap it in this class."""
-        return self._get_impl(key)
+        if isinstance(self._content, DictConfig):
+            # If we're wrapping a DictConfig, __getitem__ is the same as __getattr__
+            return self.__getattr__(key)
+        else:
+            content = self._content[key]
+            if OmegaConf.is_config(content):
+                config = self._config[key]
+                return MjCambrianContainerConfig(content, config=config)
+            else:
+                return content
 
     def __setattr__(self, name: str, value: Any):
         """Set the attribute in the content."""
@@ -246,7 +269,7 @@ class MjCambrianContainerConfig:
 
     def __setstate__(self, state: Dict[str, Any]):
         """Set the state of the object from the pickled state."""
-        self.__init__(self.create(state))
+        self.__init__(self.instantiate(OmegaConf.create(state), as_container=True))
 
     def __str__(self) -> str:
         return self.to_yaml()
@@ -255,7 +278,7 @@ class MjCambrianContainerConfig:
     # Internal utils
 
     def _get_impl(self, key: Any, default_value: Any = None) -> Any:
-        """Perform access of the underlying data structures. This is an optimized 
+        """Perform access of the underlying data structures. This is an optimized
         version which uses internal methods of OmegaConf."""
 
         try:
@@ -265,18 +288,22 @@ class MjCambrianContainerConfig:
                 return default_value
             self._content._format_and_raise(key, None, cause=e)
 
+        if node is None:
+            return None
+
         assert isinstance(node, Node)
         content = self._content._resolve_with_default(key, node, default_value)
 
         # If the content is a config, we'll wrap it in this class
         if OmegaConf.is_config(content):
-            # Get the same key from the config. Since we have already checked types 
-            # and the key exists, we can safely access the key from the config without 
+            # Get the same key from the config. Since we have already checked types
+            # and the key exists, we can safely access the key from the config without
             # validation.
             config = self._config._get_child(key, False, False)
             return MjCambrianContainerConfig(content, config=config)
         else:
             return content
+
 
 class MjCambrianDictConfig(MjCambrianContainerConfig, DictConfig):
     """This is a wrapper around the OmegaConf DictConfig class.

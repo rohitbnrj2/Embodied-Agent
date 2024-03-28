@@ -25,24 +25,6 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
     NOTE: The action obs is still the global velocities and rotational position.
     """
 
-    def __init__(self, config: MjCambrianAnimalConfig):
-        super().__init__(config)
-
-        # Store the constant action. Set the constant actions to None so they're not 
-        # applied in the base animal class.
-        self._constant_actions = self.config.constant_actions.copy()
-        self.config.constant_actions = None
-
-    def _check_config(self, config: MjCambrianAnimalConfig) -> MjCambrianAnimalConfig:
-        config = super()._check_config(config)
-
-        # Check constant actions
-        if config.constant_actions:
-            assert len(config.constant_actions) == 2, (
-                "constant_actions must have two elements, "
-                f"got {len(config.constant_actions)}."
-            )
-
     def _get_obs(self) -> Dict[str, Any]:
         """Creates the entire obs dict."""
         obs = super()._get_obs()
@@ -60,13 +42,6 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
         """This differs from the base implementation as action only has two elements,
         but the model has three actuators. Calculate the global velocities here."""
         assert len(action) == 2, f"Action must have two elements, got {len(action)}."
-
-        # Apply the constant actions if they exist
-        if self._constant_actions is not None:
-            action = [
-                constant_action or action
-                for action, constant_action in zip(action, self._constant_actions)
-            ]
 
         # map the v action to be between 0 and 1
         v = (action[0] + 1) / 2

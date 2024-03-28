@@ -5,6 +5,9 @@ instance:
   _target_: cambrian.animals.animal.MjCambrianAnimal
   _partial_: true
 
+# Default configuration is randomly placed depending on the selected environment
+initial_qpos: {}
+
 use_action_obs: true
 n_temporal_obs: 1
 

@@ -8,21 +8,25 @@ defaults:
   # requirement in the default file listed above
   # Also note that you can't include the same maze twice; it will overwrite the previous
   # definition since the mazes attribute is a dictionary
-  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC
-  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC2
-  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC3
-  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC4
+  # _group_ is a special keyword which evaluates to the group of the config file, 
+  # as in /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC will evaluate to 
+  # env.mazes.I_MAZE_STATIC. This is equivalent to 
+  # /env/mazes/I_MAZE_STATIC@_group_._name_.
+  - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC 
+  - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC2
+  - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC3
+  - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC4
 
   # Same here; we define all the animals we want to use (in this case, just one)
-  - /env/animals/point@env.animals.point
+  - /env/animals/point@_group_.point_0
 
   # We also need to define the eyes for the animal. We'll use the default eye to serve
   # as the base for the single eye.
   # This basically says load "eye.yaml" in ./env/animals/eyes and place it at
-  # env.animals.point.eyes.point_0_eye_0 in the config
-  - /env/animals/eyes/eye@env.animals.point.eyes.point_0_eye_0
-  # Same idea excecpt now the eye is at env.animals.point.eyes.point_0_eye_1
-  - /env/animals/eyes/eye@env.animals.point.eyes.point_0_eye_1
+  # env.animals.point_0.eyes.eye_0 in the config
+  - /env/animals/eyes/eye@env.animals.point_0.eyes.eye_0
+  # Same idea except now the eye is at env.animals.point_0.eyes.eye_1
+  - /env/animals/eyes/eye@env.animals.point_0.eyes.eye_1
 
   # We then include the default config (located at in the same folder as this file
   # i.e. configs/exp/exp.yaml). This file defines required attributes we'll need
@@ -43,34 +47,31 @@ defaults:
 
 env:
   animals:
-    point:
+    point_0:
+      # Set the initial yaw to -pi / 2. Indices represent indices in the qpos array.
+      # The values should be between [-1, 1]. Mapped to the actual range of the joint 
+      # later.
       initial_qpos:
-        _target_: numpy.array
-        object:
-          - null
-          - null
-          - ${eval:'-3.14159 / 2'}
-      constant_actions:
-        - -1
-        - -0.5
+        2: -0.5
 
       eyes:
-        point_0_eye_0:
+        eye_0:
           resolution: [10, 10]
           fov: [45, 20]
           coord: [10, 0]
-
-          optics:
-            padded_resolution: [23, 23]
-
-            noise_std: 0.01
-
-            aperture: 1.0
-            wavelengths: [610e-9, 530e-9, 470e-9]
-
-          renderer:
-            render_modes: [rgb_array, depth_array]
-        point_0_eye_1:
+        eye_1:
           resolution: [1, 1]
           fov: [45, 20]
           coord: [10, 0]
+
+# This is an example of how to use the constant action wrapper
+# NOTE: This is applied _after_ base.yaml, so the wrappers are appended after all
+# previously defined wrappers
+trainer:
+  wrappers:
+    constant_action_wrapper:
+      _target_: cambrian.utils.wrappers.MjCambrianConstantActionWrapper
+      _partial_: true
+      constant_actions:
+        0: -1.0
+        1: -0.5
