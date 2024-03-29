@@ -99,9 +99,11 @@ class MjCambrianTrainer:
         eval_env = self._make_env(self.config.eval_env, 1, monitor="eval_monitor.csv")
         model = self._make_model(eval_env)
 
-        n_runs = len(self.config.eval_env.mazes) 
+        n_runs = len(self.config.eval_env.mazes)
         filename = self.config.logdir / "eval" if record else None
-        record_kwargs = dict(path=filename, save_mode=self.config.eval_env.renderer.save_mode)
+        record_kwargs = dict(
+            path=filename, save_mode=self.config.eval_env.renderer.save_mode
+        )
         evaluate_policy(eval_env, model, n_runs, record_kwargs=record_kwargs)
 
     # ========
@@ -121,8 +123,13 @@ class MjCambrianTrainer:
         # Create the environments
         envs = []
         for i in range(n_envs):
-            wrappers = list(self.trainer_config.wrappers.values())
-            envs.append(make_wrapped_env(config.copy(), wrappers, self._calc_seed(i)))
+            wrapped_env = make_wrapped_env(
+                config=config.copy(),
+                name=self.config.expname,
+                wrappers=list(self.trainer_config.wrappers.values()),
+                seed=self._calc_seed(i),
+            )
+            envs.append(wrapped_env)
 
         # Wrap the environments
         vec_env = DummyVecEnv(envs) if n_envs == 1 else SubprocVecEnv(envs)

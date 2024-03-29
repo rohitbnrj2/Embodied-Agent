@@ -56,7 +56,7 @@ class MjCambrianObjectEnvConfig(MjCambrianEnvConfig):
 class MjCambrianObjectEnv(MjCambrianEnv):
     """This is a subclass of `MjCambrianEnv` that adds support for goals."""
 
-    def __init__(self, config: MjCambrianObjectEnvConfig):
+    def __init__(self, config: MjCambrianObjectEnvConfig, **kwargs):
         self.config = config
 
         # Have to initialize the objects first since generate_xml is called from the
@@ -64,7 +64,7 @@ class MjCambrianObjectEnv(MjCambrianEnv):
         self.objects: Dict[str, MjCambrianObject] = {}
         self._create_objects()
 
-        super().__init__(config)
+        super().__init__(config, **kwargs)
 
     def _create_objects(self):
         """Creates the objects in the environment."""

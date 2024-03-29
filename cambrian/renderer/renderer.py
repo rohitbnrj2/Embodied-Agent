@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Callable
 from abc import ABC, abstractmethod
 from pathlib import Path
 from enum import Flag, auto
+from copy import deepcopy
 
 import glfw
 import numpy as np
@@ -107,8 +108,8 @@ class MjCambrianViewer(ABC):
         self.data = data
 
         self.scene = self.config.scene(model=model)
-        self.scene_options = self.config.scene_options
-        self.camera = self.config.camera
+        self.scene_options = deepcopy(self.config.scene_options)
+        self.camera = deepcopy(self.config.camera)
 
         self._initialize_contexts(width, height)
 

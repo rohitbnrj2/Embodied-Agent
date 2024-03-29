@@ -85,6 +85,12 @@ class MjCambrianContainerConfig:
     ) -> Self | DictConfig | ListConfig:
         """Instantiate the config using the structured config. Will check for missing
         keys and raise an error if any are missing."""
+        # Resolve the config prior to instantiation. This will resolve any high level
+        # interpolations before instantation such that the interpolations which are 
+        # configs in themselves will be the uninstantiated config. This is important
+        # since the instantiated config has objects that aren't picklable.
+        OmegaConf.resolve(config)
+
         # First instantiate the config (will replace _target_ with the actual class)
         # And then merge the structured config with the instantiated config to give it
         # validation.
@@ -102,30 +108,35 @@ class MjCambrianContainerConfig:
                 value=None,
                 cause=MissingMandatoryValue("Missing mandatory value"),
             )
-        OmegaConf.set_struct(config, False)
 
         if as_container:
             return content
         else:
-            return MjCambrianContainerConfig(content, config=config.copy())
+            config = config.copy()
+            OmegaConf.set_struct(config, False)
+            return MjCambrianContainerConfig(content, config=config)
 
     @classmethod
     def load(
-        cls, *args, as_container: bool = False, **kwargs
+        cls, *args, instantiate: bool = True, as_container: bool = False, **kwargs
     ) -> Self | DictConfig | ListConfig:
         """Wrapper around OmegaConf.load to instantiate the config."""
-        return cls.instantiate(
-            OmegaConf.load(*args, **kwargs), as_container=as_container
-        )
+        loaded = OmegaConf.load(*args, **kwargs)
+        if instantiate:
+            return cls.instantiate(loaded, as_container=as_container)
+        else:
+            return loaded
 
     @classmethod
     def create(
-        cls, *args, as_container: bool = False, **kwargs
+        cls, *args, instantiate: bool = True, as_container: bool = False, **kwargs
     ) -> Self | DictConfig | ListConfig:
         """Wrapper around OmegaConf.create to instantiate the config."""
-        return cls.instantiate(
-            OmegaConf.create(*args, **kwargs), as_container=as_container
-        )
+        created = OmegaConf.create(*args, **kwargs)
+        if instantiate:
+            return cls.instantiate(created, as_container=as_container)
+        else:
+            return created
 
     def select(self, key: str, *, use_instantiated: bool = False, **kwargs) -> Any:
         """This is a wrapper around OmegaConf.select to select a key from the config.
@@ -280,7 +291,9 @@ class MjCambrianContainerConfig:
 
     def __setstate__(self, state: Dict[str, Any]):
         """Set the state of the object from the pickled state."""
-        self.__init__(self.create(state, as_container=True))
+        config = OmegaConf.create(state)
+        content = self.instantiate(config, as_container=True)
+        self.__init__(content, config=config)
 
     def __str__(self) -> str:
         return self.to_yaml()
@@ -315,7 +328,7 @@ class MjCambrianContainerConfig:
             content = self._content.__dict__["_content"][key]
             if is_config := OmegaConf.is_config(content):
                 config = self._config.__dict__["_content"][key]
-        else: # DictConfig
+        else:  # DictConfig
             # Normalize the key. This will convert the key to allowed dictionary keys, like
             # converts 0, 1 if the key type is bool. Basically validates the key.
             key = self._content._validate_and_normalize_key(key)
@@ -336,7 +349,7 @@ class MjCambrianContainerConfig:
             return MjCambrianContainerConfig(content, config=config)
         else:
             return content._value()
-        
+
 
 class MjCambrianDictConfig(MjCambrianContainerConfig, DictConfig):
     """This is a wrapper around the OmegaConf DictConfig class.

@@ -88,12 +88,15 @@ class MjCambrianEnv(gym.Env):
 
     Args:
         config (MjCambrianEnvConfig): The config object.
+        name (str): The name of the environment. This is added as an overlay to the
+            renderer.
     """
 
     metadata = {"render_modes": ["human", "rgb_array"]}
 
-    def __init__(self, config: MjCambrianEnvConfig):
+    def __init__(self, config: MjCambrianEnvConfig, name: str):
         self.config = config
+        self.name = name
         self.logger = get_logger()
 
         self.animals: Dict[str, MjCambrianAnimal] = {}
@@ -206,9 +209,8 @@ class MjCambrianEnv(gym.Env):
             self._rollout.setdefault("positions", [])
             self._rollout["positions"].append([a.qpos for a in self.animals.values()])
 
-        # TODO
-        # if expname := options.get("expname"):
-        #     self._overlays["Exp"] = expname
+        self._overlays["Name"] = self.name
+        self._overlays["Total Timesteps"] = f"{self.num_timesteps}"
 
         return self._update_obs(obs), self._update_info(info)
 
@@ -604,11 +606,10 @@ if __name__ == "__main__":
             env.save(
                 config.logdir / "eval",
                 save_pkl=False,
-                # save_mode=MjCambrianRendererSaveMode.MP4
-                # | MjCambrianRendererSaveMode.GIF
-                # | MjCambrianRendererSaveMode.PNG
-                # | MjCambrianRendererSaveMode.WEBP,
-                save_mode=MjCambrianRendererSaveMode.MP4,
+                save_mode=MjCambrianRendererSaveMode.MP4
+                | MjCambrianRendererSaveMode.GIF
+                | MjCambrianRendererSaveMode.PNG
+                | MjCambrianRendererSaveMode.WEBP,
             )
 
     def main(config: MjCambrianConfig, *, fn: str, **kwargs):

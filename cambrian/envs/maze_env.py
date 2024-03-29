@@ -118,7 +118,7 @@ class MjCambrianMazeEnvConfig(MjCambrianObjectEnvConfig):
 
 
 class MjCambrianMazeEnv(MjCambrianObjectEnv):
-    def __init__(self, config: MjCambrianMazeEnvConfig):
+    def __init__(self, config: MjCambrianMazeEnvConfig, **kwargs):
         self.config: MjCambrianMazeEnvConfig = config
 
         # Have to initialize the mazes first since generate_xml is called from the
@@ -128,7 +128,7 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
             self.config.mazes, self.config.maze_selection_fn
         )
 
-        super().__init__(config)
+        super().__init__(config, **kwargs)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
@@ -165,7 +165,7 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
             # Update the camera positioning to match the current maze
             # Only update if the camera lookat is not set in the config file
             if viewer.config.select("camera.lookat") is None:
-                viewer.config.camera.lookat = self.maze.lookat
+                viewer.camera.lookat = self.maze.lookat
 
             # Update the camera distance to match the current maze's extent
             viewer.camera.distance = viewer.config.select("camera.distance", default=1)
