@@ -10,7 +10,7 @@ from stable_baselines3.common.vec_env import (
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.utils import set_random_seed
 
-from cambrian.envs.env import MjCambrianEnv
+from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy, setattrs_temporary
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
@@ -68,13 +68,10 @@ class MjCambrianTrainer:
 
         self.config.save(self.config.logdir / "config.yaml")
 
-        n_envs = self.trainer_config.n_envs
-        self.logger.info(f"Using {n_envs} environments for training...")
-
         # Setup the environment, model, and callbacks
-        env = self._make_env(n_envs)
-        eval_env = self._make_env(1, "eval_monitor.csv")
-        callback = self._make_callback(env, eval_env)
+        env = self._make_env(self.config.env, self.trainer_config.n_envs)
+        eval_env = self._make_env(self.config.eval_env, 1, monitor="eval_monitor.csv")
+        callback = self._make_callback(eval_env)
         model = self._make_model(env)
 
         # Save the eval environments xml
@@ -101,9 +98,6 @@ class MjCambrianTrainer:
 
         # Update temporary attributes for evaluation
         temp_attrs = []
-        if (eval_overrides := self.config.env.eval_overrides) is not None:
-            temp_attrs.append((self.config.env, eval_overrides))
-
         with setattrs_temporary(*temp_attrs):
             env = self._make_env(1, None)
             model = self._make_model(env)
@@ -120,25 +114,29 @@ class MjCambrianTrainer:
     def _calc_seed(self, i: int) -> int:
         return self.config.seed + i
 
-    def _make_env(self, n_envs: int, monitor_csv: str | None = "monitor.csv") -> VecEnv:
+    def _make_env(
+        self,
+        config: MjCambrianEnvConfig,
+        n_envs: int,
+        *,
+        monitor: str | None = "monitor.csv",
+    ) -> VecEnv:
         assert n_envs > 0, f"n_envs must be > 0, got {n_envs}."
 
-        env_config = self.config.env.copy()
+        # Create the environments
         envs = []
         for i in range(n_envs):
-            env_config = self.config.env.copy()
             wrappers = list(self.trainer_config.wrappers.values())
-            envs.append(make_wrapped_env(env_config, wrappers, self._calc_seed(i)))
+            envs.append(make_wrapped_env(config.copy(), wrappers, self._calc_seed(i)))
 
-        if n_envs == 1:
-            vec_env = DummyVecEnv(envs)
-        else:
-            vec_env = SubprocVecEnv(envs)
-        if monitor_csv is not None:
-            vec_env = VecMonitor(vec_env, str(self.config.logdir / monitor_csv))
-        return MjCambrianModel._wrap_env(vec_env)
+        # Wrap the environments
+        vec_env = DummyVecEnv(envs) if n_envs == 1 else SubprocVecEnv(envs)
+        if monitor is not None:
+            vec_env = VecMonitor(vec_env, str(self.config.logdir / monitor))
 
-    def _make_callback(self, env: VecEnv, eval_env: VecEnv) -> CallbackList:
+        return vec_env
+
+    def _make_callback(self, env: VecEnv) -> CallbackList:
         """Makes the callbacks."""
         from functools import partial
 
@@ -146,7 +144,7 @@ class MjCambrianTrainer:
         for callback in self.trainer_config.callbacks.values():
             # TODO: is this a good assumption? is there a better way to do this?
             if isinstance(callback, partial):
-                callback = callback(eval_env)
+                callback = callback(env)
             callbacks.append(callback)
 
         return CallbackList(callbacks)

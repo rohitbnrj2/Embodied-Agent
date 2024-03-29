@@ -5,7 +5,7 @@ defaults:
 
 env:
   animals:
-    point:
+    point_0:
       eyes:
-        point_0_eye_0:
+        eye_0:
           resolution: [100, 100]

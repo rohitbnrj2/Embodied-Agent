@@ -181,15 +181,15 @@ class MjCambrianObjectEnv(MjCambrianEnv):
         return truncated
 
     @property
-    def observation_spaces(self) -> spaces.Dict:
+    def observation_spaces(self) -> spaces.Space:
         """Creates the observation spaces. Identical to `MjCambrianEnv` but with the
         addition of the object observations, if desired."""
 
-        observation_spaces = super().observation_spaces
+        observation_spaces: spaces.Dict = super().observation_spaces
 
         # Add the object observations
         for animal_name in self.animals:
-            observation_space = observation_spaces.spaces[animal_name]
+            observation_space: spaces.Dict = observation_spaces.spaces[animal_name]
 
             for name, obj in self.objects.items():
                 if obj.config.use_as_obs:

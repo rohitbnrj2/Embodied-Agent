@@ -9,7 +9,6 @@ instance:
 initial_qpos: {}
 
 use_action_obs: true
-n_temporal_obs: 1
 
 # Default configuration is no eyes
 eyes: {}

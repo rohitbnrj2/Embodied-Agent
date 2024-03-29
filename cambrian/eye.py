@@ -171,7 +171,9 @@ class MjCambrianEye:
         See `render()` for more information."""
         obs = self.render()
         np.copyto(self._prev_obs, obs)
-        return obs
+
+        # Return the observation in the format expected by the environment
+        return np.array([obs])
 
     def render(self) -> np.ndarray:
         """Render the image from the camera. If `return_depth` is True, returns the
@@ -202,12 +204,7 @@ class MjCambrianEye:
         `use_depth_obs` is False, then the observation space will have 3 channels (r, g,
         b). The values are in the range [0, 1]."""
 
-        if self.config.use_depth_obs:
-            # (r, g, b, depth)
-            shape = (*self.config.resolution, 4)
-        else:
-            shape = (*self.config.resolution, 3)
-
+        shape = (1, *self.config.resolution, 4 if self.config.use_depth_obs else 3)
         return spaces.Box(0.0, 1.0, shape=shape, dtype=np.float32)
 
     @property

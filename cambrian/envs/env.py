@@ -55,10 +55,6 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             set to None if `render` will never be called. This may be useful to
             reduce the amount of vram consumed by non-rendering environments.
 
-        eval_overrides (Optional[Self]): Overrides to apply to the env config during
-            evaluation. Merged directly with the env. The actual datatype is
-            Self/MjCambrianEnvConfig but all attributes are optional.
-
         animals (List[MjCambrianAnimalConfig]): The configs for the animals.
             The key will be used as the default name for the animal, unless explicitly
             set in the animal config.
@@ -72,8 +68,6 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
     frame_skip: int
     max_episode_steps: int
-
-    eval_overrides: Optional[Self] = None
 
     add_overlays: bool
     clear_overlays_on_reset: bool
@@ -513,8 +507,7 @@ class MjCambrianEnv(gym.Env):
         # Create the observation_spaces
         observation_spaces: Dict[str, spaces.Space] = {}
         for name, animal in self.animals.items():
-            observation_space: spaces.Dict = animal.observation_space
-            observation_spaces[name] = observation_space
+            observation_spaces[name] = animal.observation_space
         return spaces.Dict(observation_spaces)
 
     @property

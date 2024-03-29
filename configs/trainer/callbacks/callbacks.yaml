@@ -4,7 +4,6 @@ eval_callback:
   _target_: cambrian.ml.callbacks.MjCambrianEvalCallback
   _partial_: true
   eval_env: "???" # required arg
-  n_eval_episodes: "???" # required arg
   best_model_save_path: ${logdir}
   log_path: ${logdir}
   deterministic: true

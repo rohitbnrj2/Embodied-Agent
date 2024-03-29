@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Deque, Tuple, Optional, Callable, Self
+from typing import Dict, Any, List, Deque, Tuple, Callable, Self
 from enum import Flag, auto
 from functools import reduce
 from collections import deque
@@ -59,8 +59,6 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
         use_action_obs (bool): Whether to use the action observation or not. NOTE: If
             the MjCambrianConstantActionWrapper is used, this is not reflected in the
             observation.
-        n_temporal_obs (int): The number of temporal observations to use, i.e. the
-            size of the queue for the eye observations.
 
         eyes (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
             The key will be used as the name for the eye.
@@ -84,7 +82,6 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     initial_qpos: Dict[int, float]
 
     use_action_obs: bool
-    n_temporal_obs: int
 
     eyes: Dict[str, MjCambrianEyeConfig]
 
@@ -122,8 +119,6 @@ class MjCambrianAnimal:
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
         self._initialize()
-
-        self._eye_obs: Dict[str, Deque[np.ndarray]] = None
 
         # Public attributes
         self.init_pos: np.ndarray = None
@@ -234,8 +229,7 @@ class MjCambrianAnimal:
     def _place_eyes(self):
         """Place the eyes on the animal."""
 
-        for i, eye_config in enumerate(self.config.eyes.values()):
-            name = f"{self.name}_eye_{i}"
+        for name, eye_config in self.config.eyes.items():
             self._eyes[name] = self._create_eye(eye_config, name)
 
     def _create_eye(self, config: MjCambrianEyeConfig, name: str) -> MjCambrianEye:
@@ -314,20 +308,11 @@ class MjCambrianAnimal:
         mj.mj_forward(model, data)
         self.init_pos = self.pos.copy()
 
-        self._eye_obs: Dict[str, Deque[np.ndarray]] = {}
+        obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
-            reset_obs = eye.reset(model, data)
+            obs[name] = eye.reset(model, data)
 
-            # The initial obs is a list of black images and the first obs returned
-            # by reset
-            num_obs = self.config.n_temporal_obs
-            self._eye_obs[name] = deque(
-                [np.zeros(reset_obs.shape, dtype=reset_obs.dtype)] * num_obs,
-                maxlen=num_obs,
-            )
-            self._eye_obs[name].append(reset_obs)
-
-        return self._get_obs()
+        return self._update_obs(obs)
 
     def _reset_adrs(self, model: mj.MjModel):
         """Resets the adrs for the animal. This is used when the model is reloaded."""
@@ -366,18 +351,14 @@ class MjCambrianAnimal:
         `apply_action`.
         """
 
-        for name, eye in self.eyes.items():
-            self._eye_obs[name].append(eye.step())
-
-        return self._get_obs()
-
-    def _get_obs(self) -> Dict[str, Any]:
-        """Creates the entire obs dict."""
         obs: Dict[str, Any] = {}
+        for name, eye in self.eyes.items():
+            obs[name] = eye.step()
 
-        for name in self.eyes.keys():
-            obs[name] = np.array(self._eye_obs[name])
+        return self._update_obs(obs)
 
+    def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
+        """Add additional attributes to the observation."""
         if self.config.use_action_obs:
             obs["action"] = self.last_action
 
@@ -459,7 +440,7 @@ class MjCambrianAnimal:
 
     @property
     def observation_space(self) -> spaces.Space:
-        """The observation space is defined on an animal basis. The `env` should combine
+        """The observation space is defined on an animal basis. the `env` should combine
         the observation spaces such that it's supported by stable_baselines3/pettingzoo.
 
         The animal has three observation spaces:
@@ -469,20 +450,10 @@ class MjCambrianAnimal:
             - qvel: The joint velocities of the animal. The number of joints is
             extracted from the model. It's queried using `qvel`.
         """
-        observation_space: Dict[spaces.Dict] = {}
+        observation_space: Dict[Any, spaces.Space] = {}
 
-        n_temporal_obs = self.config.n_temporal_obs
         for name, eye in self.eyes.items():
-            eye_observation_space = eye.observation_space
-
-            # The eye observation space is actually a queue of n_temporal_obs number
-            # of observations
-            observation_space[name] = spaces.Box(
-                low=eye_observation_space.low.min(),
-                high=eye_observation_space.high.max(),
-                shape=(n_temporal_obs, *eye_observation_space.shape),
-                dtype=eye_observation_space.dtype,
-            )
+            observation_space[name] = eye.observation_space 
 
         if self.config.use_action_obs:
             observation_space["action"] = spaces.Box(

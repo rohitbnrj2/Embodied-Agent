@@ -154,8 +154,6 @@ class MjCambrianEvalCallback(EvalCallback):
         # Set temporary attributes for the evaluation
         temp_attrs = []
         temp_attrs.append((env, dict(record=True, maze=None)))
-        if (eval_overrides := env.config.eval_overrides) is not None:
-            temp_attrs.append((env.config, eval_overrides))
 
         # Run the evaluation
         with setattrs_temporary(*temp_attrs):

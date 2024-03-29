@@ -2,3 +2,7 @@
 single_animal_env_wrapper:
   _target_: cambrian.utils.wrappers.MjCambrianSingleAnimalEnvWrapper
   _partial_: true
+frame_stack_wrapper:
+  _target_: cambrian.utils.wrappers.FrameStackObservation
+  _partial_: true
+  stack_size: 5

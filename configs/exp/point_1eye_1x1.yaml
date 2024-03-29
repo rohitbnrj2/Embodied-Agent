@@ -1,14 +1,17 @@
 # @package _global_
 
 defaults:
+  # Mazes
   - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC
 
+  # Animals
   - /env/animals/point@_group_.point_0
-
+  
+  # Eyes
   - /env/animals/eyes/eye@env.animals.point_0.eyes.eye_0
 
-  - exp
-  - override /env: maze_env
+  # The default exp config
+  - maze_exp
 
 env:
   animals:

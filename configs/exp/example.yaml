@@ -29,16 +29,11 @@ defaults:
   - /env/animals/eyes/eye@env.animals.point_0.eyes.eye_1
 
   # We then include the default config (located at in the same folder as this file
-  # i.e. configs/exp/exp.yaml). This file defines required attributes we'll need
+  # i.e. configs/exp/maze_exp.yaml). This file defines required attributes we'll need
   # to specify here to set things up correctly. This _must_ come after the above
   # includes because it defines default values for specific config files and the above
   # files use those as interpolations in their default lists.
-  - exp
-
-  # Override the default environment to be a maze_env. We are using mazes above, and so
-  # we need to specify the environment base which corresponds to the maze environment.
-  # This will also register the env config group as an MjCambrianMazeEnvConfig
-  - override /env: maze_env
+  - maze_exp
 
   # Finally, we include _self_ such that all the configs defined herein will override
   # the files we've included above. This actually isn't necessary as hydra will

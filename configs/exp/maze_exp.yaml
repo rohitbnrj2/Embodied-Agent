@@ -54,3 +54,14 @@ defaults:
   # over to B. This is the case for renderer since it's Optional. Therefore, we define
   # it here rather than the env config.
   - /env/renderer: bev
+
+  # Override the default environment to be a maze_env. We are using mazes above, and so
+  # we need to specify the environment base which corresponds to the maze environment.
+  # This will also register the env config group as an MjCambrianMazeEnvConfig
+  - override /env: maze_env
+
+trainer:
+  callbacks:
+    eval_callback:
+      # Set the number of eval episodes to the number of mazes in the eval env
+      n_eval_episodes: ${eval:'len(${eval_env.mazes})'}

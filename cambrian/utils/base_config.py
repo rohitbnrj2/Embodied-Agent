@@ -18,7 +18,15 @@ import enum
 import numpy as np
 import hydra_zen as zen
 from hydra.core.config_store import ConfigStore
-from omegaconf import OmegaConf, DictConfig, ListConfig, MissingMandatoryValue, Node
+from omegaconf import (
+    OmegaConf,
+    DictConfig,
+    ListConfig,
+    MissingMandatoryValue,
+    Node,
+    MISSING,
+)
+from omegaconf.errors import ConfigKeyError
 
 
 # =============================================================================
@@ -95,21 +103,29 @@ class MjCambrianContainerConfig:
                 cause=MissingMandatoryValue("Missing mandatory value"),
             )
         OmegaConf.set_struct(config, False)
-        
+
         if as_container:
             return content
         else:
             return MjCambrianContainerConfig(content, config=config.copy())
 
     @classmethod
-    def load(cls, *args, **kwargs) -> Self:
+    def load(
+        cls, *args, as_container: bool = False, **kwargs
+    ) -> Self | DictConfig | ListConfig:
         """Wrapper around OmegaConf.load to instantiate the config."""
-        return cls.instantiate(OmegaConf.load(*args, **kwargs))
+        return cls.instantiate(
+            OmegaConf.load(*args, **kwargs), as_container=as_container
+        )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> Self:
+    def create(
+        cls, *args, as_container: bool = False, **kwargs
+    ) -> Self | DictConfig | ListConfig:
         """Wrapper around OmegaConf.create to instantiate the config."""
-        return cls.instantiate(OmegaConf.create(*args, **kwargs))
+        return cls.instantiate(
+            OmegaConf.create(*args, **kwargs), as_container=as_container
+        )
 
     def select(self, key: str, *, use_instantiated: bool = False, **kwargs) -> Any:
         """This is a wrapper around OmegaConf.select to select a key from the config.
@@ -135,16 +151,27 @@ class MjCambrianContainerConfig:
             return OmegaConf.to_container(self._config, **kwargs)
 
     def to_yaml(self) -> str:
-        """Wrapper around OmegaConf.to_yaml to convert the config to a yaml string."""
+        """Wrapper around OmegaConf.to_yaml to convert the config to a yaml string.
+        Adds some custom representers."""
         import yaml
 
-        def str_representer(dumper: yaml.Dumper, data):
-            """Will use the | style for multiline strings."""
-            style = "|" if "\n" in data else None
+        def str_representer(dumper: yaml.Dumper, data: str):
+            style = None
+            if "\n" in data:
+                # Will use the | style for multiline strings.
+                style = "|"
+            elif data == MISSING:
+                # Will wrap ??? in quotes, yaml doesn't like this otherwise
+                style = '"'
             return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+        def flag_representer(dumper: yaml.Dumper, data: enum.Flag):
+            data = "|".join([m.name for m in type(data) if m in data])
+            return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 
         dumper = yaml.CDumper
         dumper.add_representer(str, str_representer)
+        dumper.add_multi_representer(enum.Flag, flag_representer)
         return yaml.dump(
             self.to_container(use_instantiated=False),
             default_flow_style=False,
@@ -204,33 +231,16 @@ class MjCambrianContainerConfig:
         means {_target_: ...} will be returned rather than the actual instantiated
         Dict object.
         """
-        try:
-            return self._get_impl(name)
-        except Exception as e:
-            if isinstance(self._content, ListConfig):
-                # Special case here that if it's a ListConfig, we have to return an
-                # AttributeError since lists don't have keys
-                self._content._format_and_raise(
-                    name, None, cause=e, type_override=AttributeError
-                )
-            raise
+        return self._get_impl(name)
 
     def __getitem__(self, key: Any) -> Self | Any:
         """Get the item from the content and return the wrapped instance. If the item is
         a DictConfig or ListConfig, we'll wrap it in this class."""
-        if isinstance(self._content, DictConfig):
-            # If we're wrapping a DictConfig, __getitem__ is the same as __getattr__
-            return self.__getattr__(key)
-        else:
-            content = self._content[key]
-            if OmegaConf.is_config(content):
-                config = self._config[key]
-                return MjCambrianContainerConfig(content, config=config)
-            else:
-                return content
+        return self._get_impl(key, is_getattr=False)
 
     def __setattr__(self, name: str, value: Any):
-        """Set the attribute in the content."""
+        """Set the attribute in the content. These are fairly slow, but we'll keep them
+        using OmegaConf logic since it does validation."""
         if isinstance(value, MjCambrianContainerConfig):
             setattr(self._content, name, value._content)
             setattr(self._config, name, value._config)
@@ -239,7 +249,8 @@ class MjCambrianContainerConfig:
             setattr(self._config, name, value)
 
     def __setitem__(self, key: Any, value: Any):
-        """Set the item in the content."""
+        """Set the item in the content. These are fairly slow, but we'll keep them using
+        OmegaConf logic since it does validation."""
         if isinstance(value, MjCambrianContainerConfig):
             self._content[key] = value._content
             self._config[key] = value._config
@@ -269,7 +280,7 @@ class MjCambrianContainerConfig:
 
     def __setstate__(self, state: Dict[str, Any]):
         """Set the state of the object from the pickled state."""
-        self.__init__(self.instantiate(OmegaConf.create(state), as_container=True))
+        self.__init__(self.create(state, as_container=True))
 
     def __str__(self) -> str:
         return self.to_yaml()
@@ -277,33 +288,55 @@ class MjCambrianContainerConfig:
     # ===========
     # Internal utils
 
-    def _get_impl(self, key: Any, default_value: Any = None) -> Any:
+    def _get_impl(self, key: Any, default_value: Any = ..., *, is_getattr: bool = True):
         """Perform access of the underlying data structures. This is an optimized
-        version which uses internal methods of OmegaConf."""
+        version which uses internal methods of OmegaConf. This is similar to
+        DictConfig._get_impl, but optimized for this use case. We know it out configs
+        won't be structured, so there are minor optimizations we can do.
 
-        try:
-            node = self._content._get_child(key)
-        except (AttributeError, KeyError) as e:
-            if default_value is not None:
-                return default_value
-            self._content._format_and_raise(key, None, cause=e)
+        Args:
+            key (Any): The key to access.
+            default_value (Any): The default value to return if the key is not found.
+        """
+        content: Node
+        config: Node
+        is_config: bool
+        if isinstance(self._content, ListConfig):
+            # ListConfig only accepts integers as keys
+            if is_getattr:
+                try:
+                    key = int(key)
+                except ValueError:
+                    self._content._format_and_raise(
+                        key,
+                        None,
+                        AttributeError("ListConfig does not support attribute access"),
+                    )
+            content = self._content.__dict__["_content"][key]
+            if is_config := OmegaConf.is_config(content):
+                config = self._config.__dict__["_content"][key]
+        else: # DictConfig
+            # Normalize the key. This will convert the key to allowed dictionary keys, like
+            # converts 0, 1 if the key type is bool. Basically validates the key.
+            key = self._content._validate_and_normalize_key(key)
 
-        if node is None:
-            return None
-
-        assert isinstance(node, Node)
-        content = self._content._resolve_with_default(key, node, default_value)
+            # Check that the key exists
+            if key not in self._content.__dict__["_content"] and is_getattr:
+                if default_value is ...:
+                    self._content._format_and_raise(
+                        key, None, ConfigKeyError(f"Key not found: {key!s}")
+                    )
+            # TODO: use [key] instead of get since it's faster
+            content = self._content.__dict__["_content"].get(key, default_value)
+            if is_config := OmegaConf.is_config(content):
+                config = self._config.__dict__["_content"].get(key, default_value)
 
         # If the content is a config, we'll wrap it in this class
-        if OmegaConf.is_config(content):
-            # Get the same key from the config. Since we have already checked types
-            # and the key exists, we can safely access the key from the config without
-            # validation.
-            config = self._config._get_child(key, False, False)
+        if is_config:
             return MjCambrianContainerConfig(content, config=config)
         else:
-            return content
-
+            return content._value()
+        
 
 class MjCambrianDictConfig(MjCambrianContainerConfig, DictConfig):
     """This is a wrapper around the OmegaConf DictConfig class.
@@ -429,7 +462,7 @@ def search(
     """
     if _parent_ is None:
         # Parent will be None if we're at the top level
-        raise KeyError(f"Key {key} not found in parent chain.")
+        raise ConfigKeyError(f"Key {key} not found in parent chain.")
 
     if mode == "value":
         if key in _parent_:

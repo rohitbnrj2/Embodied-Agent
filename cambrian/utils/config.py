@@ -23,6 +23,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
 
         training (MjCambrianTrainingConfig): The config for the training process.
         env (MjCambrianEnvConfig): The config for the environment.
+        eval_env (MjCambrianEnvConfig): The config for the evaluation environment.
         evo (Optional[MjCambrianEvoConfig]): The config for the evolution
             process. If None, the environment will not be run in evolution mode.
         logging (Optional[Dict[str, Any]]): The config for the logging process.
@@ -36,6 +37,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
 
     trainer: MjCambrianTrainerConfig
     env: MjCambrianEnvConfig
+    eval_env: MjCambrianEnvConfig
     evo: Optional[MjCambrianEvoConfig] = None
     logging: Optional[Dict[str, Any]] = None
 
