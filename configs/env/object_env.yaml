@@ -7,3 +7,17 @@ defaults:
 instance:
   _target_: cambrian.envs.object_env.MjCambrianObjectEnv
   _partial_: true
+
+termination_fn:
+  _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
+  _partial_: true
+truncation_fn:
+  _target_: cambrian.envs.truncation_fns.combined_truncation
+  _partial_: true
+
+  truncate_if_close_to_object:
+    _target_: cambrian.envs.truncation_fns.truncate_if_close_to_object
+    _partial_: true
+  exceeds_max_epsiode_steps:
+    _target_: cambrian.envs.truncation_fns.exceeds_max_episode_steps
+    _partial_: true

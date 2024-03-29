@@ -1,4 +1,14 @@
-from typing import Dict, Any, Tuple, List, Optional, Callable, Concatenate, Self
+from typing import (
+    Dict,
+    Any,
+    Tuple,
+    List,
+    Optional,
+    Callable,
+    Self,
+    TypeAlias,
+    Concatenate,
+)
 from pathlib import Path
 import pickle
 
@@ -27,6 +37,21 @@ from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.logger import get_logger
 
+MjCambrianTerminationFn: TypeAlias = Callable[
+    Concatenate["MjCambrianEnv", MjCambrianAnimal, Dict[str, Any], ...],
+    bool,
+]
+
+MjCambrianTruncationFn: TypeAlias = Callable[
+    Concatenate["MjCambrianEnv", MjCambrianAnimal, Dict[str, Any], ...],
+    bool,
+]
+
+MjCambrianRewardFn: TypeAlias = Callable[
+    Concatenate["MjCambrianEnv", MjCambrianAnimal, bool, bool, Dict[str, Any], ...],
+    float,
+]
+
 
 @config_wrapper
 class MjCambrianEnvConfig(MjCambrianBaseConfig):
@@ -39,6 +64,10 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         xml (MjCambrianXMLConfig): The xml for the scene. This is the xml that will be
             used to create the environment. See `MjCambrianXML` for more info.
 
+        termination_fn (MjCambrianTerminationFn): The termination function to use. See
+            the `MjCambrianTerminationFn` for more info.
+        truncation_fn (MjCambrianTruncationFn): The truncation function to use. See the
+            `MjCambrianTruncationFn` for more info.
         reward_fn (MjCambrianRewardFn): The reward function type to use. See the
             `MjCambrianRewardFn` for more info.
 
@@ -65,7 +94,9 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
     xml: MjCambrianXMLConfig
 
-    reward_fn: Callable[Concatenate[MjCambrianAnimal, Dict[str, Any], ...], float]
+    termination_fn: MjCambrianTerminationFn
+    truncation_fn: MjCambrianTruncationFn
+    reward_fn: MjCambrianRewardFn
 
     frame_skip: int
     max_episode_steps: int
@@ -257,10 +288,10 @@ class MjCambrianEnv(gym.Env):
 
         # Call helper methods to update the observations, rewards, terminated, and info
         obs = self._update_obs(obs)
-        terminated = self._compute_terminated()
-        truncated = self._compute_truncated()
-        reward = self._compute_reward(terminated, truncated, info)
         info = self._update_info(info)
+        terminated = self._compute_terminated(info)
+        truncated = self._compute_truncated(info)
+        reward = self._compute_reward(terminated, truncated, info)
 
         self._episode_step += 1
         self._cumulative_reward += sum(reward.values())
@@ -301,11 +332,40 @@ class MjCambrianEnv(gym.Env):
         """
         return info
 
+    def _compute_terminated(self, info: Dict[str, Any]) -> Dict[str, bool]:
+        """Compute whether the env has terminated. Termination indicates success,
+        whereas truncated indicates failure.
+
+        The default implementation will always return False for all animals. This can
+        be overridden in subclasses to provide custom termination conditions.
+        """
+
+        terminated: Dict[str, bool] = {}
+        for name in self.animals:
+            terminated[name] = self.config.termination_fn(self, self.animals[name], info[name])
+
+        return terminated
+
+    def _compute_truncated(self, info: Dict[str, Any]) -> bool:
+        """Compute whether the env has terminated. Termination indicates success,
+        whereas truncated indicates failure.
+
+        The default implementation will always return False for all animals. This can
+        be overridden in subclasses to provide custom termination conditions.
+        """
+
+        truncated: Dict[str, bool] = {}
+        for name in self.animals:
+            truncated[name] = self.config.truncation_fn(self, self.animals[name], info[name])
+            # truncated[name] = self._episode_step >= (self._max_episode_steps - 1)
+
+        return truncated
+
     def _compute_reward(
         self,
         terminated: Dict[str, bool],
         truncated: Dict[str, bool],
-        info: Dict[str, bool],
+        info: Dict[str, Any],
     ) -> Dict[str, float]:
         """Computes the reward for the environment.
 
@@ -319,46 +379,11 @@ class MjCambrianEnv(gym.Env):
 
         rewards: Dict[str, float] = {}
         for name, animal in self.animals.items():
-            # Early exits
-            if terminated[name]:
-                rewards[name] = 1
-                continue
-            elif truncated[name]:
-                rewards[name] = -1
-                continue
-
-            # Call the reward fn
-            rewards[name] = self.config.reward_fn(animal, info[name])
+            rewards[name] = self.config.reward_fn(
+                self, animal, terminated[name], truncated[name], info[name]
+            )
 
         return rewards
-
-    def _compute_terminated(self) -> Dict[str, bool]:
-        """Compute whether the env has terminated. Termination indicates success,
-        whereas truncated indicates failure.
-
-        The default implementation will always return False for all animals. This can
-        be overridden in subclasses to provide custom termination conditions.
-        """
-
-        terminated: Dict[str, bool] = {}
-        for name in self.animals:
-            terminated[name] = False
-
-        return terminated
-
-    def _compute_truncated(self) -> bool:
-        """Compute whether the env has terminated. Termination indicates success,
-        whereas truncated indicates failure.
-
-        The default implementation will always return False for all animals. This can
-        be overridden in subclasses to provide custom termination conditions.
-        """
-
-        truncated: Dict[str, bool] = {}
-        for name in self.animals:
-            truncated[name] = self._episode_step >= (self._max_episode_steps - 1)
-
-        return truncated
 
     def render(self) -> Dict[str, np.ndarray]:
         """Renders the environment.

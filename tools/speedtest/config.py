@@ -20,7 +20,7 @@ def main(config: MjCambrianConfig):
     point_0 = config.env.animals["point_0"]
     eyes_lat_range = point_0.eyes_lat_range
     
-    num = 10000
+    num = 100000
     t0 = time.time()
     for _ in range(num):
         # __getattr__(point_0, "use_action_obs")

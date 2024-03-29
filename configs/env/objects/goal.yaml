@@ -1,6 +1,8 @@
 defaults:
   - /${env/objects}@_here_
 
+terminate_if_close: true
+
 xml:
   _target_: cambrian.utils.cambrian_xml.convert_xml_to_yaml
   _convert_: all

@@ -152,34 +152,6 @@ class MjCambrianObjectEnv(MjCambrianEnv):
 
         return rewards
 
-    def _compute_terminated(self) -> Dict[str, bool]:
-        """Compute whether the env has terminated. Termination indicates success,
-        whereas truncated indicates failure."""
-
-        terminated = super()._compute_terminated()
-
-        # Check if any animals are at the object
-        for name, animal in self.animals.items():
-            for obj in self.objects.values():
-                if obj.is_close(animal.pos):
-                    terminated[name] |= obj.config.terminate_if_close
-
-        return terminated
-
-    def _compute_truncated(self) -> bool:
-        """Compute whether the env has terminated. Termination indicates success,
-        whereas truncated indicates failure."""
-
-        truncated = super()._compute_truncated()
-
-        # Check if any animals are at the object
-        for name, animal in self.animals.items():
-            for obj in self.objects.values():
-                if obj.is_close(animal.pos):
-                    truncated[name] |= obj.config.truncate_if_close
-
-        return truncated
-
     @property
     def observation_spaces(self) -> spaces.Space:
         """Creates the observation spaces. Identical to `MjCambrianEnv` but with the
@@ -209,6 +181,7 @@ class MjCambrianObject:
         return MjCambrianXML.from_config(self.config.xml)
 
     def reset(self, model: mj.MjModel) -> np.ndarray:
+        """Resets the object in the model. Will update it's pos."""
         body_id = get_body_id(model, f"{self.name}_body")
         assert body_id != -1, f"Body {self.name}_body not found in model"
 
@@ -217,5 +190,6 @@ class MjCambrianObject:
         return model.body_pos[body_id]
 
     def is_close(self, pos: np.ndarray) -> bool:
+        """Checks if the some position (probably an animals) is close to the object."""
         distance = np.linalg.norm(pos - self.config.pos)
         return distance < self.config.distance_to_target_threshold
