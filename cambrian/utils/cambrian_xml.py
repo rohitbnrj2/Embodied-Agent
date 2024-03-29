@@ -94,13 +94,13 @@ class MjCambrianXML:
             f.write(xml_string)
 
     @staticmethod
-    def make_empty() -> Self:
+    def make_empty() -> "MjCambrianXML":
         """Loads an empty mujoco xml file. Only has the `mujoco` and worldbody
         `tags`."""
         return MjCambrianXML.from_string("<mujoco><worldbody></worldbody></mujoco>")
 
     @staticmethod
-    def from_string(xml_string: str) -> Self:
+    def from_string(xml_string: str) -> "MjCambrianXML":
         """Loads the xml from a string."""
         with tempfile.NamedTemporaryFile("w") as f:
             f.write(xml_string)
@@ -108,7 +108,7 @@ class MjCambrianXML:
             return MjCambrianXML(f.name)
 
     @staticmethod
-    def from_config(config: MjCambrianXMLConfig) -> Self:
+    def from_config(config: MjCambrianXMLConfig) -> "MjCambrianXML":
         """Adds to the xml based on the passed config.
 
         The MjCambrianXMLConfig is structured as follows:
@@ -185,6 +185,13 @@ class MjCambrianXML:
         for root in config:
             add_to_xml(xml.root, root)
         return xml
+
+    @staticmethod
+    def parse(
+        base_xml_path: Path | str, *, overrides: Optional[MjCambrianXMLConfig] = None
+    ) -> str:
+        """This is a helper method to parse an xml file with overrides."""
+        return MjCambrianXML(base_xml_path, overrides=overrides).to_string()
 
     def add(self, parent: ET.Element, tag: str, *args, **kwargs) -> ET.Element:
         """Add an element to the xml tree.

@@ -4,20 +4,20 @@
     <material name="particle_direction_mat" emission="1" rgba="0.6 0.3 0.3 1"/>
   </asset>
   <worldbody>
-    <body name="particle_${parent:xml}" pos="0 0 0.2">
-      <geom name="particle_geom_${parent:xml}" type="sphere" size="0.2" rgba="0.0 0.0 1.0 0.0" contype="1" friction=".5 .1 .1" density="1000" margin="0.002" condim="1" conaffinity="1"/>
-      <site name="particle_site_${parent:xml}" pos="0.0 0.0 0.0" material="particle_mat" size="0.2"/>
-      <site name="particle_direction_site_${parent:xml}" group="2" pos="0.3 0.0 0.0" quat="0.5 0.5 0.5 0.5" type="cylinder" material="particle_direction_mat" rgba="1.0 0.0 0.0 1.0" size="0.05 0.15" />
+    <body name="particle_${parent:}" pos="0 0 0.2">
+      <geom name="particle_geom_${parent:}" type="sphere" size="0.2" rgba="0.0 0.0 1.0 0.0" contype="1" friction=".5 .1 .1" density="1000" margin="0.002" condim="1" conaffinity="1"/>
+      <site name="particle_site_${parent:}" pos="0.0 0.0 0.0" material="particle_mat" size="0.2"/>
+      <site name="particle_direction_site_${parent:}" group="2" pos="0.3 0.0 0.0" quat="0.5 0.5 0.5 0.5" type="cylinder" material="particle_direction_mat" rgba="1.0 0.0 0.0 1.0" size="0.05 0.15" />
 
-      <joint name="ball_x_${parent:xml}" type="slide" pos="0 0 0" axis="1 0 0" damping="1" limited="false"/>
-      <joint name="ball_y_${parent:xml}" type="slide" pos="0 0 0" axis="0 1 0" damping="1" limited="false"/>
-      <joint name="ball_z_${parent:xml}" type="hinge" pos="0 0 0" axis="0 0 1" damping="1" limited="false"/>
+      <joint name="ball_x_${parent:}" type="slide" pos="0 0 0" axis="1 0 0" damping="1" limited="false"/>
+      <joint name="ball_y_${parent:}" type="slide" pos="0 0 0" axis="0 1 0" damping="1" limited="false"/>
+      <joint name="ball_z_${parent:}" type="hinge" pos="0 0 0" axis="0 0 1" damping="1" limited="false"/>
     </body>
   </worldbody>
   <actuator>
     <!-- These are just dummy actuators for providing ranges -->
-    <velocity name="act_x_${parent:xml}" joint="ball_x_${parent:xml}" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100"/>
-    <velocity name="act_y_${parent:xml}" joint="ball_y_${parent:xml}" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100"/>
-    <position name="act_z_${parent:xml}" joint="ball_z_${parent:xml}" ctrlrange="-3.14 3.14" ctrllimited="true" gear="1"/>
+    <velocity name="act_x_${parent:}" joint="ball_x_${parent:}" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100"/>
+    <velocity name="act_y_${parent:}" joint="ball_y_${parent:}" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100"/>
+    <position name="act_z_${parent:}" joint="ball_z_${parent:}" ctrlrange="-3.14 3.14" ctrllimited="true" gear="1"/>
   </actuator>
 </mujoco>

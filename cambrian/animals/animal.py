@@ -142,8 +142,7 @@ class MjCambrianAnimal:
             - parse the geometry
             - place eyes at the appropriate locations
         """
-        xml_string = MjCambrianXML.from_config(self.config.xml).to_string()
-        model = mj.MjModel.from_xml_string(xml_string)
+        model = mj.MjModel.from_xml_string(self.config.xml)
 
         self._parse_geometry(model)
         self._parse_actuators(model)
@@ -253,7 +252,7 @@ class MjCambrianAnimal:
         """Generates the xml for the animal. Will generate the xml from the model file
         and then add eyes to it.
         """
-        xml = MjCambrianXML.from_config(self.config.xml)
+        xml = MjCambrianXML.from_string(self.config.xml)
 
         # Set each geom in this animal to be a certain group for rendering utils
         # The group number is the index the animal was created + 2

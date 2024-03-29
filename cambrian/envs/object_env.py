@@ -178,7 +178,7 @@ class MjCambrianObject:
         self.name = name
 
     def generate_xml(self) -> MjCambrianXML:
-        return MjCambrianXML.from_config(self.config.xml)
+        return MjCambrianXML.from_string(self.config.xml)
 
     def reset(self, model: mj.MjModel) -> np.ndarray:
         """Resets the object in the model. Will update it's pos."""

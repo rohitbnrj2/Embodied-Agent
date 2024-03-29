@@ -489,6 +489,9 @@ def search(
             # If the key is None, we'll return the parent's key
             assert _parent_._key() is not None, "Parent key is None."
             return _parent_._key()
+        elif _parent_._key() == key:
+            assert _parent_._parent._key() is not None, "Parent key is None."
+            return _parent_._parent._key()
 
         if depth != 0 and isinstance(_parent_, DictConfig) and key in _parent_:
             # If we're at a key that's not the parent and the parent has the key we're

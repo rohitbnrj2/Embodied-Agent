@@ -173,7 +173,7 @@ class MjCambrianEnv(gym.Env):
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
-        xml = MjCambrianXML.from_config(self.config.xml)
+        xml = MjCambrianXML.from_string(self.config.xml)
 
         # Add the animals to the xml
         for idx, animal in enumerate(self.animals.values()):

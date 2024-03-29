@@ -238,7 +238,7 @@ class MjCambrianMaze:
                     self._object_locations.append(loc)
 
     def generate_xml(self) -> MjCambrianXML:
-        xml = MjCambrianXML.from_config(self.config.xml)
+        xml = MjCambrianXML.from_string(self.config.xml)
 
         worldbody = xml.find(".//worldbody")
         assert worldbody is not None, "xml must have a worldbody tag"
