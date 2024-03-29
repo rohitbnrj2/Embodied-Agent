@@ -119,15 +119,15 @@ class MjCambrianEnv(gym.Env):
 
     Args:
         config (MjCambrianEnvConfig): The config object.
-        name (str): The name of the environment. This is added as an overlay to the
-            renderer.
+        name (Optional[str]): The name of the environment. This is added as an overlay
+            to the renderer.
     """
 
     metadata = {"render_modes": ["human", "rgb_array"]}
 
-    def __init__(self, config: MjCambrianEnvConfig, name: str):
+    def __init__(self, config: MjCambrianEnvConfig, name: Optional[str] = None):
         self.config = config
-        self.name = name
+        self.name = name or self.__class__.__name__
         self.logger = get_logger()
 
         self.animals: Dict[str, MjCambrianAnimal] = {}

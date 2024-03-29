@@ -1,9 +1,25 @@
 defaults:
   - /${env/objects}@_here_
 
+# success
 terminate_if_close: true
 
 xml:
   _target_: cambrian.utils.cambrian_xml.convert_xml_to_yaml
   _convert_: all
-  base_xml_path: models/objects/goal.xml
+  base_xml_path: models/objects/sphere.xml
+  overrides:
+    - mujoco:
+        - worldbody:
+            - body:
+                - name: ${parent:xml}_body
+                - childclass: object
+        - asset:
+            - material:
+                - name: ${parent:xml}_mat
+                - rgba: 0.2 0.8 0.2 1.0
+                - emission: 1
+            - material:
+                - name: ${parent:xml}_top_mat
+                - rgba: 0.2 0.8 0.2 1.0
+                - emission: 1

@@ -77,6 +77,10 @@ class MjCambrianXML:
         if overrides is not None:
             self += MjCambrianXML.from_config(overrides)
 
+        # Post process by combining the root with itself.
+        # All duplicate elements will be combined.
+        self += self
+
     def load(self, path: Path | str):
         """Load the xml from a file."""
         assert Path(path).exists(), f"File does not exist: {path}"
@@ -90,13 +94,13 @@ class MjCambrianXML:
             f.write(xml_string)
 
     @staticmethod
-    def make_empty() -> "MjCambrianXML":
+    def make_empty() -> Self:
         """Loads an empty mujoco xml file. Only has the `mujoco` and worldbody
         `tags`."""
         return MjCambrianXML.from_string("<mujoco><worldbody></worldbody></mujoco>")
 
     @staticmethod
-    def from_string(xml_string: str) -> "MjCambrianXML":
+    def from_string(xml_string: str) -> Self:
         """Loads the xml from a string."""
         with tempfile.NamedTemporaryFile("w") as f:
             f.write(xml_string)
@@ -104,7 +108,7 @@ class MjCambrianXML:
             return MjCambrianXML(f.name)
 
     @staticmethod
-    def from_config(config: MjCambrianXMLConfig) -> "MjCambrianXML":
+    def from_config(config: MjCambrianXMLConfig) -> Self:
         """Adds to the xml based on the passed config.
 
         The MjCambrianXMLConfig is structured as follows:
@@ -174,6 +178,7 @@ class MjCambrianXML:
                     # If it's a value, we need to add it as an attribute
                     parent.set(key, str(value))
 
+        # TODO: remove
         if isinstance(config, MjCambrianContainerConfig):
             config = config.to_container()
 
@@ -272,15 +277,23 @@ class MjCambrianXML:
             def __hash__(self):
                 return hash(tuple(sorted(self.items())))
 
+        def create_key(el: ET.Element):
+            if "name" in el.attrib:
+                return (el.tag, el.attrib["name"])
+            return (el.tag, hashabledict(el.attrib))
+
         # Create a mapping from tag name to element, as that's what we are filtering with
-        mapping = {(el.tag, hashabledict(el.attrib)): el for el in root}
+        # import pdb; pdb.set_trace()
+        mapping = {create_key(el): el for el in root}
         for el in other:
-            key = (el.tag, hashabledict(el.attrib))
+            key = create_key(el)
             if len(el) == 0:
                 # Not nested
                 try:
                     # Update the text
                     mapping[key].text = el.text
+                    # Merge attributes
+                    mapping[key].attrib.update(el.attrib)
                 except KeyError:
                     # An element with this name is not in the mapping
                     mapping[key] = el
@@ -307,12 +320,12 @@ class MjCambrianXML:
         """The directory of the base xml file."""
         return self._base_xml_path.parent
 
-    def __add__(self, other: "MjCambrianXML") -> "MjCambrianXML":
+    def __add__(self, other: Self) -> Self:
         assert isinstance(other, MjCambrianXML)
         self += other
         return self
 
-    def __iadd__(self, other: "MjCambrianXML") -> "MjCambrianXML":
+    def __iadd__(self, other: Self) -> Self:
         assert isinstance(other, MjCambrianXML)
         self._tree = ET.ElementTree(self.combine(self._root, other._root))
         return self
@@ -336,7 +349,13 @@ def load_xml(input_xml_file: str) -> MjCambrianXML:
 
 def convert_xml_to_yaml(
     base_xml_path: str, *, overrides: Optional[MjCambrianXMLConfig] = None
-) -> MjCambrianXMLConfig:
+) -> str:
+    """This is a helper method to convert an xml file to a yaml file.
+    This is for loading and overriding an xml file from the yaml config files. We have
+    to convert the xml to yaml in order to apply interpolations in the yaml file. Like,
+    to support ${parent:xml} (which evaluates the xml parent name) in the xml, we have
+    to convert the xml to yaml and then apply the interpolations."""
+
     xml = MjCambrianXML(base_xml_path, overrides=overrides)
     root = xml.root
 

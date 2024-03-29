@@ -89,7 +89,7 @@ class MjCambrianContainerConfig:
         # interpolations before instantation such that the interpolations which are
         # configs in themselves will be the uninstantiated config. This is important
         # since the instantiated config has objects that aren't picklable.
-        OmegaConf.resolve(config)
+        # OmegaConf.resolve(config)
 
         # First instantiate the config (will replace _target_ with the actual class)
         # And then merge the structured config with the instantiated config to give it
@@ -161,7 +161,7 @@ class MjCambrianContainerConfig:
         else:
             return OmegaConf.to_container(self._config, **kwargs)
 
-    def to_yaml(self) -> str:
+    def to_yaml(self, use_instantiated: bool = True) -> str:
         """Wrapper around OmegaConf.to_yaml to convert the config to a yaml string.
         Adds some custom representers."""
         import yaml
@@ -184,7 +184,7 @@ class MjCambrianContainerConfig:
         dumper.add_representer(str, str_representer)
         dumper.add_multi_representer(enum.Flag, flag_representer)
         return yaml.dump(
-            self.to_container(use_instantiated=False),
+            self.to_container(use_instantiated=use_instantiated),
             default_flow_style=False,
             allow_unicode=True,
             sort_keys=False,
@@ -194,7 +194,7 @@ class MjCambrianContainerConfig:
     def save(self, path: Path | str):
         """Saves the config to a yaml file."""
         with open(path, "w") as f:
-            f.write(self.to_yaml())
+            f.write(self.to_yaml(use_instantiated=False))
 
     def keys(self) -> KeysView[Any]:
         """Wrapper of the keys method to return the keys of the content."""
@@ -502,6 +502,8 @@ def search(
 register_new_resolver("search", search)
 register_new_resolver("parent", partial(search, mode="parent_key"))
 register_new_resolver("eval", lambda src: eval(src, {}, {"np": np}))
+
+register_new_resolver("interpolation", lambda src: f"\$\{{{src}\}}")
 
 
 # =============================================================================
