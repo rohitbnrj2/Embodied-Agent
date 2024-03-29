@@ -484,7 +484,7 @@ class MjCambrianRenderer:
 
         rgb, depth = self.viewer.read_pixels("depth_array" in self.config.render_modes)
         if self._record and not resetting:
-            self._rgb_buffer.append(rgb)
+            self._rgb_buffer.append(rgb.copy())
 
         return (rgb, depth) if "depth_array" in self.config.render_modes else rgb
 
@@ -498,6 +498,7 @@ class MjCambrianRenderer:
         path: Path | str,
         *,
         save_mode: Optional[MjCambrianRendererSaveMode] = None,
+        fps: int = 50,
     ):
         save_mode = save_mode or self.config.save_mode
 
@@ -507,19 +508,24 @@ class MjCambrianRenderer:
         self.logger.info(f"Saving visualizations at {path}...")
 
         path = Path(path)
-        rgb_buffer = np.array(self._rgb_buffer)
+        rgb_buffer = (np.array(self._rgb_buffer) * 255.).astype(np.uint8)
         if len(rgb_buffer) > 1:
             rgb_buffer = rgb_buffer[:-1]
-        fps = 50
 
         if save_mode & MjCambrianRendererSaveMode.MP4:
             import imageio
 
-            mp4 = path.with_suffix(".mp4")
-            writer = imageio.get_writer(mp4, fps=fps)
-            for image in rgb_buffer:
-                writer.append_data(image)
-            writer.close()
+            try:
+                mp4 = path.with_suffix(".mp4")
+                writer = imageio.get_writer(mp4, fps=fps)
+                for image in rgb_buffer:
+                    writer.append_data(image)
+                writer.close()
+            except TypeError:
+                self.logger.warning(
+                    "imageio is not compiled with ffmpeg. "
+                    "You may need to install imageio[ffmpeg]."
+                )
         if save_mode & MjCambrianRendererSaveMode.PNG:
             import imageio
 

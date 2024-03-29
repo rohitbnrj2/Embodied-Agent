@@ -1,6 +1,7 @@
 from cambrian.renderer.renderer import (
-    MjCambrianRendererConfig,
     MjCambrianRenderer,
+    MjCambrianRendererConfig,
+    MjCambrianRendererSaveMode,
 )  # noqa
 from cambrian.renderer.render_utils import (
     resize_with_aspect_fill,

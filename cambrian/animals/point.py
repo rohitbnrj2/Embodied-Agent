@@ -25,9 +25,9 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
     NOTE: The action obs is still the global velocities and rotational position.
     """
 
-    def _get_obs(self) -> Dict[str, Any]:
+    def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         """Creates the entire obs dict."""
-        obs = super()._get_obs()
+        obs = super()._update_obs(obs)
 
         # Update the action obs
         # Calculate the global velocities

@@ -82,11 +82,6 @@ def evaluate_policy(
         # don't set to `record_path is not None` directly bc this will delete overlays
         cambrian_env.record = True
 
-    prev_init_goal_pos = None
-    if (eval_goal_pos := cambrian_env.maze.config.eval_goal_pos) is not None:
-        prev_init_goal_pos = cambrian_env.maze.config.init_goal_pos
-        cambrian_env.maze.config.init_goal_pos = eval_goal_pos
-
     run = 0
     obs = env.reset()
     get_logger().info(f"Starting {num_runs} evaluation run(s)...")
@@ -112,9 +107,6 @@ def evaluate_policy(
     if record_kwargs is not None:
         cambrian_env.save(**record_kwargs)
         cambrian_env.record = False
-
-    if prev_init_goal_pos is not None:
-        cambrian_env.maze.config.init_goal_pos = prev_init_goal_pos
 
 
 # =============

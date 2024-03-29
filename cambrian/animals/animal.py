@@ -58,7 +58,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
         use_action_obs (bool): Whether to use the action observation or not. NOTE: If
             the MjCambrianConstantActionWrapper is used, this is not reflected in the
-            observation.
+            observation, as in the actions will vary in the observation.
 
         eyes (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
             The key will be used as the name for the eye.
@@ -302,7 +302,7 @@ class MjCambrianAnimal:
 
         # Update the animal's qpos
         for idx, val in self.config.initial_qpos.items():
-            self.qpos[idx] = val
+            self._data.qpos[self._qposadrs[idx]] = val
 
         # step here so that the observations are updated
         mj.mj_forward(model, data)
@@ -483,7 +483,7 @@ class MjCambrianAnimal:
     def qpos(self) -> np.ndarray:
         """Gets the qpos of the animal. The qpos is the state of the joints defined
         in the animal's xml. This method is used to get the state of the qpos."""
-        return self._data.qpos[self._qposadrs].copy()
+        return self._data.qpos[self._qposadrs]
 
     @qpos.setter
     def qpos(self, value: np.ndarray[float | None]):
@@ -497,9 +497,7 @@ class MjCambrianAnimal:
         animal. If this is the case, only the first `len(value)` joints will be
         updated.
         """
-        for qposadr, val in zip(self._qposadrs[: len(value)], value):
-            if val is not None:
-                self._data.qpos[qposadr] = val
+        self._data.qpos[self._qposadrs[: len(value)]] = value
 
     @property
     def pos(self) -> np.ndarray:

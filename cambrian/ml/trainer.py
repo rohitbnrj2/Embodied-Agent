@@ -96,18 +96,13 @@ class MjCambrianTrainer:
     def eval(self, record: bool = False):
         self.config.save(self.config.logdir / "eval_config.yaml")
 
-        # Update temporary attributes for evaluation
-        temp_attrs = []
-        with setattrs_temporary(*temp_attrs):
-            env = self._make_env(1, None)
-            model = self._make_model(env)
+        eval_env = self._make_env(self.config.eval_env, 1, monitor="eval_monitor.csv")
+        model = self._make_model(eval_env)
 
-            n_runs = len(self.config.env.mazes)
-            filename = self.config.logdir / "eval" if record else None
-            record_kwargs = dict(
-                path=filename, save_types=["webp", "png", "gif", "mp4"]
-            )
-            evaluate_policy(env, model, n_runs, record_kwargs=record_kwargs)
+        n_runs = len(self.config.eval_env.mazes) 
+        filename = self.config.logdir / "eval" if record else None
+        record_kwargs = dict(path=filename, save_mode=self.config.eval_env.renderer.save_mode)
+        evaluate_policy(eval_env, model, n_runs, record_kwargs=record_kwargs)
 
     # ========
 

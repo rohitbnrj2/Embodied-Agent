@@ -143,9 +143,9 @@ class MjCambrianImageFeaturesExtractor(MjCambrianBaseFeaturesExtractor):
     ):
         super().__init__(observation_space, features_dim)
 
-        queue_size = observation_space.shape[0]
+        self.queue_size = observation_space.shape[0]
         self.temporal_linear = torch.nn.Sequential(
-            torch.nn.Linear(features_dim * queue_size, features_dim),
+            torch.nn.Linear(features_dim * self.queue_size, features_dim),
             activation(),
         )
 
@@ -164,7 +164,7 @@ class MjCambrianLowLevelExtractor(MjCambrianImageFeaturesExtractor):
     ) -> None:
         super().__init__(observation_space, features_dim, activation)
 
-        n_input_channels = 3  # observation_space.shape[1]
+        n_input_channels = observation_space.shape[1]
         height = observation_space.shape[2]
         width = observation_space.shape[3]
         self.num_pixels = n_input_channels * height * width
@@ -182,8 +182,9 @@ class MjCambrianLowLevelExtractor(MjCambrianImageFeaturesExtractor):
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         B = observations.shape[0]
 
-        observations = observations.reshape(B, self.num_pixels)  # [B, C * H * W]
+        observations = observations.reshape(-1, self.num_pixels)  # [B, C * H * W]
         encodings = self.mlp(observations)
+        encodings = encodings.reshape(B, -1)
 
         return super().forward(encodings)
 

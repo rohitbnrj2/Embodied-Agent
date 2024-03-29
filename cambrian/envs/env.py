@@ -12,6 +12,7 @@ from cambrian.animals.animal import MjCambrianAnimal, MjCambrianAnimalConfig
 from cambrian.renderer import (
     MjCambrianRenderer,
     MjCambrianRendererConfig,
+    MjCambrianRendererSaveMode,
     resize_with_aspect_fill,
 )
 from cambrian.renderer.overlays import (
@@ -567,7 +568,7 @@ if __name__ == "__main__":
         return fn
 
     @register_fn
-    def run_mj_viewer(config: MjCambrianConfig):
+    def run_mj_viewer(config: MjCambrianConfig, **kwargs):
         import mujoco.viewer
 
         env = config.env.instance(config.env)
@@ -578,8 +579,12 @@ if __name__ == "__main__":
                 viewer.sync()
 
     @register_fn
-    def run_renderer(config: MjCambrianConfig):
+    def run_renderer(config: MjCambrianConfig, *, record: bool, **kwargs):
         env = config.env.instance(config.env)
+
+        if record:
+            env.record = True
+
         env.reset(seed=config.seed)
 
         if "human" in config.env.renderer.render_modes:
@@ -595,13 +600,25 @@ if __name__ == "__main__":
             env.step(env.action_spaces.sample())
             env.render()
 
-    def main(config: MjCambrianConfig, *, fn: str):
+        if record:
+            env.save(
+                config.logdir / "eval",
+                save_pkl=False,
+                # save_mode=MjCambrianRendererSaveMode.MP4
+                # | MjCambrianRendererSaveMode.GIF
+                # | MjCambrianRendererSaveMode.PNG
+                # | MjCambrianRendererSaveMode.WEBP,
+                save_mode=MjCambrianRendererSaveMode.MP4,
+            )
+
+    def main(config: MjCambrianConfig, *, fn: str, **kwargs):
         if fn not in REGISTRY:
             raise ValueError(f"Unknown function {fn}")
-        REGISTRY[fn](config)
+        REGISTRY[fn](config, **kwargs)
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "fn", type=str, help="The method to run.", choices=REGISTRY.keys()
     )
+    parser.add_argument("--record", action="store_true", help="Record the simulation.")
     run_hydra(main, parser=parser)
