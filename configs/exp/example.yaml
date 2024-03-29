@@ -8,11 +8,11 @@ defaults:
   # requirement in the default file listed above
   # Also note that you can't include the same maze twice; it will overwrite the previous
   # definition since the mazes attribute is a dictionary
-  # _group_ is a special keyword which evaluates to the group of the config file, 
-  # as in /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC will evaluate to 
-  # env.mazes.I_MAZE_STATIC. This is equivalent to 
+  # _group_ is a special keyword which evaluates to the group of the config file,
+  # as in /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC will evaluate to
+  # env.mazes.I_MAZE_STATIC. This is equivalent to
   # /env/mazes/I_MAZE_STATIC@_group_._name_.
-  - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC 
+  - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC
   - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC2
   - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC3
   - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC4
@@ -44,7 +44,7 @@ env:
   animals:
     point_0:
       # Set the initial yaw to -pi / 2. Indices represent indices in the qpos array.
-      # The values should be between [-1, 1]. Mapped to the actual range of the joint 
+      # The values should be between [-1, 1]. Mapped to the actual range of the joint
       # later.
       initial_qpos:
         2: -0.5

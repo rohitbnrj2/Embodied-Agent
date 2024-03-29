@@ -245,7 +245,9 @@ class MjCambrianEnv(gym.Env):
 
         return self._update_obs(obs), self._update_info(info)
 
-    def step(self, action: Dict[str, Any]) -> Tuple[
+    def step(
+        self, action: Dict[str, Any]
+    ) -> Tuple[
         Dict[str, Any],
         Dict[str, float],
         Dict[str, bool],
@@ -342,7 +344,9 @@ class MjCambrianEnv(gym.Env):
 
         terminated: Dict[str, bool] = {}
         for name in self.animals:
-            terminated[name] = self.config.termination_fn(self, self.animals[name], info[name])
+            terminated[name] = self.config.termination_fn(
+                self, self.animals[name], info[name]
+            )
 
         return terminated
 
@@ -356,7 +360,9 @@ class MjCambrianEnv(gym.Env):
 
         truncated: Dict[str, bool] = {}
         for name in self.animals:
-            truncated[name] = self.config.truncation_fn(self, self.animals[name], info[name])
+            truncated[name] = self.config.truncation_fn(
+                self, self.animals[name], info[name]
+            )
             # truncated[name] = self._episode_step >= (self._max_episode_steps - 1)
 
         return truncated

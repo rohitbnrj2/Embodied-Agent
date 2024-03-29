@@ -6,7 +6,7 @@ defaults:
 
   # Animals
   - /env/animals/point@_group_.point_0
-  
+
   # Eyes
   - /env/animals/eyes/eye@env.animals.point_0.eyes.eye_0
 

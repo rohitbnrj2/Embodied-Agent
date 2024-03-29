@@ -9,8 +9,9 @@ from cambrian.renderer.render_utils import (
 )  # noqa
 
 __all__ = [
-    "MjCambrianRendererConfig",
     "MjCambrianRenderer",
+    "MjCambrianRendererConfig",
+    "MjCambrianRendererSaveMode",
     "resize_with_aspect_fill",
     "convert_depth_to_rgb",
 ]

@@ -86,7 +86,7 @@ class MjCambrianContainerConfig:
         """Instantiate the config using the structured config. Will check for missing
         keys and raise an error if any are missing."""
         # Resolve the config prior to instantiation. This will resolve any high level
-        # interpolations before instantation such that the interpolations which are 
+        # interpolations before instantation such that the interpolations which are
         # configs in themselves will be the uninstantiated config. This is important
         # since the instantiated config has objects that aren't picklable.
         OmegaConf.resolve(config)

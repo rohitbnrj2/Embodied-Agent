@@ -3,8 +3,7 @@ from typing import Dict, List, Any
 import numpy as np
 from gymnasium import spaces
 
-from cambrian.animals.animal import MjCambrianAnimal, MjCambrianAnimalConfig
-from cambrian.utils import setattrs_temporary
+from cambrian.animals.animal import MjCambrianAnimal
 
 
 class MjCambrianPointAnimal(MjCambrianAnimal):

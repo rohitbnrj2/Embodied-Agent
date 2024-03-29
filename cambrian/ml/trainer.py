@@ -12,7 +12,7 @@ from stable_baselines3.common.utils import set_random_seed
 
 from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.ml.model import MjCambrianModel
-from cambrian.utils import evaluate_policy, setattrs_temporary
+from cambrian.utils import evaluate_policy
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.wrappers import make_wrapped_env
 from cambrian.utils.logger import get_logger

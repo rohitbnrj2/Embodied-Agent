@@ -34,10 +34,7 @@ def truncate_if_close_to_object(
 
 
 def combined_truncation(
-    env: MjCambrianEnv,
-    animal: MjCambrianAnimal,
-    info: Dict[str, Any],
-    **truncation_fns
+    env: MjCambrianEnv, animal: MjCambrianAnimal, info: Dict[str, Any], **truncation_fns
 ) -> bool:
     """Combines multiple truncation functions into one."""
     truncate = False

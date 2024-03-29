@@ -1,7 +1,6 @@
-from typing import Dict, Any, List, Deque, Tuple, Callable, Self
+from typing import Dict, Any, List, Tuple, Callable, Self
 from enum import Flag, auto
 from functools import reduce
-from collections import deque
 import uuid
 
 import numpy as np
@@ -52,8 +51,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
         initial_qpos (Dict[int, float]): The initial qpos of the animal. Indices are
             the qpos adr and the values are the initial values. This is used to set the
-            initial position of the animal in the environment. The indices are 
-            actually calculated as the qpos adr of the joints associated with the 
+            initial position of the animal in the environment. The indices are
+            actually calculated as the qpos adr of the joints associated with the
             animal plus the index specified in the dict.
 
         use_action_obs (bool): Whether to use the action observation or not. NOTE: If
@@ -453,7 +452,7 @@ class MjCambrianAnimal:
         observation_space: Dict[Any, spaces.Space] = {}
 
         for name, eye in self.eyes.items():
-            observation_space[name] = eye.observation_space 
+            observation_space[name] = eye.observation_space
 
         if self.config.use_action_obs:
             observation_space["action"] = spaces.Box(

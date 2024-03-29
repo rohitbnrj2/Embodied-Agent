@@ -509,7 +509,7 @@ class MjCambrianRenderer:
         self.logger.info(f"Saving visualizations at {path}...")
 
         path = Path(path)
-        rgb_buffer = (np.array(self._rgb_buffer) * 255.).astype(np.uint8)
+        rgb_buffer = (np.array(self._rgb_buffer) * 255.0).astype(np.uint8)
         if len(rgb_buffer) > 1:
             rgb_buffer = rgb_buffer[:-1]
 
