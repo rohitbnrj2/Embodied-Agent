@@ -8,7 +8,7 @@ from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim
 
-from cambrian.optics import MjCambrianOptics, MjCambrianOpticsConfig
+from cambrian.eyes.optics import MjCambrianOptics, MjCambrianOpticsConfig
 
 # ==================
 # Utils

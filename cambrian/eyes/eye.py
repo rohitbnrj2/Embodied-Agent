@@ -5,7 +5,7 @@ import mujoco as mj
 from gymnasium import spaces
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
-from cambrian.optics import MjCambrianOptics, MjCambrianOpticsConfig
+from cambrian.eyes.optics import MjCambrianOptics, MjCambrianOpticsConfig
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
 

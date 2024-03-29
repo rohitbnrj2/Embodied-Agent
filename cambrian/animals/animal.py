@@ -8,7 +8,7 @@ import mujoco as mj
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
 
-from cambrian.eye import MjCambrianEye, MjCambrianEyeConfig
+from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.utils import (
     get_body_id,
     get_geom_id,

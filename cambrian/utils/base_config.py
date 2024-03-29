@@ -63,6 +63,7 @@ class MjCambrianContainerConfig:
 
     _config: DictConfig | ListConfig
     _content: DictConfig | ListConfig
+    _config_is_content: bool
 
     def __init__(
         self,
@@ -74,6 +75,7 @@ class MjCambrianContainerConfig:
         # __getattr__ method. If config is None, we'll just set it to the content.
         self.__dict__["_content"] = content
         self.__dict__["_config"] = config or content
+        self.__dict__["_config_is_content"] = config is None
 
     @classmethod
     def instantiate(
@@ -254,20 +256,24 @@ class MjCambrianContainerConfig:
         using OmegaConf logic since it does validation."""
         if isinstance(value, MjCambrianContainerConfig):
             setattr(self._content, name, value._content)
-            setattr(self._config, name, value._config)
+            if not self._config_is_content:
+                setattr(self._config, name, value._config)
         else:
             setattr(self._content, name, value)
-            setattr(self._config, name, value)
+            if not self._config_is_content:
+                setattr(self._config, name, value)
 
     def __setitem__(self, key: Any, value: Any):
         """Set the item in the content. These are fairly slow, but we'll keep them using
         OmegaConf logic since it does validation."""
         if isinstance(value, MjCambrianContainerConfig):
             self._content[key] = value._content
-            self._config[key] = value._config
+            if not self._config_is_content:
+                self._config[key] = value._config
         else:
             self._content[key] = value
-            self._config[key] = value
+            if not self._config_is_content:
+                self._config[key] = value
 
     def __iter__(self) -> Iterator[Any]:
         """Only supported by ListConfig. Wrapper around the __iter__ method to return
@@ -301,7 +307,14 @@ class MjCambrianContainerConfig:
     # ===========
     # Internal utils
 
-    def _get_impl(self, key: Any, default_value: Any = ..., *, is_getattr: bool = True):
+    def _get_impl(
+        self,
+        key: Any,
+        default_value: Any = ...,
+        *,
+        is_getattr: bool = True,
+        as_node: bool = False,
+    ):
         """Perform access of the underlying data structures. This is an optimized
         version which uses internal methods of OmegaConf. This is similar to
         DictConfig._get_impl, but optimized for this use case. We know it out configs
@@ -311,44 +324,55 @@ class MjCambrianContainerConfig:
             key (Any): The key to access.
             default_value (Any): The default value to return if the key is not found.
         """
-        content: Node
-        config: Node
-        is_config: bool
-        if isinstance(self._content, ListConfig):
-            # ListConfig only accepts integers as keys
-            if is_getattr:
-                try:
-                    key = int(key)
-                except ValueError:
-                    self._content._format_and_raise(
-                        key,
-                        None,
-                        AttributeError("ListConfig does not support attribute access"),
-                    )
-            content = self._content.__dict__["_content"][key]
-            if is_config := OmegaConf.is_config(content):
-                config = self._config.__dict__["_content"][key]
-        else:  # DictConfig
-            # Normalize the key. This will convert the key to allowed dictionary keys, like
-            # converts 0, 1 if the key type is bool. Basically validates the key.
+        if isinstance(self._content, DictConfig):
+            # Normalize the key. This will convert the key to allowed dictionary keys,
+            # like converts 0, 1 if the key type is bool. Basically validates the key.
             key = self._content._validate_and_normalize_key(key)
 
             # Check that the key exists
-            if key not in self._content.__dict__["_content"] and is_getattr:
-                if default_value is ...:
+            if key not in self._content.__dict__["_content"]:
+                if not is_getattr or default_value is ...:
                     self._content._format_and_raise(
                         key, None, ConfigKeyError(f"Key not found: {key!s}")
                     )
-            # TODO: use [key] instead of get since it's faster
+
+        else:  # ListConfig
+            # ListConfig only accepts integers as keys
+            if is_getattr:
+                key = self._validate_key_is_int(key)
+
+        config: DictConfig | ListConfig
+        content: DictConfig | ListConfig
+        is_config: bool
+        if is_getattr:
+            default_value = None if default_value is ... else default_value
             content = self._content.__dict__["_content"].get(key, default_value)
-            if is_config := OmegaConf.is_config(content):
+            is_config = OmegaConf.is_config(content)
+            if is_config and not self._config_is_content:
                 config = self._config.__dict__["_content"].get(key, default_value)
+        else:
+            content = self._content.__dict__["_content"][key]
+            is_config = OmegaConf.is_config(content)
+            if is_config and not self._config_is_content:
+                config = self._config.__dict__["_content"][key]
 
         # If the content is a config, we'll wrap it in this class
-        if is_config:
+        if is_config and not as_node:
             return MjCambrianContainerConfig(content, config=config)
         else:
-            return content._value()
+            get_value = not as_node or isinstance(content, Node)
+            return content._value() if get_value else content
+
+    def _validate_key_is_int(self, key: Any) -> int:
+        """Validate the key for the content."""
+        try:
+            return int(key)
+        except ValueError:
+            self._content._format_and_raise(
+                key,
+                None,
+                AttributeError("ListConfig does not support attribute access"),
+            )
 
 
 class MjCambrianDictConfig(MjCambrianContainerConfig, DictConfig):
@@ -505,8 +529,6 @@ def search(
 register_new_resolver("search", search)
 register_new_resolver("parent", partial(search, mode="parent_key"))
 register_new_resolver("eval", lambda src: eval(src, {}, {"np": np}))
-
-register_new_resolver("interpolation", lambda src: f"\$\{{{src}\}}")
 
 
 # =============================================================================

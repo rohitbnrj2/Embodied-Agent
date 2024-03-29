@@ -22,6 +22,8 @@ def __setitem__(config: MjCambrianBaseConfig, key: Any, value: Any):
 
 
 def main(config: MjCambrianConfig):
+    a = {"a": 1, "b": 2}  # noqa
+    b = [1, 2, 3, 4, 5]  # noqa
     point_0 = config.env.animals["point_0"]  # noqa
     eyes_lat_range = point_0.eyes_lat_range  # noqa
 
@@ -30,7 +32,9 @@ def main(config: MjCambrianConfig):
     for _ in range(num):
         # __getattr__(point_0, "use_action_obs")
         # __getitem__(point_0, "use_action_obs")
-        # __setattr__(point_0, "use_action_obs", False) # slow
+        __setattr__(point_0, "use_action_obs", False)  # slow
+        # __setattr__(point_0, "eyes_lat_range", [0, 1]) # ultra slow
+        # __setattr__(point_0, "eyes_lat_range", "test") # ultra slow
         # __setitem__(point_0, "use_action_obs", False) # slow
 
         # __getattr__(eyes_lat_range, "start") # error; good

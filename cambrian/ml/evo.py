@@ -7,7 +7,7 @@ import logging
 
 from stable_baselines3.common.utils import set_random_seed
 
-from cambrian.population import (
+from cambrian.ml.population import (
     MjCambrianPopulation,
     MjCambrianPopulationConfig,
     MjCambrianSpawningConfig,

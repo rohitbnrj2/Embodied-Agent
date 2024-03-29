@@ -363,7 +363,6 @@ class MjCambrianEnv(gym.Env):
             truncated[name] = self.config.truncation_fn(
                 self, self.animals[name], info[name]
             )
-            # truncated[name] = self._episode_step >= (self._max_episode_steps - 1)
 
         return truncated
 
