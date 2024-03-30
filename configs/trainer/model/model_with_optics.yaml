@@ -13,7 +13,7 @@ policy_kwargs:
         # All defaults are stored at custom.default.*. Grab them here for the defaults.
         # Usually the interpolation ${..resolution}/${..sensorsize} is used, but an eye
         # is not the above config in this case like it is in the animal configs.
-        eye_resolution: ${custom.default.eye.resolution}
+        eye_resolution: [5, 5] # ${custom.default.eye.resolution}
         eye_sensorsize: ${custom.default.eye.sensorsize}
       base_feature_extractor:
         _target_: cambrian.ml.features_extractors.MjCambrianLowLevelExtractor

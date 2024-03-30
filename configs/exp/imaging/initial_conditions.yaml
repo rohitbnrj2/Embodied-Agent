@@ -12,7 +12,8 @@ defaults:
   - override /env/animals: point_1eye # override the default to use 1 eye
 
   # Override the default eye to use optics
-  - override /env/animals/eyes: eye_with_optics
+  # - override /env/animals/eyes: eye_with_optics
+  - override /trainer/model: model_with_optics
 
 env:
   animals:
@@ -20,3 +21,7 @@ env:
       eyes:
         eye_0:
           resolution: [5, 5]
+
+          use_depth_obs: True
+          renderer:
+            render_modes: [rgb_array, depth_array]

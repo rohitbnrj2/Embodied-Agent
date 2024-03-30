@@ -164,7 +164,9 @@ class MjCambrianLowLevelExtractor(MjCambrianImageFeaturesExtractor):
     ) -> None:
         super().__init__(observation_space, features_dim, activation)
 
-        n_input_channels = observation_space.shape[1]
+        # TODO: this is explicitly set to 3 in the case that depth is part of the
+        # observation space. Is there a better way to handle this?
+        n_input_channels = 3  # observation_space.shape[1]
         height = observation_space.shape[2]
         width = observation_space.shape[3]
         self.num_pixels = n_input_channels * height * width
