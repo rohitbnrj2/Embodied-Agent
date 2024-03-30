@@ -1,3 +1,6 @@
+# @package custom.default.animal
+# We aren't actually going to use this animal, so store it in the special attr `custom` which isn't read
+
 defaults:
   - animal@_here_
 

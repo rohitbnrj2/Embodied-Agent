@@ -213,9 +213,6 @@ class MjCambrianEnv(gym.Env):
         self._step_mujoco_simulation(1, info)
 
         # Now update the info dict
-        for name, animal in self.animals.items():
-            info[name]["qpos"] = animal.qpos
-
         if self.renderer is not None:
             self.renderer.reset(self.model, self.data)
 
@@ -241,8 +238,8 @@ class MjCambrianEnv(gym.Env):
             self._rollout.setdefault("positions", [])
             self._rollout["positions"].append([a.qpos for a in self.animals.values()])
 
-        self._overlays["Name"] = self.name
-        self._overlays["Total Timesteps"] = f"{self.num_timesteps}"
+            self._overlays["Name"] = self.name
+            self._overlays["Total Timesteps"] = f"{self.num_timesteps}"
 
         return self._update_obs(obs), self._update_info(info)
 
@@ -286,7 +283,6 @@ class MjCambrianEnv(gym.Env):
         for name, animal in self.animals.items():
             obs[name] = animal.step()
 
-            info[name]["qpos"] = animal.qpos
             info[name]["action"] = action[name]
 
         # Call helper methods to update the observations, rewards, terminated, and info
@@ -300,21 +296,21 @@ class MjCambrianEnv(gym.Env):
         self._cumulative_reward += sum(reward.values())
         self._stashed_cumulative_reward = self._cumulative_reward
 
-        self._overlays["Step"] = self._episode_step
-        self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
-
         if self.record:
             self._rollout["actions"].append(list(action.values()))
             self._rollout["positions"].append([a.pos for a in self.animals.values()])
 
+            self._overlays["Step"] = self._episode_step
+            self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
+
         return obs, reward, terminated, truncated, info
 
-    def _step_mujoco_simulation(self, n_frames: int, info: Dict[str, Any]):
+    def _step_mujoco_simulation(self, n_frames: int, info: Dict[str, Dict[str, Any]]):
         """Sets the mujoco simulation. Will step the simulation `n_frames` times, each
         time checking if the animal has contacts."""
         # Initially set has_contacts to False for all animals
         for name in self.animals:
-            info[name]["has_contacts"] = False
+            info[name].setdefault("has_contacts", False)
 
         # Check contacts at _every_ step.
         # NOTE: Doesn't process whether hits are terminal or not
@@ -344,10 +340,15 @@ class MjCambrianEnv(gym.Env):
         custom observation updates."""
         return obs
 
-    def _update_info(self, info: Dict[str, Any]) -> Dict[str, Any]:
+    def _update_info(
+        self, info: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, Dict[str, Any]]:
         """Overridable method to update the info. This class will just return the info
         as is, but subclasses can override this method to provide custom info updates.
         """
+        for name, animal in self.animals.items():
+            info[name]["qpos"] = animal.qpos
+
         return info
 
     def _compute_terminated(self, info: Dict[str, Any]) -> Dict[str, bool]:
@@ -359,10 +360,8 @@ class MjCambrianEnv(gym.Env):
         """
 
         terminated: Dict[str, bool] = {}
-        for name in self.animals:
-            terminated[name] = self.config.termination_fn(
-                self, self.animals[name], info[name]
-            )
+        for name, animal in self.animals.items():
+            terminated[name] = self.config.termination_fn(self, animal, info[name])
 
         return terminated
 
@@ -375,10 +374,8 @@ class MjCambrianEnv(gym.Env):
         """
 
         truncated: Dict[str, bool] = {}
-        for name in self.animals:
-            truncated[name] = self.config.truncation_fn(
-                self, self.animals[name], info[name]
-            )
+        for name, animal in self.animals.items():
+            truncated[name] = self.config.truncation_fn(self, animal, info[name])
 
         return truncated
 

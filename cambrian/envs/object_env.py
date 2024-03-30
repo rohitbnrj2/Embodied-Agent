@@ -112,7 +112,9 @@ class MjCambrianObjectEnv(MjCambrianEnv):
 
         return obs
 
-    def _update_info(self, info: Dict[str, Any]) -> Dict[str, Any]:
+    def _update_info(
+        self, info: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, Dict[str, Any]]:
         """Updates the info for the environment."""
         info = super()._update_info(info)
 

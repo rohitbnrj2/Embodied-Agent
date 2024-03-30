@@ -419,15 +419,16 @@ class MjCambrianAnimal:
         involve this animal.
         """
         for contact in self._data.contact:
-            geom1 = contact.geom1
+            geom1 = int(contact.geom[0])
             body1 = self._model.geom_bodyid[geom1]
             rootbody1 = self._model.body_rootid[body1]
 
-            geom2 = contact.geom2
+            geom2 = int(contact.geom[1])
             body2 = self._model.geom_bodyid[geom2]
             rootbody2 = self._model.body_rootid[body2]
 
-            if rootbody1 != self._body_id and rootbody2 != self._body_id:
+            is_contact = rootbody1 == self._body_id and rootbody2 == self._body_id
+            if is_contact or contact.exclude:
                 # Not a contact with this animal
                 continue
 

@@ -136,6 +136,8 @@ class MjCambrianTrainer:
         if monitor is not None:
             vec_env = VecMonitor(vec_env, str(self.config.logdir / monitor))
 
+        # Do an initial reset
+        vec_env.reset()
         return vec_env
 
     def _make_callback(self, env: VecEnv) -> CallbackList:

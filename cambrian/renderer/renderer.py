@@ -99,15 +99,17 @@ class MjCambrianViewer(ABC):
         self._mjr_context: mj.MjrContext = None
         self._font = mj.mjtFontScale.mjFONTSCALE_50
 
-        self._rgb_uint8: np.ndarray = None
-        self._rgb_float32: np.ndarray = None
-        self._depth: np.ndarray = None
+        self._rgb_uint8: np.ndarray = np.array([])
+        self._rgb_float32: np.ndarray = np.array([])
+        self._depth: np.ndarray = np.array([])
 
     def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
         self.model = model
         self.data = data
 
-        self.scene = self.config.scene(model=model)
+        # Only create the scene once
+        if self.scene is None:
+            self.scene = self.config.scene(model=model)
         self.scene_options = deepcopy(self.config.scene_options)
         self.camera = deepcopy(self.config.camera)
 
@@ -116,9 +118,10 @@ class MjCambrianViewer(ABC):
         self.viewport = mj.MjrRect(0, 0, width, height)
 
         # Initialize the buffers
-        self._rgb_uint8 = np.empty((height, width, 3), dtype=np.uint8)
-        self._rgb_float32 = np.empty((height, width, 3), dtype=np.float32)
-        self._depth = np.empty((height, width), dtype=np.float32)
+        if self._rgb_uint8.shape[0] != height or self._rgb_uint8.shape[1] != width:
+            self._rgb_uint8 = np.empty((height, width, 3), dtype=np.uint8)
+            self._rgb_float32 = np.empty((height, width, 3), dtype=np.float32)
+            self._depth = np.empty((height, width), dtype=np.float32)
 
     def _initialize_contexts(self, width: int, height: int):
         global GL_CONTEXT, MJR_CONTEXT
