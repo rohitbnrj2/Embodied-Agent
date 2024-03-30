@@ -13,5 +13,3 @@ spawning:
   load_policy: False
 
   replication_type: MUTATION
-
-environment_variables: {}

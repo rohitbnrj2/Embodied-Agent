@@ -17,7 +17,7 @@ def generate(args):
             args.checkered = prefix == "checkered"
 
             filename = f"{prefix}_{n}.png"
-            args.save = f"cambrian/evolution_envs/three_d/mujoco/models/assets/maze_textures/{filename}"
+            args.save = f"models/assets/maze_textures/{filename}"
 
             cmd = ["python", __file__]
             for k, v in vars(args).items():

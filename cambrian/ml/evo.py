@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 import os
 import subprocess
 import threading
@@ -49,9 +49,6 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
         top_performers (Optional[List[str]]): The top performers from the parent
             generation. This was used to select an animal to spawn an offspring from.
             Used for parsing after the fact.
-
-        environment_variables (Optional[Dict[str, str]]): The environment variables to
-            set for the training process.
     """
 
     num_nodes: int
@@ -68,8 +65,6 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
     # parent_generation: int
 
     top_performers: Optional[List[str]] = None
-
-    environment_variables: Dict[str, str]
 
 
 class MjCambrianEvoRunner:

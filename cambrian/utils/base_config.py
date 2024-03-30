@@ -526,9 +526,37 @@ def search(
             return search(key, mode=mode, depth=depth + 1, _parent_=_parent_._parent)
 
 
+def sweep_params(params: ListConfig):
+    """This method will, given a ListConfig node, produce an
+    output string suitable a multirun sweep. For instance, the following config:
+
+    ```yaml
+    - architecture: [16, 32]
+      output_dim: 64
+    - architecture: [32, 64]
+      output_dim: 128
+    ```
+
+    Will result in the following output:
+
+    ```
+    {architecture:[16, 32], output_dim:64},{architecture:[32, 64], output_dim:128}
+    ```
+    """
+    assert isinstance(params, ListConfig), "params must be a ListConfig"
+
+    params_list = []
+    for param in params:
+        param_str = ", ".join([f"{k}: {v}" for k, v in param.items()])
+        params_list.append(f"{{{param_str}}}")
+
+    return ",".join(params_list)
+
+
 register_new_resolver("search", search)
 register_new_resolver("parent", partial(search, mode="parent_key"))
 register_new_resolver("eval", lambda src: eval(src, {}, {"np": np}))
+register_new_resolver("format_sweep_params", sweep_params)
 
 
 # =============================================================================

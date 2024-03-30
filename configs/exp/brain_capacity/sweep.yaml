@@ -1,0 +1,46 @@
+# @package _global_
+
+defaults:
+  # Use one maze for the time being
+  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC
+
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+  # Define one animal
+  - /env/animals@env.animals.animal_0: ${env/animals}
+  - override /env/animals: point_1eye # override the default to use 1 eye
+
+# Define some sweeper parameters to do a grid search over different brain capacities to
+# gauge the effect on performance. To implement this, we want paired configs of the
+# architecture and output_dim parameters for the features extractor. We can define these
+# in the custom location (which is unvalidated during load) and then just refer to them
+# in the model config. If we set the attributes directly in the sweep params, they
+# wouldn't be "paired".
+trainer:
+  model:
+    policy_kwargs:
+      features_extractor_kwargs:
+        output_dim: ${custom.model.output_dim}
+        image_extractor:
+          architecture: ${custom.model.architecture}
+
+custom:
+  model_sweeper_params:
+    - architecture: [8, 16]
+      output_dim: 16
+    - architecture: [8, 16]
+      output_dim: 32
+    - architecture: [16, 32]
+      output_dim: 32
+    - architecture: [16, 32]
+      output_dim: 64
+    - architecture: [32, 64]
+      output_dim: 128
+    - architecture: [128, 256]
+      output_dim: 256
+
+hydra:
+  sweeper:
+    params:
+      +custom.model: ${format_sweep_params:${custom.model_sweeper_params}}
