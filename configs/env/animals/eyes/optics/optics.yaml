@@ -8,7 +8,8 @@ noise_std: 0.01
 aperture: 0.1
 wavelengths: [610e-9, 530e-9, 470e-9]
 
+depths: [0.01, 0.1, 1.0, 10.0]
+# depths: [0.012515826]
+
 eye_resolution: ${..resolution}
 eye_sensorsize: ${..sensorsize}
-
-use_depth_obs: True

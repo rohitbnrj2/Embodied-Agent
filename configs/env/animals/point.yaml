@@ -1,5 +1,5 @@
 defaults:
-  - /${env/animals}@_here_
+  - animal@_here_
 
 instance:
   _target_: cambrian.animals.point.MjCambrianPointAnimal

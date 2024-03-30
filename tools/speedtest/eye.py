@@ -9,11 +9,11 @@ from cambrian.utils.config import MjCambrianConfig, run_hydra
 
 
 def main(config: MjCambrianConfig):
-    xml = MjCambrianXML.from_config(config.env.xml)
+    xml = MjCambrianXML.from_string(config.env.xml)
 
     # NOTE: Only uses the first animal
     animal_config = next(iter(config.env.animals.values()))
-    xml += MjCambrianXML.from_config(animal_config.xml)
+    xml += MjCambrianXML.from_string(animal_config.xml)
 
     # Add the eyes
     eyes: List[MjCambrianEye] = []

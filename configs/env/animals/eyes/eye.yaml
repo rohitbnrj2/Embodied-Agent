@@ -3,8 +3,8 @@
 
 pos: [0, 0, 0] # placeholder
 quat: [1, 0, 0, 0] # placeholder
-fov: [45, 20]
-focal: [0.1, 0.1]
+fov: [45, 45]
+focal: [0.01, 0.01]
 sensorsize:
   - ${eval:'(2 * ${..focal.0} * np.tan(np.radians(${..fov.0}) / 2)).tolist()'}
   - ${eval:'(2 * ${..focal.1} * np.tan(np.radians(${..fov.1}) / 2)).tolist()'}

@@ -437,8 +437,7 @@ class MjCambrianEnv(gym.Env):
                 self.logger.warning("Renderer width is too small!!")
                 continue
 
-            composite = animal.create_composite_image()
-            if composite is None:
+            if (composite := animal.create_composite_image()) is None:
                 # Make the composite image black so we can still render other overlays
                 composite = np.zeros((*overlay_size, 3), dtype=np.float32)
 
@@ -629,7 +628,7 @@ if __name__ == "__main__":
             env.renderer.viewer.custom_key_callback = custom_key_callback
 
         while env.renderer.is_running():
-            env.step(env.action_spaces.sample())
+            # env.step(env.action_spaces.sample())
             env.render()
 
         if record:

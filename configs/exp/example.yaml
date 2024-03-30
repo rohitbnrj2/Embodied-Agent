@@ -8,25 +8,14 @@ defaults:
   # requirement in the default file listed above
   # Also note that you can't include the same maze twice; it will overwrite the previous
   # definition since the mazes attribute is a dictionary
-  # _group_ is a special keyword which evaluates to the group of the config file,
-  # as in /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC will evaluate to
-  # env.mazes.I_MAZE_STATIC. This is equivalent to
-  # /env/mazes/I_MAZE_STATIC@_group_._name_.
-  - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC
-  - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC2
-  - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC3
-  - /env/mazes/I_MAZE_STATIC@_group_.I_MAZE_STATIC4
-
-  # Same here; we define all the animals we want to use (in this case, just one)
-  - /env/animals/point@_group_.point_0
+  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC
+  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC2
 
   # We also need to define the eyes for the animal. We'll use the default eye to serve
-  # as the base for the single eye.
+  # as the base for the new eye.
   # This basically says load "eye.yaml" in ./env/animals/eyes and place it at
-  # env.animals.point_0.eyes.eye_0 in the config
-  - /env/animals/eyes/eye@env.animals.point_0.eyes.eye_0
-  # Same idea except now the eye is at env.animals.point_0.eyes.eye_1
-  - /env/animals/eyes/eye@env.animals.point_0.eyes.eye_1
+  # env.animals.animal_0.eyes.eye_1 in the config
+  - /env/animals/eyes/eye@env.animals.animal_0.eyes.eye_1
 
   # We then include the default config (located at in the same folder as this file
   # i.e. configs/exp/maze_exp.yaml). This file defines required attributes we'll need
@@ -35,6 +24,12 @@ defaults:
   # files use those as interpolations in their default lists.
   - maze_exp
 
+  # Same here; we define all the animals we want to use (in this case, just one)
+  # We need to override the /env/animals field explicitly since we're changing the
+  # default animal config
+  - /env/animals@env.animals.animal_0: ${env/animals}
+  - override /env/animals: point_1eye
+
   # Finally, we include _self_ such that all the configs defined herein will override
   # the files we've included above. This actually isn't necessary as hydra will
   # automatically append _self_ to the end of the list of defaults.
@@ -42,22 +37,20 @@ defaults:
 
 env:
   animals:
-    point_0:
+    animal_0:
       # Set the initial yaw to -pi / 2. Indices represent indices in the qpos array.
-      # The values should be between [-1, 1]. Mapped to the actual range of the joint
-      # later.
       initial_qpos:
-        2: -0.5
+        2: ${eval:'-3.14/2'}
 
       eyes:
         eye_0:
-          resolution: [10, 10]
-          fov: [45, 20]
-          coord: [10, 0]
+          # Adjust the placement of both eyes so that they are looking in different
+          # directions
+          coord: [10, -25]
         eye_1:
-          resolution: [1, 1]
-          fov: [45, 20]
-          coord: [10, 0]
+          # Override eye_1 to be high resolution
+          resolution: [100, 100]
+          coord: [10, 25]
 
 # This is an example of how to use the constant action wrapper
 # NOTE: This is applied _after_ base.yaml, so the wrappers are appended after all

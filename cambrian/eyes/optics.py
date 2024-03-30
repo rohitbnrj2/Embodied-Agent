@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List, Dict
 
 import torch
 import numpy as np
@@ -20,6 +20,11 @@ class MjCambrianOpticsConfig(MjCambrianBaseConfig):
         noise_std (float): Standard deviation of the Gaussian noise to be
             added to the image. If 0.0, no noise is added.
         wavelengths (Tuple[float, float, float]): Wavelengths of the RGB channels.
+
+        depths (List[float]): Depths at which the PSF is calculated.
+
+        eye_resolution (Tuple[int, int]): Resolution of the eye sensor.
+        eye_sensorsize (Tuple[float, float]): Size of the eye sensor.
     """
 
     padded_resolution: Tuple[int, int]
@@ -27,6 +32,8 @@ class MjCambrianOpticsConfig(MjCambrianBaseConfig):
     aperture: float
     noise_std: float
     wavelengths: Tuple[float, float, float]
+
+    depths: List[float]
 
     # These should be copies of the attributes from the eye config
     eye_resolution: Tuple[int, int]
@@ -45,10 +52,12 @@ class MjCambrianOptics:
 
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self._reset_psf()
+        self._psfs: Dict[torch.Tensor, torch.Tensor] = {}
+        self._depths = torch.tensor(self.config.depths).to(self._device)
+        self._calculate_psfs()
 
-    def _reset_psf(self):
-        """Define a simple point spread function (PSF) for the eye."""
+    def _calculate_psfs(self):
+        # Initialize parameters used during the PSF calculation
 
         # Mx,My defines the number of pixels in x,y direction (i.e. width, height)
         Mx, My = self.config.padded_resolution
@@ -70,50 +79,49 @@ class MjCambrianOptics:
 
         # Frequency coords
         fx = torch.linspace(-1.0 / (2.0 * dx), 1.0 / (2.0 * dx), Mx)
-        fy = torch.linspace(-1.0 / (2.0 * dx), 1.0 / (2.0 * dx), My)
-        FX, FY = torch.meshgrid(fx, fy, indexing="ij")
+        fy = torch.linspace(-1.0 / (2.0 * dy), 1.0 / (2.0 * dy), My)
+        FX, FY = torch.meshgrid(fx, fy, indexing="xy")
 
         # Aperture
         # Add small epsilon to avoid division by zero
         # TODO: aperture > 1.0
         aperture_radius = min(Lx / 2, Ly / 2) * self.config.aperture + 1.0e-7  # (m)
         A: torch.Tensor = (
-            torch.sqrt(X1**2 + Y1**2) / aperture_radius <= 1.0
+            torch.sqrt(X1.square() + Y1.square()) / aperture_radius <= 1.0
         ).float()
 
-        # Update the class variables
-        self.A = A.to(self._device)
-        self.X1 = X1.to(self._device)
-        self.Y1 = Y1.to(self._device)
-        self.FX = FX.to(self._device)
-        self.FY = FY.to(self._device)
-
-        self.wavelengths = torch.tensor(self.config.wavelengths).to(self._device)
-        self.wavelengths = self.wavelengths.unsqueeze(-1).unsqueeze(-1)
-
-        # Precompute some values used in the PSF calculation
-        self.X1_Y1 = self.X1.square() + self.Y1.square()
-        self.H_valid = (
-            torch.sqrt(self.FX.square() + self.FY.square()) < (1.0 / self.wavelengths)
-        ).float()
-        self.FX_FY = torch.sqrt(
-            1
-            - (self.wavelengths * self.FX).square()
-            - (self.wavelengths * self.FY).square()
+        # Pre-compute some values that are reused in the PSF calculation
+        wavelengths = torch.tensor(self.config.wavelengths).reshape(-1, 1, 1)
+        X1_Y1 = X1.square() + Y1.square()
+        H_valid = (torch.sqrt(FX.square() + FY.square()) < (1.0 / wavelengths)).float()
+        FX_FY = torch.sqrt(
+            1 - (wavelengths * FX).square() - (wavelengths * FY).square()
         )
-        self.k = 1j * 2 * torch.pi / self.wavelengths
+        k = 1j * 2 * torch.pi / wavelengths
 
-        # Create buffers for later use in the psf calculation
-        shape = (len(self.wavelengths), *self.X1.shape)
-        self.u1 = torch.empty(shape, dtype=torch.complex64).to(self._device)
-        self.u2 = torch.empty_like(self.u1)
-        self.H = torch.empty_like(self.u1)
-        self.H_temp = torch.empty_like(self.u1)
-        self.H_fft = torch.empty_like(self.u1)
-        self.u2_fft = torch.empty_like(self.u1)
-        self.H_u2_fft = torch.empty_like(self.u1)
-        self.u3 = torch.empty_like(self.u1)
-        self.psf = torch.empty_like(self.u1)
+        def _calculate_psf(depth: torch.Tensor):
+            # electric field originating from point source
+            u1 = torch.exp(k * torch.sqrt(X1_Y1 + depth.square()))
+
+            # electric field at the aperture
+            u2 = torch.mul(u1, A)
+
+            # electric field at the sensor plane
+            H = torch.mul(H_valid, torch.nan_to_num(torch.exp(k * depth * FX_FY)))
+
+            # Calculate the sqrt of the PSF
+            u2_fft = torch.fft.fft2(torch.fft.fftshift(u2))
+            H_u2_fft = torch.mul(torch.fft.fftshift(H), u2_fft)
+            u3: torch.Tensor = torch.fft.ifftshift(torch.fft.ifft2(H_u2_fft))
+
+            # psf should sum to 1 because of energy
+            psf = u3.abs().square()
+            psf /= psf.sum() + 1.0e-7
+
+            return psf
+
+        for depth in self._depths:
+            self._psfs[depth.item()] = _calculate_psf(depth.cpu()).to(self._device)
 
     def step(
         self, image: torch.Tensor | np.ndarray, depth: torch.Tensor | np.ndarray
@@ -133,21 +141,23 @@ class MjCambrianOptics:
                 image.device.type == self._device.type
             ), f"Device mismatch: {image.device=}, {self._device=}"
 
-        # Add noise to the image if specified
-        if self.config.noise_std != 0.0:
-            image = self._apply_noise(image, self.config.noise_std)
+        # Add noise to the image
+        image = self._apply_noise(image, self.config.noise_std)
 
         # Apply the depth invariant PSF
-        psf = self._calc_depth_invariant_psf(torch.mean(depth))
+        psf = self._get_psf(torch.mean(depth))
+
         # Image may be batched in the form
-        if len(image.shape) == 3:
+        unbatched = len(image.shape) == 3
+        if unbatched:
             image = image.permute(2, 0, 1).unsqueeze(0)
         psf = psf.unsqueeze(1)
         image = torch.nn.functional.conv2d(image, psf, padding="same", groups=3)
 
         # Post-process the image
-        if len(image.shape) == 3:
+        if unbatched:
             image = image.squeeze(0).permute(1, 2, 0)
+
         image = self._crop(image)
         image = torch.clip(image, 0, 1)
 
@@ -157,36 +167,16 @@ class MjCambrianOptics:
 
     def _apply_noise(self, image: torch.Tensor, std: float) -> torch.Tensor:
         """Add Gaussian noise to the image."""
+        if std == 0.0:
+            return image
+
         noise = torch.normal(mean=0.0, std=std, size=image.shape, device=self._device)
         return torch.clamp(image + noise, 0, 1)
 
-    def _calc_depth_invariant_psf(self, mean_depth: torch.Tensor) -> torch.Tensor:
-        """Calculate the depth invariant PSF.
-
-        Preforms batched calculation of the PSF for each wavelength.
-        """
-        # electric field originating from point source
-        torch.exp(self.k * torch.sqrt(self.X1_Y1 + mean_depth.square()), out=self.u1)
-
-        # electric field at the aperture
-        torch.mul(self.u1, self.A, out=self.u2)
-
-        # electric field at the sensor plane
-        torch.exp(self.k * mean_depth * self.FX_FY, out=self.H_temp)
-        torch.nan_to_num(self.H_temp, out=self.H_temp)
-        torch.mul(self.H_valid, self.H_temp, out=self.H)
-
-        # NOTE: not using out=... because it was found to be slower
-        self.H_fft = torch.fft.fft2(self.H)
-        self.u2_fft = torch.fft.fft2(self.u2)
-        torch.mul(self.H_fft, self.u2_fft, out=self.H_u2_fft)
-        self.u3: torch.Tensor = torch.fft.ifft2(self.H_u2_fft)
-
-        # psf should sum to 1 because of energy
-        torch.square(self.u3, out=self.psf)
-        self.psf /= self.psf.sum() + 1.0e-7
-
-        return self.psf.real
+    def _get_psf(self, depth: torch.Tensor) -> torch.Tensor:
+        """This will retrieve the psf with the closest depth to the specified depth."""
+        closest_depth = self._depths[torch.argmin(torch.abs(depth - self._depths))]
+        return self._psfs[closest_depth.item()]
 
     def _crop(self, image: torch.Tensor) -> torch.Tensor:
         """Crop the image to the resolution specified in the config. This method supports

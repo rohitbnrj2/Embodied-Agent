@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  # Use one maze for the time being
+  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC
+
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+  # Define one animal
+  - /env/animals@env.animals.animal_0: ${env/animals}
+  - override /env/animals: point_1eye # override the default to use 1 eye

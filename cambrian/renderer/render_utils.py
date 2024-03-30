@@ -5,7 +5,8 @@ import mujoco as mj
 
 
 def resize_with_aspect_fill(image: np.ndarray, width: int, height: int):
-    original_width, original_height = image.shape[:2]
+    # TODO: why is height first?
+    original_height, original_width = image.shape[:2]
     ratio_original = original_width / original_height
     ratio_new = width / height
 
