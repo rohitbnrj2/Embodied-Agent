@@ -28,6 +28,7 @@ from cambrian.renderer import (
 from cambrian.renderer.overlays import (
     MjCambrianViewerOverlay,
     MjCambrianTextViewerOverlay,
+    MjCambrianSiteViewerOverlay,
     MjCambrianImageViewerOverlay,
     MjCambrianCursor,
     TEXT_HEIGHT,
@@ -209,7 +210,7 @@ class MjCambrianEnv(gym.Env):
             obs[name] = animal.reset(self.model, self.data)
 
         # We'll step the simulation once to allow for states to propagate
-        self._step_mujoco_simulation(1)
+        self._step_mujoco_simulation(1, info)
 
         # Now update the info dict
         for name, animal in self.animals.items():
@@ -278,7 +279,7 @@ class MjCambrianEnv(gym.Env):
             info[name]["prev_pos"] = animal.qpos
 
         # Then, step the mujoco simulation
-        self._step_mujoco_simulation(self.config.frame_skip)
+        self._step_mujoco_simulation(self.config.frame_skip, info)
 
         # We'll then step each animal to render it's current state and get the obs
         obs: Dict[str, Any] = {}
@@ -308,14 +309,29 @@ class MjCambrianEnv(gym.Env):
 
         return obs, reward, terminated, truncated, info
 
-    def _step_mujoco_simulation(self, n_frames):
+    def _step_mujoco_simulation(self, n_frames: int, info: Dict[str, Any]):
         """Sets the mujoco simulation. Will step the simulation `n_frames` times, each
-        time checking if the animal has contacts. If so, will break early (if the
-        environment is configured to truncate on contact)."""
+        time checking if the animal has contacts."""
+        # Initially set has_contacts to False for all animals
+        for name in self.animals:
+            info[name]["has_contacts"] = False
+
         # Check contacts at _every_ step.
         # NOTE: Doesn't process whether hits are terminal or not
         for _ in range(n_frames):
             mj.mj_step(self.model, self.data)
+
+            # Check for contacts. We won't break here, but we'll store whether an
+            # animal has contacts or not. If we didn't store during the simulation
+            # step, contact checking would only occur after the frame skip, meaning
+            # that, if during the course of the frame skip, the animal hits an object
+            # and then moves away, the contact would not be detected.
+            if self.data.ncon > 0:
+                for name, animal in self.animals.items():
+                    if not info[name]["has_contacts"]:
+                        # Only check for has contacts if it hasn't been set to True
+                        # This reduces redundant checks
+                        info[name]["has_contacts"] = animal.has_contacts
 
         # As of MuJoCo 2.0, force-related quantities like cacc are not computed
         # unless there's a force sensor in the model.
@@ -410,6 +426,21 @@ class MjCambrianEnv(gym.Env):
         renderer = self.renderer
         renderer_width = renderer.width
         renderer_height = renderer.height
+
+        # Add site overlays for each animal
+        i = self._num_resets * self._max_episode_steps + self._episode_step
+        size = self.model.stat.extent * 5e-3
+        for animal in self.animals.values():
+            # Define a unique id for the site
+            key = f"{animal.name}_pos_{i}"
+
+            # If the animal is contacting an object, the color will be red; blue
+            # otherwise
+            color = (1, 0, 0, 1) if animal.has_contacts else (0, 1, 1, 1)
+
+            # Add the overlay
+            overlay = MjCambrianSiteViewerOverlay(animal.pos.copy(), color, size)
+            self._overlays[key] = overlay
 
         overlays: List[MjCambrianViewerOverlay] = []
 
@@ -628,7 +659,13 @@ if __name__ == "__main__":
             env.renderer.viewer.custom_key_callback = custom_key_callback
 
         while env.renderer.is_running():
-            # env.step(env.action_spaces.sample())
+            # action = env.action_spaces.sample()
+            action = {name: [-0.1, -0.5] for name, a in env.animals.items()}
+            _, _, terminated, truncated, _ = env.step(action)
+            if any(terminated.values()):
+                print("terminated:", terminated)
+            if any(truncated.values()):
+                print("truncated:", truncated)
             env.render()
 
         if record:

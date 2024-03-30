@@ -11,3 +11,9 @@ instance:
 maze_selection_fn:
   _target_: cambrian.envs.maze_env.MjCambrianMazeStore.select_maze_cycle
   _partial_: true
+
+reward_fn:
+  penalize_if_has_contacts:
+    _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
+    _partial_: true
+    penalty: -1.0

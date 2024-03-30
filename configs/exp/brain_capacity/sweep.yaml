@@ -11,6 +11,9 @@ defaults:
   - /env/animals@env.animals.animal_0: ${env/animals}
   - override /env/animals: point_1eye # override the default to use 1 eye
 
+# Update the logdir to include the hydra job num to avoid overwriting logs
+logdir: ./logs/${now:%Y-%m-%d}/${expname}_sweep${hydra:job.num}
+
 # Define some sweeper parameters to do a grid search over different brain capacities to
 # gauge the effect on performance. To implement this, we want paired configs of the
 # architecture and output_dim parameters for the features extractor. We can define these
@@ -39,9 +42,6 @@ custom:
       output_dim: 128
     - architecture: [128, 256]
       output_dim: 256
-
-# Update the logdir to include the hydra job num to avoid overwriting logs
-logdir: ./logs/${now:%Y-%m-%d}/${expname}_${hydra:job.num}
 
 hydra:
   sweeper:

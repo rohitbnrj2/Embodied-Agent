@@ -33,6 +33,13 @@ def truncate_if_close_to_object(
     return False
 
 
+def truncate_if_has_contacts(
+    env: MjCambrianEnv, animal: MjCambrianAnimal, info: Dict[str, Any]
+) -> bool:
+    """Truncates the episode if the animal has contacts."""
+    return info["has_contacts"]
+
+
 def combined_truncation(
     env: MjCambrianEnv, animal: MjCambrianAnimal, info: Dict[str, Any], **truncation_fns
 ) -> bool:
