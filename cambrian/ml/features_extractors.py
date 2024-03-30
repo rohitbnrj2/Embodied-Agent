@@ -1,4 +1,4 @@
-from typing import Dict, Callable
+from typing import Dict, Callable, List
 import torch
 import torch.nn as nn
 
@@ -153,7 +153,7 @@ class MjCambrianImageFeaturesExtractor(MjCambrianBaseFeaturesExtractor):
         return self.temporal_linear(observations)
 
 
-class MjCambrianLowLevelExtractor(MjCambrianImageFeaturesExtractor):
+class MjCambrianMLPExtractor(MjCambrianImageFeaturesExtractor):
     """MLP feature extractor for small images. Essentially NatureCNN but with MLPs."""
 
     def __init__(
@@ -161,6 +161,7 @@ class MjCambrianLowLevelExtractor(MjCambrianImageFeaturesExtractor):
         observation_space: gym.Space,
         features_dim: int,
         activation: nn.Module,
+        architecture: List[int],
     ) -> None:
         super().__init__(observation_space, features_dim, activation)
 
@@ -171,15 +172,16 @@ class MjCambrianLowLevelExtractor(MjCambrianImageFeaturesExtractor):
         width = observation_space.shape[3]
         self.num_pixels = n_input_channels * height * width
 
-        self.mlp = torch.nn.Sequential(
-            nn.Flatten(),
-            torch.nn.Linear(self.num_pixels, 64),
-            activation(),
-            torch.nn.Linear(64, 128),
-            activation(),
-            torch.nn.Linear(128, features_dim),
-            activation(),
-        )
+        layers = []
+        layers.append(torch.nn.Flatten())
+        layers.append(torch.nn.Linear(self.num_pixels, architecture[0]))
+        layers.append(activation())
+        for i in range(1, len(architecture)):
+            layers.append(torch.nn.Linear(architecture[i - 1], architecture[i]))
+            layers.append(activation())
+        layers.append(torch.nn.Linear(architecture[-1], features_dim))
+        layers.append(activation())
+        self.mlp = torch.nn.Sequential(*layers)
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         B = observations.shape[0]
@@ -274,14 +276,10 @@ class MjCambrianOpticsFeaturesExtractor(MjCambrianImageFeaturesExtractor):
         activation: nn.Module,
         *,
         config: MjCambrianOpticsConfig,
-        base_feature_extractor: Callable[
-            [gym.Space, int, nn.Module], MjCambrianBaseFeaturesExtractor
-        ],
+        base_feature_extractor: Callable[[gym.Space], MjCambrianBaseFeaturesExtractor],
     ):
         super().__init__(observation_space, features_dim, activation)
-        self._base_feature_extractor = base_feature_extractor(
-            observation_space, features_dim, activation
-        )
+        self._base_feature_extractor = base_feature_extractor(observation_space)
 
         n_input_channels = observation_space.shape[1]
         assert n_input_channels == 4, f"Expected 4 channels, got {n_input_channels}. "
