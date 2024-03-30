@@ -40,6 +40,9 @@ custom:
     - architecture: [128, 256]
       output_dim: 256
 
+# Update the logdir to include the hydra job num to avoid overwriting logs
+logdir: ./logs/${now:%Y-%m-%d}/${expname}_${hydra:job.num}
+
 hydra:
   sweeper:
     params:
