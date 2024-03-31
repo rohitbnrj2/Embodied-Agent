@@ -74,6 +74,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
         max_episode_steps (int): The maximum number of steps per episode.
+        n_eval_episodes (int): The number of episodes to evaluate for.
 
         add_overlays (bool): Whether to add overlays or not.
         clear_overlays_on_reset (bool): Whether to clear the overlays on reset or not.
@@ -101,6 +102,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
     frame_skip: int
     max_episode_steps: int
+    n_eval_episodes: int
 
     add_overlays: bool
     clear_overlays_on_reset: bool
@@ -471,8 +473,11 @@ class MjCambrianEnv(gym.Env):
 
             # NOTE: flipud here since we always flipud when copying buffer from gpu,
             # and when reading the buffer again after drawing the overlay, it will be
-            # flipped again. Flipping here means it will be the right side up.
-            new_composite = np.flipud(resize_with_aspect_fill(composite, *overlay_size))
+            # flipped again. Flipping here means it will be the right side up. Do the
+            # same with transpose
+            new_composite = np.transpose(composite, (1, 0, 2))
+            new_composite = resize_with_aspect_fill(new_composite, *overlay_size)
+            new_composite = np.flipud(new_composite)
 
             overlays.append(MjCambrianImageViewerOverlay(new_composite * 255.0, cursor))
 
@@ -657,12 +662,8 @@ if __name__ == "__main__":
 
         while env.renderer.is_running():
             # action = env.action_spaces.sample()
-            action = {name: [-0.1, -0.5] for name, a in env.animals.items()}
+            action = {name: [-0.5, -0.5] for name, a in env.animals.items()}
             _, _, terminated, truncated, _ = env.step(action)
-            if any(terminated.values()):
-                print("terminated:", terminated)
-            if any(truncated.values()):
-                print("truncated:", truncated)
             env.render()
 
         if record:

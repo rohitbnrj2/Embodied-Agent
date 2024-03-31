@@ -389,7 +389,7 @@ class MjCambrianAnimal:
             if lat not in images:
                 images[lat] = {}
             assert lon not in images[lat]
-            images[lat][lon] = eye.prev_obs
+            images[lat][lon] = eye.prev_obs[:, :, :3]  # only use rgb
 
         # Construct the composite image
         # Loop through the sorted list of images based on lat/lon
@@ -399,8 +399,8 @@ class MjCambrianAnimal:
             lons = sorted(images[lat].keys())
             for lon in lons[::-1]:
                 row.append(resize_with_aspect_fill(images[lat][lon], *max_res))
-            composite.append(np.hstack(row))
-        composite = np.vstack(composite)
+            composite.append(np.vstack(row))
+        composite = np.hstack(composite)
 
         if composite.size == 0:
             self._logger.warning(

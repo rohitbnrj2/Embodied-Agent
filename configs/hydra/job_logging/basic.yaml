@@ -4,5 +4,9 @@ defaults:
   - custom_stdout
   - file
 
+loggers:
+  cambrian:
+    handlers: [file_out, file_err, stdout_debug, stderr]
 root:
-  handlers: [file_out, file_err, stdout, stderr]
+  LEVEL: INFO
+  handlers: [file_out, file_err, stdout_info, stderr]

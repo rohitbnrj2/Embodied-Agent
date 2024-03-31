@@ -12,7 +12,7 @@ from stable_baselines3.common.utils import set_random_seed
 
 from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.ml.model import MjCambrianModel
-from cambrian.utils import evaluate_policy
+from cambrian.utils import evaluate_policy, calculate_fitness
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.wrappers import make_wrapped_env
 from cambrian.utils.logger import get_logger
@@ -62,7 +62,7 @@ class MjCambrianTrainer:
         self.logger.debug(f"Setting seed to {self.config.seed}...")
         set_random_seed(self.config.seed)
 
-    def train(self):
+    def train(self) -> float:
         """Train the animal."""
         self.logger.debug(f"Training the animal in {self.config.logdir}...")
 
@@ -93,14 +93,20 @@ class MjCambrianTrainer:
         # The finished file indicates to the evo script that the animal is done
         Path(self.config.logdir / "finished").touch()
 
-    def eval(self, record: bool = False):
+        # Calculate fitness
+        fitness = calculate_fitness(self.config.logdir / "evaluations.npz")
+        self.logger.info(f"Final Fitness: {fitness}")
+
+        return fitness
+
+    def eval(self):
         self.config.save(self.config.logdir / "eval_config.yaml")
 
-        eval_env = self._make_env(self.config.eval_env, 1, monitor="eval_monitor.csv")
+        eval_env = self._make_env(self.config.env, 1, monitor="eval_monitor.csv")
         model = self._make_model(eval_env)
 
-        n_runs = len(self.config.eval_env.mazes)
-        filename = self.config.logdir / "eval" if record else None
+        n_runs = self.config.eval_env.n_eval_episodes
+        filename = self.config.logdir / "eval"
         record_kwargs = dict(
             path=filename, save_mode=self.config.eval_env.renderer.save_mode
         )
@@ -168,18 +174,15 @@ if __name__ == "__main__":
     action.add_argument("--train", action="store_true", help="Train the model")
     action.add_argument("--eval", action="store_true", help="Evaluate the model")
 
-    parser.add_argument(
-        "--record",
-        action="store_true",
-        help="Record the evaluation. Only used if `--eval` is passed.",
-    )
-
-    def main(config: MjCambrianConfig, *, train: bool, eval: bool, record: bool):
+    def main(config: MjCambrianConfig, *, train: bool, eval: bool) -> float | None:
+        """This method will return a float if training. The float represents the
+        "fitness" of the agent that was trained. This can be used by hydra to
+        determine the best hyperparameters during sweeps."""
         runner = MjCambrianTrainer(config)
 
         if train:
-            runner.train()
+            return runner.train()
         elif eval:
-            runner.eval(record)
+            runner.eval()
 
     run_hydra(main, parser=parser)

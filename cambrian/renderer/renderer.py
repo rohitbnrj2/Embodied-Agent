@@ -204,6 +204,11 @@ class MjCambrianViewer(ABC):
         rgb_float32 = self._rgb_float32
         np.divide(rgb_uint8, np.array([255.0], np.float32), out=rgb_float32)
 
+        # Transpose the rgb/depth to be W x H x C
+        rgb_float32 = rgb_float32.transpose(1, 0, 2)
+        if read_depth:
+            depth = depth.transpose(1, 0)
+
         # Return the flipped images
         return rgb_float32, depth
 
@@ -488,7 +493,7 @@ class MjCambrianRenderer:
 
         rgb, depth = self.viewer.read_pixels("depth_array" in self.config.render_modes)
         if self._record and not resetting:
-            self._rgb_buffer.append(rgb.copy())
+            self._rgb_buffer.append(rgb.copy().transpose(1, 0, 2))
 
         return (rgb, depth) if "depth_array" in self.config.render_modes else rgb
 

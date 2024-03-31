@@ -75,6 +75,10 @@ class MjCambrianEye:
         self.config = config
         self.name = name
 
+        rgb_array_in_render_modes = "rgb_array" in self.config.renderer.render_modes
+        depth_array_in_render_modes = "depth_array" in self.config.renderer.render_modes
+        assert rgb_array_in_render_modes, f"Eye ({name}): 'rgb_array' must be a mode."
+
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
         self._prev_obs: np.ndarray = None
@@ -83,16 +87,13 @@ class MjCambrianEye:
         if self.config.optics is not None:
             self._optics = MjCambrianOptics(self.config.optics)
             assert (
-                "depth_array" in self.config.renderer.render_modes
-            ), "Must specify 'depth_array' in the render modes for the renderer config."
+                depth_array_in_render_modes
+            ), f"Eye ({name}): 'depth_array' must be in render modes for optics."
 
             # If optics is enabled, update the renderer w/h to the padded resolution
             self.config.renderer.width = self.config.optics.padded_resolution[0]
             self.config.renderer.height = self.config.optics.padded_resolution[1]
 
-        assert (
-            "rgb_array" in self.config.renderer.render_modes
-        ), "Must specify 'rgb_array' in the render modes for the renderer config."
         self._renderer = MjCambrianRenderer(self.config.renderer)
 
     def generate_xml(

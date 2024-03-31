@@ -17,6 +17,10 @@ defaults:
   # env.animals.animal_0.eyes.eye_1 in the config
   - /env/animals/eyes/eye@env.animals.animal_0.eyes.eye_1
 
+  # Define another eye that has optics
+  - /env/animals/eyes/eye@env.animals.animal_0.eyes.eye_2
+  - /env/animals/eyes/optics/optics@env.animals.animal_0.eyes.eye_2.optics
+
   # We then include the default config (located at in the same folder as this file
   # i.e. configs/exp/maze_exp.yaml). This file defines required attributes we'll need
   # to specify here to set things up correctly. This _must_ come after the above
@@ -47,10 +51,24 @@ env:
           # Adjust the placement of both eyes so that they are looking in different
           # directions
           coord: [10, -25]
+          resolution: [1, 2] # non-square resolution
         eye_1:
           # Override eye_1 to be high resolution
           resolution: [100, 100]
           coord: [10, 25]
+
+        eye_2:
+          coord: [10, 0]
+          fov: [120, 80]
+          resolution: [100, 100]
+
+          # Uses optics
+          optics:
+            noise_std: 0.25 # really noisy
+
+          # Have to render depth
+          renderer:
+            render_modes: [rgb_array, depth_array]
 
 # This is an example of how to use the constant action wrapper
 # NOTE: This is applied _after_ base.yaml, so the wrappers are appended after all

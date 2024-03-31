@@ -1,0 +1,50 @@
+# @package _global_
+
+defaults:
+  # Use one maze for the time being
+  - /env/mazes/Y_MAZE_STATIC@env.mazes.Y_MAZE_STATIC
+
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+  # Define one animal
+  - /env/animals@env.animals.animal_0: ${env/animals}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_0: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_1: ${env/animals/eyes}
+  - override /env/animals: point # override the default to use 1 eye
+
+  # Set the sweep to be nevergrad
+  - override /hydra/sweeper: nevergrad
+
+# Update the logdir to include the hydra job num to avoid overwriting logs
+logdir: ./logs/${now:%Y-%m-%d}/${expname}_${hydra:job.num}
+
+env:
+  animals:
+    animal_0:
+      eyes:
+        eye_0:
+          coord: [10, -25]
+        eye_1:
+          coord: [10, 25]
+  # Disable use_shared_context, not sure why that's necessary
+  renderer:
+    use_shared_context: false
+
+hydra:
+  sweeper:
+    optim:
+      seed: ${seed}
+      maximize: true
+      num_workers: 1
+
+    parametrization:
+      # Allow editing of the resolution of the eye
+      env.animals.animal_0.eyes.eye_0.resolution.0:
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_0.resolution.1:
+        lower: 1
+        upper: 50
+        integer: true

@@ -2,6 +2,8 @@ defaults:
   - object_env
   - /MjCambrianMazeEnvConfig
 
+n_eval_episodes: ${eval:'len(${.mazes})'}
+
 instance:
   _target_: cambrian.envs.maze_env.MjCambrianMazeEnv
   _partial_: true

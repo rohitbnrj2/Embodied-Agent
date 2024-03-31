@@ -109,6 +109,24 @@ def evaluate_policy(
         cambrian_env.record = False
 
 
+def calculate_fitness(evaluations_npz: Path) -> float:
+    """Calculate the fitness of the animal. This is done by taking the 3rd quartile of
+    the evaluation rewards."""
+    # Return negative infinity if the evaluations file doesn't exist
+    if not evaluations_npz.exists():
+        return -float("inf")
+
+    def top_25_excluding_outliers(data: np.ndarray) -> float:
+        q1, q3 = np.percentile(data, [25, 75])
+        iqr = q3 - q1
+        filtered_data = data[(data > q1 - 1.5 * iqr) & (data < q3 + 1.5 * iqr)]
+        return float(np.mean(np.sort(filtered_data)[-len(filtered_data) // 4 :]))
+
+    data = np.load(evaluations_npz)
+    rewards = data["results"]
+    return top_25_excluding_outliers(rewards)
+
+
 # =============
 
 

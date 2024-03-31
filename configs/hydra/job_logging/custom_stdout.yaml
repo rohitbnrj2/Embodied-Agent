@@ -9,13 +9,19 @@ filters:
     (): cambrian.utils.logger.MjCambrianLoggerMaxLevelFilter
     max_level: INFO
 handlers:
-  stdout:
+  stdout_debug:
     class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
     formatter: simple
     stream: ext://sys.stdout
     level: DEBUG
     filters: [max_level]
+  stdout_info:
+    class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
+    formatter: simple
+    stream: ext://sys.stdout
+    level: INFO
+    filters: [max_level]
 loggers:
   root:
     level: DEBUG
-    handlers: [stdout]
+    handlers: [stdout_debug]

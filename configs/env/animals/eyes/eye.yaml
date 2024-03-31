@@ -44,4 +44,4 @@ renderer:
       slice(2, None): False
     sitegroup: ${.geomgroup}
 
-  use_shared_context: True
+  use_shared_context: ${env.renderer.use_shared_context}

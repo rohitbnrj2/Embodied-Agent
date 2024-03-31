@@ -421,8 +421,8 @@ class MjCambrianMaze:
     @property
     def lookat(self) -> np.ndarray:
         """Returns a point which aids in placement of a camera to visualize this maze."""
-        # TODO: Negative because of convention based on BEV camera
-        return np.array([-self._starting_x, 0, 0])
+        # NOTE: Negative because of convention based on BEV camera
+        return np.array([-self._starting_x + len(self._map[0]), 0, 0])
 
 
 # ================================

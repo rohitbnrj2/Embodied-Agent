@@ -22,4 +22,4 @@ seed: 0
 # args are set in the downstream exp configs and these aren't carried over to eval_env
 # when just loading the default env config. We set the eval env here, and subsequent
 # configs can directly override the config.
-eval_env: ${env}
+eval_env: \${env}

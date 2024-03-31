@@ -39,4 +39,4 @@ trainer:
   callbacks:
     eval_callback:
       # Set the number of eval episodes to the number of mazes in the eval env
-      n_eval_episodes: ${eval:'len(${eval_env.mazes})'}
+      n_eval_episodes: \${eval_env.n_eval_episodes}

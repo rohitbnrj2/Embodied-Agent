@@ -12,7 +12,7 @@ defaults:
   - override /env/animals: point_1eye # override the default to use 1 eye
 
 # Update the logdir to include the hydra job num to avoid overwriting logs
-logdir: ./logs/${now:%Y-%m-%d}/${expname}_sweep${hydra:job.num}
+logdir: ./logs/${now:%Y-%m-%d}/${expname}_${hydra:job.num}
 
 # Define some sweeper parameters to do a grid search over different brain capacities to
 # gauge the effect on performance. To implement this, we want paired configs of the

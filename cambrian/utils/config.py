@@ -86,6 +86,11 @@ def run_hydra(
     from omegaconf import DictConfig
     import os
 
+    # Add one default argument for the --hydra-help message
+    parser.add_argument(
+        "--hydra-help", action="store_true", help="Print the hydra help message."
+    )
+
     def hydra_argparse_override(fn: Callable, /):
         """This function allows us to add custom argparse parameters prior to hydra
         parsing the config.
@@ -100,6 +105,14 @@ def run_hydra(
         from functools import partial
 
         parsed_args, unparsed_args = parser.parse_known_args()
+
+        # Move --hydra-help to unparsed_args if it's present
+        # Hydra has a weird bug (I think) that doesn't allow overrides when
+        # --hydra-help is passed, so remove all unparsed arguments if --hydra-help
+        # is passed.
+        if parsed_args.hydra_help:
+            unparsed_args = ["--hydra-help"]
+        del parsed_args.hydra_help
 
         # By default, argparse uses sys.argv[1:] to search for arguments, so update
         # sys.argv[1:] with the unparsed arguments for hydra to parse (which uses
@@ -117,7 +130,7 @@ def run_hydra(
     @hydra_argparse_override
     def main(cfg: DictConfig, **kwargs):
         config = MjCambrianConfig.instantiate(cfg)
-        main_fn(config, **kwargs)
+        return main_fn(config, **kwargs)
 
     main()
 
