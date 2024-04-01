@@ -64,7 +64,8 @@ class MjCambrianTrainer:
 
     def train(self) -> float:
         """Train the animal."""
-        self.logger.debug(f"Training the animal in {self.config.logdir}...")
+        # Set to warn so we have something output to the error log
+        self.logger.warning(f"Training the animal in {self.config.logdir}...")
 
         self.config.save(self.config.logdir / "config.yaml")
 

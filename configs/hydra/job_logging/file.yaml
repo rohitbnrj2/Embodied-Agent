@@ -2,22 +2,19 @@ defaults:
   - logging
 
 handlers:
-  max_level:
-    (): cambrian.utils.logger.MjCambrianLoggerMaxLevelFilter
-    max_level: INFO
   file_out:
     class: cambrian.utils.logger.MjCambrianFileHandler
     formatter: simple
     filename: ${logdir}/logs/out.log
     level: DEBUG
     mode: w
-    filters: [max_level]
   file_err:
     class: cambrian.utils.logger.MjCambrianFileHandler
     formatter: simple
     filename: ${logdir}/logs/err.log
     level: WARNING
     mode: w
-root:
-  level: DEBUG
-  handlers: [file_out, file_err]
+loggers:
+  cambrian:
+    level: DEBUG
+    handlers: [file_out, file_err]

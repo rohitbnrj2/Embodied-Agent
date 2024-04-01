@@ -22,6 +22,6 @@ handlers:
     level: INFO
     filters: [max_level]
 loggers:
-  root:
+  cambrian:
     level: DEBUG
     handlers: [stdout_debug]

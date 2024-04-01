@@ -15,6 +15,8 @@ defaults:
 
   # Set the sweep to be nevergrad
   - override /hydra/sweeper: nevergrad
+  # Set to use submitit_local
+  - override /hydra/launcher: submitit_local
 
 # Update the logdir to include the hydra job num to avoid overwriting logs
 logdir: ./logs/${now:%Y-%m-%d}/${expname}_${hydra:job.num}
@@ -27,6 +29,7 @@ env:
           coord: [10, -25]
         eye_1:
           coord: [10, 25]
+
   # Disable use_shared_context, not sure why that's necessary
   renderer:
     use_shared_context: false
@@ -41,10 +44,12 @@ hydra:
     parametrization:
       # Allow editing of the resolution of the eye
       env.animals.animal_0.eyes.eye_0.resolution.0:
+        init: 1
         lower: 1
         upper: 50
         integer: true
       env.animals.animal_0.eyes.eye_0.resolution.1:
+        init: 1
         lower: 1
         upper: 50
         integer: true

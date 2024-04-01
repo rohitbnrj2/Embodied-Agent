@@ -427,6 +427,17 @@ def config_wrapper(cls=None, /, **kwargs):
         kwargs["bases"] = cls.__bases__
         hydrated_cls = make_dataclass(cls.__name__, new_fields, **kwargs)
 
+        # This is a fix for a bug in the underlying cloudpickle library which is used
+        # by hydra/submitit (a hydra plugin) to pickle the configs. Since we're using
+        # dataclasses, when pickled, their state doesn't propagate correctly to the new
+        # process when it's unpickled. A fix is to define the dataclasses in separate
+        # modules, but since we're using make_dataclass all in the same one, we have to
+        # explicitly set the module of the class here.
+        # See https://github.com/cloudpipe/cloudpickle/issues/386 for a related bug.
+        # TODO submit bug report on cloudpickle. #386 is fixed, but _MISSED_TYPE is
+        # still an issue.
+        hydrated_cls.__module__ = cls.__module__
+
         # Add to the hydra store
         ConfigStore().store(cls.__name__, hydrated_cls)
 

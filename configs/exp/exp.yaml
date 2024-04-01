@@ -39,4 +39,7 @@ trainer:
   callbacks:
     eval_callback:
       # Set the number of eval episodes to the number of mazes in the eval env
+      # NOTE: \$ is used to escape the interpolation so that it's not evaluated
+      # until the callback is called. This is because eval_env may not be defined
+      # when this config is loaded.
       n_eval_episodes: \${eval_env.n_eval_episodes}
