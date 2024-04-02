@@ -1,12 +1,12 @@
 defaults:
-  # Set to use submitit
-  - /hydra/launcher/submitit@_here_
+  # Set to use submitit_slurm
+  - /hydra/launcher/submitit_slurm@_here_
 
 timeout_min: ${eval:'60*24'} # 1 day (in min)
 tasks_per_node: 1
 cpus_per_task: 40
 gres: gpu:volta:1
-nodes: 4
+nodes: 1
 qos: high
 
 # supercloud only allows 4 nodes in parallel

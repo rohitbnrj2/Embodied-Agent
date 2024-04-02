@@ -40,7 +40,7 @@ hydra:
     optim:
       seed: ${seed}
       maximize: true
-      num_workers: 1
+      num_workers: 4
 
     # Define some sweeper parameters to do a grid search over different brain
     # capacities to gauge the effect on performance.
