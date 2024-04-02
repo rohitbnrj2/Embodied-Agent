@@ -2,6 +2,21 @@ defaults:
   # We use nevergrad for the evolution strategy
   - /hydra/sweeper/nevergrad@_here_
 
+# NOTE: nevergrad is _not_ asynchronous in that it will wait until all workers are
+# finished before selecting the next parameters to optimize over. For example, when
+# using the submitit_slurm launcher with num_workers=4, all 4 jobs will be run and
+# synchronously waited for all to finish until moving on. This may not be desired.
+# Possible work arounds:
+# 1. use a different launcher which requires one worker from the sweeper
+#    this would involve writing a custom launcher tho I think
+# 2. run more workers than the number of jobs you want to run in parallel. this means
+#    they will effectively wait in the queue until the next job is ready to run
+#    which is kind of asynchronous. Problem would be that each job that is queued
+#    wasn't "intellegently" selected by the sweeper.
+# 3. make a PR for hydra adding support for asynchronous launches. See this comment:
+#    https://github.com/facebookresearch/hydra/blame/main/plugins/\
+#       hydra_nevergrad_sweeper/hydra_plugins/hydra_nevergrad_sweeper/_impl.py#L162
+
 optim:
   # For reproducibility, we set the seed to the same value as the one used in the
   # base config.
