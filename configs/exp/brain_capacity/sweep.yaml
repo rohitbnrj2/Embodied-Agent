@@ -9,41 +9,53 @@ defaults:
 
   # Define one animal
   - /env/animals@env.animals.animal_0: ${env/animals}
-  - override /env/animals: point_1eye # override the default to use 1 eye
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_0: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_1: ${env/animals/eyes}
+  - override /env/animals: point
+
+  # Set the sweep to be nevergrad
+  - override /hydra/sweeper: nevergrad
+
+# Set expname explicitly, submitit_local will complain otherwise.
+expname: brain_capacity
 
 # Update the logdir to include the hydra job num to avoid overwriting logs
 logdir: ./logs/${now:%Y-%m-%d}/${expname}_${hydra:job.num}
 
-# Define some sweeper parameters to do a grid search over different brain capacities to
-# gauge the effect on performance. To implement this, we want paired configs of the
-# architecture and output_dim parameters for the features extractor. We can define these
-# in the custom location (which is unvalidated during load) and then just refer to them
-# in the model config. If we set the attributes directly in the sweep params, they
-# wouldn't be "paired".
 trainer:
-  model:
-    policy_kwargs:
-      features_extractor_kwargs:
-        output_dim: ${custom.model.output_dim}
-        image_extractor:
-          architecture: ${custom.model.architecture}
+  # decrease the number of timesteps to speed up the sweep
+  total_timesteps: 300_000
 
-custom:
-  model_sweeper_params:
-    - architecture: [8, 16]
-      output_dim: 16
-    - architecture: [8, 16]
-      output_dim: 32
-    - architecture: [16, 32]
-      output_dim: 32
-    - architecture: [16, 32]
-      output_dim: 64
-    - architecture: [32, 64]
-      output_dim: 128
-    - architecture: [128, 256]
-      output_dim: 256
+env:
+  animals:
+    animal_0:
+      eyes:
+        eye_0:
+          coord: [10, -25]
+        eye_1:
+          coord: [10, 25]
 
 hydra:
   sweeper:
-    params:
-      +custom.model: ${format_sweep_params:${custom.model_sweeper_params}}
+    optim:
+      seed: ${seed}
+      maximize: true
+      num_workers: 1
+
+    # Define some sweeper parameters to do a grid search over different brain
+    # capacities to gauge the effect on performance.
+    parametrization:
+      trainer.model.policy_kwargs.features_extractor_kwargs.output_dim:
+        - 8
+        - 16
+        - 32
+        - 64
+        - 128
+        - 256
+      trainer.model.policy_kwargs.features_extractor_kwargs.image_extractor.architecture:
+        - [8, 16]
+        - [16, 32]
+        - [32, 64]
+        - [64, 128]
+        - [128, 256]
+        - [256, 512]

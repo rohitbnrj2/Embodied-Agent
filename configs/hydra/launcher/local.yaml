@@ -1,0 +1,3 @@
+defaults:
+  # Set to use submitit
+  - /hydra/launcher/submitit_local@_here_
