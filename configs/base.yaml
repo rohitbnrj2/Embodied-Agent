@@ -7,7 +7,6 @@ defaults:
 
   - env: env
   - trainer: trainer
-  - evo: evo
   - hydra: hydra
 
   - required exp: "???"
