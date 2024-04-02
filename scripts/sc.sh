@@ -12,6 +12,8 @@
 SCRIPT=$1
 shift
 
-cmd="MUJOCO_GL=egl bash $SCRIPT hydra/launcher=supercloud $@"
+# We'll specify the launcher as supercloud and increase the number of available workers
+# to 4 for the sweeper.
+cmd="MUJOCO_GL=egl bash $SCRIPT hydra/launcher=supercloud hydra.sweeper.num_workers=4 $@"
 echo "Running command: $cmd" | tee /dev/stderr
 eval $cmd

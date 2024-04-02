@@ -13,9 +13,6 @@ defaults:
   - /env/animals/eyes@env.animals.animal_0.eyes.eye_1: ${env/animals/eyes}
   - override /env/animals: point # override the default to use 1 eye
 
-  # Set the sweep to be nevergrad
-  - override /hydra/sweeper: nevergrad
-
 # Set expname explicitly, submitit_local will complain otherwise.
 expname: insect_vision
 
@@ -41,11 +38,6 @@ env:
 
 hydra:
   sweeper:
-    optim:
-      seed: ${seed}
-      maximize: true
-      num_workers: 1
-
     parametrization:
       # Allow editing of the resolution of the eye
       env.animals.animal_0.eyes.eye_0.resolution.0:

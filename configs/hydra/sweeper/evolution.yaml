@@ -1,0 +1,25 @@
+defaults:
+  # We use nevergrad for the evolution strategy
+  - /hydra/sweeper/nevergrad@_here_
+
+optim:
+  # For reproducibility, we set the seed to the same value as the one used in the
+  # base config.
+  seed: ${seed}
+
+  # Here we assume we want to maximize the fitness returned by trainer. This may not
+  # always be the case, but can be overridden in the downstream configs.
+  maximize: true
+
+  # We set the number of workers here to be 1. This means that the launcher will only
+  # ever launch 1 job at a time. On a cluster where we want jobs to be run in parallel,
+  # we can set this to a higher number.
+  num_workers: 1
+
+  # We expect the same input parameters to produce different output fitness due to
+  # seeds and randomness in the training process. Therefore, we set noisy to true.
+  noisy: true
+
+  # The budget is the number of evaluations we want to run. The default is 80, set to
+  # 100 just for fun.
+  budget: 100

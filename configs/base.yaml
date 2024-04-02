@@ -1,10 +1,9 @@
 defaults:
-  # NOTE: There is a bug in hydra such that when you specify a config group (i.e. try to build a structured config),
-  # you can't do nested interpolation (like if I include two defaults here, they can't interpolate such
-  # that it resolves to each other). We'll fix this by explicitly setting the target in the instantiate call in code.
-  - /MjCambrianConfig # Specify the config group (i.e. the class to instantiate this config as)
+  # Specify the config group (i.e. the class to instantiate this config as)
+  - /MjCambrianConfig
 
-  - _self_ # Ordered such that subsequent defaults override self
+  # Ordered such that subsequent defaults override self
+  - _self_
 
   - env: env
   - trainer: trainer
@@ -12,6 +11,13 @@ defaults:
   - hydra: hydra
 
   - required exp: "???"
+
+  # Here we override the default launcher and sweepers. Note that this only impacts
+  # when multi-run is used. By default, we'll specify the local launcher (which is
+  # based on submitit_local) and the evolution sweep (which is based on nevergrad). See
+  # those respective configs for more information.
+  - override /hydra/launcher: local
+  - override /hydra/sweeper: evolution
 
 expname: ${hydra:runtime.choices.exp}
 logdir: ./logs/${now:%Y-%m-%d}/${expname}

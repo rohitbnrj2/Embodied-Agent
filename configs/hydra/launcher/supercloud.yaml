@@ -2,14 +2,25 @@ defaults:
   # Set to use submitit_slurm
   - /hydra/launcher/submitit_slurm@_here_
 
+# Set the timeout of each individual job to 1 day. Note that this isn't the total job
+# length. It is recommended to start the "daemon" job using srun/sbatch on a low
+# compute node. This way, you can limit the total job length to some maximum value.
 timeout_min: ${eval:'60*24'} # 1 day (in min)
+
+# We only want one task per node and we want each task to use all the 40 cpus available
+# on each node. Furthermore, we'll grab 1 GPU for each task
+nodes: 1
 tasks_per_node: 1
 cpus_per_task: 40
 gres: gpu:volta:1
-nodes: 1
+
+# This will increase the likelyhood of a job being selected during peak hours
 qos: high
 
-# supercloud only allows 4 nodes in parallel
+# supercloud only allows 4 nodes in parallel. There are actually two limits on the
+# number of jobs that will be launched: the sweeper workers and the array_parallelism
+# here. The minimum of the two will be used. We set it to 4 here with the expectation
+# that the number of sweeper workers will be set to 4 in the other configs.
 array_parallelism: 4
 
 # these are run prior to calling sbatch before running the job
