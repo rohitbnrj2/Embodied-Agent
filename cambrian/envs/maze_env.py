@@ -184,10 +184,10 @@ class MjCambrianMaze:
     """The maze class. Generates a maze from a given map and provides utility
     functions for working with the maze."""
 
-    def __init__(self, config: MjCambrianMazeConfig, name: str, starting_x: float):
+    def __init__(self, config: MjCambrianMazeConfig, name: str):
         self.config = config
         self.name = name
-        self._starting_x = starting_x
+        self._starting_x = None
 
         self._map: np.ndarray = None
         self._load_map()
@@ -197,6 +197,9 @@ class MjCambrianMaze:
         self._reset_locations: List[np.ndarray] = []
         self._object_locations: List[np.ndarray] = []
         self._occupied_locations: List[np.ndarray] = []
+
+    def initialize(self, starting_x: float):
+        self._starting_x = starting_x
         self._update_locations()
 
     def _load_map(self):
@@ -411,6 +414,7 @@ class MjCambrianMaze:
     @property
     def x_map_center(self) -> float:
         """Returns the x map center."""
+        assert self._starting_x is not None, "Maze has not been initialized"
         return self.map_width_scaled // 2 + self._starting_x
 
     @property
@@ -422,6 +426,7 @@ class MjCambrianMaze:
     def lookat(self) -> np.ndarray:
         """Returns a point which aids in placement of a camera to visualize this maze."""
         # NOTE: Negative because of convention based on BEV camera
+        assert self._starting_x is not None, "Maze has not been initialized"
         return np.array([-self._starting_x + len(self._map[0]), 0, 0])
 
 
@@ -449,18 +454,20 @@ class MjCambrianMazeStore:
                 # If the maze already exists, skip it
                 continue
 
+            # First create the maze
+            maze = MjCambrianMaze(config, name)
+            self._mazes[name] = maze
+
             # Calculate the starting x of the maze
             # We'll place the maze such that it doesn't overlap with existing mazes
             # It'll be placed next to the previous one
             # The positions of the maze is calculated from one corner (defined as x
             # in this case)
-            x = prev_x + prev_width / 2 + config.scale
-
-            # Now create the maze
-            self._mazes[name] = MjCambrianMaze(config, name, x)
+            x = prev_x + prev_width / 2 + maze.map_width_scaled / 2
+            maze.initialize(x)
 
             # Update the prev_center and prev_width
-            prev_x, prev_width = x, self._mazes[name].map_width_scaled
+            prev_x, prev_width = x, maze.map_width_scaled
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the current maze."""
