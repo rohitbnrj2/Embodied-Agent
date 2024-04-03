@@ -18,6 +18,7 @@ import enum
 import numpy as np
 import hydra_zen as zen
 from hydra.core.config_store import ConfigStore
+from hydra.core.utils import setup_globals
 from omegaconf import (
     OmegaConf,
     DictConfig,
@@ -28,6 +29,10 @@ from omegaconf import (
 )
 from omegaconf.errors import ConfigKeyError
 
+# =============================================================================
+# Global stuff
+
+setup_globals()
 
 # =============================================================================
 # Config classes and methods
@@ -140,6 +145,31 @@ class MjCambrianContainerConfig:
         else:
             return created
 
+    def resolve(self):
+        """Wrapper around OmegaConf.resolve to resolve the config."""
+        OmegaConf.resolve(self._content)
+        if not self._config_is_content:
+            OmegaConf.resolve(self._config)
+
+    def merge_with(self, *others: DictConfig | ListConfig):
+        """Wrapper around OmegaConf.merge to merge the config with another config."""
+        OmegaConf.unsafe_merge(self._content, *others)
+        if not self._config_is_content:
+            OmegaConf.unsafe_merge(self._config, *others)
+
+    def interpolate(self, interpolation: str) -> Any:
+        """This is a helper method that will evaluate an interpolation in the key. 
+        Basically select but evaluates an interpolation."""
+        copy_of_self = self.copy()
+
+        # create a temp config to merge into the main config in order to evaluate the
+        # interpolation
+        temp_content = OmegaConf.create(dict(custom=dict(interpolation=interpolation)))
+        copy_of_self.merge_with(temp_content)
+        copy_of_self.resolve()
+
+        return copy_of_self.select("custom.interpolation")
+
     def select(self, key: str, *, use_instantiated: bool = False, **kwargs) -> Any:
         """This is a wrapper around OmegaConf.select to select a key from the config.
 
@@ -186,7 +216,7 @@ class MjCambrianContainerConfig:
         dumper.add_representer(str, str_representer)
         dumper.add_multi_representer(enum.Flag, flag_representer)
         return yaml.dump(
-            self.to_container(use_instantiated=use_instantiated),
+            self.to_container(resolve=True, use_instantiated=use_instantiated),
             default_flow_style=False,
             allow_unicode=True,
             sort_keys=False,
@@ -302,7 +332,7 @@ class MjCambrianContainerConfig:
         self.__init__(content, config=config)
 
     def __str__(self) -> str:
-        return self.to_yaml()
+        return self.to_yaml(use_instantiated=False)
 
     # ===========
     # Internal utils

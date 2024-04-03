@@ -2,7 +2,7 @@
 
 defaults:
   # Use one maze for the time being
-  - /env/mazes/Y_MAZE_STATIC@env.mazes.Y_MAZE_STATIC
+  - /env/mazes/Y_STATIC@env.mazes.Y_STATIC
 
   # Use the maze_exp config as the base
   - /exp/maze_exp

@@ -8,8 +8,8 @@ defaults:
   # requirement in the default file listed above
   # Also note that you can't include the same maze twice; it will overwrite the previous
   # definition since the mazes attribute is a dictionary
-  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC
-  - /env/mazes/I_MAZE_STATIC@env.mazes.I_MAZE_STATIC2
+  - /env/mazes/I_STATIC@env.mazes.I_STATIC
+  - /env/mazes/I_STATIC@env.mazes.I_STATIC2
 
   # We also need to define the eyes for the animal. We'll use the default eye to serve
   # as the base for the new eye.
