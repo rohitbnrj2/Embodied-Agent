@@ -1,10 +1,41 @@
-from typing import Dict, List
+from typing import Dict, List, Deque
 import textwrap
 
 import yaml
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk
+
+
+class Command:
+    def __init__(self, execute: str, undo: str):
+        self.execute = execute
+        self.undo = undo
+
+
+class CommandStack:
+    def __init__(self, max_size: int = 100):
+        self.undo_stack: Deque[Command] = Deque(maxlen=max_size)
+        self.redo_stack: Deque[Command] = Deque(maxlen=max_size)
+
+    def execute(self, command: Command):
+        command.execute()
+        self.undo_stack.append(command)
+        self.redo_stack.clear()
+
+    def undo(self):
+        if not self.undo_stack:
+            return
+        command = self.undo_stack.pop()
+        command.undo()
+        self.redo_stack.append(command)
+
+    def redo(self):
+        if not self.redo_stack:
+            return
+        command = self.redo_stack.pop()
+        command.execute()
+        self.undo_stack.append(command)
 
 
 class MazeEditor(tk.Tk):
@@ -17,6 +48,8 @@ class MazeEditor(tk.Tk):
         self.grid_buttons: Dict[List[int], tk.Button] = {}
         self.button_map = {}
         self.dragging = False
+
+        self.command_stack = CommandStack()
 
         self.selected_item = tk.StringVar(value="Wall")  # Default selection
         self.wall_texture = tk.StringVar(value="")  # Default texture
@@ -50,6 +83,14 @@ class MazeEditor(tk.Tk):
         tk.Label(toolbar, text="Texture:").pack(side=tk.LEFT)
         self.texture_entry = ttk.Entry(toolbar, textvariable=self.wall_texture)
         self.texture_entry.pack(side=tk.LEFT)
+
+        # Add undo/redu buttons
+        tk.Button(toolbar, text="Undo", command=self.command_stack.undo).pack(
+            side=tk.RIGHT
+        )
+        tk.Button(toolbar, text="Redo", command=self.command_stack.redo).pack(
+            side=tk.RIGHT
+        )
 
         # Create save button
         tk.Button(toolbar, text="Save", command=self.save_map).pack(side=tk.RIGHT)
@@ -115,7 +156,7 @@ class MazeEditor(tk.Tk):
             elif add_col == -2:
                 col -= 1
 
-            current_states[(row, col)] = btn.config()
+            current_states[(row, col)] = btn.config().copy()
 
         if hasattr(self, "grid_frame"):
             self.grid_frame.destroy()
@@ -172,22 +213,46 @@ class MazeEditor(tk.Tk):
         if widget_under_cursor is None or widget_under_cursor not in self.button_map:
             return
 
-        self.update_grid(*self.button_map[widget_under_cursor])
-
-    def update_grid(self, row, col):
-        if (row, col) not in self.grid_buttons:
+        # Make sure the button actually has changed
+        state = self.get_btn_state(self.selected_item.get())
+        if all(
+            self.grid_buttons[self.button_map[widget_under_cursor]][key] == value
+            for key, value in state.items()
+        ):
             return
 
-        item = self.selected_item.get()
+        self.update_grid(*self.button_map[widget_under_cursor])
+
+    def get_btn_state(self, item: str):
         if item == "Open Space (0)":
-            self.grid_buttons[(row, col)].config(text="0", bg="white")
+            return {"text": "0", "background": "white"}
         elif item == "Reset Location (R)":
-            self.grid_buttons[(row, col)].config(text="R", bg="yellow")
+            return {"text": "R", "background": "yellow"}
         elif item == "Object Position (X)":
-            self.grid_buttons[(row, col)].config(text="X", bg="blue")
+            return {"text": "X", "background": "blue"}
         elif item.startswith("Wall"):
             text = f"1:{self.wall_texture.get()}" if self.wall_texture.get() else "1"
-            self.grid_buttons[(row, col)].config(text=text, bg="gray")
+            return {"text": text, "background": "gray"}
+
+    def update_grid(self, row, col):
+        def do(item: str):
+            if (row, col) not in self.grid_buttons:
+                return
+
+            state = self.get_btn_state(item)
+            for key, value in state.items():
+                self.grid_buttons[(row, col)][key] = value
+
+        def undo(config: Dict):
+            for key, value in config.items():
+                if key in ("text", "background"):
+                    self.grid_buttons[(row, col)][key] = value[-1]
+
+        cmd = Command(
+            lambda item=self.selected_item.get(): do(item),
+            lambda config=self.grid_buttons[(row, col)].config().copy(): undo(config),
+        )
+        self.command_stack.execute(cmd)
 
     def on_item_selected(self, _: tk.Event):
         state = "normal" if self.selected_item.get().startswith("Wall") else "disabled"
