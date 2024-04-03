@@ -224,6 +224,10 @@ class MjCambrianAnimal:
         """Place the eyes on the animal."""
 
         for name, eye_config in self.config.eyes.items():
+            # Don't create the eye if it's disabled
+            if not eye_config.enabled:
+                continue
+
             self._eyes[name] = self._create_eye(eye_config, name)
 
     def _create_eye(self, config: MjCambrianEyeConfig, name: str) -> MjCambrianEye:

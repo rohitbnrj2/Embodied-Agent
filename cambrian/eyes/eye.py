@@ -15,6 +15,14 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     """Defines the config for an eye. Used for type hinting.
 
     Attributes:
+        enabled (bool): This gives the option to disable the eye. Disabling means the
+            animal won't create the eye and so it doesn't have an observation or
+            anything. This can be used when defining a sweeper config as it's most
+            likely the case that in order to optimize all parameters, the max number of
+            eyes must be defined in the config (as in the optimizer can't append/remove
+            eyes, but it can choose to enable or disable them). TODO: This can be
+            removed when/if we implement a genetic/evolution algorithm-based sweeper.
+
         pos (Tuple[float, float, float]): The initial position of the camera.
             This is computed by the animal from the coord during placement. Fmt: xyz
         quat (Tuple[float, float, float, float]): The initial rotation of the
@@ -45,6 +53,8 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
             underlying renderer. The width and height of the renderer will be set to the
             padded resolution (resolution + int(psf_filter_size/2)) of the eye.
     """
+
+    enabled: bool
 
     pos: Tuple[float, float, float]
     quat: Tuple[float, float, float, float]

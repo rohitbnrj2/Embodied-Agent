@@ -45,3 +45,6 @@ renderer:
     sitegroup: ${.geomgroup}
 
   use_shared_context: ${env.renderer.use_shared_context}
+
+# By default, we'll enable the eye.
+enabled: True
