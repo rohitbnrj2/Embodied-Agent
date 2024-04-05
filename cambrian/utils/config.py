@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional, Callable, Concatenate
 import argparse
 from pathlib import Path
+import os
 
 from cambrian.ml.trainer import MjCambrianTrainerConfig
 from cambrian.envs.env import MjCambrianEnvConfig
@@ -43,11 +44,14 @@ class MjCambrianConfig(MjCambrianBaseConfig):
 
 def run_hydra(
     main_fn: Optional[
-        Callable[[Concatenate[MjCambrianConfig, ...]], None]
+        Callable[[Concatenate[MjCambrianBaseConfig, ...]], None]
     ] = lambda *_, **__: None,
     /,
     *,
-    parser: Optional[argparse.ArgumentParser] = argparse.ArgumentParser(),
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(),
+    config_path: str = f"{os.getcwd()}/configs",
+    config_name: str = "base",
+    **instantiate_kwargs,
 ):
     """This function is the main entry point for the hydra application.
 
@@ -75,12 +79,18 @@ def run_hydra(
             ```
 
     Keyword Args:
-        parser (Optional[argparse.ArgumentParser]): The parser to use for the hydra
+        parser (argparse.ArgumentParser): The parser to use for the hydra
             application. If None, a new parser will be created.
+        config_path (str): The path to the config directory. This should be the
+            absolute path to the directory containing the config files. By default,
+            this is set to the current working directory.
+        config_name (str): The name of the config file to use. This should be the
+            name of the file without the extension. By default, this is set to
+            "base".
+        instantiate_kwargs: Additional keyword arguments to pass to the instantiate function.
     """
     import hydra
     from omegaconf import DictConfig
-    import os
 
     # Add one default argument for the --hydra-help message
     parser.add_argument(
@@ -117,15 +127,10 @@ def run_hydra(
 
         return partial(fn, **vars(parsed_args))
 
-    # Define the config path relative to the running script, which is assumed to be
-    # at the root of the project.
-    config_path = f"{os.getcwd()}/configs"
-    config_name = "base"
-
     @hydra.main(version_base=None, config_path=config_path, config_name=config_name)
     @hydra_argparse_override
     def main(cfg: DictConfig, **kwargs):
-        config = MjCambrianConfig.instantiate(cfg)
+        config = MjCambrianBaseConfig.instantiate(cfg, **instantiate_kwargs)
         return main_fn(config, **kwargs)
 
     main()

@@ -56,7 +56,7 @@ def plot_data(data: List[Data], key: str):
         plt.plot(d.config.select(key, throw_on_missing=True), d.return_value, 'ro')
 
     # Save the plot
-    f.savefig("plot.png")
+    f.savefig(f"{key}.png")
 
 def main(folder: Path):
     # with hydra.initialize(version_base=None):
@@ -84,9 +84,12 @@ def main(folder: Path):
     # print((data[0].config.merge_with(OmegaConf.create(dict(expname="${logdir}")))).expname)
     # print(data[0].config.select("${eval:'len([i for i in ${oc.dict.values:env.animals.animal_0.eyes} if i.enabled])}"))
 
+    # plot_data(data, "env.animals.animal_0.eyes.eye_0.resolution.0")
     # plot_data(data, "env.animals.animal_0.eyes.eye_0.resolution.1")
-    # plot_data(data, "trainer.model.policy_kwargs.features_extractor_kwargs.output_dim")
-    # plot_data(data, "trainer.model.policy_kwargs.features_extractor_kwargs.image_extractor.architecture.0")
+    # plot_data(data, "env.animals.animal_0.eyes.eye_0.coord.0")
+    # plot_data(data, "env.animals.animal_0.eyes.eye_0.coord.1")
+    # plot_data(data, "env.animals.animal_0.eyes.eye_0.fov.0")
+    # plot_data(data, "env.animals.animal_0.eyes.eye_0.fov.1")
 
 if __name__ == "__main__":
     import argparse

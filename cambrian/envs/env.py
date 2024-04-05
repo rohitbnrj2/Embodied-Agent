@@ -491,7 +491,7 @@ class MjCambrianEnv(gym.Env):
                 overlay_text = f"Res: {tuple(eye0.config.resolution)}"
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
                 cursor.y += TEXT_HEIGHT
-                overlay_text = f"FOV: {tuple(eye0.config.fov)}"
+                overlay_text = f"FOV: {tuple(f'{f:.2f}' for f in eye0.config.fov)}"
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
                 cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
             overlay_text = f"Animal: {name}"

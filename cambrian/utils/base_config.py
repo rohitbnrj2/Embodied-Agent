@@ -88,16 +88,12 @@ class MjCambrianContainerConfig:
         config: DictConfig | ListConfig,
         *,
         as_container: bool = False,
+        resolve: bool = True,
+        throw_on_missing: bool = True,
         **kwargs,
     ) -> Self | DictConfig | ListConfig:
         """Instantiate the config using the structured config. Will check for missing
         keys and raise an error if any are missing."""
-        # Resolve the config prior to instantiation. This will resolve any high level
-        # interpolations before instantation such that the interpolations which are
-        # configs in themselves will be the uninstantiated config. This is important
-        # since the instantiated config has objects that aren't picklable.
-        # OmegaConf.resolve(config)
-
         # First instantiate the config (will replace _target_ with the actual class)
         # And then merge the structured config with the instantiated config to give it
         # validation.
@@ -106,10 +102,11 @@ class MjCambrianContainerConfig:
         # This is redundant for most cases, but instantiated logic may return strings
         # which may have interpolations. We'll explicitly call resolve to resolve these
         # interpolations.
-        OmegaConf.resolve(content)
+        if resolve:
+            OmegaConf.resolve(content)
 
         # Check for missing values. Error message will only show the first missing key.
-        if keys := OmegaConf.missing_keys(content):
+        if throw_on_missing and (keys := OmegaConf.missing_keys(content)):
             content._format_and_raise(
                 key=next(iter(keys)),
                 value=None,
@@ -262,8 +259,21 @@ class MjCambrianContainerConfig:
 
     def copy(self) -> Self:
         """Wrapper around the copy method to return a new instance of this class."""
-        content, config = self._content.copy(), self._config.copy()
+        content = self._content.copy()
+        config = self._config.copy() if not self._config_is_content else content
         return MjCambrianContainerConfig(content, config=config)
+
+    def clear(self):
+        """Wrapper around the clear method to clear the content."""
+        self._content.clear()
+        if not self._config_is_content:
+            self._config.clear()
+
+    def update(self, *args, **kwargs):
+        """Wrapper around the update method to update the content."""
+        self._content.update(*args, **kwargs)
+        if not self._config_is_content:
+            self._config.update(*args, **kwargs)
 
     def __getattr__(self, name: str) -> Self | Any:
         """Get the attribute from the content and return the wrapped instance. If the
@@ -353,20 +363,26 @@ class MjCambrianContainerConfig:
         Args:
             key (Any): The key to access.
             default_value (Any): The default value to return if the key is not found.
+
+        Keyword Args:
+            is_getattr (bool): Whether the access is an attribute access. If False, will
+                treat the key as an item access.
+            as_node (bool): Whether to return the node or the value. If True, will
+                return the node.
         """
+        content = self._content.__dict__["_content"]
+        config = self._config.__dict__["_content"]
         if isinstance(self._content, DictConfig):
             # Normalize the key. This will convert the key to allowed dictionary keys,
             # like converts 0, 1 if the key type is bool. Basically validates the key.
             key = self._content._validate_and_normalize_key(key)
 
             # Check that the key exists
-            if key not in self._content.__dict__["_content"]:
-                if not is_getattr or default_value is ...:
+            if key not in content and (not is_getattr or default_value is ...):
                     self._content._format_and_raise(
                         key, None, ConfigKeyError(f"Key not found: {key!s}")
                     )
-
-        else:  # ListConfig
+        else:
             # ListConfig only accepts integers as keys
             if is_getattr:
                 key = self._validate_key_is_int(key)
@@ -376,15 +392,15 @@ class MjCambrianContainerConfig:
         is_config: bool
         if is_getattr:
             default_value = None if default_value is ... else default_value
-            content = self._content.__dict__["_content"].get(key, default_value)
+            content = content.get(key, default_value)
             is_config = OmegaConf.is_config(content)
             if is_config and not self._config_is_content:
-                config = self._config.__dict__["_content"].get(key, default_value)
+                config = config.get(key, default_value)
         else:
-            content = self._content.__dict__["_content"][key]
+            content = content[key]
             is_config = OmegaConf.is_config(content)
             if is_config and not self._config_is_content:
-                config = self._config.__dict__["_content"][key]
+                config = config[key]
 
         # If the content is a config, we'll wrap it in this class
         if is_config and not as_node:
@@ -567,37 +583,9 @@ def search(
             return search(key, mode=mode, depth=depth + 1, _parent_=_parent_._parent)
 
 
-def sweep_params(params: ListConfig):
-    """This method will, given a ListConfig node, produce an
-    output string suitable a multirun sweep. For instance, the following config:
-
-    ```yaml
-    - architecture: [16, 32]
-      output_dim: 64
-    - architecture: [32, 64]
-      output_dim: 128
-    ```
-
-    Will result in the following output:
-
-    ```
-    {architecture:[16, 32], output_dim:64},{architecture:[32, 64], output_dim:128}
-    ```
-    """
-    assert isinstance(params, ListConfig), "params must be a ListConfig"
-
-    params_list = []
-    for param in params:
-        param_str = ", ".join([f"{k}: {v}" for k, v in param.items()])
-        params_list.append(f"{{{param_str}}}")
-
-    return ",".join(params_list)
-
-
 register_new_resolver("search", search)
 register_new_resolver("parent", partial(search, mode="parent_key"))
 register_new_resolver("eval", lambda src: eval(src, {}, {"np": np}))
-register_new_resolver("format_sweep_params", sweep_params)
 
 
 # =============================================================================

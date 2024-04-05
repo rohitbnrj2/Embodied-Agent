@@ -7,21 +7,22 @@ defaults:
 # compute node. This way, you can limit the total job length to some maximum value.
 timeout_min: ${eval:'60*24'} # 1 day (in min)
 
-# We only want one task per node and we want each task to use all the 40 cpus available
-# on each node. Furthermore, we'll grab 1 GPU for each task
+# Supercloud only allows allocation of 4 gpus, meaning we can only really use
+# 4 nodes at any one time. To optimize usage of resources, we want to use all 4 nodes
+# and also have multiple parallel workers on each node. Therefore, we have 4 nodes and
+# define 4 tasks on each node. Each task gets 10 cpus each (since there's only 40 cpus)
+# on each node. We specify the 4 nodes component as an array job with the 
+# array_parallelism parameter. To fill all the tasks with actual independent jobs,
+# we set batch_runs to true.
 nodes: 1
-tasks_per_node: 1
-cpus_per_task: 40
+tasks_per_node: 4
+cpus_per_task: 10
 gres: gpu:volta:1
+array_parallelism: ${.tasks_per_node}
+batch_runs: true
 
-# This will increase the likelyhood of a job being selected during peak hours
+# This will increase the likelyhood of a job being selected during peak hours.
 qos: high
-
-# supercloud only allows 4 nodes in parallel. There are actually two limits on the
-# number of jobs that will be launched: the sweeper workers and the array_parallelism
-# here. The minimum of the two will be used. We set it to 4 here with the expectation
-# that the number of sweeper workers will be set to 4 in the other configs.
-array_parallelism: 16
 
 # these are run prior to calling sbatch before running the job
 setup:

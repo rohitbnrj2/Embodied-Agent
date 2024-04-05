@@ -1,0 +1,270 @@
+# @package _global_
+
+defaults:
+  # Use one maze for the time being
+  - /env/mazes/Y_STATIC@env.mazes.Y_STATIC
+  - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
+
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+  # Define one animal
+  - /env/animals@env.animals.animal_0: ${env/animals}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_0: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_1: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_2: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_3: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_4: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_5: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_6: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_7: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_8: ${env/animals/eyes}
+  - override /env/animals: point # override the default to use 1 eye
+
+# Set expname explicitly, submitit_local will complain otherwise.
+expname: insect_vision/all_sweep
+
+# Update the logdir to include the hydra job num to avoid overwriting logs
+logdir: ./logs/${now:%Y-%m-%d}/${expname}/${hydra:job.num}
+
+trainer:
+  # decrease the number of timesteps to speed up the sweep
+  total_timesteps: 300_000
+
+env:
+  animals:
+    animal_0:
+      eyes:
+        eye_0:
+          coord: [10, -60]
+        eye_1:
+          coord: [10, -45]
+        eye_2:
+          coord: [10, -30]
+        eye_3:
+          coord: [10, -15]
+        eye_4:
+          coord: [10, 0]
+        eye_5:
+          coord: [10, 15]
+        eye_6:
+          coord: [10, 30]
+        eye_7:
+          coord: [10, 45]
+        eye_8:
+          coord: [10, 60]
+
+  # Disable use_shared_context, not sure why that's necessary
+  renderer:
+    use_shared_context: false
+
+hydra:
+  sweeper:
+    parametrization:
+      env.animals.animal_0.eyes.eye_0.enabled: [true, false]
+      env.animals.animal_0.eyes.eye_0.resolution.0:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_0.resolution.1:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_0.fov.0:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_0.fov.1:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_0.coord.1:
+        init: -60
+        lower: -60
+        upper: 60
+      env.animals.animal_0.eyes.eye_1.enabled: [true, false]
+      env.animals.animal_0.eyes.eye_1.resolution.0:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_1.resolution.1:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_1.fov.0:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_1.fov.1:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_1.coord.1:
+        init: -45
+        lower: -60
+        upper: 60
+      env.animals.animal_0.eyes.eye_2.enabled: [true, false]
+      env.animals.animal_0.eyes.eye_2.resolution.0:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_2.resolution.1:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_2.fov.0:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_2.fov.1:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_2.coord.1:
+        init: -30
+        lower: -60
+        upper: 60
+      env.animals.animal_0.eyes.eye_3.enabled: [true, false]
+      env.animals.animal_0.eyes.eye_3.resolution.0:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_3.resolution.1:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_3.fov.0:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_3.fov.1:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_3.coord.1:
+        init: -15
+        lower: -60
+        upper: 60
+      env.animals.animal_0.eyes.eye_4.enabled: [true, false]
+      env.animals.animal_0.eyes.eye_4.resolution.0:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_4.resolution.1:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true 
+      env.animals.animal_0.eyes.eye_4.fov.0:
+        init: 45
+        lower: 1
+        upper: 180  
+      env.animals.animal_0.eyes.eye_4.fov.1:
+        init: 45
+        lower: 1
+        upper: 180  
+      env.animals.animal_0.eyes.eye_4.coord.1:
+        init: 0
+        lower: -60
+        upper: 60 
+      env.animals.animal_0.eyes.eye_5.enabled: [true, false]
+      env.animals.animal_0.eyes.eye_5.resolution.0:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_5.resolution.1:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_5.fov.0:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_5.fov.1:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_5.coord.1:
+        init: 15
+        lower: -60
+        upper: 60
+      env.animals.animal_0.eyes.eye_6.enabled: [true, false]
+      env.animals.animal_0.eyes.eye_6.resolution.0:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_6.resolution.1:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_6.fov.0:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_6.fov.1:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_6.coord.1:
+        init: 30
+        lower: -60
+        upper: 60
+      env.animals.animal_0.eyes.eye_7.enabled: [true, false]
+      env.animals.animal_0.eyes.eye_7.resolution.0:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_7.resolution.1:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_7.fov.0:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_7.fov.1:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_7.coord.1:
+        init: 45
+        lower: -60
+        upper: 60
+      env.animals.animal_0.eyes.eye_8.enabled: [true, false]
+      env.animals.animal_0.eyes.eye_8.resolution.0:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_8.resolution.1:
+        init: 1
+        lower: 1
+        upper: 50
+        integer: true
+      env.animals.animal_0.eyes.eye_8.fov.0:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_8.fov.1:
+        init: 45
+        lower: 1
+        upper: 180
+      env.animals.animal_0.eyes.eye_8.coord.1:
+        init: 60
+        lower: -60
+        upper: 60

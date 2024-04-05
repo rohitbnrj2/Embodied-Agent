@@ -2,10 +2,10 @@ defaults:
   - combined@_here_
 
 features_extractor_kwargs:
-  output_dim: 64
+  output_dim: 16
   image_extractor:
     _target_: cambrian.ml.features_extractors.MjCambrianMLPExtractor
     _partial_: true
     features_dim: ${..output_dim}
     activation: ${..activation}
-    architecture: [16, 32]
+    architecture: [4, 8]

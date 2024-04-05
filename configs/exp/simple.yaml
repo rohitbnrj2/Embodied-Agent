@@ -1,0 +1,10 @@
+# @package _global_
+
+defaults:
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+  - /env/animals@env.animals.animal_0: ${env/animals}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye_0: ${env/animals/eyes}
+
+  - override /env/animals: point
