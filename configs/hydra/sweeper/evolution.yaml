@@ -26,9 +26,6 @@ optim:
   # always be the case, but can be overridden in the downstream configs.
   maximize: true
 
-  # We set the number of workers here to be 1. This means that the launcher will only
-  # ever launch 1 job at a time. On a cluster where we want jobs to be run in parallel,
-  # we can set this to a higher number.
   # This defines the number of a parallel candidates you want to test at one time.
   # This will default to 1 for most launchers. If the launcher is submitit, it will
   # evaluate to batch_size * array_parallelism, which is basically the number of 
