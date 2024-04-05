@@ -32,7 +32,10 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
         # Calculate the global velocities
         if self.config.use_action_obs:
             vx, vy, theta = self.last_action
-            v, theta = np.hypot(vx, vy), np.arctan2(vy, vx) - self.qpos[2]
+            v = np.hypot(vx, vy)
+            theta = np.interp(
+                np.arctan2(vy, vx) - self.qpos[2], [-np.pi / 2, np.pi / 2], [-1, 1]
+            )
             obs["action"] = np.array([v, theta], dtype=np.float32)
 
         return obs

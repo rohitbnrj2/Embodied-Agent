@@ -1,0 +1,23 @@
+# @package _global_
+
+defaults:
+  - /env/mazes/I_STATIC@env.mazes.I_STATIC
+
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+  - /env/animals@env.animals.animal_0: ${env/animals}
+  - /env/animals/eyes@env.animals.animal_0.eyes.animal_0_eye_0: ${env/animals/eyes}
+
+  - override /env/animals: point
+
+env:
+  animals:
+    animal_0:
+      # Set the initial yaw to -pi / 2. Indices represent indices in the qpos array.
+      initial_qpos:
+        2: ${eval:'-3.14/2'}
+
+      eyes:
+        animal_0_eye_0:
+          resolution: [100, 100]

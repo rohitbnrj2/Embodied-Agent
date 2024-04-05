@@ -5,8 +5,9 @@ import mujoco as mj
 
 
 def resize_with_aspect_fill(image: np.ndarray, width: int, height: int):
-    # TODO: why is height first?
-    original_width, original_height = image.shape[:2]
+    # TODO: why is it height, width and not width, height?
+    # original_width, original_height = image.shape[:2]
+    original_height, original_width = image.shape[:2]
     ratio_original = original_width / original_height
     ratio_new = width / height
 
@@ -14,14 +15,14 @@ def resize_with_aspect_fill(image: np.ndarray, width: int, height: int):
     border_type = cv2.BORDER_CONSTANT
     if ratio_original > ratio_new:
         # Original is wider relative to the new size
-        resize_height = round(width / ratio_original)
+        resize_height = max(1, round(width / ratio_original))
         resized_image = cv2.resize(image, (width, resize_height))
         top = (height - resize_height) // 2
         bottom = height - resize_height - top
         result = cv2.copyMakeBorder(resized_image, top, bottom, 0, 0, border_type)
     else:
         # Original is taller relative to the new size
-        resize_width = round(height * ratio_original)
+        resize_width = max(1, round(height * ratio_original))
         resized_image = cv2.resize(image, (resize_width, height))
         left = (width - resize_width) // 2
         right = width - resize_width - left

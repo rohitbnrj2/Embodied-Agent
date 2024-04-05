@@ -1,16 +1,19 @@
 # EyesOfCambrian
 
-Install the package `cambrian` by doing:
+Install the `cambrian` package by doing:
 ```
 pip install -e .
 ```
 
 ## TL;DR
 
-Run a simple environment and save the run as a gif/mp4.
+Run the following to create a simple environment and save the run as a video. 
+The `--record` flag optionally takes an integer argument to specify the number of 
+timesteps to record. The resulting video will be saved to 
+`logs/<the date>/example/eval.*`.
 
 ```bash
-MUJOCO_GL=egl python cambrian/env.py configs/point_1lat1lon_1x1.yaml --record-path test -t 200
+python cambrian/envs/env.py run_renderer exp=example --record 100
 ```
 
 ## Visualizing the world/environment
@@ -19,87 +22,113 @@ There is a runner in `env.py` that will visualize the world. You have a few run 
 
 ```bash
 # Interactive + Display
-# Run with the custom visualization viewer in birds-eye view mode. This is interactive, so you can move around.
-python cambrian/env.py <CONFIG_PATH> -o env.renderer.render_modes="[human, rgb_array]"
+# Run with the custom visualization viewer in birds-eye view mode. This is interactive, 
+# so you can pan the renderer around using the mouse.
+python cambrian/envs/env.py run_renderer exp=<EXPERIMENT> env.renderer.render_modes="[human]"
 
 # Noninteractive + headless
 # Run the custom viewer but headless and save the output
 # NOTE: This is non-interactive and should probably be run headless
-python cambrian/env.py <CONFIG_PATH> --record-path <OUTPUT> -t <TOTAL_TIMESTEPS>
+python cambrian/envs/env.py run_renderer exp=<EXPERIMENT> --record <OPTIONAL_TOTAL_TIMESTEPS>
 
-# Noninteractive + headless
-# Run with builtin mujoco viewer
-python cambrian/env.py <CONFIG_PATH> --mj-viewer
+# Interactive + Display
+# Run with built in mujoco viewer. You will need to scroll out to see the full view.
+python cambrian/envs/env.py run_mj_viewer exp=<EXPERIMENT>
 ```
 
-You can pass `-h` to see all options. For more details on the mujoco viewer, [see below](#mujoco-viewer).
+You can pass `-h` to see all options. Look in `configs/exp` for all the experiments 
+you can run. For more details on the mujoco viewer, [see below](#mujoco-viewer).
+
+### Custom Viewer
+
+This is a custom viewer that we use for debugging. There are a few shortcuts you can 
+use:
+
+- `R`: Reset the environment
+- `Tab`: Switch cameras in the main view
+- `Space`: Pause the simulation
+- `Exit`: Close the window
 
 ### Mujoco Viewer
-
-> [!NOTE]
-> There was a bug in the visualizer in 3.0.0, but was fixed in 3.0.1, so run `pip install mujoco --upgrade` to get the latest package.
 
 Hover over an option on the left side and right click to show all the shortcuts. `Q` will visualize the cameras and their frustums. You can also just click it under **Rendering**.
 
 ## Running training
 
 ```bash
-MUJOCO_GL=egl python cambrian/rl/trainer.py CONFIG_PATH --train
+bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT>
 ```
 
 > [!TIP]
-> Training should always be done with `MUJOCO_GL=egl` cause that runs with a headless implementation of OpenGL and is significantly faster. `evo.py` will set this automatically for training runs, but you need to explicitly set it for `trainer.py`.
+> The `local.sh` script will automatically set `MUJOCO_GL=egl`. Training should always 
+be done with `MUJOCO_GL=egl` cause that runs with a headless implementation of OpenGL 
+and is significantly faster. 
 
 > [!NOTE]
-> You can also pass `--eval` to run evaluation to visualize the env. Set the `render_modes` to include `'human'` or pass `--record` to output a gif/mp4. Use `-h` to see options.
+> You can also run `eval.sh` to run evaluation to visualize the env. 
+Set the `render_modes` to include `'human'` to visualize the env. It will also 
+automatically save the video to `logs/<date>/<exp>/eval.*`. Use `-h` to see options.
 
 ## Running evo
 
 ```bash
-python cambrian/rl/evo.py CONFIG_PATH
+bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT> -m
 ```
 
+Here, `-m` stands for `--multirun`. This will spawn multiple sweep instances of the
+`trainer.py` script. See the config files sweep parameters and/or 
+[hydra](https://hydra.cc/docs/intro) for more details.
+
 > [!NOTE]
-> This will spawn `evo_config.population_config.size` individual `trainer.py` calls, where each `trainer.py` has `evo_config.max_n_envs // evo_config.population_config.size` parallel envs, so make sure you aren't launching more envs than cpus on your computer.
+> You may get an error saying something along the lines 
+> `No variable to optimize in this parametrization.` This is because the config you 
+> chose doesn't have sweep parameters. You can either add some via the command line 
+> (see the [hydra documentation](https://hydra.cc/docs/intro)), add them to the
+> config file or choose another exp.
 
 ## Running on Supercloud
 
-In order to run on supercloud, you need to set `MUJOCO_GL=egl`, which sets OpenGL to use the EGL backend which is headless.
-
-You also can pass `--record-path` to the `env.py` script to set the path that an `mp4` and a `gif` will be recorded.
+To run on supercloud, replace `local.sh` with `sc.sh` in the above commands. This will
+set various environment variables that are required to run on supercloud. You can 
+still run `local.sh` if you don't plan to use slurm to submit a job.
 
 > [!NOTE]
-> For all the supercloud commands listed below, `MUJOCO_GL=egl` is set by default. Additionally, you may add overrides directly as arguments to the bash scripts (either with `sbatch` or `bash`).
+> See `configs/hydra/launcher/supercloud.yaml` and 
+> `configs/hydra/sweeper/evolution.yaml` for the slurm and evolution settings, 
+> respectively.
 
 ### Training
 
 ```bash
 # If running headless
-sbatch scripts/sc.sh scripts/train.sh <config>
+sbatch scripts/sc.sh scripts/train.sh exp=<EXPERIMENT>
 # If running in interactive mode
-bash scripts/train.sh <config>
+bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT>
 ```
 
 ### Evaluation
 
 ```bash
 # If running headless
-sbatch scripts/sc.sh scripts/eval.sh <config>
+sbatch scripts/sc.sh scripts/eval.sh exp=<EXPERIMENT>
 # If running in interactive mode
-bash scripts/eval.sh <config>
+bash scripts/local.sh scripts/eval.sh exp=<EXPERIMENT>
 ```
 
 ### Evo
 
 ```bash
 # If running headless
-sbatch scripts/sc.sh scripts/evo.sh <config>
+sbatch scripts/sc.sh scripts/train.sh exp=<EXPERIMENT> -m
 # If running in interactive mode
-bash scripts/evo.sh <config>
+bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT> -m
 ```
 
 ## Other things
 
 ### Configs/Overrides
 
-All configs should be put under `configs`. We will transition to use `omegaconf` soon, but for now, you can either edit the config directly in `configs` (probably don't want to commit those changes) or use `-o <dot.separated.path>=<value>` as used [above](#visualizing-the-worldenvironment).
+All configs should be put under `configs`. These are parsed by 
+[hydra](https://hydra.cc/docs/intro) and can be overridden by passing in 
+`<dot.separated.path>=<value>` to the script. Checkout hydra's documentation for more 
+details.

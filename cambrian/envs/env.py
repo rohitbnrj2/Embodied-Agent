@@ -245,9 +245,7 @@ class MjCambrianEnv(gym.Env):
 
         return self._update_obs(obs), self._update_info(info)
 
-    def step(
-        self, action: Dict[str, Any]
-    ) -> Tuple[
+    def step(self, action: Dict[str, Any]) -> Tuple[
         Dict[str, Any],
         Dict[str, float],
         Dict[str, bool],
@@ -639,14 +637,14 @@ if __name__ == "__main__":
         env.reset(seed=config.seed)
         with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
             while viewer.is_running():
-                env.step(env.action_spaces.sample())
+                # env.step(env.action_spaces.sample())
                 viewer.sync()
 
     @register_fn
-    def run_renderer(config: MjCambrianConfig, *, record: bool, **kwargs):
+    def run_renderer(config: MjCambrianConfig, *, record: Any, **kwargs):
         env = config.env.instance(config.env)
 
-        if record:
+        if max_steps := record:
             env.record = True
 
         env.reset(seed=config.seed)
@@ -661,8 +659,10 @@ if __name__ == "__main__":
             env.renderer.viewer.custom_key_callback = custom_key_callback
 
         while env.renderer.is_running():
-            # action = env.action_spaces.sample()
-            action = {name: [-0.5, -0.5] for name, a in env.animals.items()}
+            if max_steps and env.episode_step > max_steps:
+                break
+
+            action = {name: [-0.1, -0.5] for name, a in env.animals.items()}
             _, _, terminated, truncated, _ = env.step(action)
             env.render()
 
@@ -685,5 +685,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "fn", type=str, help="The method to run.", choices=REGISTRY.keys()
     )
-    parser.add_argument("--record", action="store_true", help="Record the simulation.")
+    parser.add_argument(
+        "--record",
+        nargs="?",
+        type=int,
+        const=100,
+        help="Record the simulation. Pass an optional int to specify how many "
+        "iterations to record.",
+        default=None,
+    )
     run_hydra(main, parser=parser)

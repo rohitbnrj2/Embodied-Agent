@@ -14,7 +14,8 @@ defaults:
   # We also need to define the eyes for the animal. We'll use the default eye to serve
   # as the base for the new eye.
   # This basically says load "eye.yaml" in ./env/animals/eyes and place it at
-  # env.animals.animal_0.eyes.eye_1 in the config
+  # env.animals.animal_0.eyes.eye_0/1 in the config
+  - /env/animals/eyes/eye@env.animals.animal_0.eyes.eye_0
   - /env/animals/eyes/eye@env.animals.animal_0.eyes.eye_1
 
   # Define another eye that has optics
@@ -28,11 +29,11 @@ defaults:
   # files use those as interpolations in their default lists.
   - maze_exp
 
-  # Same here; we define all the animals we want to use (in this case, just one)
+  # We define all the animals we want to use (in this case, just one)
   # We need to override the /env/animals field explicitly since we're changing the
   # default animal config
   - /env/animals@env.animals.animal_0: ${env/animals}
-  - override /env/animals: point_1eye
+  - override /env/animals: point
 
   # Finally, we include _self_ such that all the configs defined herein will override
   # the files we've included above. This actually isn't necessary as hydra will
