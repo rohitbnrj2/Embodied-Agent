@@ -12,14 +12,12 @@ timeout_min: ${eval:'60*24'} # 1 day (in min)
 # and also have multiple parallel workers on each node. Therefore, we have 4 nodes and
 # define 4 tasks on each node. Each task gets 10 cpus each (since there's only 40 cpus)
 # on each node. We specify the 4 nodes component as an array job with the 
-# array_parallelism parameter. To fill all the tasks with actual independent jobs,
-# we set batch_runs to true.
+# array_parallelism parameter. 
 nodes: 1
 tasks_per_node: 4
 cpus_per_task: 10
 gres: gpu:volta:1
 array_parallelism: ${.tasks_per_node}
-batch_runs: true
 
 # This will increase the likelyhood of a job being selected during peak hours.
 qos: high
