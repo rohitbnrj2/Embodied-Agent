@@ -6,4 +6,3 @@ features_extractor_kwargs:
   activation:
     _target_: torch.nn.Tanh
     _partial_: true
-  use_fixed_length_output: False

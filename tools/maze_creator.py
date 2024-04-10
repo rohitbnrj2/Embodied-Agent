@@ -2,9 +2,14 @@ from typing import Dict, List, Deque
 import textwrap
 
 import yaml
-import tkinter as tk
-from tkinter import filedialog
-from tkinter import ttk
+
+try:
+    import tkinter as tk
+    from tkinter import filedialog
+    from tkinter import ttk
+except ImportError:
+    print("tkinter is not installed. Please install it to use this script.")
+    exit(1)
 
 
 class Command:

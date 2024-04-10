@@ -18,13 +18,14 @@ class MjCambrianObjectConfig(MjCambrianBaseConfig):
     Attributes:
         xml (MjCambrianXML): The xml for the object.
 
+        # TODO: remove in favor of keyword arg in reward_fns
         terminate_if_close (bool): Whether to terminate the episode if the animal is
             close to the object. Termination indicates success.
         truncate_if_close (bool): Whether to truncate the episode if the animal is
             close to the object. Truncation indicates failure.
         reward_if_close (float): The reward to give the animal if it is close to the
             object.
-        distance_to_object_threshold (float): The distance to the object at which the
+        distance_threshold (float): The distance to the object at which the
             animal is assumed to be close to the object.
 
         use_as_obs (bool): Whether to use the object as an observation or not.
@@ -35,7 +36,7 @@ class MjCambrianObjectConfig(MjCambrianBaseConfig):
     terminate_if_close: bool
     truncate_if_close: bool
     reward_if_close: float
-    distance_to_target_threshold: float
+    distance_threshold: float
 
     use_as_obs: bool
 
@@ -147,11 +148,6 @@ class MjCambrianObjectEnv(MjCambrianEnv):
             if terminated[name] or truncated[name]:
                 continue
 
-            # Check if the animal is at the object
-            for obj in self.objects.values():
-                if obj.is_close(animal.pos):
-                    rewards[name] += obj.config.reward_if_close
-
         return rewards
 
     @property
@@ -162,7 +158,10 @@ class MjCambrianObjectEnv(MjCambrianEnv):
         observation_spaces: spaces.Dict = super().observation_spaces
 
         # Add the object observations
-        for animal_name in self.animals:
+        for animal_name, animal in self.animals.items():
+            if not animal.config.trainable:
+                continue
+
             observation_space: spaces.Dict = observation_spaces.spaces[animal_name]
 
             for name, obj in self.objects.items():
@@ -192,6 +191,9 @@ class MjCambrianObject:
         return model.body_pos[body_id]
 
     def is_close(self, pos: np.ndarray) -> bool:
-        """Checks if the some position (probably an animals) is close to the object."""
-        distance = np.linalg.norm(pos - self.config.pos)
-        return distance < self.config.distance_to_target_threshold
+        """Helper function to check if the object is close to a position."""
+        return np.linalg.norm(self.config.pos - pos) < self.config.distance_threshold
+
+    @property
+    def pos(self) -> np.ndarray:
+        return self.config.pos

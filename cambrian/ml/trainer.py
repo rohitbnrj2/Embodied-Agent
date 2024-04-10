@@ -32,6 +32,8 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
 
         model (MjCambrianModelType): The model to use for training.
         callbacks (Dict[str, BaseCallback]): The callbacks to use for training.
+        wrappers (Dict[str, Callable[[VecEnv], VecEnv]] | None): The wrappers to use for
+            training. If None, will ignore.
     """
 
     total_timesteps: int
@@ -40,7 +42,7 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
 
     model: MjCambrianModel
     callbacks: Dict[str, BaseCallback | Callable[[VecEnv], BaseCallback]]
-    wrappers: Dict[str, Callable[[VecEnv], VecEnv]]
+    wrappers: Dict[str, Callable[[VecEnv], VecEnv] | None]
 
 
 class MjCambrianTrainer:
@@ -105,6 +107,7 @@ class MjCambrianTrainer:
 
         eval_env = self._make_env(self.config.env, 1, monitor="eval_monitor.csv")
         model = self._make_model(eval_env)
+        model = model.load(self.config.logdir / "best_model")
 
         n_runs = self.config.eval_env.n_eval_episodes
         filename = self.config.logdir / "eval"
@@ -130,10 +133,11 @@ class MjCambrianTrainer:
         # Create the environments
         envs = []
         for i in range(n_envs):
+            wrappers = [w for w in self.trainer_config.wrappers.values() if w]
             wrapped_env = make_wrapped_env(
                 config=config.copy(),
                 name=self.config.expname,
-                wrappers=list(self.trainer_config.wrappers.values()),
+                wrappers=wrappers,
                 seed=self._calc_seed(i),
             )
             envs.append(wrapped_env)

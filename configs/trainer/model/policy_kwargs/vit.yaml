@@ -1,0 +1,15 @@
+defaults:
+  - combined@_here_
+
+features_extractor_kwargs:
+  output_dim: 16
+  image_extractor:
+    _target_: cambrian.ml.features_extractors.MjCambrianViTExtractor
+    _partial_: true
+    features_dim: ${..output_dim}
+    activation: ${..activation}
+    nhead: 3
+    num_encoder_layers: 2
+    dim_feedforward: 32
+    patch_size: 16
+    emb_dim: 768

@@ -13,9 +13,9 @@ xml:
   _convert_: all
   base_xml_path: models/animals/point.xml
 
-body_name: "particle_${parent:}"
+body_name: "point_${parent:}"
 joint_name: "ball_x_${parent:}"
-geom_name: "particle_geom_${parent:}"
+geom_name: "point_geom_${parent:}"
 
 eyes_lat_range: [-5, 25]
 eyes_lon_range: [-60, 60]

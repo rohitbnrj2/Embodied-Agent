@@ -240,25 +240,6 @@ class FrameStackObservation(
         )
         self.stacked_obs = create_empty_array(env.observation_space, n=self.stack_size)
 
-    def step(
-        self, action: WrapperActType
-    ) -> tuple[WrapperObsType, SupportsFloat, bool, bool, dict[str, Any]]:
-        """Steps through the environment, appending the observation to the frame buffer.
-
-        Args:
-            action: The action to step through the environment with
-
-        Returns:
-            Stacked observations, reward, terminated, truncated, and info from the environment
-        """
-        obs, reward, terminated, truncated, info = self.env.step(action)
-        self.obs_queue.append(obs)
-
-        updated_obs = concatenate(
-            self.env.observation_space, self.obs_queue, self.stacked_obs
-        )
-        return updated_obs, reward, terminated, truncated, info
-
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[WrapperObsType, dict[str, Any]]:
@@ -283,3 +264,22 @@ class FrameStackObservation(
             self.env.observation_space, self.obs_queue, self.stacked_obs
         )
         return updated_obs, info
+
+    def step(
+        self, action: WrapperActType
+    ) -> tuple[WrapperObsType, SupportsFloat, bool, bool, dict[str, Any]]:
+        """Steps through the environment, appending the observation to the frame buffer.
+
+        Args:
+            action: The action to step through the environment with
+
+        Returns:
+            Stacked observations, reward, terminated, truncated, and info from the environment
+        """
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        self.obs_queue.append(obs)
+
+        updated_obs = concatenate(
+            self.env.observation_space, self.obs_queue, self.stacked_obs
+        )
+        return updated_obs, reward, terminated, truncated, info

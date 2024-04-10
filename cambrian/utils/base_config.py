@@ -25,6 +25,7 @@ from omegaconf import (
     ListConfig,
     MissingMandatoryValue,
     Node,
+    flag_override,
     MISSING,
 )
 from omegaconf.errors import ConfigKeyError
@@ -155,7 +156,7 @@ class MjCambrianContainerConfig:
             OmegaConf.unsafe_merge(self._config, *others)
 
     def interpolate(self, interpolation: str) -> Any:
-        """This is a helper method that will evaluate an interpolation in the key. 
+        """This is a helper method that will evaluate an interpolation in the key.
         Basically select but evaluates an interpolation."""
         copy_of_self = self.copy()
 
@@ -379,9 +380,9 @@ class MjCambrianContainerConfig:
 
             # Check that the key exists
             if key not in content and (not is_getattr or default_value is ...):
-                    self._content._format_and_raise(
-                        key, None, ConfigKeyError(f"Key not found: {key!s}")
-                    )
+                self._content._format_and_raise(
+                    key, None, ConfigKeyError(f"Key not found: {key!s}")
+                )
         else:
             # ListConfig only accepts integers as keys
             if is_getattr:
@@ -524,7 +525,7 @@ def register_new_resolver(*args, replace: bool = True, **kwargs):
     OmegaConf.register_new_resolver(*args, replace=replace, **kwargs)
 
 
-def search(
+def search_resolver(
     key: str | None = None,
     /,
     mode: Optional[str] = "value",
@@ -564,7 +565,9 @@ def search(
             return _parent_[key]
         else:
             # Otherwise, we'll keep searching up the parent chain
-            return search(key, mode=mode, depth=depth + 1, _parent_=_parent_._parent)
+            return search_resolver(
+                key, mode=mode, depth=depth + 1, _parent_=_parent_._parent
+            )
     elif mode == "parent_key":
         if key is None:
             # If the key is None, we'll return the parent's key
@@ -577,14 +580,48 @@ def search(
         if depth != 0 and isinstance(_parent_, DictConfig) and key in _parent_:
             # If we're at a key that's not the parent and the parent has the key we're
             # looking for, we'll return the parent
-            return search(None, mode=mode, depth=depth + 1, _parent_=_parent_)
+            return search_resolver(None, mode=mode, depth=depth + 1, _parent_=_parent_)
         else:
             # Otherwise, we'll keep searching up the parent chain
-            return search(key, mode=mode, depth=depth + 1, _parent_=_parent_._parent)
+            return search_resolver(
+                key, mode=mode, depth=depth + 1, _parent_=_parent_._parent
+            )
 
 
-register_new_resolver("search", search)
-register_new_resolver("parent", partial(search, mode="parent_key"))
+def clear_resolver(key: str | None = None, /, *, _node_: Node) -> Dict | List:
+    if _node_ is None:
+        # Parent will be None if we're at the top level
+        raise ConfigKeyError(f"Key {key} not found in parent chain.")
+
+    key = key or _node_._key()
+    if key is not None and _node_._key() == key:
+        return {} if isinstance(_node_._parent, DictConfig) else []
+    else:
+        # Otherwise, we'll keep searching up the parent chain
+        return clear_resolver(key, _node_=_node_._parent)
+
+
+def delete_resolver(key: str | None = None, /, *, _node_: Node) -> Dict | List:
+    if _node_ is None:
+        # Parent will be None if we're at the top level
+        raise ConfigKeyError(f"Key {key} not found in parent chain.")
+
+    key = key or _node_._key()
+    if key is not None and _node_._key() == key:
+        with flag_override(_node_, "struct", False):
+            parent = _node_._parent
+            print(parent)
+            del _node_._parent[key]
+            print(parent)
+    else:
+        # Otherwise, we'll keep searching up the parent chain
+        return delete_resolver(key, _node_=_node_._parent)
+
+
+register_new_resolver("search", search_resolver)
+register_new_resolver("parent", partial(search_resolver, mode="parent_key"))
+register_new_resolver("clear", clear_resolver)
+register_new_resolver("delete", delete_resolver)
 register_new_resolver("eval", lambda src: eval(src, {}, {"np": np}))
 
 

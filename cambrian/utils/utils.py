@@ -294,6 +294,16 @@ def get_light_name(model: mj.MjModel, lightadr: int) -> str:
     return mj.mj_id2name(model, mj.mjtObj.mjOBJ_LIGHT, lightadr)
 
 
+def get_sensor_id(model: mj.MjModel, sensor_name: str) -> int:
+    """Get the ID of a Mujoco sensor."""
+    return mj.mj_name2id(model, mj.mjtObj.mjOBJ_SENSOR, sensor_name)
+
+
+def get_sensor_name(model: mj.MjModel, sensoradr: int) -> str:
+    """Get the name of a Mujoco sensor."""
+    return mj.mj_id2name(model, mj.mjtObj.mjOBJ_SENSOR, sensoradr)
+
+
 @dataclass
 class MjCambrianJoint:
     """Helper class which stores information about a Mujoco joint.
@@ -356,11 +366,13 @@ class MjCambrianGeometry:
     """Helper class which stores information about a Mujoco geometry
 
     Attributes:
-        adr (int): The Mujoco geometry ID (index into model.geom_* arrays).
+        id (int): The Mujoco geometry ID (index into model.geom_* arrays).
         rbound (float): The radius of the geometry's bounding sphere.
         pos (np.ndarray): The position of the geometry relative to the body.
+        group (int): The geometry group the geometry belongs to.
     """
 
-    adr: int
+    id: int
     rbound: float
     pos: np.ndarray
+    group: int

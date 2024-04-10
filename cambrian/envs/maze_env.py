@@ -39,7 +39,7 @@ class MjCambrianMapEntity(Enum):
     EMPTY = "0"
 
     @staticmethod
-    def parse(value: str) -> Tuple[Enum, str | None]:
+    def parse(value: str) -> Tuple[Enum, str]:
         """
         Parse a value to handle special formats like "1:<texture id>".
 
@@ -47,14 +47,13 @@ class MjCambrianMapEntity(Enum):
             value (str): The value to parse.
 
         Returns:
-            Tuple[Enum, Optional[str]]: The parsed entity and the texture id if
-                applicable.
+            Tuple[Enum, str]: The parsed entity and the texture id if applicable.
         """
         if value.startswith("1:"):
             return MjCambrianMapEntity.WALL, value[2:]
         for entity in MjCambrianMapEntity:
             if value == entity.value:
-                return entity, None
+                return entity, "default"
         raise ValueError(f"Unknown MjCambrianMapEntity: {value}")
 
 
@@ -285,10 +284,9 @@ class MjCambrianMaze:
         floor_name = f"floor_{self.name}"
         floor = xml.find(f".//geom[@name='{floor_name}']")
         assert floor is not None, f"`{floor_name}` not found"
-        floor.attrib[
-            "size"
-        ] = f"{self.map_width_scaled // 2} {self.map_length_scaled // 2} 0.1"
-        floor.attrib["pos"] = " ".join(map(str, [*self.lookat[:2], -0.05]))
+        size = f"{self.map_width_scaled // 2} {self.map_length_scaled // 2} 0.1"
+        floor.attrib["size"] = size
+        floor.attrib["pos"] = " ".join(map(str, [-self._starting_x, 0, -0.05]))
 
         return xml
 

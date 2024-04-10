@@ -13,9 +13,9 @@ from pathlib import Path
 import pickle
 
 import numpy as np
-import gymnasium as gym
 import mujoco as mj
 from gymnasium import spaces
+from pettingzoo import ParallelEnv
 from stable_baselines3.common.utils import set_random_seed
 
 from cambrian.animals.animal import MjCambrianAnimal, MjCambrianAnimalConfig
@@ -111,7 +111,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     animals: Dict[str, MjCambrianAnimalConfig]
 
 
-class MjCambrianEnv(gym.Env):
+class MjCambrianEnv(ParallelEnv):
     """A MjCambrianEnv defines a gymnasium environment that's based off mujoco.
 
     NOTES:
@@ -161,26 +161,18 @@ class MjCambrianEnv(gym.Env):
         self._overlays: Dict[str, Any] = {}
 
     def _create_animals(self):
-        """Helper method to create the animals.
-
-        Under the hood, the `create` method does the following:
-            - load the base xml to MjModel
-            - parse the geometry and place eyes at the appropriate locations
-            - create the action/observation spaces
-
-        TODO: Hardcoded to use MjCambrianPointAnimal for now!!
-        """
-        for name, animal_config in self.config.animals.items():
+        """Helper method to create the animals."""
+        for i, (name, animal_config) in enumerate(self.config.animals.items()):
             assert name not in self.animals
-            self.animals[name] = animal_config.instance(animal_config, name)
+            self.animals[name] = animal_config.instance(animal_config, name, i)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
         xml = MjCambrianXML.from_string(self.config.xml)
 
         # Add the animals to the xml
-        for idx, animal in enumerate(self.animals.values()):
-            xml += animal.generate_xml(idx)
+        for animal in self.animals.values():
+            xml += animal.generate_xml()
 
         return xml
 
@@ -197,7 +189,6 @@ class MjCambrianEnv(gym.Env):
             Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]: The observations for each
                 animal and the info dict for each animal.
         """
-        super().reset(seed=seed, options=options)
         if seed is not None and self._num_resets == 0:
             self.logger.info(f"Setting random seed to {seed}")
             set_random_seed(seed)
@@ -240,12 +231,15 @@ class MjCambrianEnv(gym.Env):
             self._rollout.setdefault("positions", [])
             self._rollout["positions"].append([a.qpos for a in self.animals.values()])
 
+        if self.record or "human" in self.config.renderer.render_modes:
             self._overlays["Name"] = self.name
             self._overlays["Total Timesteps"] = f"{self.num_timesteps}"
 
         return self._update_obs(obs), self._update_info(info)
 
-    def step(self, action: Dict[str, Any]) -> Tuple[
+    def step(
+        self, action: Dict[str, Any]
+    ) -> Tuple[
         Dict[str, Any],
         Dict[str, float],
         Dict[str, bool],
@@ -272,8 +266,14 @@ class MjCambrianEnv(gym.Env):
 
         # First, apply the actions to the animals and step the simulation
         for name, animal in self.animals.items():
+            if not animal.config.trainable:
+                assert name not in action, f"Action for {name} found in action dict."
+                action[name] = animal.get_action_privileged(self)
+
+            assert name in action, f"Action for {name} not found in action dict."
             animal.apply_action(action[name])
             info[name]["prev_pos"] = animal.qpos
+            info[name]["action"] = action[name]
 
         # Then, step the mujoco simulation
         self._step_mujoco_simulation(self.config.frame_skip, info)
@@ -282,8 +282,6 @@ class MjCambrianEnv(gym.Env):
         obs: Dict[str, Any] = {}
         for name, animal in self.animals.items():
             obs[name] = animal.step()
-
-            info[name]["action"] = action[name]
 
         # Call helper methods to update the observations, rewards, terminated, and info
         obs = self._update_obs(obs)
@@ -300,6 +298,7 @@ class MjCambrianEnv(gym.Env):
             self._rollout["actions"].append(list(action.values()))
             self._rollout["positions"].append([a.pos for a in self.animals.values()])
 
+        if self.record or "human" in self.config.renderer.render_modes:
             self._overlays["Step"] = self._episode_step
             self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
 
@@ -426,7 +425,7 @@ class MjCambrianEnv(gym.Env):
 
         # Add site overlays for each animal
         i = self._num_resets * self._max_episode_steps + self._episode_step
-        size = self.model.stat.extent * 5e-3
+        size = self.model.stat.extent * 3e-3
         for animal in self.animals.values():
             # Define a unique id for the site
             key = f"{animal.name}_pos_{i}"
@@ -459,7 +458,7 @@ class MjCambrianEnv(gym.Env):
 
         cursor = MjCambrianCursor(0, 0)
         for i, (name, animal) in enumerate(self.animals.items()):
-            cursor.x += 2 * i * overlay_width
+            cursor.x = i * overlay_width
             cursor.y = 0
             if cursor.x + overlay_width > renderer_width:
                 self.logger.warning("Renderer width is too small!!")
@@ -544,6 +543,14 @@ class MjCambrianEnv(gym.Env):
         return list(self.animals.keys())
 
     @property
+    def num_agents(self) -> int:
+        """Returns the number of agents in the environment.
+
+        This is part of the PettingZoo API.
+        """
+        return len(self.agents)
+
+    @property
     def possible_agents(self) -> List[str]:
         """Returns the possible agents in the environment.
 
@@ -570,7 +577,8 @@ class MjCambrianEnv(gym.Env):
         # Create the observation_spaces
         observation_spaces: Dict[str, spaces.Space] = {}
         for name, animal in self.animals.items():
-            observation_spaces[name] = animal.observation_space
+            if animal.config.trainable:
+                observation_spaces[name] = animal.observation_space
         return spaces.Dict(observation_spaces)
 
     @property
@@ -590,8 +598,30 @@ class MjCambrianEnv(gym.Env):
         # Create the action_spaces
         action_spaces: Dict[str, spaces.Space] = {}
         for name, animal in self.animals.items():
-            action_spaces[name] = animal.action_space
+            if animal.config.trainable:
+                action_spaces[name] = animal.action_space
         return spaces.Dict(action_spaces)
+
+    def observation_space(self, agent: str) -> spaces.Space:
+        """Returns the observation space for the given agent.
+
+        This is part of the PettingZoo API.
+        """
+        return self.observation_spaces[agent]
+
+    def action_space(self, agent: str) -> spaces.Space:
+        """Returns the action space for the given agent.
+
+        This is part of the PettingZoo API.
+        """
+        return self.action_spaces[agent]
+
+    def state(self) -> np.ndarray:
+        """Returns the state of the environment.
+
+        This is part of the PettingZoo API.
+        """
+        raise NotImplementedError("Not implemented yet.")
 
     @property
     def record(self):
@@ -616,6 +646,10 @@ class MjCambrianEnv(gym.Env):
             with open(path.with_suffix(".pkl"), "wb") as f:
                 pickle.dump(self._rollout, f)
             self.logger.debug(f"Saved rollout to {path.with_suffix('.pkl')}")
+
+    def close(self):
+        """Closes the environment."""
+        pass
 
 
 if __name__ == "__main__":
@@ -662,7 +696,11 @@ if __name__ == "__main__":
             if max_steps and env.episode_step > max_steps:
                 break
 
-            action = {name: [-0.1, -0.5] for name, a in env.animals.items()}
+            action = {
+                name: [-0.1, -0.5]
+                for name, a in env.animals.items()
+                if a.config.trainable
+            }
             _, _, terminated, truncated, _ = env.step(action)
             env.render()
 

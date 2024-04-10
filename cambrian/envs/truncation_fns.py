@@ -1,5 +1,7 @@
 from typing import Any, Dict
 
+import numpy as np
+
 from cambrian.envs.env import MjCambrianEnv
 from cambrian.envs.object_env import MjCambrianObjectEnv
 from cambrian.animals.animal import MjCambrianAnimal
@@ -31,6 +33,20 @@ def truncate_if_close_to_object(
         if obj.is_close(animal.pos) and obj.config.truncate_if_close:
             return True
     return False
+
+
+def truncate_if_close_to_animal(
+    env: MjCambrianObjectEnv,
+    animal: MjCambrianAnimal,
+    info: Dict[str, Any],
+    *,
+    animal_name: str,
+    distance_threshold: float
+) -> bool:
+    """Truncates the episode if the animal is close to another animal."""
+    pos = animal.pos
+    other_pos = env.animals[animal_name].pos
+    return True if np.linalg.norm(pos - other_pos) < distance_threshold else False
 
 
 def truncate_if_has_contacts(

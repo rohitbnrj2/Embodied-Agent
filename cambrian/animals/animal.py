@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Tuple, Callable, Self
+from typing import Dict, Any, List, Tuple, Callable, Self, TYPE_CHECKING
 
 import numpy as np
 import mujoco as mj
@@ -18,12 +18,21 @@ from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.base_config import MjCambrianBaseConfig, config_wrapper
 from cambrian.utils.logger import get_logger
 
+if TYPE_CHECKING:
+    from cambrian.envs.env import MjCambrianEnv
+
 
 @config_wrapper
 class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     """Defines the config for an animal. Used for type hinting.
 
     Attributes:
+        trainable (bool): Whether the animal is trainable or not. If the animal is
+            trainable, it's observations will be included in the observation space
+            of the environment and the model's output actions will be applied to the
+            agent. If the animal is not trainable, the agent's policy can be defined
+            by overriding the `get_action_privileged` method.
+
         instance (Callable[[Self, str], "MjCambrianAnimal"]): The class instance for the
             animal. This is used to create the animal.
 
@@ -62,6 +71,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             (this animal) from the parent. This is unused during mutation; it simply
             is a record of the mutations that were applied to the parent.
     """
+
+    trainable: bool
 
     instance: Callable[[Self, str], "MjCambrianAnimal"]
 
@@ -102,11 +113,13 @@ class MjCambrianAnimal:
         config (MjCambrianAnimalConfig): The configuration for the animal.
         name (str): The name of the animal. This is used to identify the animal in the
             environment.
+        idx (int): The index of the animal. This is used to hide geometry groups.
     """
 
-    def __init__(self, config: MjCambrianAnimalConfig, name: str):
+    def __init__(self, config: MjCambrianAnimalConfig, name: str, idx: int):
         self.config = self._check_config(config)
         self._name = name
+        self._idx = idx
         self._logger = get_logger()
 
         self._eyes: Dict[str, MjCambrianEye] = {}
@@ -174,7 +187,12 @@ class MjCambrianAnimal:
         assert geom_id != -1, f"Could not find geom {self.config.geom_name}."
         geom_rbound = model.geom_rbound[geom_id]
         geom_pos = model.geom_pos[geom_id]
-        self._geom = MjCambrianGeometry(geom_id, geom_rbound, geom_pos)
+        # Set each geom in this animal to be a certain group for rendering utils
+        # The group number is the index the animal was created + 2
+        # + 2 because the default group used in mujoco is 0 and our animal indexes start
+        # at 0 and we'll put our scene stuff on group 1
+        geom_group = self._idx + 2
+        self._geom = MjCambrianGeometry(geom_id, geom_rbound, geom_pos, geom_group)
 
     def _parse_actuators(self, model: mj.MjModel):
         """Parse the current model/xml for the actuators.
@@ -248,18 +266,15 @@ class MjCambrianAnimal:
         config.quat = rot_rot.as_quat().tolist()
         return MjCambrianEye(config, name)
 
-    def generate_xml(self, idx: int) -> MjCambrianXML:
+    def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the animal. Will generate the xml from the model file
         and then add eyes to it.
         """
         xml = MjCambrianXML.from_string(self.config.xml)
 
-        # Set each geom in this animal to be a certain group for rendering utils
-        # The group number is the index the animal was created + 2
-        # + 2 because the default group used in mujoco is 0 and our animal indexes start
-        # at 0 and we'll put our scene stuff on group 1
+        # Update the geom group. See comment in _parse_geometry for more info.
         for geom in xml.findall(f".//*[@name='{self.config.body_name}']//geom"):
-            geom.set("group", str(idx + 2))
+            geom.set("group", str(self._geom.group))
 
         # Add eyes
         for eye in self.eyes.values():
@@ -281,6 +296,23 @@ class MjCambrianAnimal:
 
         # Set the last action class variable
         self.last_action = np.array(actions)
+
+    def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
+        """This is a deviation from the standard gym API. This method is similar to
+        step, but it has "privileged" access to information such as the environment.
+        This method can be overridden by animals which are not trainable and need to
+        implement custom step logic.
+
+        Args:
+            env (MjCambrianEnv): The environment that the animal is in. This can be
+                used to get information about the environment.
+
+        Returns:
+            List[float]: The action to take.
+        """
+        raise NotImplementedError(
+            "This method should be overridden by the subclass and should never reach here."
+        )
 
     def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, Any]:
         """Sets up the animal in the environment. Uses the model/data to update
@@ -319,6 +351,11 @@ class MjCambrianAnimal:
         body_name = self.config.body_name
         self._body_id = get_body_id(model, body_name)
         assert self._body_id != -1, f"Could not find body with name {body_name}."
+
+        # Geometry id
+        geom_id = get_geom_id(model, self.config.geom_name)
+        assert geom_id != -1, f"Could not find geom {self.config.geom_name}."
+        self._geom.id = geom_id
 
         # This joint is used for positioning the animal in the environment
         joint_name = self.config.joint_name
@@ -427,8 +464,8 @@ class MjCambrianAnimal:
             body2 = self._model.geom_bodyid[geom2]
             rootbody2 = self._model.body_rootid[body2]
 
-            is_contact = rootbody1 == self._body_id and rootbody2 == self._body_id
-            if is_contact or contact.exclude:
+            is_this_animal = rootbody1 == self._body_id or rootbody2 == self._body_id
+            if not is_this_animal or contact.exclude:
                 # Not a contact with this animal
                 continue
 
@@ -470,6 +507,10 @@ class MjCambrianAnimal:
         return self._name
 
     @property
+    def idx(self) -> int:
+        return self._idx
+
+    @property
     def eyes(self) -> Dict[str, MjCambrianEye]:
         return self._eyes
 
@@ -501,3 +542,22 @@ class MjCambrianAnimal:
     def pos(self) -> np.ndarray:
         """Returns the position of the animal in the environment."""
         return self._data.xpos[self._body_id].copy()
+
+    @property
+    def mat(self) -> np.ndarray:
+        """Returns the rotation matrix of the animal in the environment."""
+        return self._data.xmat[self._body_id].reshape(3, 3).copy()
+
+    @property
+    def geom(self) -> MjCambrianGeometry:
+        """Returns the geom of the animal."""
+        return self._geom
+
+    @property
+    def geomgroup_mask(self) -> np.ndarray:
+        """Returns the geomgroup mask for the animal. Length of the output array is
+        6. 1 indicates include, and 0 indicates ignore. This mask ignores the current
+        animals geomgroup."""
+        geomgroup = np.ones(6, np.uint8)
+        geomgroup[self.geom.group] = 0
+        return geomgroup

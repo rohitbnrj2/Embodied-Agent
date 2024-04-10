@@ -4,6 +4,6 @@
 SCRIPT=$1
 shift
 
-cmd="MUJOCO_GL=egl bash $SCRIPT hydra/launcher=local $@"
+cmd="MUJOCO_GL=${MUJOCO_GL:-egl} bash $SCRIPT hydra/launcher=local $@"
 >&2 echo "Running command: $cmd"
 eval $cmd

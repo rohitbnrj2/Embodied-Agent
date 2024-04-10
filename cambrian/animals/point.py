@@ -1,9 +1,12 @@
-from typing import Dict, List, Any
+from typing import Dict, List, Any, TYPE_CHECKING
 
 import numpy as np
 from gymnasium import spaces
 
-from cambrian.animals.animal import MjCambrianAnimal
+from cambrian.animals.animal import MjCambrianAnimal, MjCambrianAnimalConfig
+
+if TYPE_CHECKING:
+    from cambrian.envs.env import MjCambrianEnv
 
 
 class MjCambrianPointAnimal(MjCambrianAnimal):
@@ -69,3 +72,105 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
     def action_space(self) -> spaces.Space:
         """Overrides the base implementation to only have two elements."""
         return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
+
+
+class MjCambrianPointAnimalPredator(MjCambrianPointAnimal):
+    """This is an animal which is non-trainable and defines a custom policy which
+    acts as a "predator" in the environment. This animal will attempt to catch the prey
+    by taking actions that minimize the distance between itself and the prey.
+
+    Keyword Arguments:
+        preys (List[str]): The names of the preys in the environment. The prey states
+            will be determined from this list by querying the env.
+        speed (float): The speed of the predator. Default is 1.0. This is constant
+            during the simulation. Must be between -1 and 1, where -1 is no movement.
+    """
+
+    def __init__(
+        self,
+        config: MjCambrianAnimalConfig,
+        name: str,
+        idx: int,
+        *,
+        preys: List[str],
+        speed: float = 1.0,
+    ):
+        super().__init__(config, name, idx)
+
+        self._preys = preys
+        self._speed = speed
+
+    def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
+        """This is where the predator will calculate its action based on the prey
+        states."""
+
+        # Get the prey states
+        prey_pos = [env.animals[prey].pos for prey in self._preys]
+
+        # Calculate the distance between the predator and all preys
+        distances = [np.linalg.norm(self.pos - pos) for pos in prey_pos]
+
+        # Calculate the vector that minimizes the distance between the predator and all
+        # preys
+        min_distance_index = np.argmin(distances)
+        min_distance_vector = prey_pos[min_distance_index] - self.pos
+
+        # Calculate the delta from the current angle to the angle that minimizes the
+        # distance
+        min_distance_angle = np.arctan2(min_distance_vector[1], min_distance_vector[0])
+        delta = min_distance_angle - self.last_action[-1]
+
+        # Set the action based on the vector calculated above. Add some noise to the
+        # angle to make the movement.
+        return [self._speed, np.clip(delta + np.random.randn(), -1, 1)]
+
+
+class MjCambrianPointAnimalPrey(MjCambrianPointAnimal):
+    """This is an animal which is non-trainable and defines a custom policy which
+    acts as a "prey" in the environment. This animal will attempt to avoid the predator
+    by taking actions that maximize the distance between itself and the predator.
+
+    Keyword Arguments:
+        predators (List[str]): The names of the predators in the environment. The
+            predator states will be determined from this list by querying the env.
+        speed (float): The speed of the prey. Default is 1.0. This is constant during
+            the simulation. Must be between -1 and 1, where -1 is no movement.
+    """
+
+    def __init__(
+        self,
+        config: MjCambrianAnimalConfig,
+        name: str,
+        idx: int,
+        *,
+        predators: List[str],
+        speed: float = 1.0,
+    ):
+        super().__init__(config, name, idx)
+
+        self._predators = predators
+        self._speed = speed
+
+    def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
+        """This is where the prey will calculate its action based on the predator
+        states."""
+
+        # Get the predator states
+        predator_pos = [env.animals[predator].pos for predator in self._predators]
+
+        # Calculate the distance between the prey and all predators
+        distances = [np.linalg.norm(self.pos - pos) for pos in predator_pos]
+
+        # Calculate the vector that maximizes the distance between the prey and all
+        # predators
+        max_distance_index = np.argmax(distances)
+        max_distance_vector = self.pos - predator_pos[max_distance_index]
+
+        # Calculate the delta from the current angle to the angle that maximizes the
+        # distance
+        max_distance_angle = np.arctan2(max_distance_vector[1], max_distance_vector[0])
+        delta = max_distance_angle - self.last_action[-1]
+
+        # Set the action based on the vector calculated above. Add some noise to the
+        # angle to make the movement.
+        return [self._speed, np.clip(delta + np.random.randn(), -1, 1)]
