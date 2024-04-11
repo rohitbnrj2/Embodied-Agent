@@ -297,7 +297,14 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
         gl_context = None
         if self.config.use_shared_context:
-            GL_CONTEXT = GL_CONTEXT or mj.gl_context.GLContext(width, height)
+            from mujoco.glfw import GLContext as GLFWGLContext
+
+            GL_CONTEXT = GL_CONTEXT or GLFWGLContext(width, height)
+            assert isinstance(GL_CONTEXT, GLFWGLContext), (
+                f"The mujoco gl context must be of type {GLFWGLContext} to use "
+                f"the OnscreenViewer, but got {type(GL_CONTEXT)} instead. "
+                "Set the env variable `MUJOCO_GL` to `glfw` to use the correct context."
+            )
             gl_context = GL_CONTEXT._context
         self.window = glfw.create_window(width, height, "MjCambrian", None, gl_context)
         if not self.window:
@@ -533,7 +540,7 @@ class MjCambrianRenderer:
             except TypeError:
                 self.logger.warning(
                     "imageio is not compiled with ffmpeg. "
-                    "You may need to install imageio[ffmpeg]."
+                    "You may need to install it with `pip install imageio[ffmpeg]`."
                 )
         if save_mode & MjCambrianRendererSaveMode.PNG:
             import imageio

@@ -1,5 +1,11 @@
 # EyesOfCambrian
 
+Clone the repo:
+
+```
+git clone https://github.com/camera-culture/EyesOfCambrian.git
+```
+
 Install the `cambrian` package by doing:
 ```
 pip install -e .
@@ -16,6 +22,12 @@ timesteps to record. The resulting video will be saved to
 python cambrian/envs/env.py run_renderer exp=example --record 100
 ```
 
+> [!NOTE]
+> The `example` experiment will use optics. On Mac, this is very slow since it uses 
+> pytorch when doing convolutions, so beware this may take upwards of 1 minute to run.
+> Replace `example` with any other experiments in `configs/exp` to test other 
+> experiments
+
 ## Visualizing the world/environment
 
 There is a runner in `env.py` that will visualize the world. You have a few run options:
@@ -23,8 +35,9 @@ There is a runner in `env.py` that will visualize the world. You have a few run 
 ```bash
 # Interactive + Display
 # Run with the custom visualization viewer in birds-eye view mode. This is interactive, 
-# so you can pan the renderer around using the mouse.
-python cambrian/envs/env.py run_renderer exp=<EXPERIMENT> env.renderer.render_modes="[human]"
+# so you can pan the renderer around using the mouse. You may need to set MUJOCO=glfw
+# explicitly to have this work properly.
+MUJOCO_GL=glfw python cambrian/envs/env.py run_renderer exp=<EXPERIMENT> env.renderer.render_modes="[human]"
 
 # Noninteractive + headless
 # Run the custom viewer but headless and save the output

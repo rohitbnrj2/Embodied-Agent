@@ -1,4 +1,4 @@
-"""Setup camrbian library using pip"""
+"""Setup cambrian library using pip"""
 
 from setuptools import setup
 
@@ -14,5 +14,5 @@ setup(
     name="cambrian",
     packages=["cambrian"],
     install_requires=parse_requirements(),
-    python_requires=">=3.10",
+    python_requires=">=3.11",
 )
