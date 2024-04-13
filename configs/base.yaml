@@ -27,7 +27,21 @@ seed: 0
 # args are set in the downstream exp configs and these aren't carried over to eval_env
 # when just loading the default env config. We set the eval env here, and subsequent
 # configs can directly override the config.
-# NOTE: \$ is used to escape the interpolation so that it's not evaluated until the
-# eval_env is grabbed. This is because env may not be defined when this config is
-# loaded.
-eval_env: \${env}
+eval_env: ${env}
+
+# The `custom` attribute is an extra dictionary type that can be used to store anything
+# and it will won't be parsed by hydra. We use it here to store some math variables that
+# can be used by other configs.
+custom:
+  # Variable storage. We'll use the following variables in the actual config. Here,
+  # we'll define the rank and generation that is defined during evolution in a slurm
+  # environment. Essentially, the number of nodes represents the number of separate
+  # array jobs that we launched, num agents is the number of individual tasks that are
+  # run on each node, and the rank is the unique integer id of any one agent across all
+  # agents and nodes. The generation is then calculated based on the number of updates
+  # have been done by the sweeper.
+  num_nodes: ${oc.env:SLURM_ARRAY_TASK_COUNT,1}
+  num_agents_per_node: ${oc.env:SLURM_NTASKS,1}
+  local_rank: ${oc.env:SLURM_PROCID,0}
+  global_rank: ${eval:'${oc.env:SLURM_ARRAY_TASK_ID, 0} * ${.num_agents_per_node} + ${.local_rank}'}
+  generation: ${eval:'int(((${hydra:job.num} or 1) - ${.global_rank}) / (${.num_agents_per_node} * ${.num_nodes}))'}

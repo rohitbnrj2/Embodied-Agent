@@ -1,11 +1,12 @@
-from typing import Tuple, Optional
+from typing import Tuple, Callable, Self
 import numpy as np
 
 import mujoco as mj
 from gymnasium import spaces
+from scipy.spatial.transform import Rotation as R
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
-from cambrian.eyes.optics import MjCambrianOptics, MjCambrianOpticsConfig
+from cambrian.utils import MjCambrianGeometry
 from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
 
@@ -15,6 +16,10 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     """Defines the config for an eye. Used for type hinting.
 
     Attributes:
+        instance (Callable[[Self, str], MjCambrianEye]): The class instance to use
+            when creating the eye. Takes the config and the name of the eye as
+            arguments.
+
         enabled (bool): This gives the option to disable the eye. Disabling means the
             animal won't create the eye and so it doesn't have an observation or
             anything. This can be used when defining a sweeper config as it's most
@@ -23,11 +28,6 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
             eyes, but it can choose to enable or disable them). TODO: This can be
             removed when/if we implement a genetic/evolution algorithm-based sweeper.
 
-        pos (Tuple[float, float, float]): The initial position of the camera.
-            This is computed by the animal from the coord during placement. Fmt: xyz
-        quat (Tuple[float, float, float, float]): The initial rotation of the
-            camera. This is computed by the animal from the coord during placement.
-            Fmt: wxyz.
         fov (Tuple[float, float]): Independent of the `fovy` field in the MJCF
             xml. Used to calculate the sensorsize field. Specified in degrees. Mutually
             exclusive with `fovy`. If `focal` is unset, it is set to 1, 1. Will override
@@ -43,29 +43,20 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
             animal. The eye has no knowledge of the geometry it's trying to be placed
             on. Fmt: lat lon
 
-        use_depth_obs (bool): Whether to use depth observations. If True, the depth
-            observation will be included in the observation space. If False, only the
-            rgb observation will be included.
-        optics (Optional[MjCambrianOpticsConfig]): The optics config to use for the eye.
-            Optics is disabled if this is unset.
-
         renderer (MjCambrianRendererConfig): The renderer config to use for the
             underlying renderer. The width and height of the renderer will be set to the
             padded resolution (resolution + int(psf_filter_size/2)) of the eye.
     """
 
+    instance: Callable[[Self, str], "MjCambrianEye"]
+
     enabled: bool
 
-    pos: Tuple[float, float, float]
-    quat: Tuple[float, float, float, float]
     fov: Tuple[float, float]
     focal: Tuple[float, float]
     sensorsize: Tuple[float, float]
     resolution: Tuple[int, int]
     coord: Tuple[float, float]
-
-    use_depth_obs: bool
-    optics: Optional[MjCambrianOpticsConfig] = None
 
     renderer: MjCambrianRendererConfig
 
@@ -85,29 +76,18 @@ class MjCambrianEye:
         self.config = config
         self.name = name
 
-        rgb_array_in_render_modes = "rgb_array" in self.config.renderer.render_modes
-        depth_array_in_render_modes = "depth_array" in self.config.renderer.render_modes
-        assert rgb_array_in_render_modes, f"Eye ({name}): 'rgb_array' must be a mode."
+        self._renders_rgb = "rgb_array" in self.config.renderer.render_modes
+        self._renders_depth = "depth_array" in self.config.renderer.render_modes
+        assert self._renders_rgb, f"Eye ({name}): 'rgb_array' must be a render mode."
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
         self._prev_obs: np.ndarray = None
 
-        self._optics: MjCambrianOptics = None
-        if self.config.optics is not None:
-            self._optics = MjCambrianOptics(self.config.optics)
-            assert (
-                depth_array_in_render_modes
-            ), f"Eye ({name}): 'depth_array' must be in render modes for optics."
-
-            # If optics is enabled, update the renderer w/h to the padded resolution
-            self.config.renderer.width = self.config.optics.padded_resolution[0]
-            self.config.renderer.height = self.config.optics.padded_resolution[1]
-
         self._renderer = MjCambrianRenderer(self.config.renderer)
 
     def generate_xml(
-        self, parent_xml: MjCambrianXML, parent_body_name: str
+        self, parent_xml: MjCambrianXML, geom: MjCambrianGeometry, parent_body_name: str
     ) -> MjCambrianXML:
         """Generate the xml for the eye.
 
@@ -120,9 +100,11 @@ class MjCambrianEye:
 
         Args:
             parent_xml (MjCambrianXML): The xml of the parent body. Used as a reference to
-            extract the path of the parent body.
+                extract the path of the parent body.
+            geom (MjCambrianGeometry): The geometry of the parent body. Used to
+                calculate the pos and quat of the eye.
             parent_body_name (str): The name of the parent body. Will search for the
-            body tag with this name, i.e. <body name="<parent_body_name>" ...>.
+                body tag with this name, i.e. <body name="<parent_body_name>" ...>.
         """
 
         xml = MjCambrianXML.make_empty()
@@ -145,20 +127,42 @@ class MjCambrianEye:
         assert parent is not None, f"Could not find parent for '{parent_body_name}'"
 
         # Finally add the camera element at the end
+        pos, quat = self._calculate_pos_quat(geom)
         resolution = [self._renderer.config.width, self._renderer.config.height]
         xml.add(
             parent,
             "camera",
             name=self.name,
             mode="fixed",
-            pos=" ".join(map(str, self.config.pos)),
-            quat=" ".join(map(str, self.config.quat)),
+            pos=" ".join(map(str, pos)),
+            quat=" ".join(map(str, quat)),
             focal=" ".join(map(str, self.config.focal)),
             sensorsize=" ".join(map(str, self.config.sensorsize)),
             resolution=" ".join(map(str, resolution)),
         )
 
         return xml
+
+    def _calculate_pos_quat(
+        self, geom: MjCambrianGeometry
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Calculates the position and quaternion of the eye based on the geometry of
+        the parent body. The position is calculated by moving the eye to the edge of the
+        geometry in the negative x direction. The quaternion is calculated by rotating
+        the eye to face the center of the geometry.
+
+        TODO: rotations are weird. fix this.
+        """
+        lat, lon = np.deg2rad(self.config.coord)
+        lon += np.pi / 2
+
+        default_rot = R.from_euler("z", np.pi / 2)
+        pos_rot = default_rot * R.from_euler("yz", [lat, lon])
+        rot_rot = R.from_euler("z", lat) * R.from_euler("y", -lon) * default_rot
+
+        pos = pos_rot.apply([-geom.rbound, 0, 0]) + geom.pos
+        quat = rot_rot.as_quat()
+        return pos, quat
 
     def reset(self, model: mj.MjModel, data: mj.MjData):
         """Sets up the camera for rendering. This should be called before rendering
@@ -177,43 +181,27 @@ class MjCambrianEye:
 
         return self.step()
 
-    def step(self) -> np.ndarray:
-        """Simply calls `render` and sets the last observation.
-        See `render()` for more information."""
+    def step(self) -> np.ndarray | Tuple[np.ndarray, np.ndarray]:
+        """Simply calls `render` and sets the last observation. See `render()` for more
+        information.
+        """
         obs = self.render()
         np.copyto(self._prev_obs, obs)
         return obs
 
     def render(self) -> np.ndarray:
-        """Render the image from the camera. If `return_depth` is True, returns the
-        both depth image and rgb, otherwise only rgb.
-
-        NOTE: The actual rendered resolution is `self.sensor_resolution`. This is so
-        that the convolution with the psf filter doesn't cut off any of the image. After
-        the psf is applied, the image will be cropped to `self.resolution`.
-        """
-
-        if "depth_array" in self.config.renderer.render_modes:
-            rgb, depth = self._renderer.render()
-        else:
-            rgb = self._renderer.render()
-
-        if self._optics is not None:
-            rgb = self._optics.step(rgb, depth)
-
-        if self.config.use_depth_obs:
-            return np.concatenate([rgb, depth[..., None]], axis=-1)
-        return rgb
+        """Render the image from the camera. Will always only return the rgb array."""
+        obs = self._renderer.render()
+        if self._renders_depth:
+            return obs[0]
+        return obs
 
     @property
     def observation_space(self) -> spaces.Box:
         """Constructs the observation space for the eye. The observation space is a
-        `spaces.Box` with the shape of the resolution of the eye. If `use_depth_obs` is
-        True, then the observation space will have 4 channels (r, g, b, depth). If
-        `use_depth_obs` is False, then the observation space will have 3 channels (r, g,
-        b). The values are in the range [0, 1]."""
+        `spaces.Box` with the shape of the resolution of the eye."""
 
-        shape = (*self.config.resolution, 4 if self.config.use_depth_obs else 3)
+        shape = (*self.config.resolution, 3)
         return spaces.Box(0.0, 1.0, shape=shape, dtype=np.float32)
 
     @property

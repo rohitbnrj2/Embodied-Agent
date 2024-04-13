@@ -8,6 +8,4 @@ distance_threshold: 2.0
 
 use_as_obs: false
 
-pos:
-  _target_: numpy.array
-  object: [0, 0, 0] # placeholder; should be updated by the environment
+pos: [0, 0, 0]

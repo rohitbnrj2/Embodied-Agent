@@ -3,6 +3,7 @@ from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable, Dict, Ge
 from pathlib import Path
 from dataclasses import dataclass
 import contextlib
+import ast
 
 import gymnasium as gym
 import mujoco as mj
@@ -376,3 +377,115 @@ class MjCambrianGeometry:
     rbound: float
     pos: np.ndarray
     group: int
+
+
+# =============
+# Misc utils
+
+
+def literal_eval_with_callables(
+    node_or_string, safe_callables: Dict[str, Callable] = {}
+):
+    """
+    Safely evaluate an expression node or a string containing a Python expression.
+    The expression can contain literals, lists, tuples, dicts, unary and binary
+    operators. Calls to functions specified in 'safe_callables' dictionary are allowed.
+
+    Args:
+        node_or_string (ast.Node or str): The expression node or string to evaluate.
+        safe_callables (Dict[str, Callable]): A dictionary mapping function names to
+            callable Python objects. Only these functions can be called within the
+            expression.
+
+    Returns:
+        The result of the evaluated expression.
+
+    Raises:
+        ValueError: If the expression contains unsupported or malformed nodes or tries
+            to execute unsupported operations.
+
+    Examples:
+        >>> literal_eval_with_callables("1 + 2")
+        3
+        >>> literal_eval_with_callables("sqrt(4)", {'sqrt': math.sqrt})
+        2.0
+    """
+    if isinstance(node_or_string, str):
+        string = node_or_string
+        node = ast.parse(node_or_string, mode="eval").body
+    else:
+        node = node_or_string
+        string = ast.dump(node)
+
+    op_map = {
+        ast.Add: lambda x, y: x + y,
+        ast.Sub: lambda x, y: x - y,
+        ast.Mult: lambda x, y: x * y,
+        ast.Div: lambda x, y: x / y,
+        ast.Mod: lambda x, y: x % y,
+        ast.Pow: lambda x, y: x**y,
+        ast.FloorDiv: lambda x, y: x // y,
+        ast.And: lambda x, y: x and y,
+        ast.Or: lambda x, y: x or y,
+        ast.Eq: lambda x, y: x == y,
+        ast.NotEq: lambda x, y: x != y,
+        ast.Lt: lambda x, y: x < y,
+        ast.LtE: lambda x, y: x <= y,
+        ast.Gt: lambda x, y: x > y,
+        ast.GtE: lambda x, y: x >= y,
+        ast.Is: lambda x, y: x is y,
+        ast.IsNot: lambda x, y: x is not y,
+        ast.In: lambda x, y: x in y,
+        ast.NotIn: lambda x, y: x not in y,
+        ast.BitAnd: lambda x, y: x & y,
+        ast.BitOr: lambda x, y: x | y,
+        ast.BitXor: lambda x, y: x ^ y,
+        ast.LShift: lambda x, y: x << y,
+        ast.RShift: lambda x, y: x >> y,
+        ast.Invert: lambda x: ~x,
+    }
+
+    def _convert(node):
+        if isinstance(node, ast.Constant):
+            return node.value
+        elif isinstance(node, (ast.Tuple, ast.List)):
+            return type(node.elts)(map(_convert, node.elts))
+        elif isinstance(node, ast.Dict):
+            return {_convert(k): _convert(v) for k, v in zip(node.keys, node.values)}
+        elif isinstance(node, ast.UnaryOp):
+            operand = _convert(node.operand)
+            return operand if isinstance(node.op, ast.UAdd) else -operand
+        elif isinstance(node, ast.BinOp) and type(node.op) in op_map:
+            left = _convert(node.left)
+            right = _convert(node.right)
+            return op_map[type(node.op)](left, right)
+        elif isinstance(node, ast.BoolOp) and type(node.op) in op_map:
+            return op_map[type(node.op)](
+                _convert(node.values[0]), _convert(node.values[1])
+            )
+        elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Attribute) and isinstance(
+                node.func.value, ast.Name
+            ):
+                obj = safe_callables.get(node.func.value.id)
+                if obj is not None and hasattr(obj, node.func.attr):
+                    method = getattr(obj, node.func.attr)
+                    if callable(method):
+                        return method(
+                            *map(_convert, node.args),
+                            **{kw.arg: _convert(kw.value) for kw in node.keywords},
+                        )
+            elif isinstance(node.func, ast.Name) and node.func.id in safe_callables:
+                func = safe_callables[node.func.id]
+                if callable(func):
+                    return func(
+                        *map(_convert, node.args),
+                        **{kw.arg: _convert(kw.value) for kw in node.keywords},
+                    )
+
+        raise ValueError(f"Unsupported node type: {type(node)}")
+
+    try:
+        return _convert(node)
+    except ValueError as e:
+        raise ValueError(f"Error evaluating expression: {string}") from e

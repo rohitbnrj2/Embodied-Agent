@@ -3,6 +3,7 @@
 defaults:
   # Use one maze for the time being
   - /env/mazes/SQUARE@env.mazes.SQUARE
+  # - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
@@ -37,6 +38,7 @@ env:
       from_animals: [animal_0]
       to_animals: [animal_1]
       reward: 0.75
+      penalty: 0.0
 
   animals:
     animal_0:
@@ -52,10 +54,10 @@ env:
 
       eyes:
         animal_0_eye_0:
-          resolution: [10, 10]
+          resolution: [20, 20]
           coord: [10, -25]
         animal_0_eye_1:
-          resolution: [10, 10]
+          resolution: [20, 20]
           coord: [10, 25]
 
     # Update the animal_1 to be non-trainable and set it's instance to be the correct

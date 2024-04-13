@@ -139,7 +139,6 @@ def run_hydra(
 if __name__ == "__main__":
 
     def main(config: MjCambrianConfig):
-        print(config.env.reward_fn)
         pass
 
     run_hydra(main)

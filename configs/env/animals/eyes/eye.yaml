@@ -1,17 +1,20 @@
 # @package custom.default.eye
 # Store this eye in the custom attribute in case we don't actually use this eye
 
-pos: [0, 0, 0] # placeholder
-quat: [1, 0, 0, 0] # placeholder
+defaults:
+  - /MjCambrianEyeConfig
+
+instance:
+  _target_: cambrian.eyes.eye.MjCambrianEye
+  _partial_: true
+
 fov: [45, 45]
 focal: [0.01, 0.01]
 sensorsize:
-  - ${eval:'(2 * ${..focal.0} * np.tan(np.radians(${..fov.0}) / 2)).tolist()'}
-  - ${eval:'(2 * ${..focal.1} * np.tan(np.radians(${..fov.1}) / 2)).tolist()'}
+  - ${eval:'2 * ${..focal.0} * math.tan(math.radians(${..fov.0}) / 2)'}
+  - ${eval:'2 * ${..focal.1} * math.tan(math.radians(${..fov.1}) / 2)'}
 resolution: [1, 1]
 coord: [0, 0] # placeholder
-
-use_depth_obs: False
 
 renderer:
   render_modes: [rgb_array]

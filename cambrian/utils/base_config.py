@@ -15,7 +15,6 @@ from pathlib import Path
 from functools import partial
 import enum
 
-import numpy as np
 import hydra_zen as zen
 from hydra.core.config_store import ConfigStore
 from hydra.core.utils import setup_globals
@@ -29,6 +28,8 @@ from omegaconf import (
     MISSING,
 )
 from omegaconf.errors import ConfigKeyError
+
+from cambrian.utils import literal_eval_with_callables
 
 # =============================================================================
 # Global stuff
@@ -91,6 +92,7 @@ class MjCambrianContainerConfig:
         as_container: bool = False,
         resolve: bool = True,
         throw_on_missing: bool = True,
+        readonly: bool = True,
         **kwargs,
     ) -> Self | DictConfig | ListConfig:
         """Instantiate the config using the structured config. Will check for missing
@@ -114,11 +116,18 @@ class MjCambrianContainerConfig:
                 cause=MissingMandatoryValue("Missing mandatory value"),
             )
 
+        # Disable the ability to set new keys.
+        OmegaConf.set_struct(content, True)
+        OmegaConf.set_struct(config, True)
+
+        # Set the config to readonly if requested
+        OmegaConf.set_readonly(content, readonly)
+        OmegaConf.set_readonly(config, readonly)
+
         if as_container:
             return content
         else:
             config = config.copy()
-            OmegaConf.set_struct(config, False)
             return MjCambrianContainerConfig(content, config=config)
 
     @classmethod
@@ -206,12 +215,16 @@ class MjCambrianContainerConfig:
                 style = '"'
             return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
 
+        def path_representer(dumper: yaml.Dumper, data: Path):
+            return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
+
         def flag_representer(dumper: yaml.Dumper, data: enum.Flag):
             data = "|".join([m.name for m in type(data) if m in data])
             return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 
         dumper = yaml.CDumper
         dumper.add_representer(str, str_representer)
+        dumper.add_multi_representer(Path, path_representer)
         dumper.add_multi_representer(enum.Flag, flag_representer)
         return yaml.dump(
             self.to_container(resolve=True, use_instantiated=use_instantiated),
@@ -618,11 +631,34 @@ def delete_resolver(key: str | None = None, /, *, _node_: Node) -> Dict | List:
         return delete_resolver(key, _node_=_node_._parent)
 
 
+def safe_eval(src: Any):
+    """This method will evaluate the source code in a safe manner. This is useful for
+    evaluating expressions in the config file. This will only allow certain builtins,
+    numpy, and will not allow any other code execution."""
+    import math
+
+    supported_builtins = {
+        "abs": abs,
+        "all": all,
+        "any": any,
+        "min": min,
+        "max": max,
+        "sum": sum,
+        "len": len,
+        "round": round,
+        "int": int,
+        "float": float,
+        "str": str,
+        "bool": bool,
+    }
+    return literal_eval_with_callables(src, {"math": math, **supported_builtins})
+
+
 register_new_resolver("search", search_resolver)
 register_new_resolver("parent", partial(search_resolver, mode="parent_key"))
 register_new_resolver("clear", clear_resolver)
 register_new_resolver("delete", delete_resolver)
-register_new_resolver("eval", lambda src: eval(src, {}, {"np": np}))
+register_new_resolver("eval", safe_eval)
 
 
 # =============================================================================

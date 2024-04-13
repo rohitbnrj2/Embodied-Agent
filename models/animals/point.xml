@@ -1,6 +1,6 @@
 <mujoco>
   <asset>
-    <material name="point_${parent:}_ mat" emission="1" rgba="0.3 0.6 0.3 1"/>
+    <material name="point_${parent:}_mat" emission="1" rgba="0.3 0.6 0.3 1"/>
     <material name="point_${parent:}_direction_mat" emission="1" rgba="0.6 0.3 0.3 1"/>
   </asset>
   <worldbody>

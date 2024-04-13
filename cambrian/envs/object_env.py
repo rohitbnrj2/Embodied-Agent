@@ -1,7 +1,6 @@
-from typing import Dict, Any, Tuple, Optional, Annotated, Literal
+from typing import Dict, Any, Tuple, Optional
 
 import numpy as np
-import numpy.typing as npt
 import mujoco as mj
 from gymnasium import spaces
 
@@ -40,7 +39,7 @@ class MjCambrianObjectConfig(MjCambrianBaseConfig):
 
     use_as_obs: bool
 
-    pos: Annotated[npt.NDArray[np.float32], Literal[3]]
+    pos: Tuple[float, float, float]
 
 
 @config_wrapper
@@ -109,7 +108,7 @@ class MjCambrianObjectEnv(MjCambrianEnv):
         # Update the object observations
         for name, obj in self.objects.items():
             if obj.config.use_as_obs:
-                obs[name] = obj.config.pos
+                obs[name] = obj.pos
 
         return obs
 
@@ -122,7 +121,7 @@ class MjCambrianObjectEnv(MjCambrianEnv):
         # Update the object info
         info["objects"] = {}
         for name, obj in self.objects.items():
-            info["objects"][name] = obj.config.pos
+            info["objects"][name] = obj.pos
 
         return info
 
@@ -178,6 +177,8 @@ class MjCambrianObject:
         self.config = config
         self.name = name
 
+        self.pos = np.array(self.config.pos)
+
     def generate_xml(self) -> MjCambrianXML:
         return MjCambrianXML.from_string(self.config.xml)
 
@@ -186,14 +187,10 @@ class MjCambrianObject:
         body_id = get_body_id(model, f"{self.name}_body")
         assert body_id != -1, f"Body {self.name}_body not found in model"
 
-        model.body_pos[body_id] = self.config.pos
+        model.body_pos[body_id] = self.pos
 
         return model.body_pos[body_id]
 
     def is_close(self, pos: np.ndarray) -> bool:
         """Helper function to check if the object is close to a position."""
-        return np.linalg.norm(self.config.pos - pos) < self.config.distance_threshold
-
-    @property
-    def pos(self) -> np.ndarray:
-        return self.config.pos
+        return np.linalg.norm(self.pos - pos) < self.config.distance_threshold

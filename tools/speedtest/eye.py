@@ -3,6 +3,7 @@ import time
 
 import mujoco as mj
 
+from cambrian.animals.animal import MjCambrianAnimal
 from cambrian.eyes.eye import MjCambrianEye
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import MjCambrianConfig, run_hydra
@@ -13,13 +14,14 @@ def main(config: MjCambrianConfig):
 
     # NOTE: Only uses the first animal
     animal_config = next(iter(config.env.animals.values()))
-    xml += MjCambrianXML.from_string(animal_config.xml)
+    animal = MjCambrianAnimal(animal_config, "animal_0", 0)
+    xml += animal.generate_xml()
 
     # Add the eyes
     eyes: List[MjCambrianEye] = []
     for name, eye_config in animal_config.eyes.items():
-        eye = MjCambrianEye(eye_config, name)
-        xml += eye.generate_xml(xml, animal_config.body_name)
+        eye = eye_config.instance(eye_config, name)
+        xml += eye.generate_xml(xml, animal.geom, animal_config.body_name)
         eyes.append(eye)
 
     # Load the model and data
@@ -37,7 +39,7 @@ def main(config: MjCambrianConfig):
     # Every 1 second, we'll print out the FPS of the simulation. Two values are
     # printed: time for all eyes to render and time per eye to render.
     t0 = time.time()
-    window: int = 1000
+    window: int = 100
     for i in range(window * 10):
         for eye in eyes:
             eye.step()

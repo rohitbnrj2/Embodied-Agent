@@ -1,9 +1,0 @@
-# @package custom.default.eye
-# Store this eye in the custom attribute in case we don't actually use this eye
-
-defaults:
-  - eye@_here_
-  - /optics/${env/animals/eyes/optics}@optics
-
-renderer:
-  render_modes: [rgb_array, depth_array]

@@ -122,6 +122,8 @@ def reward_if_animals_in_view(
     from_animals: Optional[List[str]] = None,
     to_animals: Optional[List[str]] = None,
     hfov: float = 45,
+    penalty: float = 0.0,
+    scale_by_distance: bool = False,
 ) -> float:
     """This reward function rewards the animal if it is in the view of other animals.
 
@@ -133,8 +135,12 @@ def reward_if_animals_in_view(
         to_animals (Optional[List[str]]): The names of the animals that the reward
             should be calculated to. If None, the reward will be calculated to all
             animals.
+        penalty (float): The penalty to give the animal if it is not in view of another
+            animal. Default is 0.
         hfov (float): The horizontal fov to check whether the to animal is within view
             of the from animal. Default is 45. This is in degrees.
+        scale_by_distance (bool): Whether to scale the reward by the distance between
+            the animals. Default is False.
     """
     # Early exit if the animal is not in the from_animals list
     if from_animals is not None and animal.name not in from_animals:
@@ -156,12 +162,14 @@ def reward_if_animals_in_view(
 
         # Early exit if the animal isn't within view of the from animal
         if np.abs(relative_yaw) > np.deg2rad(hfov) / 2:
+            accumulated_reward += penalty
             continue
 
         # Now we'll trace a ray between the two animals to make sure the animal is
         # within view
+        # NOTE: the output distance is [0, 1] parametric distance along the ray
         geomid = np.zeros(1, np.int32)
-        _ = mj.mj_ray(
+        distance = mj.mj_ray(
             env.model,
             env.data,
             animal.pos,
@@ -174,8 +182,11 @@ def reward_if_animals_in_view(
 
         # Early exit again if the animal is occluded
         if geomid != to_animal.geom.id:
+            accumulated_reward += penalty
             continue
 
+        if scale_by_distance:
+            reward = 1 / max(distance * np.linalg.norm(vec), 1) * reward
         accumulated_reward += reward
     return accumulated_reward
 

@@ -1,0 +1,32 @@
+# @package custom.default.eye
+# Store this eye in the custom attribute in case we don't actually use this eye
+
+defaults:
+  - eye@_here_
+  - /MjCambrianOpticsEyeConfig
+
+instance:
+  _target_: cambrian.eyes.optics.MjCambrianOpticsEye
+  _partial_: true
+
+# The resolution used by the psf is double the size of the eye resolution
+# Also, make it odd so that the center of the psf is the center of the image
+padded_resolution:
+  - ${eval:'${..resolution.0} * 2 + 1'}
+  - ${eval:'${..resolution.1} * 2 + 1'}
+
+noise_std: 0
+
+aperture: 0.0
+wavelengths: [610e-9, 530e-9, 470e-9]
+
+# Pre-compute the psf at specific depths. This will speed up the simulation speed at the
+# cost of accuracy of the psf at any given depth
+depths: [0.01, 0.1, 1.0, 10.0]
+
+renderer:
+  render_modes: [rgb_array, depth_array]
+
+  # Update the renderer w/h to be the padded resolution
+  width: ${..padded_resolution.0}
+  height: ${..padded_resolution.1}

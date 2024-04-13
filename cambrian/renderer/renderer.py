@@ -130,15 +130,16 @@ class MjCambrianViewer(ABC):
         # height and width most likely must match as well. If the existing context
         # is onscreen and we're requesting offscreen, override use_shared_context (and
         # vice versa).
-        if self.config.use_shared_context and MJR_CONTEXT:
+        use_shared_context = self.config.use_shared_context
+        if use_shared_context and MJR_CONTEXT:
             if MJR_CONTEXT.currentBuffer != self.get_framebuffer_option():
                 self.logger.warning(
                     "Overriding use_shared_context. "
                     "First buffer and current buffer don't match."
                 )
-                self.config.use_shared_context = False
+                use_shared_context = False
 
-        if self.config.use_shared_context:
+        if use_shared_context:
             # Initialize or reuse the GL context
             GL_CONTEXT = GL_CONTEXT or mj.gl_context.GLContext(width, height)
             self._gl_context = GL_CONTEXT
@@ -230,9 +231,17 @@ class MjCambrianViewer(ABC):
     def width(self) -> int:
         return self.viewport.width
 
+    @width.setter
+    def width(self, width: int):
+        self.viewport.width = width
+
     @property
     def height(self) -> int:
         return self.viewport.height
+
+    @height.setter
+    def height(self, height: int):
+        self.viewport.height = height
 
 
 class MjCambrianOffscreenViewer(MjCambrianViewer):
@@ -476,15 +485,15 @@ class MjCambrianRenderer:
         width: Optional[int] = None,
         height: Optional[int] = None,
     ) -> np.ndarray | None:
-        self.config.width = width or self.config.width or model.vis.global_.offwidth
-        self.config.height = height or self.config.height or model.vis.global_.offheight
+        width = width or self.config.width or model.vis.global_.offwidth
+        height = height or self.config.height or model.vis.global_.offheight
 
-        if self.config.width > model.vis.global_.offwidth:
-            model.vis.global_.offwidth = self.config.width
-        if self.config.height > model.vis.global_.offheight:
-            model.vis.global_.offheight = self.config.height
+        if width > model.vis.global_.offwidth:
+            model.vis.global_.offwidth = width
+        if height > model.vis.global_.offheight:
+            model.vis.global_.offheight = height
 
-        self.viewer.reset(model, data, self.config.width, self.config.height)
+        self.viewer.reset(model, data, width, height)
 
         return self.render(resetting=True)
 

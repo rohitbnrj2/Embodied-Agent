@@ -3,12 +3,14 @@ from typing import Tuple, List, Dict
 import torch
 import numpy as np
 
-from cambrian.utils.base_config import MjCambrianBaseConfig, config_wrapper
+from cambrian.eyes.eye import MjCambrianEyeConfig, MjCambrianEye
+from cambrian.utils.base_config import config_wrapper
 
 
 @config_wrapper
-class MjCambrianOpticsConfig(MjCambrianBaseConfig):
-    """This defines the config for the optics module.
+class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
+    """This defines the config for the optics module. This extends the base eye config
+    and adds additional parameters for the optics module.
 
     Attributes:
         padded_resolution (Tuple[int, int]): Resolution of the rendered image. This is
@@ -21,10 +23,8 @@ class MjCambrianOpticsConfig(MjCambrianBaseConfig):
             added to the image. If 0.0, no noise is added.
         wavelengths (Tuple[float, float, float]): Wavelengths of the RGB channels.
 
-        depths (List[float]): Depths at which the PSF is calculated.
-
-        eye_resolution (Tuple[int, int]): Resolution of the eye sensor.
-        eye_sensorsize (Tuple[float, float]): Size of the eye sensor.
+        depths (List[float]): Depths at which the PSF is calculated. If empty, the psf
+            is calculated for each render call; otherwise, the PSFs are precomputed.
     """
 
     padded_resolution: Tuple[int, int]
@@ -35,30 +35,31 @@ class MjCambrianOpticsConfig(MjCambrianBaseConfig):
 
     depths: List[float]
 
-    # These should be copies of the attributes from the eye config
-    eye_resolution: Tuple[int, int]
-    eye_sensorsize: Tuple[float, float]
 
-
-class MjCambrianOptics:
+class MjCambrianOpticsEye(MjCambrianEye):
     """This class applies the depth invariant PSF to the image.
 
     Args:
         config (MjCambrianOpticsConfig): Config for the optics module.
     """
 
-    def __init__(self, config: MjCambrianOpticsConfig):
-        self.config = config
+    def __init__(self, config: MjCambrianOpticsEyeConfig, name: str):
+        super().__init__(config, name)
+        self.config: MjCambrianOpticsEyeConfig
+
+        self._renders_depth = "depth_array" in self.config.renderer.render_modes
+        assert self._renders_depth, "Eye: 'depth_array' must be a render mode."
 
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self._psfs: Dict[torch.Tensor, torch.Tensor] = {}
         self._depths = torch.tensor(self.config.depths).to(self._device)
-        self._calculate_psfs()
+        self._initialize()
+        if self.config.depths:
+            self._precompute_psfs()
 
-    def _calculate_psfs(self):
-        # Initialize parameters used during the PSF calculation
-
+    def _initialize(self):
+        """This will initialize the parameters used during the PSF calculation."""
         # Mx,My defines the number of pixels in x,y direction (i.e. width, height)
         Mx, My = self.config.padded_resolution
         assert Mx > 2 and My > 2, f"Sensor resolution must be > 2: {Mx=}, {My=}"
@@ -66,7 +67,7 @@ class MjCambrianOptics:
 
         # dx/dy defines the pixel pitch (m) (i.e. distance between the centers of
         # adjacent pixels) of the sensor
-        sx, sy = self.config.eye_sensorsize
+        sx, sy = self.config.sensorsize
         dx, dy = sx / Mx, sy / My
 
         # Lx/Ly defines the length of the sensor plane (m)
@@ -92,78 +93,76 @@ class MjCambrianOptics:
 
         # Pre-compute some values that are reused in the PSF calculation
         wavelengths = torch.tensor(self.config.wavelengths).reshape(-1, 1, 1)
+        k = 1j * 2 * torch.pi / wavelengths
         X1_Y1 = X1.square() + Y1.square()
         H_valid = (torch.sqrt(FX.square() + FY.square()) < (1.0 / wavelengths)).float()
-        FX_FY = torch.sqrt(
+        FX_FY = k * torch.sqrt(
             1 - (wavelengths * FX).square() - (wavelengths * FY).square()
         )
-        k = 1j * 2 * torch.pi / wavelengths
 
-        def _calculate_psf(depth: torch.Tensor):
-            # electric field originating from point source
-            u1 = torch.exp(k * torch.sqrt(X1_Y1 + depth.square()))
+        # Now store all as class attributes
+        self._X1, self._Y1 = X1.to(self._device), Y1.to(self._device)
+        self._X1_Y1 = X1_Y1.to(self._device)
+        self._A = A.to(self._device)
+        self._H_valid = H_valid.to(self._device)
+        self._FX_FY = FX_FY.to(self._device)
+        self._k = k.to(self._device)
 
-            # electric field at the aperture
-            u2 = torch.mul(u1, A)
-
-            # electric field at the sensor plane
-            H = torch.mul(H_valid, torch.nan_to_num(torch.exp(k * depth * FX_FY)))
-
-            # Calculate the sqrt of the PSF
-            u2_fft = torch.fft.fft2(torch.fft.fftshift(u2))
-            H_u2_fft = torch.mul(torch.fft.fftshift(H), u2_fft)
-            u3: torch.Tensor = torch.fft.ifftshift(torch.fft.ifft2(H_u2_fft))
-
-            # psf should sum to 1 because of energy
-            psf = u3.abs().square()
-            psf /= psf.sum() + 1.0e-7
-
-            return psf
-
+    def _precompute_psfs(self):
+        """This will precompute the PSFs for all depths. This is done to avoid
+        recomputing the PSF for each render call."""
         for depth in self._depths:
-            self._psfs[depth.item()] = _calculate_psf(depth.cpu()).to(self._device)
+            self._psfs[depth.item()] = self._calculate_psf(depth).to(self._device)
 
-    def step(
-        self, image: torch.Tensor | np.ndarray, depth: torch.Tensor | np.ndarray
-    ) -> torch.Tensor | np.ndarray:
-        """Apply the depth invariant PSF to the image."""
-        return_np = False
-        if isinstance(image, np.ndarray):
-            # pytorch doesn't support negative strides, so copy if there are any
-            image = image.copy() if any(s < 0 for s in image.strides) else image
-            depth = depth.copy() if any(s < 0 for s in depth.strides) else depth
+    def _calculate_psf(self, depth: torch.Tensor):
+        # electric field originating from point source
+        u1 = torch.exp(self._k * torch.sqrt(self._X1_Y1 + depth.square()))
 
-            image = torch.from_numpy(image).to(self._device)
-            depth = torch.from_numpy(depth).to(self._device)
-            return_np = True
-        else:
-            assert (
-                image.device.type == self._device.type
-            ), f"Device mismatch: {image.device=}, {self._device=}"
+        # electric field at the aperture
+        u2 = torch.mul(u1, self._A)
+
+        # electric field at the sensor plane
+        H = torch.mul(self._H_valid, torch.nan_to_num(torch.exp(depth * self._FX_FY)))
+
+        # Calculate the sqrt of the PSF
+        u2_fft = torch.fft.fft2(torch.fft.fftshift(u2))
+        H_u2_fft = torch.mul(torch.fft.fftshift(H), u2_fft)
+        u3: torch.Tensor = torch.fft.ifftshift(torch.fft.ifft2(H_u2_fft))
+
+        # psf should sum to 1 because of energy
+        psf = u3.abs().square()
+        psf /= psf.sum() + 1.0e-7
+
+        return psf
+
+    def render(self) -> np.ndarray:
+        """Overwrites the default render method to apply the depth invariant PSF to the
+        image."""
+        image, depth = self._renderer.render()
+
+        # pytorch doesn't support negative strides, so copy if there are any
+        image = image.copy() if any(s < 0 for s in image.strides) else image
+
+        image = torch.from_numpy(image).to(self._device)
+        mean_depth = torch.tensor(np.mean(depth), device=self._device)
 
         # Add noise to the image
         image = self._apply_noise(image, self.config.noise_std)
 
         # Apply the depth invariant PSF
-        psf = self._get_psf(torch.mean(depth))
+        psf = self._get_psf(mean_depth)
 
         # Image may be batched in the form
-        unbatched = len(image.shape) == 3
-        if unbatched:
-            image = image.permute(2, 0, 1).unsqueeze(0)
+        image = image.permute(2, 0, 1).unsqueeze(0)
         psf = psf.unsqueeze(1)
         image = torch.nn.functional.conv2d(image, psf, padding="same", groups=3)
 
         # Post-process the image
-        if unbatched:
-            image = image.squeeze(0).permute(1, 2, 0)
-
+        image = image.squeeze(0).permute(1, 2, 0)
         image = self._crop(image)
         image = torch.clip(image, 0, 1)
 
-        if return_np:
-            return image.cpu().numpy()
-        return image
+        return image.cpu().numpy()
 
     def _apply_noise(self, image: torch.Tensor, std: float) -> torch.Tensor:
         """Add Gaussian noise to the image."""
@@ -174,25 +173,21 @@ class MjCambrianOptics:
         return torch.clamp(image + noise, 0, 1)
 
     def _get_psf(self, depth: torch.Tensor) -> torch.Tensor:
-        """This will retrieve the psf with the closest depth to the specified depth."""
-        closest_depth = self._depths[torch.argmin(torch.abs(depth - self._depths))]
-        return self._psfs[closest_depth.item()]
+        """This will retrieve the psf with the closest depth to the specified depth.
+        If the psfs are precomputed, this will be a simple lookup. Otherwise, the psf
+        will be calculated on the fly."""
+        if self._psfs:
+            closest_depth = self._depths[torch.argmin(torch.abs(depth - self._depths))]
+            return self._psfs[closest_depth.item()]
+        else:
+            return self._calculate_psf(depth)
 
     def _crop(self, image: torch.Tensor) -> torch.Tensor:
-        """Crop the image to the resolution specified in the config. This method supports
-        input shapes [W, H, 3] and [B, 3, W, H]. It crops the center part of the image.
+        """Crop the image to the resolution specified in the config. This method
+        supports input shape [W, H, 3]. It crops the center part of the image.
         """
-        if image.dim() == 4:  # [B, 3, W, H]
-            _, _, width, height = image.shape
-            target_width, target_height = self.config.eye_resolution
-            top = (height - target_height) // 2
-            left = (width - target_width) // 2
-            return image[:, :, top : top + target_height, left : left + target_width]
-        elif image.dim() == 3:  # [W, H, 3]
-            width, height, _ = image.shape
-            target_width, target_height = self.config.eye_resolution
-            top = (height - target_height) // 2
-            left = (width - target_width) // 2
-            return image[top : top + target_height, left : left + target_width, :]
-        else:
-            raise ValueError("Unsupported image shape.")
+        width, height, _ = image.shape
+        target_width, target_height = self.config.resolution
+        top = (height - target_height) // 2
+        left = (width - target_width) // 2
+        return image[top : top + target_height, left : left + target_width, :]

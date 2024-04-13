@@ -1,4 +1,4 @@
-from typing import Dict, Callable, List
+from typing import Dict, List
 import torch
 import torch.nn as nn
 
@@ -7,8 +7,6 @@ from gymnasium import spaces
 from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim
-
-from cambrian.eyes.optics import MjCambrianOptics, MjCambrianOpticsConfig
 
 # ==================
 # Utils
@@ -369,53 +367,3 @@ class MjCambrianNatureCNNExtractor(MjCambrianImageFeaturesExtractor):
             encoding_list.append(encoding)
 
         return super().forward(torch.stack(encoding_list, dim=1))
-
-
-class MjCambrianOpticsFeaturesExtractor(MjCambrianImageFeaturesExtractor):
-    """This is an optimized version of the optics implementation which applies
-    optics (i.e. aperture, lens) at the feature extractor level rather than at
-    render time. There is negligible decrease in speed as compared to other
-    feature extractors.
-
-    Args:
-        config (MjCambrianOpticsConfig): Optics configuration. Unlike the implementation
-            where optics is defined in MjCambrianEye, the optics is fixed for all
-            eyes.
-        base_feature_extractor (MjCambrianBaseFeaturesExtractor): Base feature
-            extractor.
-    """
-
-    def __init__(
-        self,
-        observation_space: gym.Space,
-        features_dim: int,
-        activation: nn.Module,
-        *,
-        config: MjCambrianOpticsConfig,
-        base_feature_extractor: Callable[[gym.Space], MjCambrianBaseFeaturesExtractor],
-    ):
-        super().__init__(observation_space, features_dim, activation)
-        self._base_feature_extractor = base_feature_extractor(observation_space)
-
-        n_input_channels = observation_space.shape[1]
-        assert n_input_channels == 4, f"Expected 4 channels, got {n_input_channels}. "
-        "Ensure `use_depth_obs` is set to True in the eye config."
-
-        self._optics = MjCambrianOptics(config)
-
-    def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        # B, T, C, H, W = observations.shape where T is temporal dim
-        # The number of channels should be == 4 where the first 3 are RGB and the last
-        # is depth.
-        rgb = observations[:, :, :3]
-        depth = observations[:, :, 3:]
-        with torch.no_grad():
-            # Call optics on all image observations first
-            B, T, _, H, W = observations.shape
-
-            rgb = rgb.reshape(B * T, 3, H, W)  # [B * T, C, H, W]
-            depth = depth.reshape(B * T, 1, H, W)  # [B * T, C, H, W]
-            rgb = self._optics.step(rgb, depth)
-            rgb = rgb.reshape(B, T, 3, H, W)
-
-        return self._base_feature_extractor(rgb)

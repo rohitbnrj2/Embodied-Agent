@@ -5,10 +5,10 @@ defaults:
 output: '???'
 
 animals:
-  default: point 
+  default: point
 
 eyes:
-  default: '\${env/animals/eyes}'
+  default: ${env/animals/eyes}
 
   num_lat_eyes: 1
   num_lon_eyes: 10

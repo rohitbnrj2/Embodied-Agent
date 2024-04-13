@@ -150,12 +150,12 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
         for animal in self.animals.values():
             reset_pos = self.maze.generate_reset_pos()
             for i in range(len(reset_pos)):
-                animal.config.initial_qpos[i] = float(reset_pos[i])
+                animal.init_qpos[i] = float(reset_pos[i])
 
         # For each object, generate an initial position
         for obj in self.objects.values():
-            obj.config.pos[:2] = self.maze.generate_object_pos()
-            obj.config.pos[2] = self.maze.config.scale // 4
+            obj.pos[:2] = self.maze.generate_object_pos()
+            obj.pos[2] = self.maze.config.scale // 4
 
         # Now reset the environment
         obs, info = super().reset(seed=seed, options=options)

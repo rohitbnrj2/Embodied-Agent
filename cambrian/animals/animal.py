@@ -3,7 +3,6 @@ from typing import Dict, Any, List, Tuple, Callable, Self, TYPE_CHECKING
 import numpy as np
 import mujoco as mj
 from gymnasium import spaces
-from scipy.spatial.transform import Rotation as R
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.utils import (
@@ -27,14 +26,15 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     """Defines the config for an animal. Used for type hinting.
 
     Attributes:
+        instance (Callable[[Self, str, int], "MjCambrianAnimal"]): The class instance
+            for the animal. This is used to create the animal. Takes the config, the
+            name, and the index of the animal as arguments.
+
         trainable (bool): Whether the animal is trainable or not. If the animal is
             trainable, it's observations will be included in the observation space
             of the environment and the model's output actions will be applied to the
             agent. If the animal is not trainable, the agent's policy can be defined
             by overriding the `get_action_privileged` method.
-
-        instance (Callable[[Self, str], "MjCambrianAnimal"]): The class instance for the
-            animal. This is used to create the animal.
 
         xml (MjCambrianXMLConfig): The xml for the animal. This is the xml that will be
             used to create the animal. You should use ${parent:xml} to generate
@@ -66,15 +66,11 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
         eyes (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
             The key will be used as the name for the eye.
-
-        mutations_from_parent (Optional[List[str]]): The mutations applied to the child
-            (this animal) from the parent. This is unused during mutation; it simply
-            is a record of the mutations that were applied to the parent.
     """
 
-    trainable: bool
+    instance: Callable[[Self, str, int], "MjCambrianAnimal"]
 
-    instance: Callable[[Self, str], "MjCambrianAnimal"]
+    trainable: bool
 
     xml: MjCambrianXMLConfig
 
@@ -90,8 +86,6 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     use_action_obs: bool
 
     eyes: Dict[str, MjCambrianEyeConfig]
-
-    mutations_from_parent: List[str]
 
 
 class MjCambrianAnimal:
@@ -130,6 +124,9 @@ class MjCambrianAnimal:
 
         # Public attributes
         self.init_pos: np.ndarray = None
+        # initial_qpos is actually a MjCambrianContainerConfig, so convert to regular
+        # dict so we can edit it
+        self.init_qpos: Dict[str, float] = {**self.config.initial_qpos}
         self.last_action: np.ndarray = None
 
     def _check_config(self, config: MjCambrianAnimalConfig) -> MjCambrianAnimalConfig:
@@ -246,25 +243,7 @@ class MjCambrianAnimal:
             if not eye_config.enabled:
                 continue
 
-            self._eyes[name] = self._create_eye(eye_config, name)
-
-    def _create_eye(self, config: MjCambrianEyeConfig, name: str) -> MjCambrianEye:
-        """Creates an eye with the given config.
-
-        TODO: Rotations are weird. Fix this.
-        """
-        assert config.coord is not None, "No coord specified."
-        lat, lon = np.radians(config.coord)
-        lon += np.pi / 2
-
-        default_rot = R.from_euler("z", np.pi / 2)
-        pos_rot = default_rot * R.from_euler("yz", [lat, lon])
-        rot_rot = R.from_euler("z", lat) * R.from_euler("y", -lon) * default_rot
-
-        geom = self._geom
-        config.pos = (pos_rot.apply([-geom.rbound, 0, 0]) + geom.pos).tolist()
-        config.quat = rot_rot.as_quat().tolist()
-        return MjCambrianEye(config, name)
+            self._eyes[name] = eye_config.instance(eye_config, name)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the animal. Will generate the xml from the model file
@@ -278,7 +257,7 @@ class MjCambrianAnimal:
 
         # Add eyes
         for eye in self.eyes.values():
-            xml += eye.generate_xml(xml, self.config.body_name)
+            xml += eye.generate_xml(xml, self.geom, self.config.body_name)
 
         return xml
 
@@ -331,7 +310,7 @@ class MjCambrianAnimal:
         self.last_action = self._data.ctrl[self._actadrs].copy()
 
         # Update the animal's qpos
-        for idx, val in self.config.initial_qpos.items():
+        for idx, val in self.init_qpos.items():
             self._data.qpos[self._qposadrs[idx]] = val
 
         # step here so that the observations are updated
