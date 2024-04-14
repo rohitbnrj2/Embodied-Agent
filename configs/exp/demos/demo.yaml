@@ -1,0 +1,52 @@
+defaults:
+  - /env/mazes/X_COMPLEX_STATIC@env.mazes.DEMO_MAZE
+
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+env:
+  xml:
+    # Add a nice skybox to the scene
+    # Normally the skybox is just black
+    overrides:
+      - mujoco:
+          - asset:
+              - texture:
+                  - name: "skybox"
+                  - type: "skybox"
+                  - file: "forest_skybox.png"
+                  - gridsize: "3 4"
+                  - gridlayout: ".U..LFRB.D.."
+                  - builtin: "none"
+              - texture:
+                  - name: "floor_tex_DEMO_MAZE"
+                  - file: "maze_textures/foliage.png"
+                  - type: "2d"
+              - material:
+                  - name: "floor_mat_DEMO_MAZE"
+                  - texture: "floor_tex_DEMO_MAZE"
+                  - rgba: "1 1 1 1"
+                  - texrepeat: "0.01 0.01"
+                  - texuniform: "true"
+              - material:
+                  - name: "wall_DEMO_MAZE_default_test_mat"
+                  - emission: 1.0
+          - worldbody:
+              - light:
+                  - directional: "true"
+                  - diffuse: "1 1 1"
+                  - dir: "0 0 -1"
+
+  mazes:
+    DEMO_MAZE:
+      wall_texture_map:
+        default: [grass_with_freq]
+        L: ${.default}
+        R: ${.default}
+        E: ${.default}
+
+  # The skybox is rendered in the background of the scene; override the default
+  # settings which disable the skybox
+  renderer:
+    scene:
+      mjRND_SKYBOX: 1

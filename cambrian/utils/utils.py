@@ -5,49 +5,12 @@ from dataclasses import dataclass
 import contextlib
 import ast
 
-import gymnasium as gym
 import mujoco as mj
 import numpy as np
-import torch
 from stable_baselines3.common.vec_env import VecEnv
 
 if TYPE_CHECKING:
     from cambrian.ml.model import MjCambrianModel
-
-
-def safe_index(list_to_index: List[Any], value: Any) -> int:
-    """Safely get the index of a value in a list, or -1 if not found. Normally,
-    list.index() throws an exception if the value is not found."""
-    try:
-        return list_to_index.index(value)
-    except ValueError:
-        return -1
-
-
-def get_include_path(
-    model_path: str | Path, *, throw_error: bool = True
-) -> Path | None:
-    """Tries to find the model path. `model_path` can either be relative to the
-    execution file, absolute, or relative to the path of the cambrian folder. The
-    latter is the typical method, where `assets/<model>.xml` specifies the model path
-    located in REPO_PATH/models/assets/<model>.xml.
-
-    If the file can't be found, a FileNotFoundError is raised if throw_error is True. If
-    throw_error is False, None is returned.
-    """
-    path = Path(model_path)
-    if path.exists():
-        pass
-    elif (rel_path := Path(__file__).parent / path).exists():
-        path = rel_path
-    else:
-        if throw_error:
-            raise FileNotFoundError(f"Could not find path `{model_path}`.")
-        else:
-            return None
-
-    return path
-
 
 # ============
 
@@ -162,12 +125,8 @@ class MjCambrianArgumentParser(argparse.ArgumentParser):
 
 def generate_sequence_from_range(range: Tuple[float, float], num: int) -> List[float]:
     """"""
-    return [np.average(range)] if num == 1 else np.linspace(*range, num)
-
-
-def merge_dicts(d1: dict, d2: dict) -> dict:
-    """Merge two dictionaries. d2 takes precedence over d1."""
-    return {**d1, **d2}
+    sequence = [np.average(range)] if num == 1 else np.linspace(*range, num)
+    return [float(x) for x in sequence]
 
 
 @contextlib.contextmanager
@@ -194,41 +153,6 @@ def setattrs_temporary(
                     obj[attr] = value
                 else:
                     setattr(obj, attr, value)
-
-
-def get_gpu_memory_usage(return_total_memory: bool = True) -> Tuple[float, float]:
-    """Get's the total and used memory of the GPU in GB."""
-    assert torch.cuda.is_available(), "No CUDA device available"
-    device = torch.cuda.current_device()
-    total_memory = torch.cuda.get_device_properties(device).total_memory / 1024**3
-    free_memory = torch.cuda.mem_get_info()[0] / 1024**3
-    used_memory = total_memory - free_memory
-
-    if return_total_memory:
-        return used_memory, total_memory
-    else:
-        return used_memory
-
-
-def get_observation_space_size(observation_space: gym.spaces.Space) -> int:
-    """Get the size of an observation space. Returns size in GB."""
-    if isinstance(observation_space, gym.spaces.Box):
-        return np.prod(observation_space.shape) / 1024**3
-    elif isinstance(observation_space, gym.spaces.Discrete):
-        return observation_space.n / 1024**3
-    elif isinstance(observation_space, gym.spaces.Tuple):
-        return sum(
-            get_observation_space_size(space) for space in observation_space.spaces
-        )
-    elif isinstance(observation_space, gym.spaces.Dict):
-        return sum(
-            get_observation_space_size(space)
-            for space in observation_space.spaces.values()
-        )
-    else:
-        raise ValueError(
-            f"Unsupported observation space type: {type(observation_space)}"
-        )
 
 
 # =============
@@ -336,9 +260,11 @@ class MjCambrianJoint:
         elif jnt_type == mj.mjtJoint.mjJNT_BALL:
             numqpos = 4
             numqvel = 3
-        else:  # mj.mjtJoint.mjJNT_HINGE or mj.mjtJoint.mjJNT_SLIDE
+        elif mj.mjtJoint.mjJNT_HINGE or mj.mjtJoint.mjJNT_SLIDE:
             numqpos = 1
             numqvel = 1
+        else:
+            raise ValueError(f"Unsupported joint type: {jnt_type}")
 
         return MjCambrianJoint(jntadr, qposadr, numqpos, qveladr, numqvel)
 

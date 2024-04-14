@@ -664,7 +664,7 @@ if __name__ == "__main__":
         return fn
 
     @register_fn
-    def run_mj_viewer(config: MjCambrianConfig, **kwargs):
+    def run_mj_viewer(config: MjCambrianConfig, **__):
         import mujoco.viewer
 
         env = config.env.instance(config.env)
@@ -675,23 +675,27 @@ if __name__ == "__main__":
                 viewer.sync()
 
     @register_fn
-    def run_renderer(config: MjCambrianConfig, *, record: Any, **kwargs):
+    def run_renderer(config: MjCambrianConfig, *, record: Any, **__):
+        config.save(config.logdir / "config.yaml")
+
         env = config.env.instance(config.env)
 
         if max_steps := record:
             env.record = True
 
         env.reset(seed=config.seed)
+        env.xml.write(config.logdir / "env.xml")
 
         if "human" in config.env.renderer.render_modes:
             import glfw
 
-            def custom_key_callback(_, key, *args, **kwargs):
+            def custom_key_callback(_, key, *args, **__):
                 if key == glfw.KEY_R:
                     env.reset()
 
             env.renderer.viewer.custom_key_callback = custom_key_callback
 
+        composites: Dict[str, List[np.ndarray]] = {}
         while env.renderer.is_running():
             if max_steps and env.episode_step > max_steps:
                 break
@@ -701,18 +705,33 @@ if __name__ == "__main__":
                 for name, a in env.animals.items()
                 if a.config.trainable
             }
-            _, _, terminated, truncated, _ = env.step(action)
+            env.step(action)
             env.render()
+
+            if record:
+                for name, animal in env.animals.items():
+                    if (composite := animal.create_composite_image()) is not None:
+                        composite = np.transpose(composite, (1, 0, 2))
+                        composite = resize_with_aspect_fill(composite, 256, 256)
+                        composite = (composite * 255).astype(np.uint8)
+                        composites.setdefault(name, []).append(composite)
 
         if record:
             env.save(
                 config.logdir / "eval",
                 save_pkl=False,
-                save_mode=MjCambrianRendererSaveMode.MP4
-                | MjCambrianRendererSaveMode.GIF
-                | MjCambrianRendererSaveMode.PNG
-                | MjCambrianRendererSaveMode.WEBP,
+                save_mode=MjCambrianRendererSaveMode.MP4,
             )
+
+            # Save composites
+            for name, composites in composites.items():
+                import imageio
+
+                path = config.logdir / f"{name}_composite.mp4"
+                writer = imageio.get_writer(path, fps=30)
+                for composite in composites:
+                    writer.append_data(composite)
+                writer.close()
 
     def main(config: MjCambrianConfig, *, fn: str, **kwargs):
         if fn not in REGISTRY:

@@ -131,10 +131,14 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
-        xml = super().generate_xml()
+        xml = MjCambrianXML.make_empty()
 
         # Add the mazes to the xml
+        # Do this first so overrides defined in the env xml are applied
         xml += self.maze_store.generate_xml()
+
+        # Add the rest of the xml
+        xml += super().generate_xml()
 
         return xml
 
@@ -324,6 +328,73 @@ class MjCambrianMaze:
 
             # Update the geom material
             model.geom_matid[geom_id] = material_id
+
+    # ==================
+
+    def compute_optimal_path(self, start: np.ndarray, target: np.ndarray) -> np.ndarray:
+        """Computes the optimal path from the start position to the target.
+
+        Uses a BFS to find the shortest path.
+        """
+        from typing import Deque
+
+        def cell_rowcol_to_xy(rowcol_pos: np.ndarray) -> np.ndarray:
+            x = (rowcol_pos[1] + 0.5) * self.config.scale - self.x_map_center
+            y = self.y_map_center - (rowcol_pos[0] + 0.5) * self.config.scale
+
+            return np.array([x, y])
+
+        def cell_xy_to_rowcol(xy_pos: np.ndarray) -> np.ndarray:
+            i = np.floor((self.y_map_center - xy_pos[1]) / self.config.scale)
+            j = np.floor((xy_pos[0] + self.x_map_center) / self.config.scale)
+            return np.array([i, j], dtype=int)
+
+        start = cell_xy_to_rowcol(start)
+        target = cell_xy_to_rowcol(target)
+
+        rows = self._map.shape[0]
+        cols = self._map.shape[1]
+        visited = [[False for _ in range(cols)] for _ in range(rows)]
+        visited[start[0]][start[1]] = True
+        queue = Deque([([start], 0)])  # (path, distance)
+
+        moves = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
+
+        while queue:
+            path, dist = queue.popleft()
+            current = path[-1]
+            if np.all(current == target):
+                # Convert path from indices to positions
+                path = [cell_rowcol_to_xy(pos) for pos in path]
+                path.append(cell_rowcol_to_xy(target))
+                return np.array(path)
+
+            # Check all moves (left, right, up, down, and all diagonals)
+            for dr, dc in moves:
+                r, c = current[0] + dr, current[1] + dc
+                map_entity = MjCambrianMapEntity.parse(self._map[r][c])[0]
+                if (
+                    0 <= r < rows
+                    and 0 <= c < cols
+                    and not visited[r][c]
+                    and map_entity != MjCambrianMapEntity.WALL
+                ):
+                    # If the movement is diagonal, check that the adjacent cells are
+                    # free as well so the path doesn't clip through walls
+                    pr, pc = current[0], current[1]
+                    if (dr, dc) in moves[4:]:
+                        pc_map_entity = MjCambrianMapEntity.parse(self._map[r][pc])[0]
+                        pr_map_entity = MjCambrianMapEntity.parse(self._map[pr][c])[0]
+                        if (
+                            pc_map_entity == MjCambrianMapEntity.WALL
+                            or pr_map_entity == MjCambrianMapEntity.WALL
+                        ):
+                            continue
+
+                    visited[r][c] = True
+                    queue.append((path + [(r, c)], dist + 1))
+
+        raise ValueError("No path found")
 
     # ==================
 

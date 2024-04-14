@@ -1,13 +1,10 @@
 # @package _global_
 
 defaults:
-  - /env/mazes/I_STATIC@env.mazes.I_STATIC
-
-  # Use the maze_exp config as the base
-  - /exp/maze_exp
-
   - /env/animals@env.animals.animal_0: ${env/animals}
   - /env/animals/eyes@env.animals.animal_0.eyes.animal_0_eye_0: ${env/animals/eyes}
+
+  - /exp/demos/demo@_here_
 
   - override /env/animals: point
 
@@ -18,6 +15,19 @@ env:
       initial_qpos:
         2: ${eval:'-3.14/2'}
 
+      # Set the animal to be the optimal policy for the maze
+      instance:
+        _target_: cambrian.animals.point.MjCambrianPointAnimalMazeOptimal
+        _partial_: true
+        target_object: goal
+
+      trainable: false
+
       eyes:
         animal_0_eye_0:
           resolution: [100, 100]
+
+          # Enable the skybox
+          renderer:
+            scene:
+              mjRND_SKYBOX: 1

@@ -38,10 +38,10 @@ def generate_texture(
     shape: Tuple[int, int], num_repeats: int, checkered: bool
 ) -> np.ndarray:
     img = np.zeros(shape, dtype=np.uint8)
-    if num_repeats == 0:
-        return img
 
-    if checkered:
+    if num_repeats == 0:
+        pass
+    elif checkered:
         assert shape[0] % num_repeats == 0 and shape[1] % num_repeats == 0
         bar_height = shape[0] // num_repeats
         bar_width = shape[1] // num_repeats
@@ -60,11 +60,19 @@ def generate_texture(
             if i % 2 == 0:
                 img[:, i * bar_width : (i + 1) * bar_width] = 255
 
+    # add rgba channels
+    img = np.stack([img] * 4, axis=-1)
+
     return img
 
 
 def generate_cube_texture(
-    shape: Tuple[int, int], num_repeats: int, checkered: bool, horizontal: bool
+    shape: Tuple[int, int],
+    num_repeats: int,
+    checkered: bool,
+    horizontal: bool,
+    side_only: bool,
+    custom_file: str = None,
 ) -> np.ndarray:
     # (row, col): is_horizontal
     texture_map = {
@@ -81,12 +89,21 @@ def generate_cube_texture(
         image_row = []
         for col in range(4):
             is_horizontal_or_none = texture_map.get((row, col), None)
+            if side_only:
+                raise NotImplementedError("side_only not implemented")
             if is_horizontal_or_none is None:
                 img = generate_texture(shape, 0, checkered)
             else:
-                img = generate_texture(shape, num_repeats, checkered)
-                if is_horizontal_or_none:
-                    img = np.rot90(img)
+                if custom_file:
+                    # read as rgba
+                    img = cv2.imread(custom_file)
+                    if img.shape[2] == 3:
+                        img = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
+                    img = cv2.resize(img, shape)
+                else:
+                    img = generate_texture(shape, num_repeats, checkered)
+                    if is_horizontal_or_none:
+                        img = np.rot90(img)
 
             image_row.append(img)
         images.append(image_row)
@@ -107,7 +124,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--transparent", action="store_true", help="Converts black to transparent"
     )
+    parser.add_argument("--custom-file", type=str)
     parser.add_argument("--checkered", action="store_true")
+    parser.add_argument("--side-only", action="store_true")
     parser.add_argument("--cube", action="store_true")
     parser.add_argument("--save", type=str)
     parser.add_argument("--show", action="store_true")
@@ -122,7 +141,12 @@ if __name__ == "__main__":
 
     if args.cube:
         img = generate_cube_texture(
-            args.shape, args.num_repeats, args.checkered, args.horizontal
+            args.shape,
+            args.num_repeats,
+            args.checkered,
+            args.horizontal,
+            args.side_only,
+            args.custom_file,
         )
     else:
         img = generate_texture(args.shape, args.num_repeats, args.checkered)
@@ -130,7 +154,6 @@ if __name__ == "__main__":
             img = np.rot90(img)
 
     if args.transparent:
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGBA)
         img[img[:, :, 0] == 0] = [0, 0, 0, 0]
 
     if args.save:

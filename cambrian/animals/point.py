@@ -1,12 +1,14 @@
-from typing import Dict, List, Any, TYPE_CHECKING
+from typing import Dict, List, Any, Tuple, TYPE_CHECKING
 
 import numpy as np
 from gymnasium import spaces
+import mujoco as mj
 
 from cambrian.animals.animal import MjCambrianAnimal, MjCambrianAnimalConfig
 
 if TYPE_CHECKING:
     from cambrian.envs.env import MjCambrianEnv
+    from cambrian.envs.maze_env import MjCambrianMazeEnv
 
 
 class MjCambrianPointAnimal(MjCambrianAnimal):
@@ -34,14 +36,18 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
         # Update the action obs
         # Calculate the global velocities
         if self.config.use_action_obs:
-            vx, vy, theta = self.last_action
-            v = np.hypot(vx, vy)
-            theta = np.interp(
-                np.arctan2(vy, vx) - self.qpos[2], [-np.pi / 2, np.pi / 2], [-1, 1]
-            )
+            v, theta = self._calc_v_theta(self.last_action)
+            theta = np.interp(theta, [-np.pi, np.pi], [-1, 1])
             obs["action"] = np.array([v, theta], dtype=np.float32)
 
         return obs
+
+    def _calc_v_theta(self, action: Tuple[float, float, float]) -> Tuple[float, float]:
+        """Calculates the v and theta from the action."""
+        vx, vy, theta = action
+        v = np.hypot(vx, vy)
+        theta = np.arctan2(vy, vx) - self.qpos[2]
+        return v, theta
 
     def apply_action(self, action: List[float]):
         """This differs from the base implementation as action only has two elements,
@@ -174,3 +180,73 @@ class MjCambrianPointAnimalPrey(MjCambrianPointAnimal):
         # Set the action based on the vector calculated above. Add some noise to the
         # angle to make the movement.
         return [self._speed, np.clip(delta + np.random.randn(), -1, 1)]
+
+
+class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):
+    """This is an animal which is non-trainable and defines a custom policy which
+    acts as an optimal agent in the maze environment. This animal will attempt to reach
+    the goal by taking actions that best map to the optimal trajectory which is
+    calculated from the maze using bfs."""
+
+    def __init__(
+        self,
+        config: MjCambrianAnimalConfig,
+        name: str,
+        idx: int,
+        *,
+        target_object: str,
+        speed: float = -0.5,
+        distance_threshold: float = 3.0,
+    ):
+        super().__init__(config, name, idx)
+
+        self._target_object = target_object
+        self._speed = speed
+        self._distance_threshold = distance_threshold
+
+        self._optimal_trajectory: np.ndarray = None
+
+    def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, Any]:
+        """Resets the optimal_trajectory."""
+        self._optimal_trajectory = None
+        return super().reset(model, data)
+
+    def get_action_privileged(self, env: "MjCambrianMazeEnv") -> List[float]:
+        # Calculate the optimal trajectory if the current trajectory is None
+        if self._optimal_trajectory is None:
+            from cambrian.envs.maze_env import MjCambrianMazeEnv
+
+            assert isinstance(env, MjCambrianMazeEnv), "env must be a MjCambrianMazeEnv"
+            assert self._target_object in env.objects, (
+                f"Target object {self._target_object} not an available object. "
+                f"Options are {env.objects.keys()}"
+            )
+
+            self._optimal_trajectory = env.maze.compute_optimal_path(
+                self.pos, env.objects[self._target_object].pos
+            )
+
+        # If the optimal_trajectory is empty, return no action. We've probably reached
+        # the end
+        if len(self._optimal_trajectory) == 0:
+            return [-1, self.last_action[1]]
+
+        # Get the current target. If the distance between the current position and the
+        # target is less than the threshold, then remove the target from the optimal
+        # trajectory
+        target = self._optimal_trajectory[0]
+        target_vector = target - self.pos[:2]
+        if np.linalg.norm(target_vector) < self._distance_threshold:
+            self._optimal_trajectory = self._optimal_trajectory[1:]
+            return self.get_action_privileged(env)
+
+        # Calculate the delta from the current angle to the angle that minimizes the
+        # distance
+        target_theta = np.arctan2(target_vector[1], target_vector[0])
+        last_theta = self._calc_v_theta(self.last_action)[1]
+        delta = target_theta - last_theta
+
+        # Set the action based on the vector calculated above. Add some noise to the
+        # angle to make the movement.
+        delta = np.interp(delta, [-np.pi, np.pi], [-1, 1])
+        return [self._speed, np.clip(delta, -1, 1)]

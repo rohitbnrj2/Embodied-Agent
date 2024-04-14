@@ -398,7 +398,6 @@ class MjCambrianAnimal:
         )
 
         # Sort the eyes based on their lat/lon
-        lons = set()
         images = {}
         for eye in self.eyes.values():
             lat, lon = eye.config.coord
@@ -410,10 +409,9 @@ class MjCambrianAnimal:
         # Construct the composite image
         # Loop through the sorted list of images based on lat/lon
         composite = []
-        for lat in sorted(images.keys()):
+        for lat in sorted(images.keys())[::-1]:
             row = []
-            lons = sorted(images[lat].keys())
-            for lon in lons[::-1]:
+            for lon in sorted(images[lat].keys())[::-1]:
                 row.append(resize_with_aspect_fill(images[lat][lon], *max_res))
             composite.append(np.vstack(row))
         composite = np.hstack(composite)

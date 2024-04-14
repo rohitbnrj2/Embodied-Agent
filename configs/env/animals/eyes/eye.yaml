@@ -3,6 +3,7 @@
 
 defaults:
   - /MjCambrianEyeConfig
+  - /env/renderer/renderer@renderer
 
 instance:
   _target_: cambrian.eyes.eye.MjCambrianEye
@@ -22,32 +23,21 @@ renderer:
   width: ${..resolution.0}
   height: ${..resolution.1}
 
-  camera:
-    _target_: cambrian.utils.base_config.instance_wrapper
-    instance:
-      _target_: mujoco.MjvCamera
-  scene:
-    _target_: cambrian.utils.base_config.instance_wrapper
-    instance:
-      _target_: mujoco.MjvScene
-      _partial_: true
-      maxgeom: 10000
   scene_options:
     _target_: cambrian.utils.base_config.instance_wrapper
     instance:
       _target_: mujoco.MjvOption
 
+    # Don't visualize the camera frustums
+    # Overwrites the default value in the renderer config
+    flags:
+      mjVIS_CAMERA: 0
+
     # We'll hide all the geomgroups and sitegroups after 2
     # We can then put stuff at groups > 2 and it will be hidden to the animal
+    # Overwrites the default value in the renderer config
     geomgroup:
-      _target_: cambrian.utils.base_config.instance_flag_wrapper
-      instance: ${..instance}
-      key: ${parent:}
-      eval_flags: true
       slice(2, None): False
-    sitegroup: ${.geomgroup}
-
-  use_shared_context: ${env.renderer.use_shared_context}
 
 # By default, we'll enable the eye.
 enabled: True

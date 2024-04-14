@@ -9,6 +9,7 @@ repos:
       - id: check-yaml
       - id: check-symlinks
       - id: check-added-large-files
+        args: [--maxkb=10240] # 10 MB
       - id: detect-private-key
       - id: check-yaml
       - id: check-xml

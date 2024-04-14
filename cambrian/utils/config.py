@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Callable, Concatenate
+from typing import Optional, Callable, Concatenate
 import argparse
 from pathlib import Path
 import os
@@ -24,8 +24,6 @@ class MjCambrianConfig(MjCambrianBaseConfig):
         training (MjCambrianTrainingConfig): The config for the training process.
         env (MjCambrianEnvConfig): The config for the environment.
         eval_env (MjCambrianEnvConfig): The config for the evaluation environment.
-        logging (Optional[Dict[str, Any]]): The config for the logging process.
-            Passed to `logging.config.dictConfig`.
     """
 
     logdir: Path
@@ -36,7 +34,6 @@ class MjCambrianConfig(MjCambrianBaseConfig):
     trainer: MjCambrianTrainerConfig
     env: MjCambrianEnvConfig
     eval_env: MjCambrianEnvConfig
-    logging: Optional[Dict[str, Any]] = None
 
 
 # =============

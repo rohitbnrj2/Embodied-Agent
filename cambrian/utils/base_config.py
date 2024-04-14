@@ -92,7 +92,8 @@ class MjCambrianContainerConfig:
         as_container: bool = False,
         resolve: bool = True,
         throw_on_missing: bool = True,
-        readonly: bool = True,
+        is_struct: bool = True,
+        is_readonly: bool = True,
         **kwargs,
     ) -> Self | DictConfig | ListConfig:
         """Instantiate the config using the structured config. Will check for missing
@@ -117,12 +118,12 @@ class MjCambrianContainerConfig:
             )
 
         # Disable the ability to set new keys.
-        OmegaConf.set_struct(content, True)
-        OmegaConf.set_struct(config, True)
+        OmegaConf.set_struct(content, is_struct)
+        OmegaConf.set_struct(config, is_struct)
 
         # Set the config to readonly if requested
-        OmegaConf.set_readonly(content, readonly)
-        OmegaConf.set_readonly(config, readonly)
+        OmegaConf.set_readonly(content, is_readonly)
+        OmegaConf.set_readonly(config, is_readonly)
 
         if as_container:
             return content
@@ -143,14 +144,18 @@ class MjCambrianContainerConfig:
 
     @classmethod
     def create(
-        cls, *args, instantiate: bool = True, as_container: bool = False, **kwargs
+        cls, *args, instantiate: bool = True, **kwargs
     ) -> Self | DictConfig | ListConfig:
         """Wrapper around OmegaConf.create to instantiate the config."""
-        created = OmegaConf.create(*args, **kwargs)
+        created = OmegaConf.create(*args)
         if instantiate:
-            return cls.instantiate(created, as_container=as_container)
+            return cls.instantiate(created, **kwargs)
         else:
-            return created
+            return (
+                MjCambrianContainerConfig(created)
+                if OmegaConf.is_config(created)
+                else created
+            )
 
     def resolve(self):
         """Wrapper around OmegaConf.resolve to resolve the config."""
@@ -200,7 +205,7 @@ class MjCambrianContainerConfig:
         else:
             return OmegaConf.to_container(self._config, **kwargs)
 
-    def to_yaml(self, use_instantiated: bool = True) -> str:
+    def to_yaml(self, use_instantiated: bool = True, resolve: bool = True) -> str:
         """Wrapper around OmegaConf.to_yaml to convert the config to a yaml string.
         Adds some custom representers."""
         import yaml
@@ -227,17 +232,26 @@ class MjCambrianContainerConfig:
         dumper.add_multi_representer(Path, path_representer)
         dumper.add_multi_representer(enum.Flag, flag_representer)
         return yaml.dump(
-            self.to_container(resolve=True, use_instantiated=use_instantiated),
+            self.to_container(use_instantiated=use_instantiated, resolve=resolve),
             default_flow_style=False,
             allow_unicode=True,
             sort_keys=False,
             Dumper=dumper,
         )
 
-    def save(self, path: Path | str):
+    def save(
+        self,
+        path: Path | str,
+        *,
+        header: str = None,
+        use_instantiated: bool = False,
+        resolve: bool = True,
+    ):
         """Saves the config to a yaml file."""
         with open(path, "w") as f:
-            f.write(self.to_yaml(use_instantiated=False))
+            if header:
+                f.write(f"{header}\n")
+            f.write(self.to_yaml(use_instantiated=use_instantiated, resolve=resolve))
 
     def keys(self) -> KeysView[Any]:
         """Wrapper of the keys method to return the keys of the content."""
@@ -292,11 +306,6 @@ class MjCambrianContainerConfig:
     def __getattr__(self, name: str) -> Self | Any:
         """Get the attribute from the content and return the wrapped instance. If the
         attribute is a DictConfig or ListConfig, we'll wrap it in this class.
-
-        TODO: Possible bug: if an attribute is instantiated with _target_ and the
-        target returns a Dict, it will be wrapped by OmegaConf as a DictConfig. This
-        means {_target_: ...} will be returned rather than the actual instantiated
-        Dict object.
         """
         return self._get_impl(name)
 
@@ -328,6 +337,18 @@ class MjCambrianContainerConfig:
             self._content[key] = value
             if not self._config_is_content:
                 self._config[key] = value
+
+    def __delattr__(self, name: str):
+        """Delete the attribute from the content."""
+        delattr(self._content, name)
+        if not self._config_is_content:
+            delattr(self._config, name)
+
+    def __delitem__(self, key: Any):
+        """Delete the item from the content."""
+        del self._content[key]
+        if not self._config_is_content:
+            del self._config[key]
 
     def __iter__(self) -> Iterator[Any]:
         """Only supported by ListConfig. Wrapper around the __iter__ method to return

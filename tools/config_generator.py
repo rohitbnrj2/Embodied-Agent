@@ -1,190 +1,188 @@
-from typing import Tuple, Optional
-from functools import partial
-import random
+from typing import Optional, List
 from pathlib import Path
+import os
 
 import yaml
 from omegaconf import OmegaConf
+import hydra
+from hydra.core.global_hydra import GlobalHydra
 
-from cambrian.utils import MjCambrianArgumentParser, generate_sequence_from_range
-from cambrian.utils.config import (
-    MjCambrianConfig,
-    MjCambrianEyeConfig,
-    MjCambrianAnimalConfig,
-)
-
-list_repr = "tag:yaml.org,2002:seq"
-yaml.add_representer(list, lambda d, seq: d.represent_sequence(list_repr, seq, True))
-yaml.add_representer(tuple, lambda d, seq: d.represent_sequence(list_repr, seq, True))
+from cambrian.utils import generate_sequence_from_range
+from cambrian.utils.config import run_hydra, MjCambrianConfig
+from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
 
 
-def generate_demos(args):
-    import subprocess
+@config_wrapper
+class GeneratorConfig(MjCambrianBaseConfig):
+    """Config for the generator script.
 
-    output = Path(args.output)
-    assert output.is_dir(), f"Output {output} is not a folder"
+    Attributes:
+        base (Path): The base path for the config to generate.
+        output (Path): The output path for the generated files.
 
-    demos = [
-        ("compound_eye.yaml", "--num-eyes 10,10 --uniform-eyes"),
-        ("simple_eye.yaml", "--num-eyes 1,1 --uniform-eyes"),
-        (
-            "human_eye.yaml",
-            "--num-eyes 1,1 --uniform-eyes -eo resolution='[1000, 1000]' fov='[120, 120]'",
-        ),
-        ("random_eye.yaml", "--num-eyes 100"),
-    ]
+        default_animal (Optional[str]): The default animal to generate. If not set, the
+            first animal in the config will be used.
+        num_animals (int): The number of animals to generate.
 
-    for filename, cmd_args in demos:
-        cmd = f"python {__file__} {args.config} {output / filename} {cmd_args}"
-        if len(args.eye_overrides):
-            cmd += f"-eo {' '.join(args.eye_overrides)}"
-        if args.resolve:
-            cmd += " --resolve"
+        default_eye (Optional[str]): The default eye to generate. If not set, the first
+            eye in the config will be used. NOTE: There must be at least 1 eye in the
+            config.
+        num_eyes_lat (int): The number of latitudinal eyes to generate.
+        num_eyes_lon (int): The number of longitudinal eyes to generate.
+    """
 
-        print(f"Running: {cmd}")
-        subprocess.run(cmd, shell=True)
+    base: Path
+    output: Path
+
+    default_animal: Optional[str] = None
+    num_animals: int
+
+    default_eye: Optional[str] = None
+    num_eyes_lat: int
+    num_eyes_lon: int
 
 
-def int_or_tuple(x: str, *, num: Optional[int] = None) -> int | Tuple[int, ...]:
-    def convert_to_tuple(x, delimiter):
-        return tuple(int(y) for y in x.split(delimiter))
+def main(config: GeneratorConfig, *, overrides: List[str] = []):
+    GlobalHydra.instance().clear()
+    with hydra.initialize_config_dir(f"{os.getcwd()}/configs/", version_base=None):
+        exp = f"{'/'.join(config.base.parts[config.base.parts.index('exp') + 1:-1])}/{config.base.stem}"
+        base = MjCambrianConfig.create(
+            hydra.compose(config_name="base", overrides=[f"exp={exp}", "expname=''"]),
+            instantiate=False,
+        )
+        OmegaConf.set_struct(base, False)
 
-    if "," in x:
-        res = convert_to_tuple(x, ",")
-        if num is not None and len(res) != num:
-            raise ValueError(f"Expected {num} values, got {len(res)}")
-        return res
+    with open(config.base, "r") as f:
+        # get the first line if it's a comment
+        line = f.readline()
+        if line.startswith("#"):
+            comment = line
+        f.seek(0)
+        original_base: MjCambrianConfig = MjCambrianConfig.create(
+            yaml.safe_load(f), instantiate=False
+        )
+        original_base.merge_with_dotlist(overrides)
+
+    env = base.env
+
+    assert config.num_animals > 0, "Number of animals must be greater than 0"
+    base_animal_name = config.default_animal or next(iter(env.animals))
+    assert (
+        base_animal_name in env.animals
+    ), f"Animal {base_animal_name} not found in config"
+    animal = env.animals[base_animal_name].copy()
+    original_animal = original_base.env.animals[base_animal_name].copy()
+
+    # Get the default entry for the animal
+    for animal_default_index, animal_default in enumerate(
+        original_base.defaults.to_container()
+    ):
+        base_animal_default_key = list(animal_default.keys())[0]
+        if base_animal_name in base_animal_default_key:
+            break
     else:
-        return int(x)
+        raise ValueError(f"Animal {base_animal_name} not found in defaults")
+    # Delete the old entry
+    original_base.defaults.pop(animal_default_index)
+
+    assert (
+        config.num_eyes_lat > 0 and config.num_eyes_lon > 0
+    ), "Number of eyes must be greater than 0"
+    assert animal.eyes, f"Animal {base_animal_name} has no eyes"
+    base_eye_name = config.default_eye or next(iter(animal.eyes))
+    assert (
+        base_eye_name in animal.eyes
+    ), f"Eye {base_eye_name} not found in animal {base_animal_name}"
+    original_eye = original_animal.eyes[base_eye_name].copy()
+
+    # Get the default entry for the eye
+    for eye_default_index, eye_default in enumerate(
+        original_base.defaults.to_container()
+    ):
+        base_eye_default_key = list(eye_default.keys())[0]
+        if base_eye_name in base_eye_default_key:
+            break
+    else:
+        raise ValueError(f"Eye {base_eye_name} not found in defaults")
+    # Delete the old entry
+    original_base.defaults.pop(eye_default_index)
+
+    # Clean the config
+    config.custom = {}
+    env.animals = {}
+    animal.eyes = {}
+
+    for animal_idx in range(config.num_animals):
+        original_animal = original_animal.copy()
+        animal_name = f"animal_{animal_idx}"
+
+        # Add the animal
+        original_base.env.animals[animal_name] = original_animal
+        animal_default_key = base_animal_default_key.replace(
+            base_animal_name, animal_name
+        )
+        original_base.defaults.insert(
+            animal_default_index,
+            {animal_default_key: animal_default[base_animal_default_key]},
+        )
+        animal_default_index += 1
+
+        lat_eye_sequence = generate_sequence_from_range(
+            animal.eyes_lat_range, config.num_eyes_lat
+        )
+        lon_eye_sequence = generate_sequence_from_range(
+            animal.eyes_lon_range, config.num_eyes_lon
+        )
+
+        total_eyes = config.num_eyes_lat * config.num_eyes_lon
+        for eye_idx in range(total_eyes):
+            original_eye = original_eye.copy()
+            eye_name = f"{animal_name}_eye_{eye_idx}"
+            eye_default_key = base_eye_default_key.replace(base_eye_name, eye_name)
+            original_base.defaults.insert(
+                eye_default_index, {eye_default_key: eye_default[base_eye_default_key]}
+            )
+            eye_default_index += 1
+
+            lat_idx = eye_idx // config.num_eyes_lon
+            lon_idx = eye_idx % config.num_eyes_lon
+
+            lat = lat_eye_sequence[lat_idx]
+            lon = lon_eye_sequence[lon_idx]
+
+            original_eye.coord = [lat, lon]
+
+            original_base.env.animals[animal_name].eyes[eye_name] = original_eye
+
+    original_base.save(
+        config.output,
+        header=f"{comment}\n# This is autogenerated by tools/config_generator.py.\n",
+        resolve=False,
+    )
 
 
 if __name__ == "__main__":
-    parser = MjCambrianArgumentParser()
+    import argparse
 
-    parser.add_argument("output", type=str, help="Output config file")
+    parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-eo",
-        "--eye-overrides",
-        type=str,
-        nargs="+",
+        "-o",
+        "--override",
+        "--overrides",
+        dest="overrides",
         action="extend",
-        help="Overrides for eye configs. Do <config>.<key>=<value>.",
+        nargs="+",
+        type=str,
+        help="Override config values. Do <config>.<key>=<value>",
         default=[],
     )
 
-    parser.add_argument(
-        "--num-eyes",
-        type=partial(int_or_tuple, num=2),
-        help="Number of eyes to use. If `--uniform-eyes` is passed, this should be a tuple of 2 ints and it will represent the number of horizontal and vertical eyes. Pass as `--num-eyes 2,3` to use 2 horizontal eyes and 3 vertical eyes. Otherwise, this should be a single int and it will represent the total number of randomly generated eyes.",
+    run_hydra(
+        main,
+        parser=parser,
+        config_path=f"{os.getcwd()}/configs/tools/",
+        config_name="config_generator",
+        is_readonly=False,
+        is_struct=False,
     )
-    parser.add_argument(
-        "--random-eyes",
-        action="store_true",
-        help="Use randomly generated eyes. Otherwise, will copy the eyes from the base config.",
-    )
-    parser.add_argument(
-        "--uniform-eyes",
-        action="store_true",
-        help="Use uniformly generated eyes. Otherwise, will randomly select eye positions.",
-    )
-    parser.add_argument(
-        "--resolve",
-        action="store_true",
-        help="Resolve the config. This will fill in any missing values with defaults and resolve interpolations. It is recommended to _not_ resolve for readibility. For loading speed, resolving is better.",
-    )
-
-    parser.add_argument(
-        "--generate-demos",
-        action="store_true",
-        help="Generate demo configs. Output is interpreted as a folder in this case.",
-    )
-
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=0,
-    )
-
-    args = parser.parse_args()
-
-    random.seed(args.seed)
-
-    if args.generate_demos:
-        generate_demos(args)
-        exit()
-
-    assert args.num_eyes is not None, "Expected `--num-eyes` to be passed"
-    num_eyes_total = args.num_eyes
-    if args.uniform_eyes:
-        assert isinstance(args.num_eyes, Tuple), "Expected tuple for `--num-eyes`"
-        num_lat, num_lon = args.num_eyes
-        num_eyes_total = num_lon * num_lat
-
-    # duck typed if resolve is false
-    config = MjCambrianConfig.load(
-        args.config,
-        overrides=args.overrides,
-        resolve=args.resolve,
-        instantiate=args.resolve,
-    )
-    resolved_config = MjCambrianConfig.load(
-        args.config, overrides=args.overrides, instantiate=False
-    )
-
-    for animal_idx, animal_config in enumerate(
-        config.env_config.animal_configs.values()
-    ):
-        animal_config.setdefault("name", f"animal_{animal_idx}")
-
-        key = f"env_config.animal_configs.{animal_config.name}"
-        resolved_animal_config: MjCambrianAnimalConfig = OmegaConf.select(
-            resolved_config, key
-        )
-
-        eye_configs = {}
-        for eye_idx in range(num_eyes_total):
-            eye_config = random.choice(list(animal_config.eye_configs.values())).copy()
-            eye_config.merge_with_dotlist(args.eye_overrides)
-            eye_config.setdefault("name", f"{animal_config.name}_eye_{eye_idx}")
-
-            key = f"eye_configs.{eye_config.name}"
-            resolved_eye_config: MjCambrianEyeConfig = OmegaConf.select(
-                resolved_animal_config, key
-            )
-
-            if args.random_eyes:
-
-                def edit(attrs, low, high):
-                    return [int(random.uniform(low, high)) for _ in range(attrs)]
-
-                eye_config.resolution = edit(resolved_eye_config.resolution, 1, 1000)
-                eye_config.fov = edit(resolved_eye_config.fov, 1, 180)
-
-            if args.uniform_eyes:
-                longitudes = generate_sequence_from_range(
-                    resolved_animal_config.model_config.eyes_lon_range, num_lon
-                )
-                latitudes = generate_sequence_from_range(
-                    resolved_animal_config.model_config.eyes_lat_range, num_lat
-                )
-
-                lon = float(longitudes[eye_idx % num_lon])
-                lat = float(latitudes[eye_idx // num_lon])
-            else:
-                lon = random.uniform(
-                    *resolved_animal_config.model_config.eyes_lon_range
-                )
-                lat = random.uniform(
-                    *resolved_animal_config.model_config.eyes_lat_range
-                )
-
-            eye_config.coord = [lat, lon]
-
-            eye_config.name = f"{animal_config.name}_eye_{eye_idx}"
-            eye_configs[eye_config.name] = eye_config
-
-        animal_config.eye_configs = eye_configs
-
-    with open(args.output, "w") as f:
-        yaml.dump(OmegaConf.to_container(config), f)

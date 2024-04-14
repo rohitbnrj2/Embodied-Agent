@@ -1,14 +1,11 @@
+# @package _global_
+
 defaults:
   - /GeneratorConfig
-  - _self_
 
 output: '???'
 
-animals:
-  default: point
+num_animals: '???'
 
-eyes:
-  default: ${env/animals/eyes}
-
-  num_lat_eyes: 1
-  num_lon_eyes: 10
+num_eyes_lat: '???'
+num_eyes_lon: '???'
