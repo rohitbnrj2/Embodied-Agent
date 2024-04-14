@@ -133,23 +133,23 @@ class MjCambrianContainerConfig:
 
     @classmethod
     def load(
-        cls, *args, instantiate: bool = True, as_container: bool = False, **kwargs
+        cls, *args, instantiate: bool = True, **instantiate_kwargs
     ) -> Self | DictConfig | ListConfig:
         """Wrapper around OmegaConf.load to instantiate the config."""
-        loaded = OmegaConf.load(*args, **kwargs)
+        loaded = OmegaConf.load(*args)
         if instantiate:
-            return cls.instantiate(loaded, as_container=as_container)
+            return cls.instantiate(loaded, **instantiate_kwargs)
         else:
             return loaded
 
     @classmethod
     def create(
-        cls, *args, instantiate: bool = True, **kwargs
+        cls, *args, instantiate: bool = True, **instantiate_kwargs
     ) -> Self | DictConfig | ListConfig:
         """Wrapper around OmegaConf.create to instantiate the config."""
         created = OmegaConf.create(*args)
         if instantiate:
-            return cls.instantiate(created, **kwargs)
+            return cls.instantiate(created, **instantiate_kwargs)
         else:
             return (
                 MjCambrianContainerConfig(created)
