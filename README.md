@@ -13,9 +13,9 @@ pip install -e .
 
 ## TL;DR
 
-Run the following to create a simple environment and save the run as a video. 
-The `--record` flag optionally takes an integer argument to specify the number of 
-timesteps to record. The resulting video will be saved to 
+Run the following to create a simple environment and save the run as a video.
+The `--record` flag optionally takes an integer argument to specify the number of
+timesteps to record. The resulting video will be saved to
 `logs/<the date>/example/eval.*`.
 
 ```bash
@@ -23,9 +23,9 @@ python cambrian/envs/env.py run_renderer exp=example --record 100
 ```
 
 > [!NOTE]
-> The `example` experiment will use optics. On Mac, this is very slow since it uses 
+> The `example` experiment will use optics. On Mac, this is very slow since it uses
 > pytorch when doing convolutions, so beware this may take upwards of 1 minute to run.
-> Replace `example` with any other experiments in `configs/exp` to test other 
+> Replace `example` with any other experiments in `configs/exp` to test other
 > experiments
 
 ## Visualizing the world/environment
@@ -34,7 +34,7 @@ There is a runner in `env.py` that will visualize the world. You have a few run 
 
 ```bash
 # Interactive + Display
-# Run with the custom visualization viewer in birds-eye view mode. This is interactive, 
+# Run with the custom visualization viewer in birds-eye view mode. This is interactive,
 # so you can pan the renderer around using the mouse. You may need to set MUJOCO=glfw
 # explicitly to have this work properly.
 MUJOCO_GL=glfw python cambrian/envs/env.py run_renderer exp=<EXPERIMENT> env.renderer.render_modes="[human]"
@@ -49,12 +49,12 @@ python cambrian/envs/env.py run_renderer exp=<EXPERIMENT> --record <OPTIONAL_TOT
 python cambrian/envs/env.py run_mj_viewer exp=<EXPERIMENT>
 ```
 
-You can pass `-h` to see all options. Look in `configs/exp` for all the experiments 
+You can pass `-h` to see all options. Look in `configs/exp` for all the experiments
 you can run. For more details on the mujoco viewer, [see below](#mujoco-viewer).
 
 ### Custom Viewer
 
-This is a custom viewer that we use for debugging. There are a few shortcuts you can 
+This is a custom viewer that we use for debugging. There are a few shortcuts you can
 use:
 
 - `R`: Reset the environment
@@ -73,13 +73,13 @@ bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT>
 ```
 
 > [!TIP]
-> The `local.sh` script will automatically set `MUJOCO_GL=egl`. Training should always 
-be done with `MUJOCO_GL=egl` cause that runs with a headless implementation of OpenGL 
-and is significantly faster. 
+> The `local.sh` script will automatically set `MUJOCO_GL=egl`. Training should always
+be done with `MUJOCO_GL=egl` cause that runs with a headless implementation of OpenGL
+and is significantly faster.
 
 > [!NOTE]
-> You can also run `eval.sh` to run evaluation to visualize the env. 
-Set the `render_modes` to include `'human'` to visualize the env. It will also 
+> You can also run `eval.sh` to run evaluation to visualize the env.
+Set the `render_modes` to include `'human'` to visualize the env. It will also
 automatically save the video to `logs/<date>/<exp>/eval.*`. Use `-h` to see options.
 
 ## Running evo
@@ -89,25 +89,25 @@ bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT> -m
 ```
 
 Here, `-m` stands for `--multirun`. This will spawn multiple sweep instances of the
-`trainer.py` script. See the config files sweep parameters and/or 
+`trainer.py` script. See the config files sweep parameters and/or
 [hydra](https://hydra.cc/docs/intro) for more details.
 
 > [!NOTE]
-> You may get an error saying something along the lines 
-> `No variable to optimize in this parametrization.` This is because the config you 
-> chose doesn't have sweep parameters. You can either add some via the command line 
+> You may get an error saying something along the lines
+> `No variable to optimize in this parametrization.` This is because the config you
+> chose doesn't have sweep parameters. You can either add some via the command line
 > (see the [hydra documentation](https://hydra.cc/docs/intro)), add them to the
 > config file or choose another exp.
 
 ## Running on Supercloud
 
 To run on supercloud, replace `local.sh` with `sc.sh` in the above commands. This will
-set various environment variables that are required to run on supercloud. You can 
+set various environment variables that are required to run on supercloud. You can
 still run `local.sh` if you don't plan to use slurm to submit a job.
 
 > [!NOTE]
-> See `configs/hydra/launcher/supercloud.yaml` and 
-> `configs/hydra/sweeper/evolution.yaml` for the slurm and evolution settings, 
+> See `configs/hydra/launcher/supercloud.yaml` and
+> `configs/hydra/sweeper/evolution.yaml` for the slurm and evolution settings,
 > respectively.
 
 ### Training
@@ -141,7 +141,7 @@ bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT> -m
 
 ### Configs/Overrides
 
-All configs should be put under `configs`. These are parsed by 
-[hydra](https://hydra.cc/docs/intro) and can be overridden by passing in 
-`<dot.separated.path>=<value>` to the script. Checkout hydra's documentation for more 
+All configs should be put under `configs`. These are parsed by
+[hydra](https://hydra.cc/docs/intro) and can be overridden by passing in
+`<dot.separated.path>=<value>` to the script. Checkout hydra's documentation for more
 details.

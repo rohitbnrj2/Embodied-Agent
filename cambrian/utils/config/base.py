@@ -13,7 +13,6 @@ from typing import (
 from dataclasses import field
 from pathlib import Path
 import enum
-import re
 
 import hydra_zen as zen
 from hydra.core.utils import setup_globals
@@ -299,7 +298,11 @@ class MjCambrianContainerConfig:
                 # Grab the config without validation. This uses internal methods.
                 config = self._config._get_child(key, False, False)
                 instantiated = self.__dict__["_instantiated"]
-                values.append(MjCambrianContainerConfig(value, config=config, instantiated=instantiated))
+                values.append(
+                    MjCambrianContainerConfig(
+                        value, config=config, instantiated=instantiated
+                    )
+                )
             else:
                 values.append(value)
         return values
@@ -314,7 +317,14 @@ class MjCambrianContainerConfig:
                 # Grab the config without validation. This uses internal methods.
                 config = self._config._get_child(key, False, False)
                 instantiated = self.__dict__["_instantiated"]
-                items.append((key, MjCambrianContainerConfig(value, config=config, instantiated=instantiated)))
+                items.append(
+                    (
+                        key,
+                        MjCambrianContainerConfig(
+                            value, config=config, instantiated=instantiated
+                        ),
+                    )
+                )
             else:
                 items.append((key, value))
         return items
@@ -324,7 +334,9 @@ class MjCambrianContainerConfig:
         content = self._content.copy()
         config = self._config.copy() if not self._config_is_content else content
         instantiated = self.__dict__["_instantiated"]
-        return MjCambrianContainerConfig(content, config=config, instantiated=instantiated)
+        return MjCambrianContainerConfig(
+            content, config=config, instantiated=instantiated
+        )
 
     def clear(self):
         """Wrapper around the clear method to clear the content."""
@@ -392,7 +404,9 @@ class MjCambrianContainerConfig:
         for content, config in zip(self._content, self._config):
             if OmegaConf.is_config(content):
                 instantiated = self.__dict__["_instantiated"]
-                yield MjCambrianContainerConfig(content, config=config, instantiated=instantiated)
+                yield MjCambrianContainerConfig(
+                    content, config=config, instantiated=instantiated
+                )
             else:
                 yield content
 
@@ -483,7 +497,9 @@ class MjCambrianContainerConfig:
         # If the content is a config, we'll wrap it in this class
         if is_config and not as_node:
             instantiated = self.__dict__["_instantiated"]
-            return MjCambrianContainerConfig(content, config=config, instantiated=instantiated)
+            return MjCambrianContainerConfig(
+                content, config=config, instantiated=instantiated
+            )
         else:
             get_value = not as_node or isinstance(content, Node)
             assert not get_value or content is not None, f"Content is None: {key}"

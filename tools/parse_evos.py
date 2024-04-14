@@ -15,11 +15,11 @@ This file works as follows:
 import argparse
 from typing import Dict, Union, Optional, Any, List, Tuple
 from pathlib import Path
+
 # import pickle
 import cloudpickle as pickle
 import os
 from dataclasses import dataclass, field
-import csv
 from functools import partial
 
 import mujoco as mj
@@ -30,9 +30,10 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from cambrian.envs.env import MjCambrianEnv
+from cambrian.ml.model import MjCambrianModel
+from cambrian.utils.wrappers import make_wrapped_env
 from cambrian.utils import evaluate_policy, setattrs_temporary
 from cambrian.utils.config.config import MjCambrianConfig
-from cambrian.ml.model import MjCambrianModel
 
 # =======================================================
 # Dataclasses
@@ -192,7 +193,9 @@ def load_data(
             if (config_file := rank_data.path / "config.yaml").exists():
                 if "config" not in ignore:
                     print(f"\tLoading config from {config_file}...")
-                    rank_data.config = MjCambrianConfig.load(config_file, instantiate=False)
+                    rank_data.config = MjCambrianConfig.load(
+                        config_file, instantiate=False
+                    )
                     rank_data.config.merge_with_dotlist(overrides)
                     rank_data.config.resolve()
 
@@ -512,7 +515,7 @@ def plot(
                     "seed",
                     "env.animals.*.eyes.*.resolution",
                     "env.animals.*.eyes.*.fov",
-                    "custom.num_eyes"
+                    "custom.num_eyes",
                 )
                 plot_config(
                     rank_data.config,
@@ -924,7 +927,7 @@ def muller_plot(
 
 
 def run_trace_eval(logdir: Path, filename: Path, config: MjCambrianConfig):
-    env = DummyVecEnv([make_single_env(config, config.training_config.seed)])
+    env = DummyVecEnv([make_wrapped_env(config, config.training_config.seed)])
     cambrian_env: MjCambrianEnv = env.envs[0].env
 
     model = MjCambrianModel.load(logdir / "best_model")

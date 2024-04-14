@@ -31,7 +31,7 @@ defaults:
   - /env/animals/eyes@env.animals.animal_0.eyes.eye_18: ${env/animals/eyes}
   - /env/animals/eyes@env.animals.animal_0.eyes.eye_19: ${env/animals/eyes}
   - /env/animals/eyes@env.animals.animal_0.eyes.eye_20: ${env/animals/eyes}
-  - override /env/animals: point 
+  - override /env/animals: point
 
 # Set expname explicitly, submitit_local will complain otherwise.
 expname: insect_vision/num_eyes_sweep
@@ -63,7 +63,7 @@ env:
           coord: [10, -24]
         eye_7:
           coord: [10, -18]
-        eye_8:  
+        eye_8:
           coord: [10, -12]
         eye_9:
           coord: [10, -6]

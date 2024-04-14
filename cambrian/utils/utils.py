@@ -425,17 +425,18 @@ def literal_eval_with_callables(
                     _env[comprehension.target.id] = item
                     if all(_convert(cond) for cond in comprehension.ifs):
                         results.append(_convert(iter_node, _env=_env))
-            
+
             return results
         else:
             raise ValueError(f"Unsupported node type: {type(node)}")
-        
+
         raise ValueError(f"Couldn't parse node: {ast.dump(node)}")
 
     try:
         return _convert(node)
     except ValueError as e:
         raise ValueError(f"Error evaluating expression: {string}") from e
+
 
 def safe_eval(src: Any):
     """This method will evaluate the source code in a safe manner. This is useful for

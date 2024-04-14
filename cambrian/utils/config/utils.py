@@ -13,6 +13,7 @@ from omegaconf import OmegaConf, DictConfig
 if TYPE_CHECKING:
     from cambrian.utils.config import MjCambrianBaseConfig
 
+
 def run_hydra(
     main_fn: Optional[
         Callable[[Concatenate["MjCambrianBaseConfig", ...]], None]
@@ -102,12 +103,15 @@ def run_hydra(
     @hydra_argparse_override
     def main(cfg: DictConfig, **kwargs):
         from cambrian.utils.config import MjCambrianBaseConfig
+
         config = MjCambrianBaseConfig.instantiate(cfg, **instantiate_kwargs)
         return main_fn(config, **kwargs)
 
     main()
 
+
 # ===========
+
 
 def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
     """This resolver will glob a key in the config. This is useful for finding all keys
@@ -151,9 +155,11 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
                 result[matched_key] = recursive_glob(sub_value, keys[1:])
         return result
 
-    def flatten(data: Dict[str, Any], values: Dict[str, List[Any]] = {}) -> Dict[str, Any]:
-        """This will flatten the nested dict to a flat dict where each key is a leaf 
-        key of the nested dict and the value is a list of all the values that were 
+    def flatten(
+        data: Dict[str, Any], values: Dict[str, List[Any]] = {}
+    ) -> Dict[str, Any]:
+        """This will flatten the nested dict to a flat dict where each key is a leaf
+        key of the nested dict and the value is a list of all the values that were
         accumulated to that leaf key."""
         for k, v in data.items():
             if isinstance(v, dict):
@@ -170,7 +176,9 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
     # Return the flattened or nested dict
     return flatten(globbed) if flattened else globbed
 
+
 # ===========
+
 
 def config_wrapper(cls=None, /, **kwargs):
     """This is a wrapper of the dataclass decorator that adds the class to the hydra

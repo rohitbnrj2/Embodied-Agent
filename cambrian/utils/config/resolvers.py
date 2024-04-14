@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional
-from functools import partial
 
-from omegaconf import OmegaConf, DictConfig, Node, flag_override
+from omegaconf import OmegaConf, DictConfig, Node
 from omegaconf.errors import ConfigKeyError
+
 
 def register_new_resolver(name: str, replace: bool = True, **kwargs):
     def decorator(fn):
@@ -75,9 +75,11 @@ def search_resolver(
                 key, mode=mode, depth=depth + 1, _parent_=_parent_._parent
             )
 
+
 @register_new_resolver("parent")
 def parent_resolver(key: str | None = None, *, _parent_: DictConfig) -> Any:
     return search_resolver(key, mode="parent_key", _parent_=_parent_)
+
 
 @register_new_resolver("clear")
 def clear_resolver(key: str | None = None, /, *, _node_: Node) -> Dict | List:
@@ -96,6 +98,7 @@ def clear_resolver(key: str | None = None, /, *, _node_: Node) -> Dict | List:
 @register_new_resolver("eval")
 def safe_eval(key: str, /, *, _root_: DictConfig) -> Any:
     from cambrian.utils import safe_eval
+
     try:
         return safe_eval(key)
     except Exception as e:
@@ -105,6 +108,7 @@ def safe_eval(key: str, /, *, _root_: DictConfig) -> Any:
             msg=f"Error evaluating expression '{key}': {e}",
             cause=e,
         )
+
 
 @register_new_resolver("glob")
 def glob(key: str, flattened: bool = False, /, *, _root_: DictConfig) -> List[str]:

@@ -28,9 +28,10 @@ optim:
 
   # This defines the number of a parallel candidates you want to test at one time.
   # This will default to 1 for most launchers. If the launcher is submitit, it will
-  # evaluate to batch_size * array_parallelism, which is basically the number of 
+  # evaluate to batch_size * array_parallelism, which is basically the number of
   # parallel jobs to run on each node * number of total nodes.
-  num_workers: ${eval:'${oc.select:hydra.launcher.tasks_per_node, 1} * ${oc.select:hydra.launcher.array_parallelism, 1}'}
+  num_workers: |
+    ${eval:'${oc.select:hydra.launcher.tasks_per_node, 1} * ${oc.select:hydra.launcher.array_parallelism, 1}'}
 
   # We expect the same input parameters to produce different output fitness due to
   # seeds and randomness in the training process. Therefore, we set noisy to true.

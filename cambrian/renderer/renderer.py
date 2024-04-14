@@ -11,7 +11,11 @@ import OpenGL.GL as GL
 
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.utils.logger import get_logger
-from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper, MjCambrianFlagWrapperMeta
+from cambrian.utils.config import (
+    MjCambrianBaseConfig,
+    config_wrapper,
+    MjCambrianFlagWrapperMeta,
+)
 
 
 class MjCambrianRendererSaveMode(Flag, metaclass=MjCambrianFlagWrapperMeta):

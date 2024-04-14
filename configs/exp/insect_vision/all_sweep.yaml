@@ -163,19 +163,19 @@ hydra:
         init: 1
         lower: 1
         upper: 50
-        integer: true 
+        integer: true
       env.animals.animal_0.eyes.eye_4.fov.0:
         init: 45
         lower: 1
-        upper: 180  
+        upper: 180
       env.animals.animal_0.eyes.eye_4.fov.1:
         init: 45
         lower: 1
-        upper: 180  
+        upper: 180
       env.animals.animal_0.eyes.eye_4.coord.1:
         init: 0
         lower: -60
-        upper: 60 
+        upper: 60
       env.animals.animal_0.eyes.eye_5.enabled: [true, false]
       env.animals.animal_0.eyes.eye_5.resolution.0:
         init: 1
