@@ -14,7 +14,7 @@ from cambrian.utils import (
     MjCambrianGeometry,
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
-from cambrian.utils.base_config import MjCambrianBaseConfig, config_wrapper
+from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 from cambrian.utils.logger import get_logger
 
 if TYPE_CHECKING:

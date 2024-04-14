@@ -4,7 +4,7 @@ import torch
 import numpy as np
 
 from cambrian.eyes.eye import MjCambrianEyeConfig, MjCambrianEye
-from cambrian.utils.base_config import config_wrapper
+from cambrian.utils.config import config_wrapper
 
 
 @config_wrapper

@@ -8,8 +8,7 @@ import hydra
 from hydra.core.global_hydra import GlobalHydra
 
 from cambrian.utils import generate_sequence_from_range
-from cambrian.utils.config import run_hydra, MjCambrianConfig
-from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
+from cambrian.utils.config import run_hydra, MjCambrianConfig, MjCambrianBaseConfig, config_wrapper
 
 
 @config_wrapper

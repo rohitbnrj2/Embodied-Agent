@@ -6,7 +6,7 @@ from gymnasium import spaces
 
 from cambrian.envs.env import MjCambrianEnvConfig, MjCambrianEnv
 from cambrian.utils import get_body_id
-from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
+from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
 
 

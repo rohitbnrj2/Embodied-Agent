@@ -44,6 +44,8 @@ map: |
     [  0,   0,   0,   0,   0, 1:L, 1:E,  1:R,   0,   0,   0,   0,  0],
   ]
 
+scale: 2.0
+
 wall_texture_map:
   L: [vertical_10]
   R: [vertical_10]

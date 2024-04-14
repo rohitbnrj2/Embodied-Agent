@@ -310,7 +310,7 @@ class MjCambrianGeometry:
 
 
 def literal_eval_with_callables(
-    node_or_string, safe_callables: Dict[str, Callable] = {}
+    node_or_string, safe_callables: Dict[str, Callable] = {}, *, _env={}
 ):
     """
     Safely evaluate an expression node or a string containing a Python expression.
@@ -374,6 +374,13 @@ def literal_eval_with_callables(
     def _convert(node):
         if isinstance(node, ast.Constant):
             return node.value
+        elif isinstance(node, ast.Attribute):
+            print(_convert(node.value))
+            exit()
+            return getattr(_convert(node.value), node.attr)
+        elif isinstance(node, ast.Name):
+            if node.id in _env:
+                return _env[node.id]
         elif isinstance(node, (ast.Tuple, ast.List)):
             return type(node.elts)(map(_convert, node.elts))
         elif isinstance(node, ast.Dict):
@@ -408,10 +415,46 @@ def literal_eval_with_callables(
                         *map(_convert, node.args),
                         **{kw.arg: _convert(kw.value) for kw in node.keywords},
                     )
+        if isinstance(node, ast.GeneratorExp):
+            iter_node = node.elt
+            results = []
 
-        raise ValueError(f"Unsupported node type: {type(node)}")
+            for comprehension in node.generators:
+                iter_list = _convert(comprehension.iter)
+                for item in iter_list:
+                    _env[comprehension.target.id] = item
+                    if all(_convert(cond) for cond in comprehension.ifs):
+                        results.append(_convert(iter_node, _env=_env))
+            
+            return results
+        else:
+            raise ValueError(f"Unsupported node type: {type(node)}")
+        
+        raise ValueError(f"Couldn't parse node: {ast.dump(node)}")
 
     try:
         return _convert(node)
     except ValueError as e:
         raise ValueError(f"Error evaluating expression: {string}") from e
+
+def safe_eval(src: Any):
+    """This method will evaluate the source code in a safe manner. This is useful for
+    evaluating expressions in the config file. This will only allow certain builtins,
+    numpy, and will not allow any other code execution."""
+    import math
+
+    supported_builtins = {
+        "abs": abs,
+        "all": all,
+        "any": any,
+        "min": min,
+        "max": max,
+        "sum": sum,
+        "len": len,
+        "round": round,
+        "int": int,
+        "float": float,
+        "str": str,
+        "bool": bool,
+    }
+    return literal_eval_with_callables(src, {"math": math, **supported_builtins})

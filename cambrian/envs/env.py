@@ -34,7 +34,7 @@ from cambrian.renderer.overlays import (
     TEXT_HEIGHT,
     TEXT_MARGIN,
 )
-from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
+from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.logger import get_logger
 

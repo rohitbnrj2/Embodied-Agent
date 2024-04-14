@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
 
-from cambrian.utils.base_config import MjCambrianContainerConfig
+from cambrian.utils.config import MjCambrianContainerConfig
 
 MjCambrianXMLConfig: TypeAlias = MjCambrianContainerConfig | List[Dict[str, Self]]
 """
@@ -177,10 +177,6 @@ class MjCambrianXML:
                 else:
                     # If it's a value, we need to add it as an attribute
                     parent.set(key, str(value))
-
-        # TODO: remove
-        if isinstance(config, MjCambrianContainerConfig):
-            config = config.to_container()
 
         for root in config:
             add_to_xml(xml.root, root)

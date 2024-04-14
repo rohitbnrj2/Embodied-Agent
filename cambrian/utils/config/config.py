@@ -1,0 +1,44 @@
+from pathlib import Path
+
+from cambrian.ml.trainer import MjCambrianTrainerConfig
+from cambrian.envs.env import MjCambrianEnvConfig
+from cambrian.utils.config import MjCambrianBaseConfig
+from cambrian.utils.config.utils import config_wrapper, run_hydra
+
+# ==================
+
+@config_wrapper
+class MjCambrianConfig(MjCambrianBaseConfig):
+    """The base config for the mujoco cambrian environment. Used for type hinting.
+
+    Attributes:
+        logdir (Path): The directory to log training data to.
+        expname (str): The name of the experiment. Used to name the logging
+            subdirectory. If unset, will set to the name of the config file.
+
+        seed (int): The base seed used when initializing the default thread/process.
+            Launched processes should use this seed value to calculate their own seed
+            values. This is used to ensure that each process has a unique seed.
+
+        training (MjCambrianTrainingConfig): The config for the training process.
+        env (MjCambrianEnvConfig): The config for the environment.
+        eval_env (MjCambrianEnvConfig): The config for the evaluation environment.
+    """
+
+    logdir: Path
+    expname: str
+
+    seed: int
+
+    trainer: MjCambrianTrainerConfig
+    env: MjCambrianEnvConfig
+    eval_env: MjCambrianEnvConfig
+
+# =============
+
+
+if __name__ == "__main__":
+    def main(config: MjCambrianConfig):
+        pass
+
+    run_hydra(main)

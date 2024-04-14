@@ -15,7 +15,8 @@ This file works as follows:
 import argparse
 from typing import Dict, Union, Optional, Any, List, Tuple
 from pathlib import Path
-import pickle
+# import pickle
+import cloudpickle as pickle
 import os
 from dataclasses import dataclass, field
 import csv
@@ -28,10 +29,9 @@ import matplotlib.pyplot as plt
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from cambrian.env import MjCambrianEnv
+from cambrian.envs.env import MjCambrianEnv
 from cambrian.utils import evaluate_policy, setattrs_temporary
-from cambrian.utils.wrappers import make_single_env
-from cambrian.utils.config import MjCambrianConfig
+from cambrian.utils.config.config import MjCambrianConfig
 from cambrian.ml.model import MjCambrianModel
 
 # =======================================================
@@ -96,6 +96,7 @@ def try_load_pickle_data(folder: Path) -> Union[None, Dict]:
     """Try to load the data from the pickle file."""
     pickle_file = folder / "parse_evos" / "data.pkl"
     if pickle_file.exists():
+        print(f"Loading parsed data from {pickle_file}...")
         with open(pickle_file, "rb") as f:
             generations = pickle.load(f)
         print(f"Loaded parsed data from {pickle_file}.")
@@ -191,10 +192,9 @@ def load_data(
             if (config_file := rank_data.path / "config.yaml").exists():
                 if "config" not in ignore:
                     print(f"\tLoading config from {config_file}...")
-                    rank_data.config = MjCambrianConfig.load(
-                        config_file,
-                        overrides=overrides,
-                    )
+                    rank_data.config = MjCambrianConfig.load(config_file, instantiate=False)
+                    rank_data.config.merge_with_dotlist(overrides)
+                    rank_data.config.resolve()
 
             # Get the evaluations file
             if (evaluations_file := rank_data.path / "evaluations.npz").exists():
@@ -212,16 +212,16 @@ def load_data(
 
             # Get the gpu_usage file
             # Will save it to config.custom
-            if (rank_data.path / "gpu_usage.csv").exists() and rank_data.config:
-                if "gpu_usage" not in ignore:
-                    with open(rank_data.path / "gpu_usage.csv", "r") as f:
-                        reader = csv.reader(f)
-                        headers = next(reader)
-                        gpu_usage = {header: [] for header in headers}
-                        for row in reader:
-                            for i, header in enumerate(headers):
-                                gpu_usage[header].append(float(row[i]) / 1e9)  # GB
-                    rank_data.config.custom["gpu_usage"] = gpu_usage
+            # if (rank_data.path / "gpu_usage.csv").exists() and rank_data.config:
+            #     if "gpu_usage" not in ignore:
+            #         with open(rank_data.path / "gpu_usage.csv", "r") as f:
+            #             reader = csv.reader(f)
+            #             headers = next(reader)
+            #             gpu_usage = {header: [] for header in headers}
+            #             for row in reader:
+            #                 for i, header in enumerate(headers):
+            #                     gpu_usage[header].append(float(row[i]) / 1e9)  # GB
+            #         rank_data.config.custom["gpu_usage"] = gpu_usage
 
     return data
 
@@ -509,13 +509,10 @@ def plot(
                 # * indicates anything (like names which we don't know beforehand) and (|) indicates
                 # an OR operation (i.e. (resolution|fov) matches either resolution or fov)
                 pattern = build_pattern(
-                    "training_config.seed",
-                    "env_config.animal_configs.*.eye_configs.*.aperture_open",
-                    "env_config.animal_configs.*.eye_configs.*.aperture_radius",
-                    "env_config.animal_configs.*.eye_configs.*.resolution",
-                    "env_config.animal_configs.*.eye_configs.*.fov",
-                    "env_config.animal_configs.*.num_eyes",
-                    "custom.gpu_usage.*",
+                    "seed",
+                    "env.animals.*.eyes.*.resolution",
+                    "env.animals.*.eyes.*.fov",
+                    "custom.num_eyes"
                 )
                 plot_config(
                     rank_data.config,

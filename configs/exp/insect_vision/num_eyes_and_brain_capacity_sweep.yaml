@@ -33,11 +33,11 @@ defaults:
   - /env/animals/eyes@env.animals.animal_0.eyes.eye_20: ${env/animals/eyes}
   - override /env/animals: point 
 
-# Set expname explicitly, submitit will complain otherwise.
+# Set expname explicitly, submitit_local will complain otherwise.
 expname: insect_vision/num_eyes_sweep
 
-# Update the logdir to use the generation and rank syntax
-logdir: ./logs/${now:%Y-%m-%d}/${expname}/generation_${custom.generation}/rank_${custom.global_rank}
+# Update the logdir to include the hydra job num to avoid overwriting logs
+logdir: ./logs/${now:%Y-%m-%d}/${expname}/${hydra:job.num}
 
 trainer:
   # decrease the number of timesteps to speed up the sweep
@@ -46,17 +46,6 @@ trainer:
 env:
   animals:
     animal_0:
-      xml:
-        overrides:
-          - mujoco:
-            - actuator:
-              - velocity:
-                - name: "act_x_${parent:xml}"
-                - ctrlrange: "-100.0 100.0"
-              - velocity:
-                - name: "act_y_${parent:xml}"
-                - ctrlrange: "-100.0 100.0"
-
       eyes:
         eye_0:
           coord: [10, -60]
@@ -125,3 +114,19 @@ hydra:
       env.animals.animal_0.eyes.eye_18.enabled: [true, false]
       env.animals.animal_0.eyes.eye_19.enabled: [true, false]
       env.animals.animal_0.eyes.eye_20.enabled: [true, false]
+
+      # Also sweep over the brain capacity
+      trainer.model.policy_kwargs.features_extractor_kwargs.output_dim:
+        - 8
+        - 16
+        - 32
+        - 64
+        - 128
+        - 256
+      trainer.model.policy_kwargs.features_extractor_kwargs.image_extractor.architecture:
+        - [8, 16]
+        - [16, 32]
+        - [32, 64]
+        - [64, 128]
+        - [128, 256]
+        - [256, 512]

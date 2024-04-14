@@ -13,12 +13,12 @@ from stable_baselines3.common.utils import set_random_seed
 from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy, calculate_fitness
-from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
+from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.wrappers import make_wrapped_env
 from cambrian.utils.logger import get_logger
 
 if TYPE_CHECKING:
-    from cambrian.utils.config import MjCambrianConfig
+    from cambrian.utils.config.config import MjCambrianConfig
 
 
 @config_wrapper
@@ -172,7 +172,8 @@ class MjCambrianTrainer:
 if __name__ == "__main__":
     import argparse
 
-    from cambrian.utils.config import MjCambrianConfig, run_hydra
+    from cambrian.utils.config import run_hydra
+    from cambrian.utils.config.config import MjCambrianConfig
 
     parser = argparse.ArgumentParser()
     action = parser.add_mutually_exclusive_group(required=True)

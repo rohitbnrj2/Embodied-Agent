@@ -1,8 +1,7 @@
 from typing import Any
 import time
 
-from cambrian.utils.base_config import MjCambrianBaseConfig
-from cambrian.utils.config import MjCambrianConfig, run_hydra
+from cambrian.utils.config import MjCambrianConfig, run_hydra, MjCambrianBaseConfig
 
 
 def __getattr__(config: MjCambrianBaseConfig, key: str):

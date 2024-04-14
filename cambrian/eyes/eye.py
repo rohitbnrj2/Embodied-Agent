@@ -7,7 +7,7 @@ from scipy.spatial.transform import Rotation as R
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
 from cambrian.utils import MjCambrianGeometry
-from cambrian.utils.base_config import config_wrapper, MjCambrianBaseConfig
+from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
 
 
