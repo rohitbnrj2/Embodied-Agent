@@ -1,0 +1,21 @@
+# @package _global_
+
+# NOTE: assumes one animal for now, if multiple animals are used, the patterns
+# will sum all animals together
+
+defaults:
+  - /ParseEvosConfig
+
+custom:
+  parse_evos:
+    plot: False
+    force: False
+
+    patterns:
+      - seed
+      - env.animals.*.eyes.*.resolution
+      - env.animals.*.eyes.*.fov
+      - ${custom.variables.num_eyes}
+
+  variables:
+    num_eyes: ${eval:'sum(${glob:env.animals.*.eyes.*.enabled,True})'

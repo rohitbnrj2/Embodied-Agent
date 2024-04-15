@@ -33,12 +33,6 @@ defaults:
   - /env/animals/eyes@env.animals.animal_0.eyes.eye_20: ${env/animals/eyes}
   - override /env/animals: point
 
-# Set expname explicitly, submitit will complain otherwise.
-expname: insect_vision/num_eyes_sweep
-
-# Update the logdir to use the generation and rank syntax
-logdir: ./logs/${now:%Y-%m-%d}/${expname}/generation_${custom.generation}/rank_${custom.global_rank}
-
 trainer:
   # decrease the number of timesteps to speed up the sweep
   total_timesteps: 300_000
@@ -46,16 +40,17 @@ trainer:
 env:
   animals:
     animal_0:
-      xml:
-        overrides:
-          - mujoco:
-              - actuator:
-                  - velocity:
-                      - name: "act_x_${parent:xml}"
-                      - ctrlrange: "-100.0 100.0"
-                  - velocity:
-                      - name: "act_y_${parent:xml}"
-                      - ctrlrange: "-100.0 100.0"
+      # TODO: this doesn't work; need to put in env.xml
+      # xml:
+      #   overrides:
+      #     - mujoco:
+      #         - actuator:
+      #             - velocity:
+      #                 - name: "act_x_${parent:xml}"
+      #                 - ctrlrange: "-100.0 100.0"
+      #             - velocity:
+      #                 - name: "act_y_${parent:xml}"
+      #                 - ctrlrange: "-100.0 100.0"
 
       eyes:
         eye_0:

@@ -13,15 +13,6 @@ defaults:
   - /env/animals/eyes@env.animals.animal_0.eyes.eye_1: ${env/animals/eyes}
   - override /env/animals: point
 
-  # Set the sweep to be nevergrad
-  - override /hydra/sweeper: nevergrad
-
-# Set expname explicitly, submitit_local will complain otherwise.
-expname: brain_capacity
-
-# Update the logdir to include the hydra job num to avoid overwriting logs
-logdir: ./logs/${now:%Y-%m-%d}/${expname}_${hydra:job.num}
-
 trainer:
   # decrease the number of timesteps to speed up the sweep
   total_timesteps: 300_000

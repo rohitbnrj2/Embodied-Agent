@@ -38,5 +38,5 @@ optim:
   noisy: true
 
   # The budget is the number of evaluations we want to run. The default is 80, set to
-  # 1000 just for fun.
-  budget: 1000
+  # 100 just for fun.
+  budget: 100

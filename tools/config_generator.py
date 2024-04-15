@@ -17,7 +17,7 @@ from cambrian.utils.config import (
 
 
 @config_wrapper
-class GeneratorConfig(MjCambrianBaseConfig):
+class ConfigGeneratorConfig(MjCambrianBaseConfig):
     """Config for the generator script.
 
     Attributes:
@@ -46,7 +46,7 @@ class GeneratorConfig(MjCambrianBaseConfig):
     num_eyes_lon: int
 
 
-def main(config: GeneratorConfig, *, overrides: List[str] = []):
+def main(config: ConfigGeneratorConfig, *, overrides: List[str] = []):
     GlobalHydra.instance().clear()
     with hydra.initialize_config_dir(f"{os.getcwd()}/configs/", version_base=None):
         exp = f"{'/'.join(config.base.parts[config.base.parts.index('exp') + 1:-1])}/{config.base.stem}"

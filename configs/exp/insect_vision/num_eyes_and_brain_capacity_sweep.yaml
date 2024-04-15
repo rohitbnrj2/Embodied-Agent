@@ -33,12 +33,6 @@ defaults:
   - /env/animals/eyes@env.animals.animal_0.eyes.eye_20: ${env/animals/eyes}
   - override /env/animals: point
 
-# Set expname explicitly, submitit_local will complain otherwise.
-expname: insect_vision/num_eyes_sweep
-
-# Update the logdir to include the hydra job num to avoid overwriting logs
-logdir: ./logs/${now:%Y-%m-%d}/${expname}/${hydra:job.num}
-
 trainer:
   # decrease the number of timesteps to speed up the sweep
   total_timesteps: 300_000

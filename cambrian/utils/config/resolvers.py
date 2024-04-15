@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional
+from pathlib import Path
 
 from omegaconf import OmegaConf, DictConfig, Node
 from omegaconf.errors import ConfigKeyError
@@ -124,3 +125,7 @@ def glob(key: str, flattened: bool = False, /, *, _root_: DictConfig) -> List[st
             msg=f"Error evaluating expression '{key}': {e}",
             cause=e,
         )
+
+@register_new_resolver("path")
+def path_resolver(*parts: str) -> Path:
+    return Path(*parts)

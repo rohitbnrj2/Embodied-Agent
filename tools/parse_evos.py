@@ -564,11 +564,9 @@ def plot(
 
                     # Build the glob pattern for the config attributes
                     pattern = build_pattern(
-                        "env_config.animal_configs.*.eye_configs.*.aperture_open",
-                        "env_config.animal_configs.*.eye_configs.*.aperture_radius",
-                        "env_config.animal_configs.*.eye_configs.*.fov",
-                        "env_config.animal_configs.*.eye_configs.*.resolution",
-                        "env_config.animal_configs.*.num_eyes",
+                        "env.animals.*.eyes.*.fov",
+                        "env.animals.*.eyes.*.resolution",
+                        "custom.num_eyes",
                     )
                     plot_monitor_and_config(
                         rank_data.monitor,
@@ -587,11 +585,9 @@ def plot(
 
                     # Build the glob pattern for the config attributes
                     pattern = build_pattern(
-                        "env_config.animal_configs.*.eye_configs.*.aperture_open",
-                        "env_config.animal_configs.*.eye_configs.*.aperture_radius",
-                        "env_config.animal_configs.*.eye_configs.*.fov",
-                        "env_config.animal_configs.*.eye_configs.*.resolution",
-                        "env_config.animal_configs.*.num_eyes",
+                        "env.animals.*.eyes.*.fov",
+                        "env.animals.*.eyes.*.resolution",
+                        "custom.num_eyes",
                     )
                     plot_evaluations_and_config(
                         rank_data.evaluations,

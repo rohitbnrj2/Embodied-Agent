@@ -13,6 +13,9 @@ sweep:
   # been resolved. We set it explicitly to the value of logdir instead to get around
   # this. NOTE: this may fail in the future if logdir changes.
   # See https://github.com/facebookresearch/hydra/issues/1786#issuecomment-1017005470
-  dir: ./logs/${now:%Y-%m-%d}/${hydra.runtime.choices.exp}/hydra/run/${now:%H-%M-%S}/
+  dir: ${custom.variables.default_baselogdir}
+  subdir: ${custom.variables.default_sublogdir}/hydra/sweep/${now:%H-%M-%S}/
 job:
-  name: ${expname}_${now:%H-%M-%S}
+  # Use hydra.runtime... here since hydra: throws an error saying the HydraConfig
+  # is not set
+  name: ${hydra.runtime.choices.exp}_${now:%H-%M-%S}
