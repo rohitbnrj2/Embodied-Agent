@@ -56,11 +56,6 @@ class MjCambrianTrainer:
         self.config = config
         self.trainer_config = config.trainer
 
-        from hydra.core.hydra_config import HydraConfig
-        from omegaconf import OmegaConf
-        print(OmegaConf.to_yaml(HydraConfig.get()))
-        exit()
-
         self.config.logdir.mkdir(parents=True, exist_ok=True)
 
         self.logger = get_logger()
