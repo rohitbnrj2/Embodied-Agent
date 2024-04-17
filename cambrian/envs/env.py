@@ -143,8 +143,11 @@ class MjCambrianEnv(ParallelEnv):
 
         self._data = mj.MjData(self._model)
 
+        self.render_mode = "rgb_array"
         self._renderer: MjCambrianRenderer = None
         if renderer_config := self._config.renderer:
+            if "human" in self._config.renderer.render_modes:
+                self.render_mode = "human"
             self._renderer = MjCambrianRenderer(renderer_config)
 
         self._episode_step = 0
@@ -230,9 +233,7 @@ class MjCambrianEnv(ParallelEnv):
 
         return self._update_obs(obs), self._update_info(info)
 
-    def step(
-        self, action: Dict[str, Any]
-    ) -> Tuple[
+    def step(self, action: Dict[str, Any]) -> Tuple[
         Dict[str, Any],
         Dict[str, float],
         Dict[str, bool],

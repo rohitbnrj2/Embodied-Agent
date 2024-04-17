@@ -618,7 +618,12 @@ class MjCambrianAnimal:
     @property
     def last_action(self) -> np.ndarray:
         """Returns the last action that was applied to the animal."""
-        return self._data.ctrl[self._actadrs].copy()
+        last_ctrl = self._data.ctrl[self._actadrs].copy()
+        for act in self._actuators:
+            last_ctrl[act.adr] = np.interp(
+                last_ctrl[act.adr], [act.low, act.high], [-1, 1]
+            )
+        return last_ctrl
 
     @property
     def geom(self) -> MjCambrianGeometry:

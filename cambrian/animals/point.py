@@ -79,9 +79,13 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
                 self.qpos[i] = val
 
     @MjCambrianAnimal.quat.setter
-    def quat(self, value: Tuple[float, float, float, float]):
+    def quat(self, value: Tuple[float | None, float | None, float | None, float | None]):
         """Overrides the base implementation to set the z rotation."""
         assert len(value) == 4, f"Quaternion must have 4 elements, got {len(value)}."
+        # Only set quat if all values are not None
+        if any(val is None for val in value):
+            return
+
         self.qpos[2] = np.arctan2(
             2 * (value[0] * value[3] + value[1] * value[2]),
             1 - 2 * (value[2] ** 2 + value[3] ** 2),

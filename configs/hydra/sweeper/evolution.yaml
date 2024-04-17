@@ -18,7 +18,7 @@ defaults:
 #       hydra_nevergrad_sweeper/hydra_plugins/hydra_nevergrad_sweeper/_impl.py#L162
 
 optim:
-  optimizer: "PortfolioDiscreteOnePlusOne"
+  optimizer: "NGOpt"
 
   # This seed is only used at the very beginning and is used for reproducibility of the
   # nevergrad algorithm, not of the individual runs. We'll set it to 0 here instead of
@@ -41,6 +41,13 @@ optim:
   # seeds and randomness in the training process. Therefore, we set noisy to true.
   noisy: true
 
-  # The budget is the number of evaluations we want to run. The default is 80, set to
-  # 200 just for fun.
-  budget: 200
+  # The budget is the number of evaluations we want to run. The total number of 
+  # generations is the budget divided by the number of workers. We'll set the
+  # number generations and calculate the budget from that. Default generations to 20.
+  # NOTE: If budget is not a direct multiple of num_workers, at the end, the sweeper
+  # will run the remaining number of workers to reach the budget, which messes with 
+  # our current generation calculation.
+  # NOTE #2: Some algorithms use the budget and num_workers as part of the optimization
+  # to know how exploratory to be. So be careful setting this number very large with
+  # the intention of stopping early.
+  budget: ${eval:'int(${oc.select:custom.variables.num_generations, 20} * ${.num_workers})'}

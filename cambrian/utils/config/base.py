@@ -390,7 +390,7 @@ class MjCambrianContainerConfig:
         """Get the attribute from the content and return the wrapped instance. If the
         attribute is a DictConfig or ListConfig, we'll wrap it in this class.
         """
-        # return self._get_impl(name)
+        return self._get_impl(name)
         content = getattr(self._content, name)
         if OmegaConf.is_config(content):
             config = self._config
@@ -402,7 +402,7 @@ class MjCambrianContainerConfig:
     def __getitem__(self, key: Any) -> Self | Any:
         """Get the item from the content and return the wrapped instance. If the item is
         a DictConfig or ListConfig, we'll wrap it in this class."""
-        # return self._get_impl(key, is_getattr=False)
+        return self._get_impl(key, is_getattr=False)
         content = self._content[key]
         if OmegaConf.is_config(content):
             config = self._config[key]

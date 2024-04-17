@@ -10,27 +10,7 @@ defaults:
 
   # Define one animal
   - /env/animals@env.animals.animal_0: ${env/animals}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_0: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_1: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_2: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_3: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_4: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_5: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_6: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_7: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_8: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_9: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_10: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_11: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_12: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_13: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_14: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_15: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_16: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_17: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_18: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_19: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_20: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye: ${env/animals/eyes}
   - override /env/animals: point
 
 trainer:
@@ -40,83 +20,37 @@ trainer:
 env:
   animals:
     animal_0:
-      # TODO: this doesn't work; need to put in env.xml
-      # xml:
-      #   overrides:
-      #     - mujoco:
-      #         - actuator:
-      #             - velocity:
-      #                 - name: "act_x_${parent:xml}"
-      #                 - ctrlrange: "-100.0 100.0"
-      #             - velocity:
-      #                 - name: "act_y_${parent:xml}"
-      #                 - ctrlrange: "-100.0 100.0"
+      xml:
+        overrides:
+          - mujoco:
+              - actuator:
+                  - velocity:
+                      - name: "act_x_${parent:xml}"
+                      - ctrlrange: "-100.0 100.0"
+                  - velocity:
+                      - name: "act_y_${parent:xml}"
+                      - ctrlrange: "-100.0 100.0"
+
+      eyes_lon_range: [-180, 180]
+      num_eyes_to_generate: [1, 1]
 
       eyes:
-        eye_0:
-          coord: [10, -60]
-        eye_1:
-          coord: [10, -54]
-        eye_2:
-          coord: [10, -48]
-        eye_3:
-          coord: [10, -42]
-        eye_4:
-          coord: [10, -36]
-        eye_5:
-          coord: [10, -30]
-        eye_6:
-          coord: [10, -24]
-        eye_7:
-          coord: [10, -18]
-        eye_8:
-          coord: [10, -12]
-        eye_9:
-          coord: [10, -6]
-        eye_10:
-          coord: [10, 0]
-        eye_11:
-          coord: [10, 6]
-        eye_12:
-          coord: [10, 12]
-        eye_13:
-          coord: [10, 18]
-        eye_14:
-          coord: [10, 24]
-        eye_15:
-          coord: [10, 30]
-        eye_16:
-          coord: [10, 36]
-        eye_17:
-          coord: [10, 42]
-        eye_18:
-          coord: [10, 48]
-        eye_19:
-          coord: [10, 54]
-        eye_20:
-          coord: [10, 60]
+        eye:
+          resolution: [1, 1]
+          fov: [1, 1]
 
 hydra:
   sweeper:
     parametrization:
-      env.animals.animal_0.eyes.eye_0.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_1.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_2.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_3.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_4.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_5.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_6.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_7.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_8.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_9.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_10.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_11.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_12.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_13.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_14.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_15.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_16.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_17.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_18.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_19.enabled: [true, false]
-      env.animals.animal_0.eyes.eye_20.enabled: [true, false]
+      env.animals.animal_0.num_eyes_to_generate.0:
+        init: 1
+        lower: 1
+        upper: 100
+        step: 1
+        integer: true
+      env.animals.animal_0.num_eyes_to_generate.1: 
+        init: 1
+        lower: 1
+        upper: 100
+        step: 1
+        integer: true

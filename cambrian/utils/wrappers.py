@@ -77,7 +77,6 @@ def make_wrapped_env(
         env = config.instance(config, **kwargs)
         for wrapper in wrappers:
             env = wrapper(env)
-        env.reset(seed=seed)
         check_env(env, warn=False)
         return env
 
