@@ -126,11 +126,12 @@ def glob(key: str, flattened: bool = False, /, *, _root_: DictConfig) -> List[st
             cause=e,
         )
 
+
 @register_new_resolver("hydra_select")
 def hydra_select(key: str, /, *, _root_: DictConfig) -> Any | None:
     """This is similar to the regular hydra resolver, but this won't through an error
     if the global hydra config is unset. Instead, it will return another interpolation
-    using dotpath notation directly. As in, ${hydra_select:runtime.choices.test}, if 
+    using dotpath notation directly. As in, ${hydra_select:runtime.choices.test}, if
     HydraConfig is unset, will return ${hydra.runtime.choices.test}."""
     from hydra.core.hydra_config import HydraConfig
 
@@ -139,6 +140,13 @@ def hydra_select(key: str, /, *, _root_: DictConfig) -> Any | None:
     except ValueError:
         return OmegaConf.select(_root_, f"hydra.{key}", throw_on_missing=True)
 
+
 @register_new_resolver("path")
 def path_resolver(*parts: str) -> Path:
     return Path(*parts)
+
+
+@register_new_resolver("read")
+def read_resolver(path: Path, /) -> str:
+    with open(path, "r") as f:
+        return f.read()

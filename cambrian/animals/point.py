@@ -4,10 +4,10 @@ import numpy as np
 from gymnasium import spaces
 import mujoco as mj
 
-from cambrian.animals.animal import MjCambrianAnimal, MjCambrianAnimalConfig
+from cambrian.animals import MjCambrianAnimal, MjCambrianAnimalConfig
 
 if TYPE_CHECKING:
-    from cambrian.envs.env import MjCambrianEnv
+    from cambrian.envs import MjCambrianEnv
     from cambrian.envs.maze_env import MjCambrianMazeEnv
 
 
@@ -35,7 +35,7 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
 
         # Update the action obs
         # Calculate the global velocities
-        if self.config.use_action_obs:
+        if self._config.use_action_obs:
             v, theta = self._calc_v_theta(self.last_action)
             theta = np.interp(theta, [-np.pi, np.pi], [-1, 1])
             obs["action"] = np.array([v, theta], dtype=np.float32)
@@ -58,26 +58,34 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
         v = (action[0] + 1) / 2
 
         # Calculate the global velocities
-        theta = self._data.qpos[self._joint_qposadr + 2]
+        # NOTE: The third actuator is the hinge joint which defines the theta
+        theta = self._data.qpos[self._actuators[2].trnadr]
         new_action = [v * np.cos(theta), v * np.sin(theta), action[1]]
 
         # Call the base implementation with the new action
         super().apply_action(new_action)
 
     @property
-    def observation_space(self) -> spaces.Space:
-        """Overrides the base implementation so the action obs is only two elements."""
-        observation_space = super().observation_space
-        if "action" in observation_space.spaces:
-            observation_space["action"] = spaces.Box(
-                low=-1, high=1, shape=(2,), dtype=np.float32
-            )
-        return observation_space
-
-    @property
     def action_space(self) -> spaces.Space:
         """Overrides the base implementation to only have two elements."""
         return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
+
+    @MjCambrianAnimal.pos.setter
+    def pos(self, value: Tuple[float | None, float | None, float | None]):
+        """Overrides the base implementation to set the x and y position."""
+        assert len(value) == 3, f"Position must have 3 elements, got {len(value)}."
+        for i, val in enumerate(value):
+            if val is not None:
+                self.qpos[i] = val
+
+    @MjCambrianAnimal.quat.setter
+    def quat(self, value: Tuple[float, float, float, float]):
+        """Overrides the base implementation to set the z rotation."""
+        assert len(value) == 4, f"Quaternion must have 4 elements, got {len(value)}."
+        self.qpos[2] = np.arctan2(
+            2 * (value[0] * value[3] + value[1] * value[2]),
+            1 - 2 * (value[2] ** 2 + value[3] ** 2),
+        )
 
 
 class MjCambrianPointAnimalPredator(MjCambrianPointAnimal):

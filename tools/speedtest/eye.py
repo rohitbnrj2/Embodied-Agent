@@ -3,8 +3,8 @@ import time
 
 import mujoco as mj
 
-from cambrian.animals.animal import MjCambrianAnimal
-from cambrian.eyes.eye import MjCambrianEye
+from cambrian.animals import MjCambrianAnimal
+from cambrian.eyes import MjCambrianEye
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import MjCambrianConfig, run_hydra
 

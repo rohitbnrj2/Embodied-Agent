@@ -10,7 +10,7 @@ scene:
   instance:
     _target_: mujoco.MjvScene
     _partial_: true
-    maxgeom: 10000
+    maxgeom: 100000
   key: flags
   flag_type:
     _target_: mujoco.mjtRndFlag

@@ -7,7 +7,7 @@ n_eval_episodes: ${eval:'max(len(${.mazes}), 1)'}
 mazes: {}
 
 instance:
-  _target_: cambrian.envs.maze_env.MjCambrianMazeEnv
+  _target_: cambrian.envs.MjCambrianMazeEnv
   _partial_: true
 
 # The maze configuration; will just randomly select a maze from the list by default

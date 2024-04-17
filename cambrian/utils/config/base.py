@@ -13,6 +13,7 @@ from typing import (
 from dataclasses import field
 from pathlib import Path
 import enum
+from contextlib import contextmanager
 
 import hydra_zen as zen
 from hydra.core.utils import setup_globals
@@ -132,6 +133,28 @@ class MjCambrianContainerConfig:
             return MjCambrianContainerConfig(content, config=config, instantiated=True)
 
     @classmethod
+    def compose(
+        cls,
+        config_dir: str,
+        config_name: str,
+        *,
+        overrides: List[str] = [],
+    ):
+        """Compose a config using the Hydra compose API. This will return the config as
+        a MjCambrianContainerConfig instance."""
+        import hydra
+        from hydra.core.hydra_config import HydraConfig
+
+        with hydra.initialize_config_dir(config_dir, version_base=None):
+            hydra_config = hydra.compose(
+                config_name=config_name, overrides=overrides, return_hydra_config=True
+            )
+            HydraConfig.instance().set_config(hydra_config)
+            del hydra_config.hydra
+
+        return cls.create(hydra_config)
+
+    @classmethod
     def load(
         cls, *args, instantiate: bool = True, **instantiate_kwargs
     ) -> Self | DictConfig | ListConfig:
@@ -180,18 +203,31 @@ class MjCambrianContainerConfig:
         if not self._config_is_content:
             self._config.merge_with_dotlist(dotlist)
 
-    def interpolate(self, interpolation: str) -> Any:
-        """This is a helper method that will evaluate an interpolation in the key.
-        Basically select but evaluates an interpolation."""
-        copy_of_self = self.copy()
+    def set_struct(self, is_struct: bool):
+        """Wrapper around OmegaConf.set_struct to set the struct flag."""
+        OmegaConf.set_struct(self._content, is_struct)
+        if not self._config_is_content:
+            OmegaConf.set_struct(self._config, is_struct)
 
-        # create a temp config to merge into the main config in order to evaluate the
-        # interpolation
-        temp_content = OmegaConf.create(dict(custom=dict(interpolation=interpolation)))
-        copy_of_self.merge_with(temp_content)
-        copy_of_self.resolve()
+    def set_readonly(self, is_readonly: bool):
+        """Wrapper around OmegaConf.set_readonly to set the readonly flag."""
+        OmegaConf.set_readonly(self._content, is_readonly)
+        if not self._config_is_content:
+            OmegaConf.set_readonly(self._config, is_readonly)
 
-        return copy_of_self.select("custom.interpolation")
+    @contextmanager
+    def set_struct_temporarily(self, is_struct: bool):
+        """Context manager to temporarily set the struct flag."""
+        self.set_struct(is_struct)
+        yield
+        self.set_struct(not is_struct)
+
+    @contextmanager
+    def set_readonly_temporarily(self, is_readonly: bool):
+        """Context manager to temporarily set the readonly flag."""
+        self.set_readonly(is_readonly)
+        yield
+        self.set_readonly(not is_readonly)
 
     def select(self, key: str, *, use_instantiated: bool = False, **kwargs) -> Any:
         """This is a wrapper around OmegaConf.select to select a key from the config.
@@ -345,21 +381,34 @@ class MjCambrianContainerConfig:
             self._config.clear()
 
     def update(self, *args, **kwargs):
-        """Wrapper around the update method to update the content."""
-        self._content.update(*args, **kwargs)
+        """Wrapper around the OmegaConf.update method to update the content."""
+        OmegaConf.update(self._content, *args, **kwargs)
         if not self._config_is_content:
-            self._config.update(*args, **kwargs)
+            OmegaConf.update(self._config, *args, **kwargs)
 
     def __getattr__(self, name: str) -> Self | Any:
         """Get the attribute from the content and return the wrapped instance. If the
         attribute is a DictConfig or ListConfig, we'll wrap it in this class.
         """
-        return self._get_impl(name)
+        # return self._get_impl(name)
+        content = getattr(self._content, name)
+        if OmegaConf.is_config(content):
+            config = self._config
+            config = getattr(self._config, name)
+            return MjCambrianContainerConfig(content, config=config)
+        else:
+            return content
 
     def __getitem__(self, key: Any) -> Self | Any:
         """Get the item from the content and return the wrapped instance. If the item is
         a DictConfig or ListConfig, we'll wrap it in this class."""
-        return self._get_impl(key, is_getattr=False)
+        # return self._get_impl(key, is_getattr=False)
+        content = self._content[key]
+        if OmegaConf.is_config(content):
+            config = self._config[key]
+            return MjCambrianContainerConfig(content, config=config)
+        else:
+            return content
 
     def __setattr__(self, name: str, value: Any):
         """Set the attribute in the content. These are fairly slow, but we'll keep them
@@ -464,6 +513,9 @@ class MjCambrianContainerConfig:
         """
         content = self._content.__dict__["_content"]
         config = self._config.__dict__["_content"]
+        if not OmegaConf.is_config(config):
+            config = self._config
+
         if isinstance(self._content, DictConfig):
             # Normalize the key. This will convert the key to allowed dictionary keys,
             # like converts 0, 1 if the key type is bool. Basically validates the key.

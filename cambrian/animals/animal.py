@@ -4,11 +4,11 @@ import numpy as np
 import mujoco as mj
 from gymnasium import spaces
 
-from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
+from cambrian.eyes import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.utils import (
     get_body_id,
     get_geom_id,
-    get_joint_id,
+    generate_sequence_from_range,
     MjCambrianJoint,
     MjCambrianActuator,
     MjCambrianGeometry,
@@ -18,7 +18,7 @@ from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 from cambrian.utils.logger import get_logger
 
 if TYPE_CHECKING:
-    from cambrian.envs.env import MjCambrianEnv
+    from cambrian.envs import MjCambrianEnv
 
 
 @config_wrapper
@@ -54,18 +54,21 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             is the longitudinal/horizontal range of the evenly placed eye about the
             animal's bounding sphere.
 
-        initial_qpos (Dict[int, float]): The initial qpos of the animal. Indices are
-            the qpos adr and the values are the initial values. This is used to set the
-            initial position of the animal in the environment. The indices are
-            actually calculated as the qpos adr of the joints associated with the
-            animal plus the index specified in the dict.
+        init_pos (Tuple[float | None]): The initial position of the animal. Specific
+            indices of the position are set when not None. The length of the tuple
+            should be <= 3. None's are filled in at the end if the length is less than
+            3.
+        init_quat (Tuple[float | None]): The initial quaternion of the animal. Specific
+            indices of the quaternion are set when not None. The length of the tuple
+            should be <= 4. None's are filled in at the end if the length is less than
+            4.
 
         use_action_obs (bool): Whether to use the action observation or not. NOTE: If
             the MjCambrianConstantActionWrapper is used, this is not reflected in the
             observation, as in the actions will vary in the observation.
 
-        num_eyes (Optional[Tuple[int, int]]): The number of eyes to generate on the
-            animal. If this is specified, then the eyes will be generated on a spherical
+        num_eyes_to_generate (Optional[Tuple[int, int]]): The num of eyes to generate.
+            If this is specified, then the eyes will be generated on a spherical
             grid. The first element is the number of eyes to generate latitudinally and
             the second element is the number of eyes to generate longitudinally. The
             eyes will be named sequentially starting from `eye_0`. Each eye will default
@@ -90,12 +93,13 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     eyes_lat_range: Tuple[float, float]
     eyes_lon_range: Tuple[float, float]
 
-    initial_qpos: Dict[int, float]
+    init_pos: Tuple[float | None]
+    init_quat: Tuple[float | None]
 
     use_action_obs: bool
 
-    num_eyes: Optional[Tuple[int, int]] = None
-    eyes: Dict[str, MjCambrianEyeConfig] 
+    num_eyes_to_generate: Optional[Tuple[int, int]] = None
+    eyes: Dict[str, MjCambrianEyeConfig]
 
 
 class MjCambrianAnimal:
@@ -121,7 +125,7 @@ class MjCambrianAnimal:
     """
 
     def __init__(self, config: MjCambrianAnimalConfig, name: str, idx: int):
-        self.config = self._check_config(config)
+        self._config = self._check_config(config)
         self._name = name
         self._idx = idx
         self._logger = get_logger()
@@ -130,14 +134,16 @@ class MjCambrianAnimal:
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
+        self._init_pos: Tuple[float | None, float | None, float | None] = None
+        self._init_quat: Tuple[
+            float | None, float | None, float | None, float | None
+        ] = None
+        self._actuators: List[MjCambrianActuator] = None
+        self._joints: List[MjCambrianJoint] = None
+        self._geom: MjCambrianGeometry = None
+        self._actadrs: List[int] = None
+        self._body_id: int = None
         self._initialize()
-
-        # Public attributes
-        self.init_pos: np.ndarray = None
-        # initial_qpos is actually a MjCambrianContainerConfig, so convert to regular
-        # dict so we can edit it
-        self.init_qpos: Dict[str, float] = {**self.config.initial_qpos}
-        self.last_action: np.ndarray = None
 
     def _check_config(self, config: MjCambrianAnimalConfig) -> MjCambrianAnimalConfig:
         """Run some checks/asserts on the config to make sure everything's there. Also,
@@ -158,13 +164,20 @@ class MjCambrianAnimal:
             - parse the geometry
             - place eyes at the appropriate locations
         """
-        model = mj.MjModel.from_xml_string(self.config.xml)
+        model = mj.MjModel.from_xml_string(self._config.xml)
 
         self._parse_geometry(model)
         self._parse_actuators(model)
 
         self._place_eyes()
 
+        # Extend the initial positions and quaternions to be the full length
+        init_pos = self._config.init_pos
+        self._init_pos = [*init_pos] + [None] * (3 - len(init_pos))
+        init_quat = self._config.init_quat
+        self._init_quat = [*init_quat] + [None] * (4 - len(init_quat))
+
+        # Explicitly delete the model; probably not required, but just to be safe
         del model
 
     def _parse_geometry(self, model: mj.MjModel):
@@ -186,12 +199,11 @@ class MjCambrianAnimal:
         # Get number of qpos/qvel/ctrl
         # Just stored for later, like to get the observation space, etc.
         self._numqpos = model.nq
-        self._numqvel = model.nv
         self._numctrl = model.nu
 
         # Create the geometries we will use for eye placement
-        geom_id = get_geom_id(model, self.config.geom_name)
-        assert geom_id != -1, f"Could not find geom {self.config.geom_name}."
+        geom_id = get_geom_id(model, self._config.geom_name)
+        assert geom_id != -1, f"Could not find geom {self._config.geom_name}."
         geom_rbound = model.geom_rbound[geom_id]
         geom_pos = model.geom_pos[geom_id]
         # Set each geom in this animal to be a certain group for rendering utils
@@ -205,22 +217,24 @@ class MjCambrianAnimal:
         """Parse the current model/xml for the actuators.
 
         We have to do this twice: once on the initial model load to get the ctrl limits
-        on the actuators. And then later to acquire the actual ids/adrs.
+        on the actuators (for the obs space). And then later to acquire the actual
+        ids/adrs.
         """
 
         # Root body for the animal
-        body_name = self.config.body_name
+        body_name = self._config.body_name
         body_id = get_body_id(model, body_name)
         assert body_id != -1, f"Could not find body with name {body_name}."
 
         # Mujoco doesn't have a neat way to grab the actuators associated with a
-        # specific agent, so we'll try to grab them dynamically by checking the
-        # transmission joint ids (the joint adrs associated with that actuator) and
-        # seeing if that the corresponding joint is on for this animal's body.
+        # specific agent/body, so we'll try to grab them dynamically by checking the
+        # transmission ids (the joint/site adrs associated with that actuator) and
+        # seeing if that the corresponding root body is on this animal's body.
         self._actuators: List[MjCambrianActuator] = []
         for actadr, ((trnid, _), trntype) in enumerate(
             zip(model.actuator_trnid, model.actuator_trntype)
         ):
+            # Grab the body id associated with the actuator
             if trntype == mj.mjtTrn.mjTRN_JOINT:
                 act_bodyid = model.jnt_bodyid[trnid]
             elif trntype == mj.mjtTrn.mjTRN_SITE:
@@ -228,10 +242,12 @@ class MjCambrianAnimal:
             else:
                 raise NotImplementedError(f'Unsupported trntype "{trntype}".')
 
+            # Add the actuator if the rootbody of the actuator is the same body
+            # as the transimission's body
             act_rootbodyid = model.body_rootid[act_bodyid]
             if act_rootbodyid == body_id:
                 ctrlrange = model.actuator_ctrlrange[actadr]
-                self._actuators.append(MjCambrianActuator(actadr, *ctrlrange))
+                self._actuators.append(MjCambrianActuator(actadr, trnid, *ctrlrange))
 
         # Get the joints
         # We use the joints to get the qpos/qvel as observations (joint specific states)
@@ -248,28 +264,30 @@ class MjCambrianAnimal:
     def _place_eyes(self):
         """Place the eyes on the animal."""
 
-        eye_configs: Dict[str, MjCambrianEyeConfig] = self.config.eyes
-        if num_eyes := self.config.num_eyes:
+        eye_configs: Dict[str, MjCambrianEyeConfig] = {}
+        if num_eyes := self._config.num_eyes_to_generate:
             assert len(num_eyes) == 2, "num_eyes should be a tuple of length 2."
-            assert len(eye_configs) == 1, "Only one eye config should be specified."
+            assert (
+                len(self._config.eyes) == 1
+            ), "Only one eye config should be specified."
 
-            # Place the eyes uniformly on a spherical grid. The number of latitude and 
-            # longitudinaly bins is defined by the two attributes in `eyes`, 
+            base_eye_name, base_eye_config = list(self._config.eyes.items())[0]
+
+            # Place the eyes uniformly on a spherical grid. The number of latitude and
+            # longitudinaly bins is defined by the two attributes in `eyes`,
             # respectively.
-            num_lat, num_lon = self.config.num_eyes
-            lat_bins = generate_sequence_from_range(self.config.eyes_lat_range, num_lat)
-            lon_bins = generate_sequence_from_range(self.config.eyes_lon_range, num_lon)
+            nlat, nlon = self._config.num_eyes_to_generate
+            lat_bins = generate_sequence_from_range(self._config.eyes_lat_range, nlat)
+            lon_bins = generate_sequence_from_range(self._config.eyes_lon_range, nlon)
             for lat_idx, lat in enumerate(lat_bins):
                 for lon_idx, lon in enumerate(lon_bins):
-                    eye_name = f"eye_{lat_idx}_{lon_idx}"
-                    eye_config = MjCambrianEyeConfig(
-                        instance=MjCambrianEye,
-                        resolution=(64, 64),
-                        coord=(lat, lon),
-                        geom_name=self.config.geom_name,
-                        group=self._geom.group,
-                    )
+                    eye_name = f"{base_eye_name}_{lat_idx}_{lon_idx}"
+                    eye_config = base_eye_config.copy()
+                    with eye_config.set_readonly_temporarily(False):
+                        eye_config.update("coord", [lat, lon])
                     eye_configs[eye_name] = eye_config
+        else:
+            eye_configs = self._config.eyes
 
         for name, eye_config in eye_configs.items():
             # Don't create the eye if it's disabled
@@ -282,15 +300,15 @@ class MjCambrianAnimal:
         """Generates the xml for the animal. Will generate the xml from the model file
         and then add eyes to it.
         """
-        xml = MjCambrianXML.from_string(self.config.xml)
+        xml = MjCambrianXML.from_string(self._config.xml)
 
         # Update the geom group. See comment in _parse_geometry for more info.
-        for geom in xml.findall(f".//*[@name='{self.config.body_name}']//geom"):
+        for geom in xml.findall(f".//*[@name='{self._config.body_name}']//geom"):
             geom.set("group", str(self._geom.group))
 
         # Add eyes
         for eye in self.eyes.values():
-            xml += eye.generate_xml(xml, self.geom, self.config.body_name)
+            xml += eye.generate_xml(xml, self.geom, self._config.body_name)
 
         return xml
 
@@ -305,9 +323,6 @@ class MjCambrianAnimal:
             # Map from -1, 1 to ctrlrange
             action = np.interp(action, [-1, 1], [actuator.low, actuator.high])
             self._data.ctrl[actuator.adr] = action
-
-        # Set the last action class variable
-        self.last_action = np.array(actions)
 
     def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
         """This is a deviation from the standard gym API. This method is similar to
@@ -333,18 +348,16 @@ class MjCambrianAnimal:
         self._model = model
         self._data = data
 
-        # Parse actuators
+        # Parse actuators; this is the second time we're doing this, but we need to
+        # get the adrs of the actuators in the current model
         self._parse_actuators(model)
 
         # Accumulate the qpos/qvel/act adrs
         self._reset_adrs(model)
 
-        # Set the last_action to the current action
-        self.last_action = self._data.ctrl[self._actadrs].copy()
-
         # Update the animal's qpos
-        for idx, val in self.init_qpos.items():
-            self._data.qpos[self._qposadrs[idx]] = val
+        self.pos = self._init_pos
+        self.quat = self._init_quat
 
         # step here so that the observations are updated
         mj.mj_forward(model, data)
@@ -360,43 +373,27 @@ class MjCambrianAnimal:
         """Resets the adrs for the animal. This is used when the model is reloaded."""
 
         # Root body for the animal
-        body_name = self.config.body_name
+        body_name = self._config.body_name
         self._body_id = get_body_id(model, body_name)
         assert self._body_id != -1, f"Could not find body with name {body_name}."
 
         # Geometry id
-        geom_id = get_geom_id(model, self.config.geom_name)
-        assert geom_id != -1, f"Could not find geom {self.config.geom_name}."
+        geom_id = get_geom_id(model, self._config.geom_name)
+        assert geom_id != -1, f"Could not find geom {self._config.geom_name}."
         self._geom.id = geom_id
 
-        # This joint is used for positioning the animal in the environment
-        joint_name = self.config.joint_name
-        self._joint_id = get_joint_id(model, joint_name)
-        assert self._joint_id != -1, f"Could not find joint with name {joint_name}."
-        self._joint_qposadr = model.jnt_qposadr[self._joint_id]
-        self._joint_dofadr = model.jnt_dofadr[self._joint_id]
-
-        # Accumulate the qpos/qvel/act adrs
+        # Accumulate the qposadrs
         self._qposadrs = []
         for joint in self._joints:
-            self._qposadrs.extend(range(joint.qposadr, joint.qposadr + joint.numqpos))
+            self._qposadrs.extend(joint.qposadrs)
+
+        self._actadrs: List[int] = [act.adr for act in self._actuators]
+
         assert len(self._qposadrs) == self._numqpos
-
-        self._qveladrs = []
-        for joint in self._joints:
-            self._qveladrs.extend(range(joint.qveladr, joint.qveladr + joint.numqvel))
-        assert len(self._qveladrs) == self._numqvel
-
-        self._actadrs = [act.adr for act in self._actuators]
         assert len(self._actadrs) == self._numctrl
 
     def step(self) -> Dict[str, Any]:
-        """Steps the eyes, updates the ctrl inputs, and returns the observation.
-
-        NOTE: the action isn't actually applied here, it's simply passed to be stored
-        in the observation, if needed. The action should be applied explicitly with
-        `apply_action`.
-        """
+        """Steps the eyes and returns the observation."""
 
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
@@ -406,7 +403,7 @@ class MjCambrianAnimal:
 
     def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         """Add additional attributes to the observation."""
-        if self.config.use_action_obs:
+        if self._config.use_action_obs:
             obs["action"] = self.last_action
 
         return obs
@@ -431,12 +428,12 @@ class MjCambrianAnimal:
         )
 
         # Sort the eyes based on their lat/lon
-        images = {}
+        images: Dict[float, Dict[float, np.ndarray]] = {}
         for eye in self.eyes.values():
             lat, lon = eye.config.coord
             if lat not in images:
                 images[lat] = {}
-            assert lon not in images[lat]
+            assert lon not in images[lat], f"Duplicate eye at {lat}, {lon}."
             images[lat][lon] = eye.prev_obs[:, :, :3]  # only use rgb
 
         # Construct the composite image
@@ -500,10 +497,8 @@ class MjCambrianAnimal:
         for name, eye in self.eyes.items():
             observation_space[name] = eye.observation_space
 
-        if self.config.use_action_obs:
-            observation_space["action"] = spaces.Box(
-                low=-1, high=1, shape=(self._numctrl,), dtype=np.float32
-            )
+        if self._config.use_action_obs:
+            observation_space["action"] = self.action_space
 
         return spaces.Dict(observation_space)
 
@@ -513,12 +508,12 @@ class MjCambrianAnimal:
         return spaces.Box(low=-1, high=1, shape=(self._numctrl,), dtype=np.float32)
 
     @property
-    def name(self) -> str:
-        return self._name
+    def config(self) -> MjCambrianAnimalConfig:
+        return self._config
 
     @property
-    def idx(self) -> int:
-        return self._idx
+    def name(self) -> str:
+        return self._name
 
     @property
     def eyes(self) -> Dict[str, MjCambrianEye]:
@@ -529,34 +524,101 @@ class MjCambrianAnimal:
         return len(self._eyes)
 
     @property
+    def init_pos(self) -> np.ndarray:
+        """Returns the initial position of the animal."""
+        return self._init_pos
+
+    @init_pos.setter
+    def init_pos(self, value: Tuple[float | None, float | None, float | None]):
+        """Sets the initial position of the animal."""
+        for idx, val in enumerate(value):
+            if val is not None:
+                self._init_pos[idx] = val
+
+    @property
     def qpos(self) -> np.ndarray:
         """Gets the qpos of the animal. The qpos is the state of the joints defined
-        in the animal's xml. This method is used to get the state of the qpos."""
-        return self._data.qpos[self._qposadrs]
+        in the animal's xml. This method is used to get the state of the qpos. It's
+        actually a masked array where the entries are masked if the qpos adr is not
+        associated with the animal. This allows the return value to be indexed
+        and edited as if it were the full qpos array."""
+        mask = np.ones(self._data.qpos.shape, dtype=bool)
+        mask[self._qposadrs] = False
+        return np.ma.masked_array(self._data.qpos, mask=mask)
 
     @qpos.setter
     def qpos(self, value: np.ndarray[float | None]):
         """Set's the qpos of the animal. The qpos is the state of the joints defined
         in the animal's xml. This method is used to set the state of the qpos. The
         value input is a numpy array where the entries are either values to set
-        to the corresponding qpos adr or None. If None, the qpos adr is not
-        updated.
+        to the corresponding qpos adr or None.
 
         It's allowed for `value` to be less than the total number of joints in the
         animal. If this is the case, only the first `len(value)` joints will be
         updated.
         """
-        self._data.qpos[self._qposadrs[: len(value)]] = value
+        for idx, val in enumerate(value):
+            if val is not None:
+                self._data.qpos[self._qposadrs[idx]] = val
 
     @property
     def pos(self) -> np.ndarray:
-        """Returns the position of the animal in the environment."""
-        return self._data.xpos[self._body_id].copy()
+        """Returns the position of the animal in the environment.
+
+        NOTE: the returned value, if edited, doesn't not directly impact the simulation.
+        To set the position of the animal, use the `pos` setter.
+        """
+        return self._data.xpos[self._body_id]
+
+    @pos.setter
+    def pos(self, value: Tuple[float | None, float | None, float | None]):
+        """Sets the position of the animal in the environment. The value is a tuple
+        of the x, y, and z positions. If the value is None, the position is not
+        updated.
+
+        NOTE: This base implementation assumes the first 3 values of the qpos are the
+        x, y, and z positions of the animal. This may not be the case and depends on
+        the joints defined in the animal, so this method should be overridden in the
+        subclass if this is not the case.
+        """
+        for idx, val in enumerate(value):
+            if val is not None:
+                self._data.qpos[self._qposadrs[idx]] = val
+
+    @property
+    def quat(self) -> np.ndarray:
+        """Returns the quaternion of the animal in the environment. Fmt: `wxyz`.
+
+        NOTE: the returned value, if edited, doesn't not directly impact the simulation.
+        To set the quaternion of the animal, use the `quat` setter."""
+        return self._data.xquat[self._body_id].copy()
+
+    @quat.setter
+    def quat(
+        self, value: Tuple[float | None, float | None, float | None, float | None]
+    ):
+        """Sets the quaternion of the animal in the environment. The value is a tuple
+        of the x, y, z, and w values. If the value is None, the quaternion is not
+        updated.
+
+        NOTE: This base implementation assumes the 3,4,5,6 indicies of the qpos are the
+        x, y, z, and w values of the quaternion of the animal. This may not be the case
+        and depends on the joints defined in the animal, so this method should be
+        overridden in the subclass if this is not the case.
+        """
+        for idx, val in enumerate(value):
+            if val is not None:
+                self._data.qpos[self._qposadrs[3 + idx]] = val
 
     @property
     def mat(self) -> np.ndarray:
         """Returns the rotation matrix of the animal in the environment."""
         return self._data.xmat[self._body_id].reshape(3, 3).copy()
+
+    @property
+    def last_action(self) -> np.ndarray:
+        """Returns the last action that was applied to the animal."""
+        return self._data.ctrl[self._actadrs].copy()
 
     @property
     def geom(self) -> MjCambrianGeometry:

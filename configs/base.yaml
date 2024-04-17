@@ -11,6 +11,9 @@ defaults:
 
   - required exp: "???"
 
+  # Add optional tool configs here
+  - optional tools: null
+
   # Here we override the default launcher and sweepers. Note that this only impacts
   # when multi-run is used. By default, we'll specify the local launcher (which is
   # based on submitit_local) and the evolution sweep (which is based on nevergrad). See

@@ -16,7 +16,7 @@ from stable_baselines3.common.callbacks import (
 )
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from cambrian.envs.env import MjCambrianEnv
+from cambrian.envs import MjCambrianEnv
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import setattrs_temporary
 from cambrian.utils.logger import get_logger
@@ -147,7 +147,7 @@ class MjCambrianEvalCallback(EvalCallback):
         env: MjCambrianEnv = self.eval_env.envs[0].unwrapped
 
         # Add some overlays
-        # env.overlays["Exp"] = env.config.training_config.exp_name # TODO
+        # env.overlays["Exp"] = env.config.expname # TODO
         env.overlays["Best Mean Reward"] = f"{self.best_mean_reward:.2f}"
         env.overlays["Total Timesteps"] = f"{self.num_timesteps}"
 

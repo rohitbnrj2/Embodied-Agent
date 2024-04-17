@@ -1,9 +1,10 @@
-import argparse
 from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable, Dict, Generator
+from types import ModuleType
 from pathlib import Path
 from dataclasses import dataclass
 import contextlib
 import ast
+import re
 
 import mujoco as mj
 import numpy as np
@@ -38,7 +39,7 @@ def evaluate_policy(
             see that method for more details.
     """
     # To avoid circular imports
-    from cambrian.envs.env import MjCambrianEnv
+    from cambrian.envs import MjCambrianEnv
     from cambrian.utils.logger import get_logger
 
     cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
@@ -89,35 +90,6 @@ def calculate_fitness(evaluations_npz: Path) -> float:
     data = np.load(evaluations_npz)
     rewards = data["results"]
     return top_25_excluding_outliers(rewards)
-
-
-# =============
-
-
-class MjCambrianArgumentParser(argparse.ArgumentParser):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.add_argument("config", type=str, help="Path to config file")
-        self.add_argument(
-            "-o",
-            "--override",
-            "--overrides",
-            dest="overrides",
-            action="extend",
-            nargs="+",
-            type=str,
-            help="Override config values. Do <config>.<key>=<value>",
-            default=[],
-        )
-
-        self._args = None
-
-    def parse_args(self, *args, **kwargs):
-        args = super().parse_args(*args, **kwargs)
-        self._args = args
-
-        return args
 
 
 # =============
@@ -230,6 +202,23 @@ def get_sensor_name(model: mj.MjModel, sensoradr: int) -> str:
 
 
 @dataclass
+class MjCambrianActuator:
+    """Helper class which stores information about a Mujoco actuator.
+
+    Attributes:
+        adr (int): The Mujoco actuator ID (index into model.actuator_* arrays).
+        trnadr (int): The index of the actuator's transmission in the model.
+        low (float): The lower bound of the actuator's range.
+        high (float): The upper bound of the actuator's range.
+    """
+
+    adr: int
+    trnadr: int
+    low: float
+    high: float
+
+
+@dataclass
 class MjCambrianJoint:
     """Helper class which stores information about a Mujoco joint.
 
@@ -260,32 +249,21 @@ class MjCambrianJoint:
         elif jnt_type == mj.mjtJoint.mjJNT_BALL:
             numqpos = 4
             numqvel = 3
-        elif mj.mjtJoint.mjJNT_HINGE or mj.mjtJoint.mjJNT_SLIDE:
+        else:  # mj.mjtJoint.mjJNT_HINGE or mj.mjtJoint.mjJNT_SLIDE
             numqpos = 1
             numqvel = 1
-        else:
-            raise ValueError(f"Unsupported joint type: {jnt_type}")
 
         return MjCambrianJoint(jntadr, qposadr, numqpos, qveladr, numqvel)
 
-
-@dataclass
-class MjCambrianActuator:
-    """Helper class which stores information about a Mujoco actuator.
-
-    Attributes:
-        adr (int): The Mujoco actuator ID (index into model.actuator_* arrays).
-        low (float): The lower bound of the actuator's range.
-        high (float): The upper bound of the actuator's range.
-    """
-
-    adr: int
-    low: float
-    high: float
+    @property
+    def qposadrs(self) -> List[int]:
+        """Get the indices of the joint's positions in the qpos array."""
+        return list(range(self.qposadr, self.qposadr + self.numqpos))
 
     @property
-    def ctrlrange(self) -> float:
-        return self.high - self.low
+    def qveladrs(self) -> List[int]:
+        """Get the indices of the joint's velocities in the qvel array."""
+        return list(range(self.qveladr, self.qveladr + self.numqvel))
 
 
 @dataclass
@@ -307,6 +285,47 @@ class MjCambrianGeometry:
 
 # =============
 # Misc utils
+
+
+def format_string_with_obj_attributes(s, obj):
+    """
+    Replaces placeholders in a string with attribute values from a provided object.
+
+    Args:
+    s (str): The string containing placeholders in the format {attr.path}.
+    obj (object): The object from which to fetch the attribute values.
+
+    Returns:
+    str: The formatted string with attribute values.
+
+    Examples:
+    >>> class Env:
+    ...     def __init__(self):
+    ...         self.test = "working"
+    ...
+    >>> class CustomPythonClass:
+    ...     def __init__(self):
+    ...         self.env = Env()
+    ...
+    >>> obj = CustomPythonClass()
+    >>> format_string_with_obj_attributes("Test: {env.test}", obj)
+    'Test: working'
+    """
+
+    def get_nested_attr(obj, attr_path):
+        """Fetches the value of a nested attribute by traversing through the object attributes based on the dot-separated path."""
+        for attr in attr_path.split("."):
+            obj = getattr(obj, attr, None)
+            if obj is None:
+                return None
+        return obj
+
+    def replace_attr(match):
+        """Helper function to replace each placeholder in the string with the corresponding attribute value."""
+        path = match.group(1)
+        return str(get_nested_attr(obj, path))
+
+    return re.sub(r"\{([^}]+)\}", replace_attr, s)
 
 
 def literal_eval_with_callables(
@@ -343,6 +362,10 @@ def literal_eval_with_callables(
         node = node_or_string
         string = ast.dump(node)
 
+    # Copy safe_callables into _env to allow names to evaluate to callables, like if
+    # a module is specified in safe_callables and they have attributes/constants.
+    _env = {**safe_callables, **_env}
+
     op_map = {
         ast.Add: lambda x, y: x + y,
         ast.Sub: lambda x, y: x - y,
@@ -374,13 +397,14 @@ def literal_eval_with_callables(
     def _convert(node):
         if isinstance(node, ast.Constant):
             return node.value
-        elif isinstance(node, ast.Attribute):
-            print(_convert(node.value))
-            exit()
-            return getattr(_convert(node.value), node.attr)
         elif isinstance(node, ast.Name):
             if node.id in _env:
                 return _env[node.id]
+        elif isinstance(node, ast.Attribute):
+            obj = _convert(node.value)
+            if isinstance(obj, ModuleType) and hasattr(obj, node.attr):
+                attribute = getattr(obj, node.attr)
+                return attribute if callable(attribute) else attribute
         elif isinstance(node, (ast.Tuple, ast.List)):
             return type(node.elts)(map(_convert, node.elts))
         elif isinstance(node, ast.Dict):
@@ -415,7 +439,7 @@ def literal_eval_with_callables(
                         *map(_convert, node.args),
                         **{kw.arg: _convert(kw.value) for kw in node.keywords},
                     )
-        if isinstance(node, ast.GeneratorExp):
+        elif isinstance(node, ast.GeneratorExp):
             iter_node = node.elt
             results = []
 
@@ -430,7 +454,7 @@ def literal_eval_with_callables(
         else:
             raise ValueError(f"Unsupported node type: {type(node)}")
 
-        raise ValueError(f"Couldn't parse node: {ast.dump(node)}")
+        raise ValueError(f"Couldn't parse node ({type(node)}): {ast.dump(node)}")
 
     try:
         return _convert(node)

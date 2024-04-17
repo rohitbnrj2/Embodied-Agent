@@ -47,10 +47,10 @@ class MjCambrianLoggerMaxLevelFilter(logging.Filter):
     """This filter sets a maximum level."""
 
     def __init__(self, max_level: str):
-        self.max_level = logging.getLevelName(max_level)
+        self._max_level = logging.getLevelName(max_level)
 
     def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
-        return record.levelno <= self.max_level
+        return record.levelno <= self._max_level
 
 
 def get_logger(name: str = "cambrian") -> logging.Logger:

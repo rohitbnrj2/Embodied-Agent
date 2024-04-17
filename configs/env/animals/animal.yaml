@@ -4,11 +4,12 @@
 trainable: true
 
 instance:
-  _target_: cambrian.animals.animal.MjCambrianAnimal
+  _target_: cambrian.animals.MjCambrianAnimal
   _partial_: true
 
 # Default configuration is randomly placed depending on the selected environment
-initial_qpos: {}
+init_pos: []
+init_quat: []
 
 use_action_obs: true
 

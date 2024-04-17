@@ -7,8 +7,8 @@ import cv2
 import numpy as np
 import mujoco as mj
 
-from cambrian.env import MjCambrianEnv
-from cambrian.renderer.renderer import resize_with_aspect_fill
+from cambrian.envs import MjCambrianEnv
+from cambrian.renderers import resize_with_aspect_fill
 from cambrian.utils import setattrs_temporary
 from cambrian.utils.config import MjCambrianConfig
 

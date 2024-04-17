@@ -1,7 +1,9 @@
 # @package _global_
 
 defaults:
-  - /exp/demos/maze_demo@_here_
+  - /exp/demos/high_resolution@_here_
+
+  - override /env/animals/eyes: optics
 
 env:
   animals:
@@ -9,3 +11,5 @@ env:
       eyes:
         animal_0_eye_0:
           resolution: [100, 100]
+
+          aperture: 0.25

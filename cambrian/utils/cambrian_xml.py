@@ -184,10 +184,13 @@ class MjCambrianXML:
 
     @staticmethod
     def parse(
-        base_xml_path: Path | str, *, overrides: Optional[MjCambrianXMLConfig] = None
+        xml_string: str, *, overrides: Optional[MjCambrianXMLConfig] = None
     ) -> str:
         """This is a helper method to parse an xml file with overrides."""
-        return MjCambrianXML(base_xml_path, overrides=overrides).to_string()
+        xml = MjCambrianXML.from_string(xml_string)
+        if overrides is not None:
+            xml += MjCambrianXML.from_config(overrides)
+        return xml.to_string()
 
     def add(self, parent: ET.Element, tag: str, *args, **kwargs) -> ET.Element:
         """Add an element to the xml tree.

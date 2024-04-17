@@ -1,2 +1,9 @@
-import cambrian.eyes.eye  # noqa
-import cambrian.eyes.optics  # noqa
+from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
+from cambrian.eyes.optics import MjCambrianOpticsEye, MjCambrianOpticsEyeConfig
+
+__all__ = [
+    "MjCambrianEye",
+    "MjCambrianEyeConfig",
+    "MjCambrianOpticsEye",
+    "MjCambrianOpticsEyeConfig",
+]

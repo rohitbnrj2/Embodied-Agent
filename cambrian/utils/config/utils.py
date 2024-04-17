@@ -64,6 +64,8 @@ def run_hydra(
     import hydra
     from omegaconf import DictConfig
 
+    from cambrian.utils.config.config import MjCambrianConfig  # noqa
+
     # Add one default argument for the --hydra-help message
     parser.add_argument(
         "--hydra-help", action="store_true", help="Print the hydra help message."

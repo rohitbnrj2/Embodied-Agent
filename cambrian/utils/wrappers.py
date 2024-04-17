@@ -10,7 +10,7 @@ from gymnasium.error import CustomSpaceError
 from gymnasium.spaces.space import T_cov
 from stable_baselines3.common.env_checker import check_env
 
-from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
+from cambrian.envs import MjCambrianEnv, MjCambrianEnvConfig
 
 
 class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
@@ -22,25 +22,25 @@ class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
     def __init__(self, env: MjCambrianEnv):
         super().__init__(env)
 
-        self.animal = next(iter(env.animals.values()))
+        self._animal = next(iter(env.animals.values()))
         self.action_space = next(iter(env.action_spaces.values()))
         self.observation_space = next(iter(env.observation_spaces.values()))
 
     def reset(self, *args, **kwargs) -> Tuple[Any, Dict[str, Any]]:
         obs, info = self.env.reset(*args, **kwargs)
 
-        return obs[self.animal.name], info[self.animal.name]
+        return obs[self._animal.name], info[self._animal.name]
 
     def step(self, action: Any) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
-        action = {self.animal.name: action}
+        action = {self._animal.name: action}
         obs, reward, terminated, truncated, info = self.env.step(action)
 
         return (
-            obs[self.animal.name],
-            reward[self.animal.name],
-            terminated[self.animal.name],
-            truncated[self.animal.name],
-            info[self.animal.name],
+            obs[self._animal.name],
+            reward[self._animal.name],
+            terminated[self._animal.name],
+            truncated[self._animal.name],
+            info[self._animal.name],
         )
 
 
@@ -56,11 +56,11 @@ class MjCambrianConstantActionWrapper(gym.Wrapper):
     def __init__(self, env: MjCambrianEnv, constant_actions: Dict[Any, Any]):
         super().__init__(env)
 
-        self.constant_action_indices = list(constant_actions.keys())
-        self.constant_action_values = list(constant_actions.values())
+        self._constant_action_indices = list(constant_actions.keys())
+        self._constant_action_values = list(constant_actions.values())
 
     def step(self, action: Any) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
-        action[self.constant_action_indices] = self.constant_action_values
+        action[self._constant_action_indices] = self._constant_action_values
 
         return self.env.step(action)
 

@@ -3,9 +3,9 @@ from typing import Dict, Any, List, Optional
 import numpy as np
 import mujoco as mj
 
-from cambrian.envs.env import MjCambrianEnv
+from cambrian.envs import MjCambrianEnv
 from cambrian.envs.object_env import MjCambrianObjectEnv
-from cambrian.animals.animal import MjCambrianAnimal
+from cambrian.animals import MjCambrianAnimal
 
 # =====================
 # Common reward logic

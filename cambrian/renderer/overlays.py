@@ -26,8 +26,8 @@ class MjCambrianViewerOverlay:
     def __init__(
         self, obj: np.ndarray | str, cursor: Optional[MjCambrianCursor] = None
     ):
-        self.obj = obj
-        self.cursor = cursor.copy() if cursor is not None else None
+        self._obj = obj
+        self._cursor = cursor.copy() if cursor is not None else None
 
     def draw_before_render(self, scene: mj.MjvScene):
         """Called before rendering the scene."""
@@ -40,12 +40,12 @@ class MjCambrianViewerOverlay:
 
 class MjCambrianTextViewerOverlay(MjCambrianViewerOverlay):
     def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
-        viewport = viewport if self.cursor is None else mj.MjrRect(*self.cursor, 1, 1)
+        viewport = viewport if self._cursor is None else mj.MjrRect(*self._cursor, 1, 1)
         mj.mjr_overlay(
             mj.mjtFont.mjFONT_NORMAL,
             mj.mjtGridPos.mjGRID_BOTTOMLEFT,
             viewport,
-            self.obj,
+            self._obj,
             "",
             mjr_context,
         )
@@ -53,8 +53,8 @@ class MjCambrianTextViewerOverlay(MjCambrianViewerOverlay):
 
 class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
     def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
-        viewport = mj.MjrRect(*self.cursor, self.obj.shape[1], self.obj.shape[0])
-        mj.mjr_drawPixels(self.obj.ravel(), None, viewport, mjr_context)
+        viewport = mj.MjrRect(*self._cursor, self._obj.shape[1], self._obj.shape[0])
+        mj.mjr_drawPixels(self._obj.ravel(), None, viewport, mjr_context)
 
 
 class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
@@ -69,8 +69,8 @@ class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
         self, pos: np.ndarray, rgba: Tuple[float, float, float, float], size: float
     ):
         super().__init__(pos)
-        self.rgba = rgba
-        self.size = size
+        self._rgba = rgba
+        self._size = size
 
     def draw_before_render(self, scene: mj.MjvScene):
         if scene.ngeom >= scene.maxgeom:
@@ -83,8 +83,8 @@ class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
         mj.mjv_initGeom(
             scene.geoms[scene.ngeom - 1],
             mj.mjtGeom.mjGEOM_SPHERE,
-            [self.size] * 3,
-            self.obj,
+            [self._size] * 3,
+            self._obj,
             np.eye(3).flatten(),
-            self.rgba,
+            self._rgba,
         )

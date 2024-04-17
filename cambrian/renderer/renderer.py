@@ -85,15 +85,15 @@ MJR_CONTEXT: mj.MjrContext = None
 
 class MjCambrianViewer(ABC):
     def __init__(self, config: MjCambrianRendererConfig):
-        self.config = config
-        self.logger = get_logger()
+        self._config = config
+        self._logger = get_logger()
 
-        self.model: mj.MjModel = None
-        self.data: mj.MjData = None
-        self.viewport: mj.MjrRect = None
-        self.scene: mj.MjvScene = None
-        self.scene_options: mj.MjvOption = None
-        self.camera: mj.MjvCamera = None
+        self._model: mj.MjModel = None
+        self._data: mj.MjData = None
+        self._viewport: mj.MjrRect = None
+        self._scene: mj.MjvScene = None
+        self._scene_options: mj.MjvOption = None
+        self._camera: mj.MjvCamera = None
 
         self._gl_context: mj.gl_context.GLContext = None
         self._mjr_context: mj.MjrContext = None
@@ -104,18 +104,18 @@ class MjCambrianViewer(ABC):
         self._depth: np.ndarray = np.array([])
 
     def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
-        self.model = model
-        self.data = data
+        self._model = model
+        self._data = data
 
         # Only create the scene once
-        if self.scene is None:
-            self.scene = self.config.scene(model=model)
-        self.scene_options = deepcopy(self.config.scene_options)
-        self.camera = deepcopy(self.config.camera)
+        if self._scene is None:
+            self._scene = self._config.scene(model=model)
+        self._scene_options = deepcopy(self._config.scene_options)
+        self._camera = deepcopy(self._config.camera)
 
         self._initialize_contexts(width, height)
 
-        self.viewport = mj.MjrRect(0, 0, width, height)
+        self._viewport = mj.MjrRect(0, 0, width, height)
 
         # Initialize the buffers
         if self._rgb_uint8.shape[0] != height or self._rgb_uint8.shape[1] != width:
@@ -130,10 +130,10 @@ class MjCambrianViewer(ABC):
         # height and width most likely must match as well. If the existing context
         # is onscreen and we're requesting offscreen, override use_shared_context (and
         # vice versa).
-        use_shared_context = self.config.use_shared_context
+        use_shared_context = self._config.use_shared_context
         if use_shared_context and MJR_CONTEXT:
             if MJR_CONTEXT.currentBuffer != self.get_framebuffer_option():
-                self.logger.warning(
+                self._logger.warning(
                     "Overriding use_shared_context. "
                     "First buffer and current buffer don't match."
                 )
@@ -145,9 +145,9 @@ class MjCambrianViewer(ABC):
             self._gl_context = GL_CONTEXT
             self.make_context_current()
 
-            MJR_CONTEXT = MJR_CONTEXT or mj.MjrContext(self.model, self._font)
+            MJR_CONTEXT = MJR_CONTEXT or mj.MjrContext(self._model, self._font)
             self._mjr_context = MJR_CONTEXT
-        elif self.viewport is None or width != self.width or height != self.height:
+        elif self._viewport is None or width != self.width or height != self.height:
             # If the viewport is None (i.e. this is the first reset), or the window
             # has been resized, create a new context. We'll need to clean up the old
             # context if it exists.
@@ -159,40 +159,40 @@ class MjCambrianViewer(ABC):
             # Initialize the new contexts
             self._gl_context = mj.gl_context.GLContext(width, height)
             self.make_context_current()
-            self._mjr_context = mj.MjrContext(self.model, self._font)
+            self._mjr_context = mj.MjrContext(self._model, self._font)
         self._mjr_context.readDepthMap = mj.mjtDepthMap.mjDEPTH_ZEROFAR
         mj.mjr_setBuffer(self.get_framebuffer_option(), self._mjr_context)
 
     @abstractmethod
     def update(self, width: int, height: int):
         # Subclass should override this method such that this is not possible
-        assert width == self.viewport.width and height == self.viewport.height
+        assert width == self._viewport.width and height == self._viewport.height
 
         mj.mjv_updateScene(
-            self.model,
-            self.data,
-            self.scene_options,
+            self._model,
+            self._data,
+            self._scene_options,
             None,  # mjvPerturb
-            self.camera,
+            self._camera,
             mj.mjtCatBit.mjCAT_ALL,
-            self.scene,
+            self._scene,
         )
 
     def render(self, *, overlays: List[MjCambrianViewerOverlay] = []):
         self.make_context_current()
-        self.update(self.viewport.width, self.viewport.height)
+        self.update(self._viewport.width, self._viewport.height)
 
         for overlay in overlays:
-            overlay.draw_before_render(self.scene)
+            overlay.draw_before_render(self._scene)
 
-        mj.mjr_render(self.viewport, self.scene, self._mjr_context)
+        mj.mjr_render(self._viewport, self._scene, self._mjr_context)
 
         for overlay in overlays:
-            overlay.draw_after_render(self._mjr_context, self.viewport)
+            overlay.draw_after_render(self._mjr_context, self._viewport)
 
     def read_pixels(self, read_depth: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         rgb_uint8, depth = self._rgb_uint8, self._depth if read_depth else None
-        mj.mjr_readPixels(rgb_uint8, depth, self.viewport, self._mjr_context)
+        mj.mjr_readPixels(rgb_uint8, depth, self._viewport, self._mjr_context)
 
         # Flipud the images
         # NOTE: If you plan to convert to a pytorch tensor, negative indices aren't
@@ -229,19 +229,27 @@ class MjCambrianViewer(ABC):
 
     @property
     def width(self) -> int:
-        return self.viewport.width
+        return self._viewport.width
 
     @width.setter
     def width(self, width: int):
-        self.viewport.width = width
+        self._viewport.width = width
 
     @property
     def height(self) -> int:
-        return self.viewport.height
+        return self._viewport.height
 
     @height.setter
     def height(self, height: int):
-        self.viewport.height = height
+        self._viewport.height = height
+
+    @property
+    def camera(self) -> mj.MjvCamera:
+        return self._camera
+
+    @property
+    def config(self) -> MjCambrianRendererConfig:
+        return self._config
 
 
 class MjCambrianOffscreenViewer(MjCambrianViewer):
@@ -249,9 +257,9 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
         return mj.mjtFramebuffer.mjFB_OFFSCREEN.value
 
     def update(self, width: int, height: int):
-        if self.viewport.width != width or self.viewport.height != height:
+        if self._viewport.width != width or self._viewport.height != height:
             self.make_context_current()
-            self.viewport = mj.MjrRect(0, 0, width, height)
+            self._viewport = mj.MjrRect(0, 0, width, height)
             mj.mjr_resizeOffscreen(width, height, self._mjr_context)
 
         super().update(width, height)
@@ -267,7 +275,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
     def __init__(self, config: MjCambrianRendererConfig):
         super().__init__(config)
 
-        self.window = None
+        self._window = None
         self.default_window_pos: Tuple[int, int] = None
         self._scale: float = None
 
@@ -281,20 +289,20 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         self._last_mouse_y: int = 0
         self._is_paused: bool = False
 
-        if self.window is None:
+        if self._window is None:
             self._initialize_window(width, height)
-        glfw.set_window_size(self.window, width, height)
-        self.fullscreen(self.config.fullscreen if self.config.fullscreen else False)
+        glfw.set_window_size(self._window, width, height)
+        self.fullscreen(self._config.fullscreen if self._config.fullscreen else False)
 
         super().reset(model, data, width, height)
 
-        window_width, _ = glfw.get_window_size(self.window)
+        window_width, _ = glfw.get_window_size(self._window)
         self._scale = width / window_width
 
-        glfw.set_cursor_pos_callback(self.window, self._cursor_pos_callback)
-        glfw.set_mouse_button_callback(self.window, self._mouse_button_callback)
-        glfw.set_scroll_callback(self.window, self._scroll_callback)
-        glfw.set_key_callback(self.window, self._key_callback)
+        glfw.set_cursor_pos_callback(self._window, self._cursor_pos_callback)
+        glfw.set_mouse_button_callback(self._window, self._mouse_button_callback)
+        glfw.set_scroll_callback(self._window, self._scroll_callback)
+        glfw.set_key_callback(self._window, self._key_callback)
 
         glfw.swap_interval(1)
 
@@ -305,7 +313,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
             raise Exception("GLFW failed to initialize.")
 
         gl_context = None
-        if self.config.use_shared_context:
+        if self._config.use_shared_context:
             from mujoco.glfw import GLContext as GLFWGLContext
 
             GL_CONTEXT = GL_CONTEXT or GLFWGLContext(width, height)
@@ -315,65 +323,65 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
                 "Set the env variable `MUJOCO_GL` to `glfw` to use the correct context."
             )
             gl_context = GL_CONTEXT._context
-        self.window = glfw.create_window(width, height, "MjCambrian", None, gl_context)
-        if not self.window:
+        self._window = glfw.create_window(width, height, "MjCambrian", None, gl_context)
+        if not self._window:
             glfw.terminate()
             raise Exception("GLFW failed to create window.")
 
-        glfw.show_window(self.window)
+        glfw.show_window(self._window)
 
-        self.default_window_pos = glfw.get_window_pos(self.window)
+        self.default_window_pos = glfw.get_window_pos(self._window)
 
     def make_context_current(self):
-        glfw.make_context_current(self.window)
+        glfw.make_context_current(self._window)
         super().make_context_current()
 
     def get_framebuffer_option(self) -> int:
         return mj.mjtFramebuffer.mjFB_WINDOW.value
 
     def update(self, width: int, height: int):
-        if self.viewport.width != width or self.viewport.height != height:
+        if self._viewport.width != width or self._viewport.height != height:
             self.make_context_current()
-            self.viewport = mj.MjrRect(0, 0, width, height)
+            self._viewport = mj.MjrRect(0, 0, width, height)
             GL.glViewport(0, 0, width, height)
 
         super().update(width, height)
 
     def render(self, *, overlays: List[MjCambrianViewerOverlay] = []):
-        if self.window is None:
-            self.logger.warning("Tried to render destroyed window.")
+        if self._window is None:
+            self._logger.warning("Tried to render destroyed window.")
             return
-        elif glfw.window_should_close(self.window):
-            self.logger.warning("Tried to render closed or closing window.")
+        elif glfw.window_should_close(self._window):
+            self._logger.warning("Tried to render closed or closing window.")
             return
 
         self.make_context_current()
-        width, height = glfw.get_framebuffer_size(self.window)
-        self.viewport = mj.MjrRect(0, 0, width, height)
+        width, height = glfw.get_framebuffer_size(self._window)
+        self._viewport = mj.MjrRect(0, 0, width, height)
 
         super().render(overlays=overlays)
 
-        glfw.swap_buffers(self.window)
+        glfw.swap_buffers(self._window)
         glfw.poll_events()
 
         if self._is_paused:
             self.render(overlays=overlays)
 
     def is_running(self):
-        return not (self.window is None or glfw.window_should_close(self.window))
+        return not (self._window is None or glfw.window_should_close(self._window))
 
     # ===================
 
     def fullscreen(self, fullscreen: bool):
-        if self.window is None:
-            self.logger.warning("Tried to set fullscreen to destroyed window.")
+        if self._window is None:
+            self._logger.warning("Tried to set fullscreen to destroyed window.")
             return
 
         if fullscreen:
             monitor = glfw.get_primary_monitor()
             video_mode = glfw.get_video_mode(monitor)
             glfw.set_window_monitor(
-                self.window,
+                self._window,
                 monitor,
                 0,
                 0,
@@ -408,7 +416,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         width, height = glfw.get_framebuffer_size(window)
         reldx, reldy = dx / width, dy / height
 
-        mj.mjv_moveCamera(self.model, action, reldx, reldy, self.scene, self.camera)
+        mj.mjv_moveCamera(self._model, action, reldx, reldy, self._scene, self._camera)
 
         self._last_mouse_x = int(self._scale * xpos)
         self._last_mouse_y = int(self._scale * ypos)
@@ -420,12 +428,12 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
     def _scroll_callback(self, window, xoffset, yoffset):
         mj.mjv_moveCamera(
-            self.model,
+            self._model,
             mj.mjtMouse.mjMOUSE_ZOOM,
             0,
             -0.05 * yoffset,
-            self.scene,
-            self.camera,
+            self._scene,
+            self._camera,
         )
 
     def _key_callback(self, window, key, scancode, action, mods):
@@ -438,11 +446,11 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
         # Switch cameras
         if key == glfw.KEY_TAB:
-            self.camera.fixedcamid += 1
-            self.camera.type = mj.mjtCamera.mjCAMERA_FIXED
-            if self.camera.fixedcamid >= self.model.ncam:
-                self.camera.fixedcamid = -1
-                self.camera.type = mj.mjtCamera.mjCAMERA_FREE
+            self._camera.fixedcamid += 1
+            self._camera.type = mj.mjtCamera.mjCAMERA_FIXED
+            if self._camera.fixedcamid >= self._model.ncam:
+                self._camera.fixedcamid = -1
+                self._camera.type = mj.mjtCamera.mjCAMERA_FREE
 
         # Pause simulation
         if key == glfw.KEY_SPACE:
@@ -457,22 +465,22 @@ class MjCambrianRenderer:
     metadata = {"render.modes": ["human", "rgb_array", "depth_array"]}
 
     def __init__(self, config: MjCambrianRendererConfig):
-        self.config = config
-        self.logger = get_logger()
+        self._config = config
+        self._logger = get_logger()
 
         assert all(
-            mode in self.metadata["render.modes"] for mode in self.config.render_modes
+            mode in self.metadata["render.modes"] for mode in self._config.render_modes
         ), f"Invalid render mode found. Valid modes are {self.metadata['render.modes']}"
         assert (
-            "depth_array" not in self.config.render_modes
-            or "rgb_array" in self.config.render_modes
+            "depth_array" not in self._config.render_modes
+            or "rgb_array" in self._config.render_modes
         ), "Cannot render depth_array without rgb_array."
 
-        self.viewer: MjCambrianViewer = None
-        if "human" in self.config.render_modes:
-            self.viewer = MjCambrianOnscreenViewer(self.config)
+        self._viewer: MjCambrianViewer = None
+        if "human" in self._config.render_modes:
+            self._viewer = MjCambrianOnscreenViewer(self._config)
         else:
-            self.viewer = MjCambrianOffscreenViewer(self.config)
+            self._viewer = MjCambrianOffscreenViewer(self._config)
 
         self._rgb_buffer: List[np.ndarray] = []
 
@@ -485,36 +493,38 @@ class MjCambrianRenderer:
         width: Optional[int] = None,
         height: Optional[int] = None,
     ) -> np.ndarray | None:
-        width = width or self.config.width or model.vis.global_.offwidth
-        height = height or self.config.height or model.vis.global_.offheight
+        width = width or self._config.width or model.vis.global_.offwidth
+        height = height or self._config.height or model.vis.global_.offheight
 
         if width > model.vis.global_.offwidth:
             model.vis.global_.offwidth = width
         if height > model.vis.global_.offheight:
             model.vis.global_.offheight = height
 
-        self.viewer.reset(model, data, width, height)
+        self._viewer.reset(model, data, width, height)
 
         return self.render(resetting=True)
 
     def render(
         self, *, overlays: List[MjCambrianViewerOverlay] = [], resetting: bool = False
     ) -> np.ndarray | Tuple[np.ndarray, np.ndarray] | None:
-        self.viewer.render(overlays=overlays)
+        self._viewer.render(overlays=overlays)
 
         if not any(
-            mode in self.config.render_modes for mode in ["rgb_array", "depth_array"]
+            mode in self._config.render_modes for mode in ["rgb_array", "depth_array"]
         ):
             return
 
-        rgb, depth = self.viewer.read_pixels("depth_array" in self.config.render_modes)
+        rgb, depth = self._viewer.read_pixels(
+            "depth_array" in self._config.render_modes
+        )
         if self._record and not resetting:
             self._rgb_buffer.append(rgb.copy().transpose(1, 0, 2))
 
-        return (rgb, depth) if "depth_array" in self.config.render_modes else rgb
+        return (rgb, depth) if "depth_array" in self._config.render_modes else rgb
 
     def is_running(self):
-        return self.viewer.is_running()
+        return self._viewer.is_running()
 
     # ===================
 
@@ -525,17 +535,15 @@ class MjCambrianRenderer:
         save_mode: Optional[MjCambrianRendererSaveMode] = None,
         fps: int = 50,
     ):
-        save_mode = save_mode or self.config.save_mode
+        save_mode = save_mode or self._config.save_mode
 
         assert self._record, "Cannot save without recording."
         assert len(self._rgb_buffer) > 0, "Cannot save empty buffer."
 
-        self.logger.info(f"Saving visualizations at {path}...")
+        self._logger.info(f"Saving visualizations at {path}...")
 
         path = Path(path)
         rgb_buffer = (np.array(self._rgb_buffer) * 255.0).astype(np.uint8)
-        if len(rgb_buffer) > 1:
-            rgb_buffer = rgb_buffer[:-1]
 
         if save_mode & MjCambrianRendererSaveMode.MP4:
             import imageio
@@ -547,7 +555,7 @@ class MjCambrianRenderer:
                     writer.append_data(image)
                 writer.close()
             except TypeError:
-                self.logger.warning(
+                self._logger.warning(
                     "imageio is not compiled with ffmpeg. "
                     "You may need to install it with `pip install imageio[ffmpeg]`."
                 )
@@ -567,7 +575,7 @@ class MjCambrianRenderer:
 
             webp.mimwrite(path.with_suffix(".webp"), rgb_buffer, fps=fps, lossless=True)
 
-        self.logger.debug(f"Saved visualization at {path}")
+        self._logger.debug(f"Saved visualization at {path}")
 
     @property
     def record(self) -> bool:
@@ -577,7 +585,7 @@ class MjCambrianRenderer:
     def record(self, record: bool):
         assert not (record and self._record), "Already recording."
         assert (
-            "rgb_array" in self.config.render_modes
+            "rgb_array" in self._config.render_modes
         ), "Cannot record without rgb_array mode."
 
         if not record:
@@ -588,12 +596,20 @@ class MjCambrianRenderer:
     # ===================
 
     @property
+    def config(self) -> MjCambrianRendererConfig:
+        return self._config
+
+    @property
+    def viewer(self) -> MjCambrianViewer:
+        return self._viewer
+
+    @property
     def width(self) -> int:
-        return self.viewer.width
+        return self._viewer.width
 
     @property
     def height(self) -> int:
-        return self.viewer.height
+        return self._viewer.height
 
     @property
     def ratio(self) -> float:

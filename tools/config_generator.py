@@ -2,7 +2,6 @@ from typing import Optional, List
 from pathlib import Path
 import os
 
-import yaml
 from omegaconf import OmegaConf
 import hydra
 from hydra.core.global_hydra import GlobalHydra
@@ -10,9 +9,9 @@ from hydra.core.global_hydra import GlobalHydra
 from cambrian.utils import generate_sequence_from_range
 from cambrian.utils.config import (
     run_hydra,
-    MjCambrianConfig,
     MjCambrianBaseConfig,
     config_wrapper,
+    MjCambrianConfig,
 )
 
 
@@ -51,10 +50,13 @@ def main(config: ConfigGeneratorConfig, *, overrides: List[str] = []):
     with hydra.initialize_config_dir(f"{os.getcwd()}/configs/", version_base=None):
         exp = f"{'/'.join(config.base.parts[config.base.parts.index('exp') + 1:-1])}/{config.base.stem}"
         base = MjCambrianConfig.create(
-            hydra.compose(config_name="base", overrides=[f"exp={exp}", "expname=''"]),
-            instantiate=False,
+            hydra.compose(
+                config_name="base", overrides=[f"exp={exp}", "expname=''", *overrides]
+            ),
+            instantiate=True,
+            is_readonly=False,
+            is_struct=False,
         )
-        OmegaConf.set_struct(base, False)
 
     with open(config.base, "r") as f:
         # get the first line if it's a comment
@@ -62,9 +64,7 @@ def main(config: ConfigGeneratorConfig, *, overrides: List[str] = []):
         if line.startswith("#"):
             comment = line
         f.seek(0)
-        original_base: MjCambrianConfig = MjCambrianConfig.create(
-            yaml.safe_load(f), instantiate=False
-        )
+        original_base = MjCambrianConfig.create(OmegaConf.load(f), instantiate=False)
         original_base.merge_with_dotlist(overrides)
 
     env = base.env

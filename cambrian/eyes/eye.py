@@ -73,18 +73,18 @@ class MjCambrianEye:
     """
 
     def __init__(self, config: MjCambrianEyeConfig, name: str):
-        self.config = config
-        self.name = name
+        self._config = config
+        self._name = name
 
-        self._renders_rgb = "rgb_array" in self.config.renderer.render_modes
-        self._renders_depth = "depth_array" in self.config.renderer.render_modes
+        self._renders_rgb = "rgb_array" in self._config.renderer.render_modes
+        self._renders_depth = "depth_array" in self._config.renderer.render_modes
         assert self._renders_rgb, f"Eye ({name}): 'rgb_array' must be a render mode."
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
         self._prev_obs: np.ndarray = None
 
-        self._renderer = MjCambrianRenderer(self.config.renderer)
+        self._renderer = MjCambrianRenderer(self._config.renderer)
 
     def generate_xml(
         self, parent_xml: MjCambrianXML, geom: MjCambrianGeometry, parent_body_name: str
@@ -132,12 +132,12 @@ class MjCambrianEye:
         xml.add(
             parent,
             "camera",
-            name=self.name,
+            name=self._name,
             mode="fixed",
             pos=" ".join(map(str, pos)),
             quat=" ".join(map(str, quat)),
-            focal=" ".join(map(str, self.config.focal)),
-            sensorsize=" ".join(map(str, self.config.sensorsize)),
+            focal=" ".join(map(str, self._config.focal)),
+            sensorsize=" ".join(map(str, self._config.sensorsize)),
             resolution=" ".join(map(str, resolution)),
         )
 
@@ -153,7 +153,7 @@ class MjCambrianEye:
 
         TODO: rotations are weird. fix this.
         """
-        lat, lon = np.deg2rad(self.config.coord)
+        lat, lon = np.deg2rad(self._config.coord)
         lon += np.pi / 2
 
         default_rot = R.from_euler("z", np.pi / 2)
@@ -170,10 +170,10 @@ class MjCambrianEye:
         self._model = model
         self._data = data
 
-        self._renderer.reset(model, data, *self.config.resolution)
+        self._renderer.reset(model, data, *self._config.resolution)
 
-        fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, self.name)
-        assert fixedcamid != -1, f"Camera '{self.name}' not found."
+        fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, self._name)
+        assert fixedcamid != -1, f"Camera '{self._name}' not found."
         self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
         self._renderer.viewer.camera.fixedcamid = fixedcamid
 
@@ -197,17 +197,27 @@ class MjCambrianEye:
         return obs
 
     @property
+    def config(self) -> MjCambrianEyeConfig:
+        """The config for the eye."""
+        return self._config
+
+    @property
+    def name(self) -> str:
+        """The name of the eye."""
+        return self._name
+
+    @property
     def observation_space(self) -> spaces.Box:
         """Constructs the observation space for the eye. The observation space is a
         `spaces.Box` with the shape of the resolution of the eye."""
 
-        shape = (*self.config.resolution, 3)
+        shape = (*self._config.resolution, 3)
         return spaces.Box(0.0, 1.0, shape=shape, dtype=np.float32)
 
     @property
     def num_pixels(self) -> int:
         """The number of pixels in the image."""
-        return np.prod(self.config.resolution)
+        return np.prod(self._config.resolution)
 
     @property
     def prev_obs(self) -> np.ndarray:

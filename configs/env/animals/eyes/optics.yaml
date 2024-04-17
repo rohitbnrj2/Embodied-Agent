@@ -6,7 +6,7 @@ defaults:
   - /MjCambrianOpticsEyeConfig
 
 instance:
-  _target_: cambrian.eyes.optics.MjCambrianOpticsEye
+  _target_: cambrian.eyes.MjCambrianOpticsEye
   _partial_: true
 
 # The resolution used by the psf is double the size of the eye resolution

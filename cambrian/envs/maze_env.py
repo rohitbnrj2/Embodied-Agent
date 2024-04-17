@@ -118,13 +118,13 @@ class MjCambrianMazeEnvConfig(MjCambrianObjectEnvConfig):
 
 class MjCambrianMazeEnv(MjCambrianObjectEnv):
     def __init__(self, config: MjCambrianMazeEnvConfig, **kwargs):
-        self.config: MjCambrianMazeEnvConfig = config
+        self._config: MjCambrianMazeEnvConfig = config
 
         # Have to initialize the mazes first since generate_xml is called from the
         # MjCambrianEnv constructor
-        self.maze: MjCambrianMaze = None
-        self.maze_store = MjCambrianMazeStore(
-            self.config.mazes, self.config.maze_selection_fn
+        self._maze: MjCambrianMaze = None
+        self._maze_store = MjCambrianMazeStore(
+            self._config.mazes, self._config.maze_selection_fn
         )
 
         super().__init__(config, **kwargs)
@@ -135,7 +135,7 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
 
         # Add the mazes to the xml
         # Do this first so overrides defined in the env xml are applied
-        xml += self.maze_store.generate_xml()
+        xml += self._maze_store.generate_xml()
 
         # Add the rest of the xml
         xml += super().generate_xml()
@@ -146,20 +146,20 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
         self, *, seed: Optional[int] = None, options: Optional[Dict[Any, Any]] = None
     ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
         # Choose the maze
-        self.maze = self.maze_store.select_maze(self)
-        self.maze_store.reset(self.model)
+        self._maze = self._maze_store.select_maze(self)
+        self._maze_store.reset(self.model)
 
         # For each animal, generate an initial position
         # TODO: is there a better way to do this?
         for animal in self.animals.values():
-            reset_pos = self.maze.generate_reset_pos()
+            reset_pos = self._maze.generate_reset_pos()
             for i in range(len(reset_pos)):
-                animal.init_qpos[i] = float(reset_pos[i])
+                animal.init_pos[i] = float(reset_pos[i])
 
         # For each object, generate an initial position
         for obj in self.objects.values():
-            obj.pos[:2] = self.maze.generate_object_pos()
-            obj.pos[2] = self.maze.config.scale // 4
+            obj.pos[:2] = self._maze.generate_object_pos()
+            obj.pos[2] = self._maze.config.scale // 4
 
         # Now reset the environment
         obs, info = super().reset(seed=seed, options=options)
@@ -168,16 +168,28 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
             # Update the camera positioning to match the current maze
             # Only update if the camera lookat is not set in the config file
             if viewer.config.select("camera.lookat") is None:
-                viewer.camera.lookat = self.maze.lookat
+                viewer.camera.lookat = self._maze.lookat
 
             # Update the camera distance to match the current maze's extent
             viewer.camera.distance = viewer.config.select("camera.distance", default=1)
-            if self.maze.ratio < 2:
-                viewer.camera.distance *= renderer.ratio * self.maze.min_dim
+            if self._maze.ratio < 2:
+                viewer.camera.distance *= renderer.ratio * self._maze.min_dim
             else:
-                viewer.camera.distance *= self.maze.max_dim / renderer.ratio
+                viewer.camera.distance *= self._maze.max_dim / renderer.ratio
 
         return obs, info
+
+    # ==================
+
+    @property
+    def maze(self) -> "MjCambrianMaze":
+        """Returns the current maze."""
+        return self._maze
+
+    @property
+    def maze_store(self) -> "MjCambrianMazeStore":
+        """Returns the maze store."""
+        return self._maze_store
 
 
 # ================
@@ -188,8 +200,8 @@ class MjCambrianMaze:
     functions for working with the maze."""
 
     def __init__(self, config: MjCambrianMazeConfig, name: str):
-        self.config = config
-        self.name = name
+        self._config = config
+        self._name = name
         self._starting_x = None
 
         self._map: np.ndarray = None
@@ -210,8 +222,8 @@ class MjCambrianMaze:
         np array."""
         import yaml
 
-        self._map = np.array(yaml.safe_load(self.config.map), dtype=str)
-        if self.config.flip:
+        self._map = np.array(yaml.safe_load(self._config.map), dtype=str)
+        if self._config.flip:
             self._map = np.flip(self._map)
 
     def _update_locations(self):
@@ -224,8 +236,8 @@ class MjCambrianMaze:
                 struct = self._map[i][j]
 
                 # Calculate the cell location in global coords
-                x = (j + 0.5) * self.config.scale - self.x_map_center
-                y = self.y_map_center - (i + 0.5) * self.config.scale
+                x = (j + 0.5) * self._config.scale - self.x_map_center
+                y = self.y_map_center - (i + 0.5) * self._config.scale
                 loc = np.array([x, y])
 
                 entity, texture_id = MjCambrianMapEntity.parse(struct)
@@ -233,9 +245,9 @@ class MjCambrianMaze:
                     self._wall_locations.append(loc)
 
                     # Do a check for the texture
-                    assert texture_id in self.config.wall_texture_map, (
+                    assert texture_id in self._config.wall_texture_map, (
                         f"Invalid texture: {texture_id}. "
-                        f"Available textures: {self.config.wall_texture_map.keys()}"
+                        f"Available textures: {self._config.wall_texture_map.keys()}"
                     )
                     self._wall_textures.append(texture_id)
                 elif entity == MjCambrianMapEntity.RESET:
@@ -244,7 +256,7 @@ class MjCambrianMaze:
                     self._object_locations.append(loc)
 
     def generate_xml(self) -> MjCambrianXML:
-        xml = MjCambrianXML.from_string(self.config.xml)
+        xml = MjCambrianXML.from_string(self._config.xml)
 
         worldbody = xml.find(".//worldbody")
         assert worldbody is not None, "xml must have a worldbody tag"
@@ -252,9 +264,9 @@ class MjCambrianMaze:
         assert assets is not None, "xml must have an asset tag"
 
         # Add the wall textures
-        for t, textures in self.config.wall_texture_map.items():
+        for t, textures in self._config.wall_texture_map.items():
             for texture in textures:
-                name_prefix = f"wall_{self.name}_{t}_{texture}"
+                name_prefix = f"wall_{self._name}_{t}_{texture}"
                 xml.add(
                     assets,
                     "material",
@@ -271,21 +283,21 @@ class MjCambrianMaze:
                 )
 
         # Add the walls. Each wall has it's own geom.
-        scale = self.config.scale / 2
-        height = self.config.height
+        scale = self._config.scale / 2
+        height = self._config.height
         for i, (x, y) in enumerate(self._wall_locations):
-            name = f"wall_{self.name}_{i}"
+            name = f"wall_{self._name}_{i}"
             xml.add(
                 worldbody,
                 "geom",
                 name=name,
                 pos=f"{x} {y} {scale * height}",
                 size=f"{scale} {scale} {scale * height}",
-                **{"class": f"maze_wall_{self.name}"},
+                **{"class": f"maze_wall_{self._name}"},
             )
 
         # Update floor size based on the map extent
-        floor_name = f"floor_{self.name}"
+        floor_name = f"floor_{self._name}"
         floor = xml.find(f".//geom[@name='{floor_name}']")
         assert floor is not None, f"`{floor_name}` not found"
         size = f"{self.map_width_scaled // 2} {self.map_length_scaled // 2} 0.1"
@@ -313,16 +325,18 @@ class MjCambrianMaze:
         texture_map: Dict[str, str] = {}
         for t in self._wall_textures:
             if t not in texture_map:
-                texture_map[t] = np.random.choice(list(self.config.wall_texture_map[t]))
+                texture_map[t] = np.random.choice(
+                    list(self._config.wall_texture_map[t])
+                )
 
         # Now, update the wall textures
         for i, t in zip(range(len(self._wall_locations)), self._wall_textures):
-            wall_name = f"wall_{self.name}_{i}"
+            wall_name = f"wall_{self._name}_{i}"
             geom_id = get_geom_id(model, wall_name)
             assert geom_id != -1, f"`{wall_name}` geom not found"
 
             # Randomly select a texture for the wall
-            material_name = f"wall_{self.name}_{t}_{texture_map[t]}_mat"
+            material_name = f"wall_{self._name}_{t}_{texture_map[t]}_mat"
             material_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_MATERIAL, material_name)
             assert material_id != -1, f"`{material_name}` material not found"
 
@@ -339,14 +353,14 @@ class MjCambrianMaze:
         from typing import Deque
 
         def cell_rowcol_to_xy(rowcol_pos: np.ndarray) -> np.ndarray:
-            x = (rowcol_pos[1] + 0.5) * self.config.scale - self.x_map_center
-            y = self.y_map_center - (rowcol_pos[0] + 0.5) * self.config.scale
+            x = (rowcol_pos[1] + 0.5) * self._config.scale - self.x_map_center
+            y = self.y_map_center - (rowcol_pos[0] + 0.5) * self._config.scale
 
             return np.array([x, y])
 
         def cell_xy_to_rowcol(xy_pos: np.ndarray) -> np.ndarray:
-            i = np.floor((self.y_map_center - xy_pos[1]) / self.config.scale)
-            j = np.floor((xy_pos[0] + self.x_map_center) / self.config.scale)
+            i = np.floor((self.y_map_center - xy_pos[1]) / self._config.scale)
+            j = np.floor((xy_pos[0] + self.x_map_center) / self._config.scale)
             return np.array([i, j], dtype=int)
 
         start = cell_xy_to_rowcol(start)
@@ -425,7 +439,7 @@ class MjCambrianMaze:
 
             # Check if the position is already occupied
             for occupied in self._occupied_locations:
-                if np.linalg.norm(pos - occupied) <= 0.5 * self.config.scale:
+                if np.linalg.norm(pos - occupied) <= 0.5 * self._config.scale:
                     break
             else:
                 if add_as_occupied:
@@ -456,14 +470,29 @@ class MjCambrianMaze:
     # ==================
 
     @property
+    def config(self) -> MjCambrianMazeConfig:
+        """Returns the config."""
+        return self._config
+
+    @property
+    def name(self) -> str:
+        """Returns the name."""
+        return self._name
+
+    @property
+    def map(self) -> np.ndarray:
+        """Returns the map."""
+        return self._map
+
+    @property
     def map_length_scaled(self) -> float:
         """Returns the map length scaled."""
-        return self._map.shape[0] * self.config.scale
+        return self._map.shape[0] * self._config.scale
 
     @property
     def map_width_scaled(self) -> float:
         """Returns the map width scaled."""
-        return self._map.shape[1] * self.config.scale
+        return self._map.shape[1] * self._config.scale
 
     @property
     def max_dim(self) -> float:

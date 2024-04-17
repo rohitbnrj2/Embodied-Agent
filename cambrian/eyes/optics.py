@@ -3,7 +3,7 @@ from typing import Tuple, List, Dict
 import torch
 import numpy as np
 
-from cambrian.eyes.eye import MjCambrianEyeConfig, MjCambrianEye
+from cambrian.eyes import MjCambrianEyeConfig, MjCambrianEye
 from cambrian.utils.config import config_wrapper
 
 
@@ -45,29 +45,29 @@ class MjCambrianOpticsEye(MjCambrianEye):
 
     def __init__(self, config: MjCambrianOpticsEyeConfig, name: str):
         super().__init__(config, name)
-        self.config: MjCambrianOpticsEyeConfig
+        self._config: MjCambrianOpticsEyeConfig
 
-        self._renders_depth = "depth_array" in self.config.renderer.render_modes
+        self._renders_depth = "depth_array" in self._config.renderer.render_modes
         assert self._renders_depth, "Eye: 'depth_array' must be a render mode."
 
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self._psfs: Dict[torch.Tensor, torch.Tensor] = {}
-        self._depths = torch.tensor(self.config.depths).to(self._device)
+        self._depths = torch.tensor(self._config.depths).to(self._device)
         self._initialize()
-        if self.config.depths:
+        if self._config.depths:
             self._precompute_psfs()
 
     def _initialize(self):
         """This will initialize the parameters used during the PSF calculation."""
         # Mx,My defines the number of pixels in x,y direction (i.e. width, height)
-        Mx, My = self.config.padded_resolution
+        Mx, My = self._config.padded_resolution
         assert Mx > 2 and My > 2, f"Sensor resolution must be > 2: {Mx=}, {My=}"
         assert Mx % 2 and My % 2, f"Sensor resolution must be odd: {Mx=}, {My=}"
 
         # dx/dy defines the pixel pitch (m) (i.e. distance between the centers of
         # adjacent pixels) of the sensor
-        sx, sy = self.config.sensorsize
+        sx, sy = self._config.sensorsize
         dx, dy = sx / Mx, sy / My
 
         # Lx/Ly defines the length of the sensor plane (m)
@@ -86,13 +86,13 @@ class MjCambrianOpticsEye(MjCambrianEye):
         # Aperture
         # Add small epsilon to avoid division by zero
         # TODO: aperture > 1.0
-        aperture_radius = min(Lx / 2, Ly / 2) * self.config.aperture + 1.0e-7  # (m)
+        aperture_radius = min(Lx / 2, Ly / 2) * self._config.aperture + 1.0e-7  # (m)
         A: torch.Tensor = (
             torch.sqrt(X1.square() + Y1.square()) / aperture_radius <= 1.0
         ).float()
 
         # Pre-compute some values that are reused in the PSF calculation
-        wavelengths = torch.tensor(self.config.wavelengths).reshape(-1, 1, 1)
+        wavelengths = torch.tensor(self._config.wavelengths).reshape(-1, 1, 1)
         k = 1j * 2 * torch.pi / wavelengths
         X1_Y1 = X1.square() + Y1.square()
         H_valid = (torch.sqrt(FX.square() + FY.square()) < (1.0 / wavelengths)).float()
@@ -147,7 +147,7 @@ class MjCambrianOpticsEye(MjCambrianEye):
         mean_depth = torch.tensor(np.mean(depth), device=self._device)
 
         # Add noise to the image
-        image = self._apply_noise(image, self.config.noise_std)
+        image = self._apply_noise(image, self._config.noise_std)
 
         # Apply the depth invariant PSF
         psf = self._get_psf(mean_depth)
@@ -187,7 +187,7 @@ class MjCambrianOpticsEye(MjCambrianEye):
         supports input shape [W, H, 3]. It crops the center part of the image.
         """
         width, height, _ = image.shape
-        target_width, target_height = self.config.resolution
+        target_width, target_height = self._config.resolution
         top = (height - target_height) // 2
         left = (width - target_width) // 2
         return image[top : top + target_height, left : left + target_width, :]

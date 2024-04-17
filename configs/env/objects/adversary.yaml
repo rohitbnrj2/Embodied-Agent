@@ -7,7 +7,7 @@ truncate_if_close: true
 xml:
   _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse
   _convert_: all
-  base_xml_path: models/objects/sphere.xml
+  xml_string: ${read:${path:models,objects,sphere.xml}}
   overrides:
     - mujoco:
         - worldbody:

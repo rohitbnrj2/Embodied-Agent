@@ -29,11 +29,11 @@ import matplotlib.pyplot as plt
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from cambrian.envs.env import MjCambrianEnv
+from cambrian.envs import MjCambrianEnv
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils.wrappers import make_wrapped_env
 from cambrian.utils import evaluate_policy, setattrs_temporary
-from cambrian.utils.config.config import MjCambrianConfig
+from cambrian.utils.config import MjCambrianConfig
 
 # =======================================================
 # Dataclasses

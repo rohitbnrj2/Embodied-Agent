@@ -4,7 +4,7 @@ import numpy as np
 import mujoco as mj
 from gymnasium import spaces
 
-from cambrian.envs.env import MjCambrianEnvConfig, MjCambrianEnv
+from cambrian.envs import MjCambrianEnvConfig, MjCambrianEnv
 from cambrian.utils import get_body_id
 from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
@@ -57,26 +57,26 @@ class MjCambrianObjectEnv(MjCambrianEnv):
     """This is a subclass of `MjCambrianEnv` that adds support for goals."""
 
     def __init__(self, config: MjCambrianObjectEnvConfig, **kwargs):
-        self.config = config
+        self._config = config
 
         # Have to initialize the objects first since generate_xml is called from the
         # MjCambrianEnv constructor
-        self.objects: Dict[str, MjCambrianObject] = {}
+        self._objects: Dict[str, MjCambrianObject] = {}
         self._create_objects()
 
         super().__init__(config, **kwargs)
 
     def _create_objects(self):
         """Creates the objects in the environment."""
-        for name, obj_config in self.config.objects.items():
-            self.objects[name] = MjCambrianObject(obj_config, name)
+        for name, obj_config in self._config.objects.items():
+            self._objects[name] = MjCambrianObject(obj_config, name)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
         xml = super().generate_xml()
 
         # TODO: Add targets
-        for obj in self.objects.values():
+        for obj in self._objects.values():
             xml += obj.generate_xml()
 
         return xml
@@ -96,7 +96,7 @@ class MjCambrianObjectEnv(MjCambrianEnv):
         """
         # Reset each object
         # Update before super since it calls _update_obs and _update_info
-        for obj in self.objects.values():
+        for obj in self._objects.values():
             obj.reset(self.model)
 
         return super().reset(seed=seed, options=options)
@@ -106,7 +106,7 @@ class MjCambrianObjectEnv(MjCambrianEnv):
         obs = super()._update_obs(obs)
 
         # Update the object observations
-        for name, obj in self.objects.items():
+        for name, obj in self._objects.items():
             if obj.config.use_as_obs:
                 obs[name] = obj.pos
 
@@ -120,7 +120,7 @@ class MjCambrianObjectEnv(MjCambrianEnv):
 
         # Update the object info
         info["objects"] = {}
-        for name, obj in self.objects.items():
+        for name, obj in self._objects.items():
             info["objects"][name] = obj.pos
 
         return info
@@ -142,7 +142,7 @@ class MjCambrianObjectEnv(MjCambrianEnv):
         """
         rewards = super()._compute_reward(terminated, truncated, info)
 
-        for name, animal in self.animals.items():
+        for name, _ in self.animals.items():
             # Early exits
             if terminated[name] or truncated[name]:
                 continue
@@ -163,7 +163,7 @@ class MjCambrianObjectEnv(MjCambrianEnv):
 
             observation_space: spaces.Dict = observation_spaces.spaces[animal_name]
 
-            for name, obj in self.objects.items():
+            for name, obj in self._objects.items():
                 if obj.config.use_as_obs:
                     observation_space.spaces[name] = spaces.Box(
                         low=-np.inf, high=np.inf, shape=(3,), dtype=np.float64
@@ -171,26 +171,42 @@ class MjCambrianObjectEnv(MjCambrianEnv):
 
         return observation_spaces
 
+    @property
+    def objects(self) -> Dict[str, "MjCambrianObject"]:
+        return self._objects
+
 
 class MjCambrianObject:
     def __init__(self, config: MjCambrianObjectConfig, name: str):
-        self.config = config
-        self.name = name
+        self._config = config
+        self._name = name
 
-        self.pos = np.array(self.config.pos)
+        self._pos = np.array(self._config.pos)
 
     def generate_xml(self) -> MjCambrianXML:
-        return MjCambrianXML.from_string(self.config.xml)
+        return MjCambrianXML.from_string(self._config.xml)
 
     def reset(self, model: mj.MjModel) -> np.ndarray:
         """Resets the object in the model. Will update it's pos."""
-        body_id = get_body_id(model, f"{self.name}_body")
-        assert body_id != -1, f"Body {self.name}_body not found in model"
+        body_id = get_body_id(model, f"{self._name}_body")
+        assert body_id != -1, f"Body {self._name}_body not found in model"
 
-        model.body_pos[body_id] = self.pos
+        model.body_pos[body_id] = self._pos
 
         return model.body_pos[body_id]
 
     def is_close(self, pos: np.ndarray) -> bool:
         """Helper function to check if the object is close to a position."""
-        return np.linalg.norm(self.pos - pos) < self.config.distance_threshold
+        return np.linalg.norm(self._pos - pos) < self._config.distance_threshold
+
+    @property
+    def pos(self) -> np.ndarray:
+        return self._pos
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def config(self) -> MjCambrianObjectConfig:
+        return self._config

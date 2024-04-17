@@ -3,4 +3,10 @@
 
 defaults:
   - point@_here_
-  - /eyes/${env/animals/eyes}@eyes.eye_0
+
+trainable: false
+
+instance:
+  _target_: cambrian.animals.MjCambrianPointAnimalPredator
+  _partial_: true
+  preys: ${oc.keys:env.animals}
