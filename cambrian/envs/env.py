@@ -676,7 +676,7 @@ if __name__ == "__main__":
 
     @register_fn
     def run_renderer(config: MjCambrianConfig, *, record: Any, **__):
-        config.save(config.logdir / "config.yaml")
+        config.save(config.expdir / "config.yaml")
 
         env = config.env.instance(config.env)
 
@@ -684,7 +684,7 @@ if __name__ == "__main__":
             env.record = True
 
         env.reset(seed=config.seed)
-        env.xml.write(config.logdir / "env.xml")
+        env.xml.write(config.expdir / "env.xml")
 
         if "human" in config.env.renderer.render_modes:
             import glfw
@@ -718,7 +718,7 @@ if __name__ == "__main__":
 
         if record:
             env.save(
-                config.logdir / "eval",
+                config.expdir / "eval",
                 save_pkl=False,
                 save_mode=MjCambrianRendererSaveMode.MP4,
             )
@@ -727,7 +727,7 @@ if __name__ == "__main__":
             for name, composites in composites.items():
                 import imageio
 
-                path = config.logdir / f"{name}_composite.mp4"
+                path = config.expdir / f"{name}_composite.mp4"
                 writer = imageio.get_writer(path, fps=30)
                 for composite in composites:
                     writer.append_data(composite)

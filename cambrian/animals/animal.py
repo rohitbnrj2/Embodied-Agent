@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Tuple, Callable, Self, TYPE_CHECKING
+from typing import Dict, Any, List, Tuple, Callable, Self, Optional, TYPE_CHECKING
 
 import numpy as np
 import mujoco as mj
@@ -64,8 +64,17 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             the MjCambrianConstantActionWrapper is used, this is not reflected in the
             observation, as in the actions will vary in the observation.
 
-        eyes (Dict[str, MjCambrianEyeConfig]): The configs for the eyes.
-            The key will be used as the name for the eye.
+        num_eyes (Optional[Tuple[int, int]]): The number of eyes to generate on the
+            animal. If this is specified, then the eyes will be generated on a spherical
+            grid. The first element is the number of eyes to generate latitudinally and
+            the second element is the number of eyes to generate longitudinally. The
+            eyes will be named sequentially starting from `eye_0`. Each eye will default
+            to use the first eye config in the `eyes` attribute. `eyes` must have a
+            length of 1 if this is specified. Each eye is named `eye_{lat}_{lon}` where
+            `lat` is the latitude index and `lon` is the longitude index.
+        eyes (Dict[str, MjCambrianEyeConfig]): The eyes on the animal. The keys are the
+            names of the eyes and the values are the configs for the eyes. The eyes will
+            be placed on the animal at the specified coordinates.
     """
 
     instance: Callable[[Self, str, int], "MjCambrianAnimal"]
@@ -85,7 +94,8 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
 
     use_action_obs: bool
 
-    eyes: Dict[str, MjCambrianEyeConfig]
+    num_eyes: Optional[Tuple[int, int]] = None
+    eyes: Dict[str, MjCambrianEyeConfig] 
 
 
 class MjCambrianAnimal:
@@ -238,7 +248,30 @@ class MjCambrianAnimal:
     def _place_eyes(self):
         """Place the eyes on the animal."""
 
-        for name, eye_config in self.config.eyes.items():
+        eye_configs: Dict[str, MjCambrianEyeConfig] = self.config.eyes
+        if num_eyes := self.config.num_eyes:
+            assert len(num_eyes) == 2, "num_eyes should be a tuple of length 2."
+            assert len(eye_configs) == 1, "Only one eye config should be specified."
+
+            # Place the eyes uniformly on a spherical grid. The number of latitude and 
+            # longitudinaly bins is defined by the two attributes in `eyes`, 
+            # respectively.
+            num_lat, num_lon = self.config.num_eyes
+            lat_bins = generate_sequence_from_range(self.config.eyes_lat_range, num_lat)
+            lon_bins = generate_sequence_from_range(self.config.eyes_lon_range, num_lon)
+            for lat_idx, lat in enumerate(lat_bins):
+                for lon_idx, lon in enumerate(lon_bins):
+                    eye_name = f"eye_{lat_idx}_{lon_idx}"
+                    eye_config = MjCambrianEyeConfig(
+                        instance=MjCambrianEye,
+                        resolution=(64, 64),
+                        coord=(lat, lon),
+                        geom_name=self.config.geom_name,
+                        group=self._geom.group,
+                    )
+                    eye_configs[eye_name] = eye_config
+
+        for name, eye_config in eye_configs.items():
             # Don't create the eye if it's disabled
             if not eye_config.enabled:
                 continue

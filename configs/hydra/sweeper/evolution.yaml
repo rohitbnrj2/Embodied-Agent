@@ -18,9 +18,13 @@ defaults:
 #       hydra_nevergrad_sweeper/hydra_plugins/hydra_nevergrad_sweeper/_impl.py#L162
 
 optim:
-  # For reproducibility, we set the seed to the same value as the one used in the
-  # base config.
-  seed: ${seed}
+  optimizer: "PortfolioDiscreteOnePlusOne"
+
+  # This seed is only used at the very beginning and is used for reproducibility of the
+  # nevergrad algorithm, not of the individual runs. We'll set it to 0 here instead of
+  # ${seed} because otherwise we get an error saying that the hydra config is unset 
+  # since the sweeper is evaluated before the hydra config is parsed/set.
+  seed: 0
 
   # Here we assume we want to maximize the fitness returned by trainer. This may not
   # always be the case, but can be overridden in the downstream configs.
@@ -38,5 +42,5 @@ optim:
   noisy: true
 
   # The budget is the number of evaluations we want to run. The default is 80, set to
-  # 100 just for fun.
-  budget: 100
+  # 200 just for fun.
+  budget: 200

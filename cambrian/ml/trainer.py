@@ -56,10 +56,10 @@ class MjCambrianTrainer:
         self.config = config
         self.trainer_config = config.trainer
 
-        self.config.logdir.mkdir(parents=True, exist_ok=True)
+        self.config.expdir.mkdir(parents=True, exist_ok=True)
 
         self.logger = get_logger()
-        self.logger.info(f"Logging to {self.config.logdir / 'logs'}...")
+        self.logger.info(f"Logging to {self.config.expdir / 'logs'}...")
 
         self.logger.debug(f"Setting seed to {self.config.seed}...")
         set_random_seed(self.config.seed)
@@ -67,9 +67,9 @@ class MjCambrianTrainer:
     def train(self) -> float:
         """Train the animal."""
         # Set to warn so we have something output to the error log
-        self.logger.warning(f"Training the animal in {self.config.logdir}...")
+        self.logger.warning(f"Training the animal in {self.config.expdir}...")
 
-        self.config.save(self.config.logdir / "config.yaml")
+        self.config.save(self.config.expdir / "config.yaml")
 
         # Setup the environment, model, and callbacks
         env = self._make_env(self.config.env, self.trainer_config.n_envs)
@@ -79,7 +79,7 @@ class MjCambrianTrainer:
 
         # Save the eval environments xml
         # All xml's _should_ be the same
-        xml_path = self.config.logdir / "env.xml"
+        xml_path = self.config.expdir / "env.xml"
         cambrian_env: MjCambrianEnv = eval_env.envs[0].unwrapped
         cambrian_env.xml.write(xml_path)
 
@@ -89,28 +89,28 @@ class MjCambrianTrainer:
         self.logger.info("Finished training the animal...")
 
         # Save the policy
-        self.logger.info(f"Saving model to {self.config.logdir}...")
-        model.save_policy(self.config.logdir)
-        self.logger.debug(f"Saved model to {self.config.logdir}...")
+        self.logger.info(f"Saving model to {self.config.expdir}...")
+        model.save_policy(self.config.expdir)
+        self.logger.debug(f"Saved model to {self.config.expdir}...")
 
         # The finished file indicates to the evo script that the animal is done
-        Path(self.config.logdir / "finished").touch()
+        Path(self.config.expdir / "finished").touch()
 
         # Calculate fitness
-        fitness = calculate_fitness(self.config.logdir / "evaluations.npz")
+        fitness = calculate_fitness(self.config.expdir / "evaluations.npz")
         self.logger.info(f"Final Fitness: {fitness}")
 
         return fitness
 
     def eval(self):
-        self.config.save(self.config.logdir / "eval_config.yaml")
+        self.config.save(self.config.expdir / "eval_config.yaml")
 
         eval_env = self._make_env(self.config.env, 1, monitor="eval_monitor.csv")
         model = self._make_model(eval_env)
-        model = model.load(self.config.logdir / "best_model")
+        model = model.load(self.config.expdir / "best_model")
 
         n_runs = self.config.eval_env.n_eval_episodes
-        filename = self.config.logdir / "eval"
+        filename = self.config.expdir / "eval"
         record_kwargs = dict(
             path=filename, save_mode=self.config.eval_env.renderer.save_mode
         )
@@ -145,7 +145,7 @@ class MjCambrianTrainer:
         # Wrap the environments
         vec_env = DummyVecEnv(envs) if n_envs == 1 else SubprocVecEnv(envs)
         if monitor is not None:
-            vec_env = VecMonitor(vec_env, str(self.config.logdir / monitor))
+            vec_env = VecMonitor(vec_env, str(self.config.expdir / monitor))
 
         # Do an initial reset
         vec_env.reset()

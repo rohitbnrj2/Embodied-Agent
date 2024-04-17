@@ -18,8 +18,9 @@ defaults:
   - override /hydra/launcher: local
   - override /hydra/sweeper: evolution
 
-expname: ${custom.variables.default_expname}
-logdir: ${custom.variables.default_logdir}
+logdir: ${path:logs,${now:%Y-%m-%d},${expname}}
+expdir: ${logdir}
+expname: ${hydra_select:runtime.choices.exp}
 
 seed: 0
 
@@ -28,13 +29,3 @@ seed: 0
 # when just loading the default env config. We set the eval env here, and subsequent
 # configs can directly override the config.
 eval_env: ${env}
-
-# The `custom` attribute is an extra dictionary type that can be used to store anything
-# and it will won't be parsed by hydra. We use it here to store some math variables that
-# can be used by other configs.
-custom:
-  variables:
-    default_expname: ${hydra:runtime.choices.exp}
-    default_baselogdir: logs
-    default_sublogdir: ${path:${now:%Y-%m-%d},${expname}}
-    default_logdir: ${path:${.default_baselogdir},${.default_sublogdir}}

@@ -4,8 +4,8 @@ eval_callback:
   _target_: cambrian.ml.callbacks.MjCambrianEvalCallback
   _partial_: true
   eval_env: "???" # required arg
-  best_model_save_path: ${logdir}
-  log_path: ${logdir}
+  best_model_save_path: ${expdir}
+  log_path: ${expdir}
   deterministic: true
   render: True
   eval_freq: 10000
@@ -23,19 +23,19 @@ eval_callback:
         reward_threshold: 1e3
       save_policy_callback:
         _target_: cambrian.ml.callbacks.MjCambrianSavePolicyCallback
-        logdir: ${logdir}
+        logdir: ${expdir}
   callback_after_eval:
     _target_: cambrian.ml.callbacks.MjCambrianCallbackListWithSharedParent
     _convert_: all
     callbacks:
       plot_monitor_callback:
         _target_: cambrian.ml.callbacks.MjCambrianPlotMonitorCallback
-        logdir: ${logdir}
+        logdir: ${expdir}
       plot_evaluations_callback:
         _target_: cambrian.ml.callbacks.MjCambrianPlotEvaluationsCallback
-        logdir: ${logdir}
+        logdir: ${expdir}
       gpu_usage_callback:
         _target_: cambrian.ml.callbacks.MjCambrianGPUUsageCallback
-        logdir: ${logdir}
+        logdir: ${expdir}
 progress_bar_callback:
   _target_: cambrian.ml.callbacks.MjCambrianProgressBarCallback

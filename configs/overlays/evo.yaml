@@ -7,7 +7,7 @@ seed: |
   ${custom.variables.local_rank})'}
 
 # Update the logdir to use the generation and rank syntax
-logdir: ${path:${custom.variables.default_logdir},${custom.variables.rank_path}}
+expdir: ${path:${logdir},generation_${custom.variables.generation},rank_${custom.variables.global_rank}}
 
 custom:
   variables:
@@ -22,5 +22,5 @@ custom:
     num_agents_per_node: ${oc.env:SLURM_NTASKS,1}
     local_rank: ${oc.env:SLURM_PROCID,0}
     global_rank: ${eval:'${oc.env:SLURM_ARRAY_TASK_ID, 0} * ${.num_agents_per_node} + ${.local_rank}'}
-    generation: ${eval:'int(((${hydra:job.num} or 0) - ${.global_rank}) / (${.num_agents_per_node} * ${.num_nodes}))'}
+    generation: ${eval:'int((${hydra_select:job.num} - ${.global_rank}) / (${.num_agents_per_node} * ${.num_nodes}))'}
     rank_path: ${path:generation_${.generation},rank_${.global_rank}}

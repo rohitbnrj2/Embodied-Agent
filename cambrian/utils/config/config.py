@@ -13,9 +13,15 @@ class MjCambrianConfig(MjCambrianBaseConfig):
     """The base config for the mujoco cambrian environment. Used for type hinting.
 
     Attributes:
-        logdir (Path): The directory to log training data to.
+        logdir (Path): The primary directory which simulation data is stored in. This is 
+            the highest level directory used for the experiment. `expdir` is the
+            subdirectory used for a specific experiment. If overridding, it's 
+            recommended to just override the logdir and not the expdir.
+        expdir (Path): The subdirectory used for a specific experiment. This is the
+            directory where the experiment's data is stored. 
+
         expname (str): The name of the experiment. Used to name the logging
-            subdirectory. If unset, will set to the name of the config file.
+            subdirectory. 
 
         seed (int): The base seed used when initializing the default thread/process.
             Launched processes should use this seed value to calculate their own seed
@@ -27,6 +33,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
     """
 
     logdir: Path
+    expdir: Path
     expname: str
 
     seed: int
