@@ -4,7 +4,7 @@
 seed: |
   ${eval:'${trainer.n_envs} * (${custom.variables.generation} * 
   ${custom.variables.num_agents_per_node} * ${custom.variables.num_nodes} + 
-  ${custom.variables.local_rank})'}
+  ${custom.variables.global_rank})'}
 
 # Update the logdir to use the generation and rank syntax
 expdir: ${path:${logdir},generation_${custom.variables.generation},rank_${custom.variables.global_rank}}

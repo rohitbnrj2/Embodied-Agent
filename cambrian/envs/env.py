@@ -16,7 +16,6 @@ import numpy as np
 import mujoco as mj
 from gymnasium import spaces
 from pettingzoo import ParallelEnv
-from stable_baselines3.common.utils import set_random_seed
 
 from cambrian.animals.animal import MjCambrianAnimal, MjCambrianAnimalConfig
 from cambrian.renderer import (
@@ -190,8 +189,7 @@ class MjCambrianEnv(ParallelEnv):
                 animal and the info dict for each animal.
         """
         if seed is not None and self._num_resets == 0:
-            self._logger.info(f"Setting random seed to {seed}")
-            set_random_seed(seed)
+            self.set_random_seed(seed)
 
         # First, reset the mujoco simulation
         mj.mj_resetData(self._model, self._data)
@@ -663,6 +661,13 @@ class MjCambrianEnv(ParallelEnv):
         This is part of the PettingZoo API.
         """
         raise NotImplementedError("Not implemented yet.")
+
+    def set_random_seed(self, seed: int | float):
+        """Sets the seed for the environment."""
+        from stable_baselines3.common.utils import set_random_seed
+
+        self._logger.info(f"Setting random seed to {seed}")
+        set_random_seed(seed)
 
     @property
     def record(self):

@@ -186,6 +186,11 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
         """Returns the current maze."""
         return self._maze
 
+    @maze.setter
+    def maze(self, maze: "MjCambrianMaze"):
+        """Sets the current maze."""
+        self._maze = maze
+
     @property
     def maze_store(self) -> "MjCambrianMazeStore":
         """Returns the maze store."""

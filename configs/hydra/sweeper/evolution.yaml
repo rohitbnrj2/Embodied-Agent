@@ -18,7 +18,11 @@ defaults:
 #       hydra_nevergrad_sweeper/hydra_plugins/hydra_nevergrad_sweeper/_impl.py#L162
 
 optim:
-  optimizer: "NGOpt"
+  # General optimizer
+  # optimizer: "NGOpt"
+  # excellent in discrete settings of mixed settings when high precision on parameters 
+  # is not relevant; it's possibly a good choice for hyperparameter choice
+  optimizer: "PortfolioDiscreteOnePlusOne"
 
   # This seed is only used at the very beginning and is used for reproducibility of the
   # nevergrad algorithm, not of the individual runs. We'll set it to 0 here instead of

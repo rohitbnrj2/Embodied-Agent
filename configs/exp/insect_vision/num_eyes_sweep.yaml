@@ -1,7 +1,6 @@
 # @package _global_
 
 defaults:
-  # Use one maze for the time being
   - /env/mazes/Y_STATIC@env.mazes.Y_STATIC
   - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
 
@@ -20,21 +19,13 @@ trainer:
 env:
   animals:
     animal_0:
-      xml:
-        overrides:
-          - mujoco:
-              - actuator:
-                  - velocity:
-                      - name: "act_x_${parent:xml}"
-                      - ctrlrange: "-100.0 100.0"
-                  - velocity:
-                      - name: "act_y_${parent:xml}"
-                      - ctrlrange: "-100.0 100.0"
-
-      eyes_lon_range: [-180, 180]
       num_eyes_to_generate: [1, 1]
 
+      # The eyes can be placed anywhere on the longitudinal axis
+      eyes_lon_range: [-180, 180]
+
       eyes:
+        # Each eye while will have a resolution of 1x1 and a field of view of 1x1
         eye:
           resolution: [1, 1]
           fov: [1, 1]
@@ -42,15 +33,9 @@ env:
 hydra:
   sweeper:
     parametrization:
-      env.animals.animal_0.num_eyes_to_generate.0:
-        init: 1
-        lower: 1
-        upper: 100
-        step: 1
-        integer: true
+      # Just evolve the longitudinal number of eyes for now, i.e. flatland
       env.animals.animal_0.num_eyes_to_generate.1: 
         init: 1
         lower: 1
         upper: 100
-        step: 1
         integer: true

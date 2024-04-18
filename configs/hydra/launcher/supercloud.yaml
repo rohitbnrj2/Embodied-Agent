@@ -18,13 +18,12 @@ timeout_min: ${eval:'60*24'} # 1 day (in min)
 # running on each node) based on the number of parallel environments each trainer.
 # Each supercloud node only has 40 cpus, so we'll set the number of tasks_per_node to
 # 40 // cpus_per_task. This will allow us to run the maximum number of trainers on each
-# node while still allowing for other processes to run on the node. We'll also set the
-# array_parallelism to 4 // tasks_per_node to ensure that we're using all 4 nodes.
+# node while still allowing for other processes to run on the node. 
 nodes: 1
 tasks_per_node: ${eval:'int(40 // ${.cpus_per_task})'}
 cpus_per_task: ${trainer.n_envs}
 gres: gpu:volta:1
-array_parallelism: ${eval:'int(4 // ${.tasks_per_node})'}
+array_parallelism: 4 # number of parallel array jobs launched; sc only allows 4 gpus
 
 # This will increase the likelyhood of a job being selected during peak hours.
 qos: high

@@ -75,6 +75,7 @@ def make_wrapped_env(
 
     def _init():
         env = config.instance(config, **kwargs)
+        env.set_random_seed(seed)
         for wrapper in wrappers:
             env = wrapper(env)
         check_env(env, warn=False)
