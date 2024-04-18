@@ -356,11 +356,9 @@ def literal_eval_with_callables(
         2.0
     """
     if isinstance(node_or_string, str):
-        string = node_or_string
         node = ast.parse(node_or_string, mode="eval").body
     else:
         node = node_or_string
-        string = ast.dump(node)
 
     # Copy safe_callables into _env to allow names to evaluate to callables, like if
     # a module is specified in safe_callables and they have attributes/constants.
@@ -420,6 +418,10 @@ def literal_eval_with_callables(
             return op_map[type(node.op)](
                 _convert(node.values[0]), _convert(node.values[1])
             )
+        elif isinstance(node, ast.Compare) and type(node.ops[0]) in op_map:
+            left = _convert(node.left)
+            right = _convert(node.comparators[0])
+            return op_map[type(node.ops[0])](left, right)
         elif isinstance(node, ast.Call):
             if isinstance(node.func, ast.Attribute) and isinstance(
                 node.func.value, ast.Name
@@ -448,18 +450,17 @@ def literal_eval_with_callables(
                 for item in iter_list:
                     _env[comprehension.target.id] = item
                     if all(_convert(cond) for cond in comprehension.ifs):
-                        results.append(_convert(iter_node, _env=_env))
+                        results.append(_convert(iter_node))
 
             return results
+        elif isinstance(node, ast.ListComp):
+            return _convert(ast.GeneratorExp(node.elt, node.generators))
         else:
             raise ValueError(f"Unsupported node type: {type(node)}")
 
         raise ValueError(f"Couldn't parse node ({type(node)}): {ast.dump(node)}")
 
-    try:
-        return _convert(node)
-    except ValueError as e:
-        raise ValueError(f"Error evaluating expression: {string}") from e
+    return _convert(node)
 
 
 def safe_eval(src: Any):

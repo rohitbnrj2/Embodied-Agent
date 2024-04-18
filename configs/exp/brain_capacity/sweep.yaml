@@ -6,6 +6,8 @@ defaults:
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
+  # Add a goal object
+  - /exp/goal_exp
 
   # Define one animal
   - /env/animals@env.animals.animal_0: ${env/animals}

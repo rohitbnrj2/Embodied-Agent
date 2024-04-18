@@ -2,7 +2,7 @@ defaults:
   - env
   - /MjCambrianObjectEnvConfig
 
-  - objects@objects.goal: goal
+objects: {}
 
 instance:
   _target_: cambrian.envs.object_env.MjCambrianObjectEnv

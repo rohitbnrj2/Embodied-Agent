@@ -14,14 +14,12 @@ defaults:
   - /env/animals/eyes@env.animals.animal_0.eyes.animal_0_eye_0: ${env/animals/eyes}
   - /env/animals/eyes@env.animals.animal_0.eyes.animal_0_eye_1: ${env/animals/eyes}
   # The second is the "prey" and has a fixed policy that tries to avoid the predator
-  - /env/animals@env.animals_1: point_prey
+  - /env/animals@env.animals.animal_1: point_prey
 
 trainer:
   total_timesteps: 5_000_000
 
 env:
-  objects: ${clear:}
-
   # Set the reward fns
   reward_fn:
     euclidean_delta_from_init:
@@ -59,16 +57,7 @@ env:
           resolution: [20, 20]
           coord: [10, 25]
 
-    # Update the animal_1 to be non-trainable and set it's instance to be the correct
-    # class which implements the prey-like logic
     animal_1:
-      trainable: false
-
-      instance:
-        _target_: cambrian.animals.MjCambrianPointAnimalPrey
-        _partial_: true
-        predators: [animal_0]
-
       # Preys are green
       xml:
         overrides:

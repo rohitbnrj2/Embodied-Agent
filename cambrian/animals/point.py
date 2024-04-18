@@ -70,23 +70,17 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
         """Overrides the base implementation to only have two elements."""
         return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
 
-    @MjCambrianAnimal.pos.setter
-    def pos(self, value: Tuple[float | None, float | None, float | None]):
-        """Overrides the base implementation to set the x and y position."""
-        assert len(value) == 3, f"Position must have 3 elements, got {len(value)}."
-        for i, val in enumerate(value):
-            if val is not None:
-                self.qpos[i] = val
-
     @MjCambrianAnimal.quat.setter
-    def quat(self, value: Tuple[float | None, float | None, float | None, float | None]):
+    def quat(
+        self, value: Tuple[float | None, float | None, float | None, float | None]
+    ):
         """Overrides the base implementation to set the z rotation."""
         assert len(value) == 4, f"Quaternion must have 4 elements, got {len(value)}."
         # Only set quat if all values are not None
         if any(val is None for val in value):
             return
 
-        self.qpos[2] = np.arctan2(
+        self.qpos[self._qposadrs[2]] = np.arctan2(
             2 * (value[0] * value[3] + value[1] * value[2]),
             1 - 2 * (value[2] ** 2 + value[3] ** 2),
         )
@@ -140,7 +134,10 @@ class MjCambrianPointAnimalPredator(MjCambrianPointAnimal):
 
         # Set the action based on the vector calculated above. Add some noise to the
         # angle to make the movement.
-        return [self._speed, np.clip(delta + np.random.randn(), -1, 1)]
+        def wrap_angle(angle):
+            return (angle + np.pi) % (2 * np.pi) - np.pi
+
+        return [self._speed, wrap_angle(delta + np.random.randn())]
 
 
 class MjCambrianPointAnimalPrey(MjCambrianPointAnimal):
@@ -191,7 +188,10 @@ class MjCambrianPointAnimalPrey(MjCambrianPointAnimal):
 
         # Set the action based on the vector calculated above. Add some noise to the
         # angle to make the movement.
-        return [self._speed, np.clip(delta + np.random.randn(), -1, 1)]
+        def wrap_angle(angle):
+            return (angle + np.pi) % (2 * np.pi) - np.pi
+
+        return [self._speed, wrap_angle(delta + np.random.randn())]
 
 
 class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):

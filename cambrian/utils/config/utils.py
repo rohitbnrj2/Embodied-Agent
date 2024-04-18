@@ -64,7 +64,8 @@ def run_hydra(
     import hydra
     from omegaconf import DictConfig
 
-    from cambrian.utils.config.config import MjCambrianConfig  # noqa
+    # Import MjCambrianConfig here to have it register with the hydra store
+    from cambrian.utils.config.config import MjCambrianConfig  # noqa: F401
 
     # Add one default argument for the --hydra-help message
     parser.add_argument(

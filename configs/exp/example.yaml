@@ -28,6 +28,8 @@ defaults:
   # includes because it defines default values for specific config files and the above
   # files use those as interpolations in their default lists.
   - maze_exp
+  # Add a goal object
+  - goal_exp
 
   # We define all the animals we want to use (in this case, just one)
   # We need to override the /env/animals field explicitly since we're changing the

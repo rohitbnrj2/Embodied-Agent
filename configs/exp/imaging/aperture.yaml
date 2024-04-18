@@ -6,12 +6,14 @@ defaults:
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
+  # Add a goal object
+  - /exp/goal_exp
 
   # Define one animal with one eye
   - /env/animals@env.animals.animal_0: ${env/animals}
   - /env/animals/eyes@env.animals.animal_0.eyes.eye_0: ${env/animals/eyes}
 
-  # Override the default animal and eye configs
+  # Override the default animal and eye configs to use the point and optics, respectively
   - override /env/animals: point
   - override /env/animals/eyes: optics
 

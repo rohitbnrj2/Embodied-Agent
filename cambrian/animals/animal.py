@@ -361,7 +361,6 @@ class MjCambrianAnimal:
 
         # step here so that the observations are updated
         mj.mj_forward(model, data)
-        self.init_pos = self.pos.copy()
 
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
@@ -618,12 +617,12 @@ class MjCambrianAnimal:
     @property
     def last_action(self) -> np.ndarray:
         """Returns the last action that was applied to the animal."""
-        last_ctrl = self._data.ctrl[self._actadrs].copy()
+        last_ctrl = self._data.ctrl.copy()
         for act in self._actuators:
             last_ctrl[act.adr] = np.interp(
                 last_ctrl[act.adr], [act.low, act.high], [-1, 1]
             )
-        return last_ctrl
+        return last_ctrl[self._actadrs]
 
     @property
     def geom(self) -> MjCambrianGeometry:

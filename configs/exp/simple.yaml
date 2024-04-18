@@ -4,7 +4,8 @@ defaults:
   - /env/mazes/I_STATIC@env.mazes.I_STATIC
 
   # Use the maze_exp config as the base
-  - /exp/maze_exp
+  - maze_exp
+  - goal_exp
 
   - /env/animals@env.animals.animal_0: ${env/animals}
   - /env/animals/eyes@env.animals.animal_0.eyes.eye_0: ${env/animals/eyes}

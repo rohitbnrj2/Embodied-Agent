@@ -1,0 +1,8 @@
+# @package _global_
+
+defaults:
+  # Adds a single goal to the environment
+  # The intention for this exp config is that it's included in another exp config
+  # NOTE: if used with a maze environment, there must be a reset localtion available for
+  # the goal to be placed at.
+  - objects@objects.goal: goal

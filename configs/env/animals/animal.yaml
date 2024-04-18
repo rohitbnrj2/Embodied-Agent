@@ -11,6 +11,7 @@ instance:
 init_pos: []
 init_quat: []
 
+# Defaults to using the action observation
 use_action_obs: true
 
 # Default configuration is no eyes
