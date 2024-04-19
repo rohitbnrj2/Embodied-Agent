@@ -171,11 +171,8 @@ class MjCambrianAnimal:
 
         self._place_eyes()
 
-        # Extend the initial positions and quaternions to be the full length
-        init_pos = self._config.init_pos
-        self._init_pos = [*init_pos] + [None] * (3 - len(init_pos))
-        init_quat = self._config.init_quat
-        self._init_quat = [*init_quat] + [None] * (4 - len(init_quat))
+        self._init_pos = [None] * 3
+        self._init_quat = [None] * 4
 
         # Explicitly delete the model; probably not required, but just to be safe
         del model
@@ -271,14 +268,24 @@ class MjCambrianAnimal:
                 len(self._config.eyes) == 1
             ), "Only one eye config should be specified."
 
+            # Check if the lat and/or lon range have the same end point. If they do,
+            # make them exclusive rather than inclusive of the end points. These are
+            # angles, so we check if their wrapped values are the same.
+            eyes_lat_range, lat_inclusive = self._config.eyes_lat_range, True
+            eyes_lon_range, lon_inclusive = self._config.eyes_lon_range, True
+            if eyes_lat_range[0] % 360 == eyes_lat_range[1] % 360:
+                lat_inclusive = False 
+            if eyes_lon_range[0] % 360 == eyes_lon_range[1] % 360:
+                lon_inclusive = False
+
             base_eye_name, base_eye_config = list(self._config.eyes.items())[0]
 
             # Place the eyes uniformly on a spherical grid. The number of latitude and
             # longitudinaly bins is defined by the two attributes in `eyes`,
             # respectively.
             nlat, nlon = self._config.num_eyes_to_generate
-            lat_bins = generate_sequence_from_range(self._config.eyes_lat_range, nlat)
-            lon_bins = generate_sequence_from_range(self._config.eyes_lon_range, nlon)
+            lat_bins = generate_sequence_from_range(eyes_lat_range, nlat, lat_inclusive)
+            lon_bins = generate_sequence_from_range(eyes_lon_range, nlon, lon_inclusive)
             for lat_idx, lat in enumerate(lat_bins):
                 for lon_idx, lon in enumerate(lon_bins):
                     eye_name = f"{base_eye_name}_{lat_idx}_{lon_idx}"
@@ -355,12 +362,18 @@ class MjCambrianAnimal:
         # Accumulate the qpos/qvel/act adrs
         self._reset_adrs(model)
 
+        # Reset the init pose to the config's
+        self.init_pos = self._config.init_pos
+        self.init_quat = self._config.init_quat
+
         # Update the animal's qpos
         self.pos = self._init_pos
         self.quat = self._init_quat
 
         # step here so that the observations are updated
         mj.mj_forward(model, data)
+        self.init_pos = self.pos
+        self.init_quat = self.quat
 
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
@@ -533,6 +546,20 @@ class MjCambrianAnimal:
         for idx, val in enumerate(value):
             if val is not None:
                 self._init_pos[idx] = val
+
+    @property
+    def init_quat(self) -> np.ndarray:
+        """Returns the initial quaternion of the animal."""
+        return self._init_quat
+    
+    @init_quat.setter
+    def init_quat(
+        self, value: Tuple[float | None, float | None, float | None, float | None]
+    ):
+        """Sets the initial quaternion of the animal."""
+        for idx, val in enumerate(value):
+            if val is not None:
+                self._init_quat[idx] = val
 
     @property
     def qpos(self) -> np.ndarray:

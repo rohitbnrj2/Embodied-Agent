@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional, List
 
 import numpy as np
 
@@ -18,11 +18,14 @@ def never_terminates(
 
 
 def terminate_if_close_to_object(
-    env: MjCambrianObjectEnv, animal: MjCambrianAnimal, info: Dict[str, Any]
+    env: MjCambrianObjectEnv, animal: MjCambrianAnimal, info: Dict[str, Any], *, objects: Optional[List[str]] = None
 ) -> bool:
     """Terminates the episode if the animal is close to an object. Terminate is only
     true if the object is set to terminate_if_close = True."""
     for obj in env.objects.values():
+        if objects is not None and obj.name not in objects:
+            continue
+
         if obj.is_close(animal.pos) and obj.config.terminate_if_close:
             return True
     return False

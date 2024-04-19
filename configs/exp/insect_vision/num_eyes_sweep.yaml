@@ -25,10 +25,10 @@ env:
       eyes_lon_range: [-180, 180]
 
       eyes:
-        # Each eye while will have a resolution of 1x1 and a field of view of 1x1
+        # Each eye while will have a resolution of 1x1 and a field of view of 10x10
         eye:
           resolution: [1, 1]
-          fov: [1, 1]
+          fov: [10, 10]
 
 hydra:
   sweeper:
@@ -37,5 +37,6 @@ hydra:
       env.animals.animal_0.num_eyes_to_generate.1: 
         init: 1
         lower: 1
+        step: 1
         upper: 100
         integer: true

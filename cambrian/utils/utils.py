@@ -95,9 +95,22 @@ def calculate_fitness(evaluations_npz: Path) -> float:
 # =============
 
 
-def generate_sequence_from_range(range: Tuple[float, float], num: int) -> List[float]:
-    """"""
-    sequence = [np.average(range)] if num == 1 else np.linspace(*range, num)
+def generate_sequence_from_range(
+    range: Tuple[float, float], num: int, endpoint: bool = True
+) -> List[float]:
+    """Generate a sequence of numbers from a range. If num is 1, the average of the
+    range is returned. Otherwise, a sequence of numbers is generated using np.linspace.
+    
+    Args:
+        range (Tuple[float, float]): The range of the sequence.
+        num (int): The number of elements in the sequence.
+
+    Keyword Args:
+        endpoint (bool): Whether to include the endpoint in the sequence.
+    """
+    sequence = (
+        [np.average(range)] if num == 1 else np.linspace(*range, num, endpoint=endpoint)
+    )
     return [float(x) for x in sequence]
 
 

@@ -6,3 +6,12 @@ defaults:
   # NOTE: if used with a maze environment, there must be a reset localtion available for
   # the goal to be placed at.
   - objects@objects.goal: goal
+
+termination_fn:
+  terminate_if_close_to_object:
+    _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
+    _partial_: true
+truncation_fn:
+  truncate_if_close_to_object:
+    _target_: cambrian.envs.truncation_fns.truncate_if_close_to_object
+    _partial_: true

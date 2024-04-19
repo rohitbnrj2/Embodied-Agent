@@ -19,10 +19,10 @@ defaults:
 
 optim:
   # General optimizer
-  # optimizer: "NGOpt"
+  optimizer: "NGOpt" # now called NgIohTuned
   # excellent in discrete settings of mixed settings when high precision on parameters 
   # is not relevant; it's possibly a good choice for hyperparameter choice
-  optimizer: "PortfolioDiscreteOnePlusOne"
+  # optimizer: "PortfolioDiscreteOnePlusOne"
 
   # This seed is only used at the very beginning and is used for reproducibility of the
   # nevergrad algorithm, not of the individual runs. We'll set it to 0 here instead of

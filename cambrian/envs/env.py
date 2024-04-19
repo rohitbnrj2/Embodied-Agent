@@ -264,7 +264,7 @@ class MjCambrianEnv(ParallelEnv):
 
             assert name in action, f"Action for {name} not found in action dict."
             animal.apply_action(action[name])
-            info[name]["prev_pos"] = animal.qpos
+            info[name]["prev_pos"] = animal.pos.copy()
             info[name]["action"] = action[name]
 
         # Then, step the mujoco simulation

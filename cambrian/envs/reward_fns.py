@@ -219,6 +219,6 @@ def calc_delta(
     (i.e. current - prev)
     """
 
-    current_distance = np.linalg.norm(animal.pos[:2] - point[:2])
-    prev_distance = np.linalg.norm(info["prev_pos"][:2] - point[:2])
+    current_distance = np.linalg.norm(animal.pos - point)
+    prev_distance = np.linalg.norm(info["prev_pos"] - point)
     return current_distance - prev_distance
