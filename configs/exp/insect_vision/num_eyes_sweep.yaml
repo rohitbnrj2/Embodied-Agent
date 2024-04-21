@@ -4,6 +4,12 @@ defaults:
   - /env/mazes/Y_STATIC@env.mazes.Y_STATIC
   - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
 
+  # Adds a single goal to the environment
+  # The intention for this exp config is that it's included in another exp config
+  # NOTE: if used with a maze environment, there must be a reset localtion available for
+  # the goal to be placed at.
+  - /env/objects@env.objects.goal: goal
+
   # Use the maze_exp config as the base
   - /exp/maze_exp
 
@@ -19,6 +25,18 @@ trainer:
 env:
   animals:
     animal_0:
+      # Up the ctrl range to make the environment more difficult
+      xml:
+        overrides:
+          - mujoco:
+              - actuator:
+                  - velocity:
+                      - name: "act_x_${parent:xml}"
+                      - ctrlrange: "-100.0 100.0"
+                  - velocity:
+                      - name: "act_y_${parent:xml}"
+                      - ctrlrange: "-100.0 100.0"
+
       num_eyes_to_generate: [1, 1]
 
       # The eyes can be placed anywhere on the longitudinal axis
@@ -37,6 +55,6 @@ hydra:
       env.animals.animal_0.num_eyes_to_generate.1: 
         init: 1
         lower: 1
-        step: 1
         upper: 100
+        step: 5
         integer: true

@@ -75,10 +75,11 @@ def make_wrapped_env(
 
     def _init():
         env = config.instance(config, **kwargs)
-        env.set_random_seed(seed)
         for wrapper in wrappers:
             env = wrapper(env)
+        # check_env will call reset and set the seed to 0; call set_random_seed after
         check_env(env, warn=False)
+        env.set_random_seed(seed)
         return env
 
     return _init

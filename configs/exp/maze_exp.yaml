@@ -28,8 +28,8 @@ defaults:
   # - /env/mazes/MAZE1@env.mazes.CUSTOM_NAME
   - /env/mazes: maze
 
-  # Load the default exp config
-  - exp
+  # Load the goal exp config as the base
+  - goal_exp
 
   # Override the default environment to be a maze_env. We are using mazes above, and so
   # we need to specify the environment base which corresponds to the maze environment.

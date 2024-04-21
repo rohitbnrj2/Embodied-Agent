@@ -1,17 +1,24 @@
 # @package _global_
 
 defaults:
-  # Adds a single goal to the environment
-  # The intention for this exp config is that it's included in another exp config
-  # NOTE: if used with a maze environment, there must be a reset localtion available for
-  # the goal to be placed at.
-  - objects@objects.goal: goal
+  # Simular to mazes, you must also specify the object configuration.
+  - /env/objects: object
 
-termination_fn:
-  terminate_if_close_to_object:
-    _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
-    _partial_: true
-truncation_fn:
-  truncate_if_close_to_object:
-    _target_: cambrian.envs.truncation_fns.truncate_if_close_to_object
-    _partial_: true
+  # Load the default exp config
+  - exp
+
+  # Override the default environment to be a object_env. We are using objects above, 
+  # and so we need to specify the environment base which corresponds to the 
+  # object environment. This will also register the env config group as an 
+  # MjCambrianObjectEnvConfig
+  - override /env: object_env
+
+env:
+  termination_fn:
+    terminate_if_close_to_object:
+      _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
+      _partial_: true
+  truncation_fn:
+    truncate_if_close_to_object:
+      _target_: cambrian.envs.truncation_fns.truncate_if_close_to_object
+      _partial_: true

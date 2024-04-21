@@ -12,9 +12,6 @@ defaults:
   - /env/animals: animal
   - /env/animals/eyes: eye
 
-  # Simular to mazes, you must also specify the object configuration.
-  - /env/objects: object
-
   # NOTE: there is a bug in OmegaConf that doesn't allow optional dataclass objects
   # that are inherited to be specified via the defaults list. For instance,
   # if you have the following structured configs:
