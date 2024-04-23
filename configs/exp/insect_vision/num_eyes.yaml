@@ -37,7 +37,7 @@ env:
                       - name: "act_y_${parent:xml}"
                       - ctrlrange: "-100.0 100.0"
 
-      num_eyes_to_generate: [1, 1]
+      num_eyes_to_generate: [1, 25]
 
       # The eyes can be placed anywhere on the longitudinal axis
       eyes_lon_range: [-180, 180]

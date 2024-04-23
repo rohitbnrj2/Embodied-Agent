@@ -101,7 +101,7 @@ class MjCambrianTrainer:
     def eval(self):
         self._config.save(self._config.expdir / "eval_config.yaml")
 
-        eval_env = self._make_env(self._config.env, 1, monitor="eval_monitor.csv")
+        eval_env = self._make_env(self._config.eval_env, 1, monitor="eval_monitor.csv")
         model = self._make_model(eval_env)
         model = model.load(self._config.expdir / "best_model")
 

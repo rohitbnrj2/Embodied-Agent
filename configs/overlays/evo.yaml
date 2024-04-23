@@ -23,5 +23,5 @@ custom:
     local_rank: ${oc.env:SLURM_PROCID,0}
     global_rank: ${eval:'${oc.env:SLURM_ARRAY_TASK_ID, 0} * ${.num_agents_per_node} + ${.local_rank}'}
     generation: ${eval:'int((${hydra_select:job.num} - ${.global_rank}) / (${.num_agents_per_node} * ${.num_nodes}))'}
-    num_generations: 20
+    num_generations: 100
     rank_path: ${path:generation_${.generation},rank_${.global_rank}}

@@ -19,10 +19,9 @@ defaults:
 
 optim:
   # General optimizer
-  optimizer: "NGOpt" # now called NgIohTuned
-  # excellent in discrete settings of mixed settings when high precision on parameters 
-  # is not relevant; it's possibly a good choice for hyperparameter choice
-  # optimizer: "PortfolioDiscreteOnePlusOne"
+  # is excellent for control (e.g. neurocontrol) when the environment is not very noisy
+  # (num_workers ~50 ok) and when the budget is large (e.g. 1000 x the dimension).
+  optimizer: "CMA"
 
   # This seed is only used at the very beginning and is used for reproducibility of the
   # nevergrad algorithm, not of the individual runs. We'll set it to 0 here instead of
@@ -55,3 +54,8 @@ optim:
   # to know how exploratory to be. So be careful setting this number very large with
   # the intention of stopping early.
   budget: ${eval:'int(${oc.select:custom.variables.num_generations, 20} * ${.num_workers})'}
+
+  # Set the max failures to be equivalent to one node's worth of workers. This is
+  # because if one node fails, we want to be able to restart the job with the same
+  # parameters on a different node.
+  max_failure_rate: ${eval:'1 / ${oc.select:hydra.launcher.array_parallelism, 1}'}
