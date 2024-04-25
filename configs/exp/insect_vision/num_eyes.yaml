@@ -22,6 +22,10 @@ trainer:
   # decrease the number of timesteps to speed up the sweep
   total_timesteps: 300_000
 
+  # prune_fn:
+  #   _target_: cambrian.ml.trainer.prune
+  #   _partial_: true
+
 env:
   animals:
     animal_0:
@@ -52,7 +56,7 @@ hydra:
   sweeper:
     parametrization:
       # Just evolve the longitudinal number of eyes for now, i.e. flatland
-      env.animals.animal_0.num_eyes_to_generate.1: 
+      env.animals.animal_0.num_eyes_to_generate.1:
         init: 1
         lower: 1
         upper: 100

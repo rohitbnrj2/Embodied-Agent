@@ -16,10 +16,10 @@ defaults:
 
   # Here we override the default launcher and sweepers. Note that this only impacts
   # when multi-run is used. By default, we'll specify the local launcher (which is
-  # based on submitit_local) and the evolution sweep (which is based on nevergrad). See
-  # those respective configs for more information.
+  # based on submitit_local) and the evolution sweep. See those respective configs for
+  # more information.
   - override /hydra/launcher: local
-  - override /hydra/sweeper: evolution
+  - override /hydra/sweeper: evolution_nevergrad
 
 logdir: ${path:logs,${now:%Y-%m-%d},${expname}}
 expdir: ${logdir}

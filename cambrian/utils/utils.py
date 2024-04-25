@@ -100,7 +100,7 @@ def generate_sequence_from_range(
 ) -> List[float]:
     """Generate a sequence of numbers from a range. If num is 1, the average of the
     range is returned. Otherwise, a sequence of numbers is generated using np.linspace.
-    
+
     Args:
         range (Tuple[float, float]): The range of the sequence.
         num (int): The number of elements in the sequence.
@@ -435,6 +435,8 @@ def literal_eval_with_callables(
             left = _convert(node.left)
             right = _convert(node.comparators[0])
             return op_map[type(node.ops[0])](left, right)
+        elif isinstance(node, ast.IfExp):
+            return _convert(node.body) if _convert(node.test) else _convert(node.orelse)
         elif isinstance(node, ast.Call):
             if isinstance(node.func, ast.Attribute) and isinstance(
                 node.func.value, ast.Name

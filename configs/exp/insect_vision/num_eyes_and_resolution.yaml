@@ -8,15 +8,23 @@ hydra:
   sweeper:
     parametrization:
       # Add the resolution of the eyes to the sweeper
-      env.animals.animal_0.eyes.eye.resolution.0: 
+      env.animals.animal_0.eyes.eye.resolution.0:
         init: 1
         lower: 1
         upper: 100
         step: 5
         integer: true
-      env.animals.animal_0.eyes.eye.resolution.1: 
+      env.animals.animal_0.eyes.eye.resolution.1:
         init: 1
         lower: 1
         upper: 100
         step: 5
         integer: true
+    cheap_constraints:
+      - _target_: cambrian.ml.trainer.nevergrad_prune_fn
+        _partial_: true
+        parameters:
+          num_lon_eyes_to_generate: env.animals.animal_0.num_eyes_to_generate.1
+          width: env.animals.animal_0.eyes.eye.resolution.0
+          lon_range: ${env.animals.animal_0.eyes_lon_range}
+        fn: cambrian.envs.prune_fns.prune_anatomically_infeasible_eyes

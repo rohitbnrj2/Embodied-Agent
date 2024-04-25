@@ -1,4 +1,4 @@
-from typing import Dict, Callable
+from typing import Dict, Callable, Optional, Concatenate, Any
 from pathlib import Path
 
 from stable_baselines3.common.vec_env import (
@@ -30,6 +30,14 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
         callbacks (Dict[str, BaseCallback]): The callbacks to use for training.
         wrappers (Dict[str, Callable[[VecEnv], VecEnv]] | None): The wrappers to use for
             training. If None, will ignore.
+
+        prune_fn (Optional[Callable[[MjCambrianConfig], bool]]): The function to use to
+            determine if an experiment should be pruned. If None, will ignore. If set,
+            this function will be called prior to training to check whether the config
+            is valid for training. This is the get around the fact that some sweepers
+            will evaluate configs that are invalid for training, which is a waste
+            computationally. The train method will return -inf if this function returns
+            True. NOTE: for nevergrad, it is recommended to use cheap_constraints.
     """
 
     total_timesteps: int
@@ -39,6 +47,8 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
     model: MjCambrianModel
     callbacks: Dict[str, BaseCallback | Callable[[VecEnv], BaseCallback]]
     wrappers: Dict[str, Callable[[VecEnv], VecEnv] | None]
+
+    prune_fn: Optional[Callable[[Concatenate[MjCambrianConfig, ...]], bool]] = None
 
 
 class MjCambrianTrainer:
@@ -62,6 +72,11 @@ class MjCambrianTrainer:
         self._logger.warning(f"Training the animal in {self._config.expdir}...")
 
         self._config.save(self._config.expdir / "config.yaml")
+
+        # Prune the experiment, if necessary
+        if (prune_fn := self._config.trainer.prune_fn) and prune_fn(self._config):
+            Path(self._config.expdir / "pruned").touch()
+            return -float("inf")
 
         # Setup the environment, model, and callbacks
         env = self._make_env(self._config.env, self._config.trainer.n_envs)
@@ -159,6 +174,26 @@ class MjCambrianTrainer:
     def _make_model(self, env: VecEnv) -> MjCambrianModel:
         """This method creates the model."""
         return self._config.trainer.model(env=env)
+
+
+def nevergrad_prune_fn(
+    parameterization: Dict[str, Any],
+    /,
+    *,
+    parameters: Dict[str, Any],
+    fn: str,
+) -> bool:
+    """This function is used to prune experiments for nevergrad sweepers. It will
+    return False if the experiment should be pruned."""
+    from hydra.utils import get_method
+
+    arguments: Dict[str, Any] = {}
+    for argument_key, key_or_value in parameters.items():
+        if isinstance(key_or_value, str) and key_or_value in parameterization:
+            arguments[argument_key] = parameterization[key_or_value]
+        else:
+            arguments[argument_key] = key_or_value
+    return get_method(fn)(**arguments)
 
 
 if __name__ == "__main__":
