@@ -7,6 +7,7 @@ from cambrian.utils.config.utils import (
     instance_wrapper,
     MjCambrianFlagWrapperMeta,
     run_hydra,
+    build_pattern,
 )
 import cambrian.utils.config.resolvers  # noqa: F401
 
@@ -51,4 +52,5 @@ __all__ = [
     "MjCambrianFlagWrapperMeta",
     "run_hydra",
     "MjCambrianConfig",
+    "build_pattern",
 ]

@@ -139,6 +139,10 @@ def setattrs_temporary(
                 else:
                     setattr(obj, attr, value)
 
+def is_number(maybe_num: Any) -> bool:
+    from numbers import Number
+    return isinstance(maybe_num, Number)
+
 
 # =============
 # Mujoco utils

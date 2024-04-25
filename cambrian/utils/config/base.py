@@ -143,7 +143,11 @@ class MjCambrianContainerConfig:
         """Compose a config using the Hydra compose API. This will return the config as
         a MjCambrianContainerConfig instance."""
         import hydra
+        from hydra.core.global_hydra import GlobalHydra
         from hydra.core.hydra_config import HydraConfig
+
+        if GlobalHydra().is_initialized():
+            GlobalHydra().clear()
 
         with hydra.initialize_config_dir(config_dir, version_base=None):
             hydra_config = hydra.compose(
@@ -298,6 +302,13 @@ class MjCambrianContainerConfig:
             if header:
                 f.write(f"{header}\n")
             f.write(self.to_yaml(use_instantiated=use_instantiated, resolve=resolve))
+
+    def pickle(self, path: Path | str):
+        """Pickle the config to a file."""
+        import cloudpickle
+
+        with open(path, "wb") as f:
+            cloudpickle.dump(self, f)
 
     def glob(self, key: str, *, flatten: bool = False) -> Dict[str, Any]:
         """This is effectively select, but allows `*` to be used as a wildcard.

@@ -6,7 +6,7 @@ from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
-from cambrian.utils import MjCambrianGeometry
+from cambrian.utils import MjCambrianGeometry, get_camera_id
 from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
 
@@ -172,7 +172,7 @@ class MjCambrianEye:
 
         self._renderer.reset(model, data, *self._config.resolution)
 
-        fixedcamid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, self._name)
+        fixedcamid = get_camera_id(model, self._name)
         assert fixedcamid != -1, f"Camera '{self._name}' not found."
         self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
         self._renderer.viewer.camera.fixedcamid = fixedcamid

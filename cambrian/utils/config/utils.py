@@ -23,7 +23,8 @@ def run_hydra(
     parser: argparse.ArgumentParser = argparse.ArgumentParser(),
     config_path: str = f"{os.getcwd()}/configs",
     config_name: str = "base",
-    **instantiate_kwargs,
+    instantiate: bool = True,
+    **kwargs,
 ):
     """This function is the main entry point for the hydra application.
 
@@ -59,7 +60,9 @@ def run_hydra(
         config_name (str): The name of the config file to use. This should be the
             name of the file without the extension. By default, this is set to
             "base".
-        instantiate_kwargs: Additional keyword arguments to pass to the instantiate function.
+        instantiate (bool): Whether to instantiate the config. If False, create
+            will be used.
+        kwargs: Additional keyword arguments to pass to the instantiate function.
     """
     import hydra
     from omegaconf import DictConfig
@@ -107,8 +110,9 @@ def run_hydra(
     def main(cfg: DictConfig, **kwargs):
         from cambrian.utils.config import MjCambrianBaseConfig
 
-        config = MjCambrianBaseConfig.instantiate(cfg, **instantiate_kwargs)
-        return main_fn(config, **kwargs)
+        if instantiate:
+            cfg = MjCambrianBaseConfig.instantiate(cfg, **kwargs)
+        return main_fn(cfg, **kwargs)
 
     main()
 
@@ -178,6 +182,37 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
 
     # Return the flattened or nested dict
     return flatten(globbed) if flattened else globbed
+
+def build_pattern(patterns: List[str]) -> str:
+    """Build a glob pattern from the passed patterns.
+
+    The underlying method for globbing (`MjCambrianConfig.glob`) uses a regex pattern
+    which is parses the dot-separated keys independently.
+
+    Example:
+        >>> build_pattern(
+        ...     "training_config.seed",
+        ...     "env_config.animal_configs.*.eye_configs.*.resolution",
+        ...     "env_config.animal_configs.*.eye_configs.*.fov",
+        ... )
+        '(training_config|env_config).(seed|animal_configs).*.eye_configs.*.(resolution|fov)'
+    """
+    depth_based_keys: List[List[str]] = []  # list of keys at depths in the patterns
+    for pattern in patterns:
+        # For each key in the pattern, add at the same depth as the other patterns
+        for i, key in enumerate(pattern.split(".")):
+            if i < len(depth_based_keys):
+                if key not in depth_based_keys[i]:
+                    depth_based_keys[i].extend([key])
+            else:
+                depth_based_keys.append([key])
+
+    # Now build the pattern
+    pattern = ""
+    for keys in depth_based_keys:
+        pattern += "(" + "|".join(keys) + ")."
+    pattern = pattern[:-1]  # remove the last dot
+    return pattern
 
 
 # ===========

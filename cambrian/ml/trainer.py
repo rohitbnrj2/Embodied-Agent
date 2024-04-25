@@ -72,6 +72,7 @@ class MjCambrianTrainer:
         self._logger.warning(f"Training the animal in {self._config.expdir}...")
 
         self._config.save(self._config.expdir / "config.yaml")
+        self._config.pickle(self._config.expdir / "config.pkl")
 
         # Prune the experiment, if necessary
         if (prune_fn := self._config.trainer.prune_fn) and prune_fn(self._config):

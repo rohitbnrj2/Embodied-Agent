@@ -12,34 +12,31 @@ This file works as follows:
     available data. This is useful for visualizing the evolution of the population.
 """
 
-import argparse
-from typing import Dict, Union, Optional, Any, List, Tuple
+from typing import Dict, Union, Optional, Any, List, cast, Tuple
 from pathlib import Path
-
-# import pickle
-import cloudpickle as pickle
 import os
-from dataclasses import dataclass, field
-from functools import partial
+from dataclasses import field
 
-import mujoco as mj
+import cloudpickle as pickle
+from omegaconf import OmegaConf
 import tqdm.rich as tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from cambrian.envs import MjCambrianEnv
-from cambrian.ml.model import MjCambrianModel
-from cambrian.utils.wrappers import make_wrapped_env
-from cambrian.utils import evaluate_policy, setattrs_temporary
-from cambrian.utils.config import MjCambrianConfig
+from cambrian.utils.config import (
+    MjCambrianBaseConfig,
+    MjCambrianConfig,
+    run_hydra,
+    config_wrapper,
+    build_pattern,
+)
 
 # =======================================================
 # Dataclasses
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@config_wrapper
 class Rank:
     """A rank is a single run of an inner training loop. Like in a generation, you have
     many ranks which in themselves have many parallel environments to speed up training.
@@ -55,7 +52,7 @@ class Rank:
     monitor: Optional[Dict[str, Any]] = None
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@config_wrapper
 class Generation:
     """A generation is a collection of ranks. Throughout evolution (outer loop), you
     have many generations where each generation consists of many ranks which
@@ -67,7 +64,7 @@ class Generation:
     ranks: Dict[int, Rank] = field(default_factory=dict)
 
 
-@dataclass(kw_only=True, repr=False, slots=True, eq=False, match_args=False)
+@config_wrapper
 class Data:
     """This is the primary data storage class. It contains all the generations and ranks
     and is used to store the parsed data. It also can accumulated arbitrary data
@@ -80,13 +77,77 @@ class Data:
     accumulated_data: Dict[str, Any] = field(default_factory=dict)
 
 
+@config_wrapper
+class PlotData:
+    pattern: str
+
+    xlabel: str
+    ylabel: str
+    title: str
+    color: Tuple[float, float, float, float]
+    output: str
+
+
+@config_wrapper
+class ParseEvosConfig(MjCambrianBaseConfig):
+    """Config for the parse_evos script.
+
+    Attributes:
+        folder (Path): The folder to parse.
+        output (Path): The output folder.
+        plots_folder (Path): The folder to save the plots.
+        evals_folder (Path): The folder to save the evaluations.
+
+        force (bool): Force loading of the data. If not passed, this script will try to
+            find a parse_evos.pkl file and load that instead.
+        no_save (bool): Do not save the parsed data.
+        no_check_finished (bool): Don't check if a file called `finished` has been
+            written.
+
+        ranks (Optional[List[int]]): The rank to use. If not passed, all ranks are
+            used.
+        generations (Optional[List[int]]): The generation to use. If not passed, all
+            are used.
+
+        plot (bool): Plot the data.
+        eval (bool): Evaluate the data.
+
+        verbose (int): The verbosity level.
+        dry_run (bool): Dry run.
+
+        patterns (List[str]): The patterns to use for plotting.
+        overrides (List[str]): Overrides for the config.
+    """
+
+    folder: Path
+    output: Path
+    plots_folder: Path
+    evals_folder: Path
+
+    force: bool
+    no_save: bool
+    no_check_finished: bool
+
+    ranks: Optional[List[int]] = None
+    generations: Optional[List[int]] = None
+
+    plot: bool
+    eval: bool
+
+    verbose: int
+    dry_run: bool
+
+    patterns: List[str]
+    overrides: List[str]
+
+
 # =======================================================
 # Data loaders
 
 
-def save_data(generations: Dict, folder: Path):
+def save_data(config: ParseEvosConfig, generations: Dict[int, Generation]):
     """Save the parsed data to a pickle file."""
-    pickle_file = folder / "parse_evos" / "data.pkl"
+    pickle_file = config.output / "data.pkl"
     pickle_file.parent.mkdir(parents=True, exist_ok=True)
     with open(pickle_file, "wb") as f:
         pickle.dump(generations, f)
@@ -157,23 +218,17 @@ def get_generation_file_paths(folder: Path) -> Data:
     return Data(path=folder, generations=generations)
 
 
-def load_data(
-    folder: Path,
-    no_check_finished: bool = False,
-    *,
-    overrides: List[List[str]] = [],
-    **kwargs,
-) -> Data:
+def load_data(config: ParseEvosConfig) -> Data:
     """Load the data from the generation/rank folders. This function will walk through
     the folder heirarchy and load the config, evaluations and monitor data for each
     rank."""
-    print(f"Loading data from {folder}...")
+    print(f"Loading data from {config.folder}...")
 
     # Get the file paths to all the generation/rank folders
-    data = get_generation_file_paths(folder)
+    data = get_generation_file_paths(config.folder)
 
-    # We can ignore certain data if we want
-    ignore = kwargs.get("ignore", [])
+    # Convert the overrides to a list
+    overrides = OmegaConf.to_container(config.overrides)
 
     # Walk through each generation/rank and parse the config, evaluations and monitor
     # data
@@ -185,46 +240,52 @@ def load_data(
 
             # Check if the `finished` file exists.
             # If not, don't load the data. Sorry for the double negative.
-            if not no_check_finished and not (rank_data.path / "finished").exists():
-                print(f"\t\tSkipping rank {rank} because it is not finished.")
-                continue
+            if not (rank_data.path / "finished").exists():
+                if not config.no_check_finished:
+                    print(f"\t\tSkipping rank {rank} because it is not finished.")
+                    continue
 
             # Get the config file
-            if (config_file := rank_data.path / "config.yaml").exists():
-                if "config" not in ignore:
-                    print(f"\tLoading config from {config_file}...")
-                    rank_data.config = MjCambrianConfig.load(
-                        config_file, instantiate=False
-                    )
-                    rank_data.config.merge_with_dotlist(overrides)
-                    rank_data.config.resolve()
+            # Try first to load it as a pickle file, then as a yaml file if the pickle
+            # file doesn't exist.
+            if (config_file := rank_data.path / "config.pkl").exists():
+                print(f"\tLoading config from {config_file}...")
+                with open(config_file, "rb") as f:
+                    rank_data.config = cast(MjCambrianConfig, pickle.load(f))
+                with rank_data.config.set_readonly_temporarily(False):
+                    with rank_data.config.set_struct_temporarily(False):
+                        rank_data.config.merge_with_dotlist(overrides)
+                        rank_data.config.resolve()
+                rank_data.config = config
+            elif (config_file := rank_data.path / "config.yaml").exists():
+                print(f"\tLoading config from {config_file}...")
+                rank_data.config = MjCambrianConfig.load(config_file, instantiate=False)
+                rank_data.config.merge_with_dotlist(overrides)
+                rank_data.config.resolve()
 
             # Get the evaluations file
-            if (evaluations_file := rank_data.path / "evaluations.npz").exists():
-                if "evaluations" not in ignore:
-                    with np.load(evaluations_file) as evaluations_data:
-                        evaluations = {
-                            k: evaluations_data[k] for k in evaluations_data.files
-                        }
-                    rank_data.evaluations = evaluations
+            evaluations_file = rank_data.path / "evaluations.npz"
+            if evaluations_file.exists():
+                with np.load(evaluations_file) as eval_data:
+                    rank_data.evaluations = {k: eval_data[k] for k in eval_data.files}
 
             # Get the monitor file
-            if (rank_data.path / "monitor.csv").exists():
-                if "monitor" not in ignore:
-                    rank_data.monitor = load_results(rank_data.path)
+            monitor_file = rank_data.path / "monitor.csv"
+            if monitor_file.exists():
+                rank_data.monitor = load_results(rank_data.path)
 
             # Get the gpu_usage file
             # Will save it to config.custom
-            # if (rank_data.path / "gpu_usage.csv").exists() and rank_data.config:
-            #     if "gpu_usage" not in ignore:
-            #         with open(rank_data.path / "gpu_usage.csv", "r") as f:
-            #             reader = csv.reader(f)
-            #             headers = next(reader)
-            #             gpu_usage = {header: [] for header in headers}
-            #             for row in reader:
-            #                 for i, header in enumerate(headers):
-            #                     gpu_usage[header].append(float(row[i]) / 1e9)  # GB
-            #         rank_data.config.custom["gpu_usage"] = gpu_usage
+            # usage_file = rank_data.path / "gpu_usage.csv"
+            # if usage_file.exists() and rank_data.config:
+            #    with open(usage_file, "r") as f:
+            #        reader = csv.reader(f)
+            #        headers = next(reader)
+            #        gpu_usage = {header: [] for header in headers}
+            #        for row in reader:
+            #            for i, header in enumerate(headers):
+            #                gpu_usage[header].append(float(row[i]) / 1e9)  # GB
+            #    rank_data.config.custom["gpu_usage"] = gpu_usage
 
     return data
 
@@ -287,6 +348,7 @@ def plot_config(
 
     # Get the config attributes to plot
     data = config.glob(pattern, flatten=True)
+    assert data, f"No data found for pattern {pattern}."
 
     # Now loop through each key and plot the values
     for attr, values in data.items():
@@ -453,17 +515,8 @@ def plot_average_line(ax: plt.Axes):
     plt.fill_between(x, y - y_std, y + y_std, alpha=0.2, facecolor="C0")
 
 
-def plot(
-    data: Data,
-    output_folder: Path,
-    *,
-    rank_to_use: Optional[int] = None,
-    generation_to_use: Optional[int] = None,
-    dry_run: bool = False,
-    verbose: int = 0,
-    **kwargs,
-):
-    if verbose > 0:
+def run_plot(config: ParseEvosConfig, data: Data):
+    if config.verbose > 0:
         print("Plotting data...")
 
     # First, create a matplotlib colormap so each rank has a unique color + marker
@@ -479,24 +532,20 @@ def plot(
     # set the colors to be a pastel blue with alpha of 0.1
     colors = np.array([[0.65490196, 0.78039216, 0.90588235, 0.75]])
 
-    # We can ignore certain data if we want
-    ignore = kwargs.get("ignore", [])
-
-    output_folder.mkdir(parents=True, exist_ok=True)
     for generation, generation_data in data.generations.items():
         # Only plot the generation we want, if specified
-        if generation_to_use is not None and generation != generation_to_use:
+        if config.generations is not None and generation not in config.generations:
             continue
 
-        if verbose > 0:
+        if config.verbose > 0:
             print(f"Plotting generation {generation}...")
 
         for rank, rank_data in generation_data.ranks.items():
             # Only plot the rank we want, if specified
-            if rank_to_use is not None and rank != rank_to_use:
+            if config.ranks is not None and rank not in config.ranks:
                 continue
 
-            if verbose > 0:
+            if config.verbose > 0:
                 print(f"\tPlotting rank {rank}...")
 
             # The color + marker of each rank is unique
@@ -504,19 +553,14 @@ def plot(
             marker = markers[rank % len(markers)]
 
             # Plot config data
-            if rank_data.config is not None and "config" not in ignore:
-                if verbose > 1:
+            if rank_data.config is not None:
+                if config.verbose > 1:
                     print("\t\tPlotting config data...")
 
                 # Build the glob pattern for the config attributes
                 # * indicates anything (like names which we don't know beforehand) and (|) indicates
                 # an OR operation (i.e. (resolution|fov) matches either resolution or fov)
-                pattern = build_pattern(
-                    "seed",
-                    "env.animals.*.eyes.*.resolution",
-                    "env.animals.*.eyes.*.fov",
-                    "custom.num_eyes",
-                )
+                pattern = build_pattern(config.patterns)
                 plot_config(
                     rank_data.config,
                     generation,
@@ -524,12 +568,12 @@ def plot(
                     color=color,
                     marker=marker,
                     xlabel="generation",
-                    dry_run=dry_run,
+                    dry_run=config.dry_run,
                 )
 
             # Plot evaluations data
-            if rank_data.evaluations is not None and "evaluations" not in ignore:
-                if verbose > 1:
+            if rank_data.evaluations is not None:
+                if config.verbose > 1:
                     print("\t\tPlotting evaluations data...")
 
                 plot_evaluations(
@@ -539,12 +583,12 @@ def plot(
                     marker=marker,
                     xlabel="generation",
                     label=f"Rank {rank}",
-                    dry_run=dry_run,
+                    dry_run=config.dry_run,
                 )
 
             # Plot monitor data
-            if rank_data.monitor is not None and "monitor" not in ignore:
-                if verbose > 1:
+            if rank_data.monitor is not None:
+                if config.verbose > 1:
                     print("\t\tPlotting monitor data...")
 
                 plot_monitor(
@@ -553,53 +597,43 @@ def plot(
                     color=color,
                     marker=marker,
                     xlabel="generation",
-                    dry_run=dry_run,
+                    dry_run=config.dry_run,
                 )
 
             # Also plot with some different x values
             if rank_data.monitor is not None and rank_data.config is not None:
-                if "monitor" not in ignore and "config" not in ignore:
-                    if verbose > 1:
-                        print("\t\tPlotting monitor and config data...")
+                if config.verbose > 1:
+                    print("\t\tPlotting monitor and config data...")
 
-                    # Build the glob pattern for the config attributes
-                    pattern = build_pattern(
-                        "env.animals.*.eyes.*.fov",
-                        "env.animals.*.eyes.*.resolution",
-                        "custom.num_eyes",
-                    )
-                    plot_monitor_and_config(
-                        rank_data.monitor,
-                        rank_data.config,
-                        pattern,
-                        color=color,
-                        marker=marker,
-                        dry_run=dry_run,
-                    )
+                # Build the glob pattern for the config attributes
+                pattern = build_pattern(config.patterns)
+                plot_monitor_and_config(
+                    rank_data.monitor,
+                    rank_data.config,
+                    pattern,
+                    color=color,
+                    marker=marker,
+                    dry_run=config.dry_run,
+                )
 
             # Plot evaluations and config data
             if rank_data.evaluations is not None and rank_data.config is not None:
-                if "evaluations" not in ignore and "config" not in ignore:
-                    if verbose > 1:
-                        print("\t\tPlotting evaluations and config data...")
+                if config.verbose > 1:
+                    print("\t\tPlotting evaluations and config data...")
 
-                    # Build the glob pattern for the config attributes
-                    pattern = build_pattern(
-                        "env.animals.*.eyes.*.fov",
-                        "env.animals.*.eyes.*.resolution",
-                        "custom.num_eyes",
-                    )
-                    plot_evaluations_and_config(
-                        rank_data.evaluations,
-                        rank_data.config,
-                        pattern,
-                        color=color,
-                        marker=marker,
-                        dry_run=dry_run,
-                    )
+                # Build the glob pattern for the config attributes
+                pattern = build_pattern(config.patterns)
+                plot_evaluations_and_config(
+                    rank_data.evaluations,
+                    rank_data.config,
+                    pattern,
+                    color=color,
+                    marker=marker,
+                    dry_run=config.dry_run,
+                )
 
     # Now save the plots
-    if not dry_run:
+    if not config.dry_run:
         for fig in tqdm.tqdm(plt.get_fignums(), desc="Saving plots..."):
             fig = plt.figure(fig)
             filename = f"{fig._suptitle.get_text().lower().replace(' ', '_')}.png"
@@ -616,14 +650,14 @@ def plot(
             fig.tight_layout()
             plt.gca().set_box_aspect(1)
             plt.savefig(
-                output_folder / filename,
+                config.plots_folder / filename,
                 dpi=500,
                 bbox_inches="tight",
                 transparent=False,
             )
 
-            if verbose > 1:
-                print(f"Saved plot to {output_folder / filename}.")
+            if config.verbose > 1:
+                print(f"Saved plot to {config.plots_folder / filename}.")
 
             plt.close(fig)
 
@@ -631,409 +665,40 @@ def plot(
 # =======================================================
 
 
-def phylogenetic_tree(
-    data: Data,
-    output_folder: Path,
-    *,
-    rank_to_use: Optional[int] = None,
-    generation_to_use: Optional[int] = None,
-    dry_run: bool = False,
-    verbose: int = 0,
-    **kwargs,
-):
-    import ete3 as ete
+def run_eval(config: ParseEvosConfig, data: Data):
+    from cambrian.ml.trainer import MjCambrianTrainer
 
-    def add_node(
-        nodes: Dict[str, ete.Tree],
-        *,
-        rank_data: Rank,
-        generation_data: Generation,
-    ):
-        rank = rank_data.num
-        generation = generation_data.num
+    # # Have to update the sys.modules to include the features_extractors module
+    # # features_extractors is saved in the model checkpoint
+    # import sys
+    # from cambrian.ml import features_extractors
 
-        if generation_to_use is not None and generation != generation_to_use:
-            return
-        if rank_to_use is not None and rank != rank_to_use:
-            return
+    # sys.modules["features_extractors"] = features_extractors
 
-        # Define a unique identifier for each rank
-        rank_id = f"G{generation}_R{rank}"
-        if rank_id in nodes:
-            return
-
-        # Get the parent identifier
-        if not (config := rank_data.config):
-            print(f"Skipping rank {rank_id} because it has no config.")
-            return
-        if not (evaluations := rank_data.evaluations):
-            print(f"Skipping rank {rank_id} because it has no evaluations.")
-            return
-
-        # Fix the config
-        rank_data.config.fix()
-
-        # If this is the first generation, the parent is set to the root
-        if generation == 0:
-            parent_id = "root"
-        else:
-            if not (parent_config := config.evo_config.parent_generation_config):
-                print(f"Skipping rank {rank_id} because it has no parent config.")
-                return
-            parent_id = f"G{parent_config.generation}_R{parent_config.rank}"
-
-            if parent_id not in nodes:
-                parent_generation_data = data.generations[parent_config.generation]
-                add_node(
-                    nodes,
-                    rank_data=parent_generation_data.ranks[parent_config.rank],
-                    generation_data=parent_generation_data,
-                )
-
-        # Create the rank node under the parent node
-        parent = nodes[parent_id]
-        node = parent.add_child(name=rank_id)
-        nodes[rank_id] = node
-
-        # Add features for the ranks and generations
-        node.add_feature("rank", rank)
-        node.add_feature("generation", generation)
-        if generation != 0:
-            node.add_feature("parent_rank", parent_config.rank)
-            node.add_feature("parent_generation", parent_config.generation)
-        else:
-            node.add_feature("parent_rank", -1)
-            node.add_feature("parent_generation", -1)
-
-        # Add evaluations to the node
-        key = "mean_results" if "mean_results" in evaluations else "results"
-        node.add_feature("fitness", np.max(evaluations[key]))
-
-        # Add a text label and feature for the pattern
-        globbed_data = config.glob(pattern, flatten=True)
-        for key, value in globbed_data.items():
-            if isinstance(value, list):
-                value = np.average(value).astype(type(value[0]))
-
-            node.add_feature(key, value)
-
-    def build_tree(pattern: str) -> ete.Tree:
-        tree = ete.Tree()
-        tree.name = "root"
-
-        # Dictionary to keep track of created nodes
-        nodes = {"root": tree}
-
-        # Iterate through the generations and ranks
-        for generation_data in data.generations.values():
-            for rank_data in generation_data.ranks.values():
-                add_node(nodes, rank_data=rank_data, generation_data=generation_data)
-
-        return tree
-
-    def style_node(
-        node: ete.Tree,
-        *,
-        style_feature_key: str,
-        value_threshold: Optional[float] = None,
-        value_range: Optional[Tuple[float, float]] = None,
-        color: Optional[str] = None,
-        color_range: Optional[Tuple[str, str]] = None,
-    ):
-        # We'll color the node and the recursive ancestors to highlight good values
-        # The horizontal lines which directly lead to the best value are bolded and
-        # highlighted red. Horizontal lines which are children of the optimal path but
-        # not the best value are highlighted red. The vertical lines are just
-        # highlighted red.
-        feature_value = getattr(node, style_feature_key)
-        assert value_threshold is None or value_range is None
-
-        # If the feature value is less than the threshold, don't style the node
-        if value_threshold and feature_value < value_threshold:
-            return
-
-        assert color is None or color_range is None
-        if color_range:
-            assert value_range is not None
-            assert value_range[0] <= feature_value <= value_range[1]
-
-            # Interpolate the color between the color range
-            # The color range is defined as hex strings
-            def hex_to_rgb(hex_str: str):
-                return tuple(int(hex_str[i : i + 2], 16) for i in (0, 2, 4))
-
-            def rgb_to_hex(rgb: Tuple[int, int, int]):
-                return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
-
-            color_range = [hex_to_rgb(color) for color in color_range]
-            t = np.interp(feature_value, value_range, [0, 1])
-            color = tuple(int(c0 + (c1 - c0) * t) for c0, c1 in zip(*color_range))
-            color = rgb_to_hex(color)
-
-        # Create the node style
-        path_style = ete.NodeStyle()
-        path_style["fgcolor"] = color
-        path_style["hz_line_color"] = color
-        path_style["hz_line_width"] = 4
-
-        # Set the node style
-        current_node = node
-        while current_node.up:
-            current_node.set_style(path_style)
-            current_node = current_node.up
-
-    def layout(
-        node: ete.Tree,
-        feature_key: str,
-        *,
-        style_kwargs: Optional[Dict[str, Any]] = None,
-    ):
-        if node.name == "root":
-            return
-
-        # Add a text annotation to each node
-        feature_value = getattr(node, feature_key)
-        text_face = ete.TextFace(feature_value, bold=True)
-        node.add_face(text_face, column=0, position="branch-right")
-
-        # Set the node distance. Each node distance is set such that each generation
-        # is at the same distance from the root
-        node.dist = getattr(node, "generation") - getattr(node, "parent_generation")
-        node.dist -= text_face.get_bounding_rect().width() / 25
-        node.dist = max(node.dist, 0)
-
-        # Update the node style, if desired
-        if style_kwargs is not None:
-            style_node(node, **style_kwargs)
-
-    # Build the tree
-    # We'll add features/data to be used in the visualization later
-    patterns = {
-        "num_eyes": "env_config.animal_configs.*.num_eyes",
-        "generation": "evo_config.generation_config.generation",
-    }
-    pattern = build_pattern(*list(patterns.values()))
-    const_tree = build_tree(pattern)
-
-    for feature_key in patterns.keys():
-        print(f"Creating phylogenetic tree for feature {feature_key}...")
-        tree = const_tree.copy("deepcopy")
-
-        # Sort the descendants of the tree by the feature key
-        tree.sort_descendants(feature_key)
-
-        # Get the max value for the feature key
-        style_feature_key = "fitness"
-        values = [getattr(node, style_feature_key) for node in tree.iter_leaves()]
-        threshold = np.percentile(values, 95)
-        style_kwargs = dict(
-            style_feature_key=style_feature_key,
-            value_threshold=threshold,
-            color="#ff0000",
-        )
-        layout_fn = partial(
-            layout,
-            feature_key=feature_key,
-            style_kwargs=style_kwargs,
-        )
-
-        # Create the visualization
-        tree_style = ete.treeview.TreeStyle()
-        tree_style.show_leaf_name = False
-        tree_style.layout_fn = layout_fn
-        tree_style.mode = "c"
-        tree_style.arc_start = -180
-        tree_style.arc_span = 180
-        tree_style.title.add_face(
-            ete.TextFace(f"Phylogenetic Tree for {feature_key}", fsize=20), column=0
-        )
-        tree.render(
-            str(output_folder / f"phylogenetic_tree_{feature_key}.png"),
-            dpi=500,
-            tree_style=tree_style,
-        )
-
-
-# =======================================================
-
-
-def muller_plot(
-    data: Data,
-    output_folder: Path,
-    *,
-    rank_to_use: Optional[int] = None,
-    generation_to_use: Optional[int] = None,
-    dry_run: bool = False,
-    verbose: int = 0,
-    **kwargs,
-):
-    """Creates a muller plot."""
-
-    patterns = [
-        "env_config.animal_configs.*.num_eyes",
-    ]
-    pattern = build_pattern(*patterns)
-
-    # Outer keys are the patterns which are used to get the data from the config
-    # Inner Keys: {"Generation", "Identity", "Population"}
-    populations: Dict[str, Dict[str, Any]] = {}
-    # Inner Keys: {"Parent", "Identity"}
-    adjacency: Dict[str, Dict[str, Any]] = {}
-
-    for generation, generation_data in data.generations.items():
-        if generation_to_use is not None and generation != generation_to_use:
-            continue
-
-        for rank, rank_data in generation_data.ranks.items():
-            # Only plot the rank we want, if specified
-            if rank_to_use is not None and rank != rank_to_use:
-                continue
-
-            if not (config := rank_data.config):
-                print(f"Skipping rank {rank} because it has no config.")
-                continue
-            if not (parent_config := config.evo_config.parent_generation_config):
-                print(f"Skipping rank {rank} because it has no parent config.")
-                continue
-
-            # Glob the data
-            globbed_data = config.glob(pattern, flatten=True)
-
-            for key, value in globbed_data.items():
-                if isinstance(value, list):
-                    value = np.average(value).astype(type(value[0]))
-
-                populations.setdefault(key, {})
-                adjacency.setdefault(key, {})
-
-                current_id = f"G{generation}_R{rank}"
-                parent_id = f"G{parent_config.generation}_R{parent_config.rank}"
-
-                # Add the population data
-                populations[key].setdefault("Generation", []).append(generation)
-                populations[key].setdefault("Identity", []).append(rank)
-                populations[key].setdefault("Population", []).append(value)
-
-                # Add the adjacency data
-                adjacency[key].setdefault("Parent", []).append(current_id)
-                adjacency[key].setdefault("Identity", []).append(parent_id)
-
-
-# =======================================================
-
-
-def run_trace_eval(logdir: Path, filename: Path, config: MjCambrianConfig):
-    env = DummyVecEnv([make_wrapped_env(config, config.training_config.seed)])
-    cambrian_env: MjCambrianEnv = env.envs[0].env
-
-    model = MjCambrianModel.load(logdir / "best_model")
-
-    # We'll interpolate from start_rgba to final_rgba over n_runs
-    start_rgba, final_rgba = [1, 1, 1, 0.01], [1, 1, 1, 1]
-    cambrian_env.env_config.position_tracking_overlay_color = start_rgba
-
-    # Number of runs is calculated based on the training config
-    # The current run is then used to read the evaluation pkls
-    n_runs = config.training_config.total_timesteps // (
-        config.training_config.eval_freq * config.training_config.n_envs
-    )
-
-    def done_callback(run: int):
-        """Callback called on each reset to update the position of the animal and
-        the overlay color."""
-        # Update the model rollout to read from
-        rollout_pkl = logdir / "evaluations" / f"vis_{run}.pkl"
-        model.load_rollout(rollout_pkl)
-
-        # Update the position of the animal to match the current run
-        with open(rollout_pkl, "rb") as f:
-            data = pickle.load(f)
-            positions = np.array(data["positions"])
-            assert len(positions[0]) == len(cambrian_env.animals)
-            for position, animal in zip(positions[0], cambrian_env.animals.values()):
-                animal.pos = np.squeeze(position)
-                mj.mj_forward(cambrian_env.model, cambrian_env.data)
-                animal.init_pos = animal.pos
-
-        # Interpolate start_rgba to final_rgba over n_runs
-        cambrian_env.env_config.position_tracking_overlay_color = [
-            start_rgba[i] + (final_rgba[i] - start_rgba[i]) * run / n_runs
-            for i in range(4)
-        ]
-
-        return True
-
-    # Call the done_callback once to update the position of the animal and the overlay
-    # color
-    done_callback(0)
-
-    # Update the config with the eval overrides and run evaluation
-    temp_attrs = []
-    if (eval_overrides := config.env_config.eval_overrides) is not None:
-        temp_attrs.append((cambrian_env.env_config, eval_overrides))
-    with setattrs_temporary(*temp_attrs):
-        record_kwargs = dict(path=filename, save_pkl=False, save_types=["webp", "png"])
-        evaluate_policy(
-            env,
-            model,
-            n_runs,
-            record_kwargs=record_kwargs,
-            done_callback=done_callback,
-        )
-
-
-def eval(
-    data: Data,
-    output_folder: Path,
-    *,
-    rank_to_use: Optional[int] = None,
-    generation_to_use: Optional[int] = None,
-    verbose: int = 0,
-    dry_run: bool = False,
-    flags: List[str] = [],
-    **kwargs,
-):
-    # Have to update the sys.modules to include the features_extractors module
-    # features_extractors is saved in the model checkpoint
-    import sys
-    from cambrian.ml import features_extractors
-
-    sys.modules["features_extractors"] = features_extractors
-
-    if verbose > 0:
+    if config.verbose > 0:
         print("Evaluating model...")
 
-    # Update the flags to default to trace if not passed
-    if not flags:
-        flags = ["trace"]
-
-    output_folder.mkdir(parents=True, exist_ok=True)
     for generation, generation_data in data.generations.items():
-        if generation_to_use is not None and generation != generation_to_use:
+        if config.generations is not None and generation not in config.generations:
             continue
 
-        if verbose > 1:
+        if config.verbose > 1:
             print(f"Evaluating generation {generation}...")
 
         for rank, rank_data in generation_data.ranks.items():
-            if rank_to_use is not None and rank != rank_to_use:
+            if config.ranks is not None and rank not in config.ranks:
+                continue
+            elif rank_data.config is None:
                 continue
 
-            if verbose > 1:
+            if config.verbose > 1:
                 print(f"\tEvaluating rank {rank}...")
 
-            if not dry_run:
-                if "trace" in flags:
-                    if verbose > 1:
-                        print("\t\tEvaluating trace...")
+            if not config.dry_run:
+                trainer = MjCambrianTrainer(rank_data.config)
+                trainer.eval()
 
-                    run_trace_eval(
-                        rank_data.path,
-                        output_folder / f"generation_{generation}_rank_{rank}",
-                        rank_data.config,
-                    )
-
-            if verbose > 1:
+            if config.verbose > 1:
                 print("\tDone.")
 
 
@@ -1046,139 +711,25 @@ def moving_average(values, window, mode="valid"):
     return np.convolve(values, weights, mode=mode)
 
 
-def build_pattern(*patterns: str) -> str:
-    """Build a glob pattern from the passed patterns.
-
-    The underlying method for globbing (`MjCambrianConfig.glob`) uses a regex pattern
-    which is parses the dot-separated keys independently.
-
-    Example:
-        >>> build_pattern(
-        ...     "training_config.seed",
-        ...     "env_config.animal_configs.*.eye_configs.*.resolution",
-        ...     "env_config.animal_configs.*.eye_configs.*.fov",
-        ... )
-        '(training_config|env_config).(seed|animal_configs).*.eye_configs.*.(resolution|fov)'
-    """
-    depth_based_keys: List[List[str]] = []  # list of keys at depths in the patterns
-    for pattern in patterns:
-        # For each key in the pattern, add at the same depth as the other patterns
-        for i, key in enumerate(pattern.split(".")):
-            if i < len(depth_based_keys):
-                if key not in depth_based_keys[i]:
-                    depth_based_keys[i].extend([key])
-            else:
-                depth_based_keys.append([key])
-
-    # Now build the pattern
-    pattern = ""
-    for keys in depth_based_keys:
-        pattern += "(" + "|".join(keys) + ")."
-    pattern = pattern[:-1]  # remove the last dot
-    return pattern
-
 
 # =======================================================
 
 
-def main(args):
-    folder = Path(args.folder)
-    plots_folder = (
-        folder / "parse_evos" / "plots" if args.output is None else Path(args.output)
-    )
-    plots_folder.mkdir(parents=True, exist_ok=True)
-    evals_folder = (
-        folder / "parse_evos" / "evals" if args.output is None else Path(args.output)
-    )
-    evals_folder.mkdir(parents=True, exist_ok=True)
+def main(config: ParseEvosConfig):
+    config.plots_folder.mkdir(parents=True, exist_ok=True)
+    config.evals_folder.mkdir(parents=True, exist_ok=True)
 
-    if args.force or (data := try_load_pickle_data(folder)) is None:
-        data = load_data(**vars(args))
+    if config.force or (data := try_load_pickle_data(config.folder)) is None:
+        data = load_data(config)
 
-        if not args.no_save:
-            save_data(data, folder)
+        if not config.no_save:
+            save_data(config, data)
 
-    kwargs = dict(
-        data=data,
-        rank_to_use=args.rank,
-        generation_to_use=args.generation,
-        **vars(args),
-    )
-    if args.plot:
-        plot(
-            output_folder=plots_folder,
-            **kwargs,
-        )
-    if args.phylogeny:
-        phylogenetic_tree(output_folder=plots_folder, **kwargs)
-    if args.muller:
-        muller_plot(output_folder=plots_folder, **kwargs)
-    if args.eval:
-        eval(output_folder=evals_folder, **kwargs)
+    if config.plot:
+        run_plot(config, data)
+    if config.eval:
+        run_eval(config, data)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Parse the evolution folder.")
-
-    parser.add_argument("-v", "--verbose", type=int, default=1)
-    parser.add_argument("--dry-run", action="store_true", help="Dry run.")
-    parser.add_argument(
-        "-o",
-        "--override",
-        "--overrides",
-        dest="overrides",
-        action="extend",
-        nargs="+",
-        type=str,
-        help="Override config values. Do <config>.<key>=<value>",
-        default=[],
-    )
-
-    parser.add_argument("folder", type=str, help="The folder to parse.")
-    parser.add_argument(
-        "-O",
-        "--output",
-        type=str,
-        help="The output folder. Defaults to <folder>/parse_evos/",
-        default=None,
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Force loading of the data. If not passed, this script will try to find a "
-        "parse_evos.pkl file and load that instead.",
-    )
-    parser.add_argument(
-        "--no-save", action="store_true", help="Do not save the parsed data."
-    )
-    parser.add_argument(
-        "--rank",
-        type=int,
-        help="The rank to plot. If not passed, all ranks are plotted.",
-        default=None,
-    )
-    parser.add_argument(
-        "--generation",
-        type=int,
-        help="The generation to plot. If not passed, all generations are plotted.",
-        default=None,
-    )
-    parser.add_argument("--eval", action="store_true", help="Evaluate the data.")
-    parser.add_argument(
-        "--phylogeny", action="store_true", help="Construct phylogenetic tree."
-    )
-    parser.add_argument("--plot", action="store_true", help="Plot the data.")
-    parser.add_argument("--muller", action="store_true", help="Plot the muller plot.")
-    parser.add_argument(
-        "--flags", nargs="+", help="Flags to pass to the script.", default=[]
-    )
-    parser.add_argument("--ignore", nargs="+", help="Ignore certain data.", default=[])
-    parser.add_argument(
-        "--no-check-finished",
-        action="store_true",
-        help="Don't check if a file called `finished` has been written.",
-    )
-
-    args = parser.parse_args()
-
-    main(args)
+    run_hydra(main, config_name="tools/parse_evos", instantiate=False)
