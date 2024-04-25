@@ -147,6 +147,32 @@ def path_resolver(*parts: str) -> Path:
 
 
 @register_new_resolver("read")
-def read_resolver(path: Path, /) -> str:
+def read_resolver(path: str) -> str:
     with open(path, "r") as f:
         return f.read()
+
+
+@register_new_resolver("target")
+def target_resolver(target: str, /, *args) -> Dict[str, Any]:
+    """This is a resolver which serves as a proxy for the _target_ attribute used
+    in hydra. Basically `target` will be defined as `_target_` and the rest of the
+    attributes will be passed as arguments to the target. You should always default to
+    using `_target_` directly in your config, but because interpolations _may_ be
+    resolved prior to or instead of instantiate, it may be desired to resolve
+    interpolations before instantiations."""
+    return {"_target_": target, "_args_": args}
+
+
+@register_new_resolver("instantiate")
+def instantiate_resolver(target: str, /, *args, _root_: DictConfig) -> Any:
+    from hydra.utils import instantiate
+
+    try:
+        return instantiate(target_resolver(target, *args))
+    except Exception as e:
+        _root_._format_and_raise(
+            key=target,
+            value=target,
+            msg=f"Error instantiating target '{target}': {e}",
+            cause=e,
+        )

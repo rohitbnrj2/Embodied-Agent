@@ -231,7 +231,9 @@ class MjCambrianEnv(ParallelEnv):
 
         return self._update_obs(obs), self._update_info(info)
 
-    def step(self, action: Dict[str, Any]) -> Tuple[
+    def step(
+        self, action: Dict[str, Any]
+    ) -> Tuple[
         Dict[str, Any],
         Dict[str, float],
         Dict[str, bool],
@@ -646,6 +648,9 @@ class MjCambrianEnv(ParallelEnv):
 
         This is part of the PettingZoo API.
         """
+        assert (
+            agent in self.observation_spaces.keys()
+        ), f"Agent {agent} not found. Available: {list(self.observation_spaces.keys())}"
         return self.observation_spaces[agent]
 
     def action_space(self, agent: str) -> spaces.Space:
@@ -653,6 +658,9 @@ class MjCambrianEnv(ParallelEnv):
 
         This is part of the PettingZoo API.
         """
+        assert (
+            agent in self.action_spaces.keys()
+        ), f"Agent {agent} not found. Available: {list(self.action_spaces.keys())}"
         return self.action_spaces[agent]
 
     def state(self) -> np.ndarray:

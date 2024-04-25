@@ -274,7 +274,7 @@ class MjCambrianAnimal:
             eyes_lat_range, lat_inclusive = self._config.eyes_lat_range, True
             eyes_lon_range, lon_inclusive = self._config.eyes_lon_range, True
             if eyes_lat_range[0] % 360 == eyes_lat_range[1] % 360:
-                lat_inclusive = False 
+                lat_inclusive = False
             if eyes_lon_range[0] % 360 == eyes_lon_range[1] % 360:
                 lon_inclusive = False
 
@@ -551,7 +551,7 @@ class MjCambrianAnimal:
     def init_quat(self) -> np.ndarray:
         """Returns the initial quaternion of the animal."""
         return self._init_quat
-    
+
     @init_quat.setter
     def init_quat(
         self, value: Tuple[float | None, float | None, float | None, float | None]
@@ -664,3 +664,45 @@ class MjCambrianAnimal:
         geomgroup = np.ones(6, np.uint8)
         geomgroup[self.geom.group] = 0
         return geomgroup
+
+
+def generate_eyes_on_uniform_grid(
+    base_eye_config: MjCambrianEyeConfig,
+    lat_range: Tuple[float, float],
+    lon_range: Tuple[float, float],
+    num_lat: int,
+    num_lon: int,
+    /,
+    *overrides,
+) -> Dict[str, MjCambrianEyeConfig]:
+    """Generates eyes on a uniform grid on the animal.
+
+    Args:
+        base_eye_config (MjCambrianEyeConfig): The base eye config to use for the eyes.
+        lat_range (Tuple[float, float]): The range of the latitudinal placement of the
+            eyes. This is the vertical range of the evenly placed eye about the
+            animal's bounding sphere.
+        lon_range (Tuple[float, float]): The range of the longitudinal placement of the
+            eyes. This is the horizontal range of the evenly placed eye about the
+            animal's bounding sphere.
+        num_lat (int): The number of eyes to generate latitudinally.
+        num_lon (int): The number of eyes to generate longitudinally.
+
+    Returns:
+        Dict[str, MjCambrianEyeConfig]: The eyes on the animal. The keys are the names
+            of the eyes and the values are the configs for the eyes. The eyes will be
+            placed on the animal at the specified coordinates.
+    """
+    base_eye_config.merge_with_dotlist(overrides)
+
+    eyes: Dict[str, MjCambrianEyeConfig] = {}
+    for lat_idx in range(num_lat):
+        for lon_idx in range(num_lon):
+            eye_name = f"eye_{lat_idx}_{lon_idx}"
+            eye_config = base_eye_config.copy()
+            eye_config.update(
+                {"coord": [lat_range[0] + lat_idx, lon_range[0] + lon_idx]}
+            )
+            eyes[eye_name] = eye_config
+
+    return eyes

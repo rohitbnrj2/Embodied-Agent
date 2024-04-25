@@ -8,7 +8,6 @@ from stable_baselines3.common.vec_env import (
     VecMonitor,
 )
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
-from stable_baselines3.common.utils import set_random_seed
 
 from cambrian.envs import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.ml.model import MjCambrianModel
@@ -56,9 +55,6 @@ class MjCambrianTrainer:
 
         self._logger = get_logger()
         self._logger.info(f"Logging to {self._config.expdir / 'logs'}...")
-
-        self._logger.debug(f"Setting seed to {self._config.seed}...")
-        set_random_seed(self._config.seed)
 
     def train(self) -> float:
         """Train the animal."""

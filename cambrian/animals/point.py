@@ -119,11 +119,11 @@ class MjCambrianPointAnimalPredator(MjCambrianPointAnimal):
         # Get the prey states
         prey_pos = [env.animals[prey].pos for prey in self._preys]
 
-        # Calculate the distance between the predator and all preys
+        # Calculate the distance between the predator and the closest prey
         distances = [np.linalg.norm(self.pos - pos) for pos in prey_pos]
 
-        # Calculate the vector that minimizes the distance between the predator and all
-        # preys
+        # Calculate the vector that minimizes the distance between the predator and the
+        # closest prey
         min_distance_index = np.argmin(distances)
         min_distance_vector = prey_pos[min_distance_index] - self.pos
 
@@ -173,11 +173,11 @@ class MjCambrianPointAnimalPrey(MjCambrianPointAnimal):
         # Get the predator states
         predator_pos = [env.animals[predator].pos for predator in self._predators]
 
-        # Calculate the distance between the prey and all predators
+        # Calculate the distance between the prey and the closest predator
         distances = [np.linalg.norm(self.pos - pos) for pos in predator_pos]
 
-        # Calculate the vector that maximizes the distance between the prey and all
-        # predators
+        # Calculate the vector that maximizes the distance between the prey and the
+        # closest predator
         max_distance_index = np.argmax(distances)
         max_distance_vector = self.pos - predator_pos[max_distance_index]
 

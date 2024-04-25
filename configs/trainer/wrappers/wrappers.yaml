@@ -1,5 +1,5 @@
 # Wrappers are applied in the order they are listed here (top to bottom)
-single_animal_env_wrapper:
+animal_env_wrapper:
   _target_: cambrian.utils.wrappers.MjCambrianSingleAnimalEnvWrapper
   _partial_: true
 frame_stack_wrapper:

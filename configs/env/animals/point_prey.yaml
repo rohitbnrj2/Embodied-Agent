@@ -11,3 +11,13 @@ instance:
   _partial_: true
   # Defaults to all animals not including this animal
   predators: ${eval:'[p for p in ${oc.dict.keys:env.animals} if p != "${parent:instance}"]'}
+
+# Preys are green
+xml:
+  overrides:
+    - mujoco:
+        - asset:
+            - material:
+                - name: point_${parent:xml}_mat
+                - rgba: "0.1 0.8 0.1 1"
+                - emission: 2

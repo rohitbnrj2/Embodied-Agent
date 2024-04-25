@@ -1,0 +1,17 @@
+# @package _global_
+
+defaults:
+  # Use one maze for the time being
+  - /env/mazes/SQUARE@env.mazes.SQUARE
+  # - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
+
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+  # Define two animals
+  # The first will be the "predator" and is trainable
+  - /env/animals@env.animals.animal_0: point
+  - /env/animals/eyes@env.animals.animal_0.eyes.animal_0_eye_0: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.animal_0_eye_1: ${env/animals/eyes}
+  # The second is the "prey" and has a fixed policy that tries to avoid the predator
+  - /env/animals@env.animals.animal_1: point_prey

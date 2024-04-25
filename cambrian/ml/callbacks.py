@@ -47,10 +47,12 @@ class MjCambrianPlotMonitorCallback(BaseCallback):
 
     def _on_step(self) -> bool:
         if not (self.logdir / "monitor.csv").exists():
+            get_logger().warning("No monitor.csv file found.")
             return
 
         x, y = ts2xy(load_results(self.logdir), "timesteps")
         if len(x) <= 100 or len(y) <= 100:
+            get_logger().warning("Not enough monitor data to plot.")
             return True
 
         get_logger().info(f"Plotting monitor results at {self.evaldir}")
@@ -98,6 +100,7 @@ class MjCambrianPlotEvaluationsCallback(BaseCallback):
 
     def _on_step(self) -> bool:
         if not (self.logdir / "evaluations.npz").exists():
+            get_logger().warning("No evaluations.npz file found.")
             return
 
         # Load the evaluation results
@@ -105,6 +108,7 @@ class MjCambrianPlotEvaluationsCallback(BaseCallback):
             x = data["timesteps"].flatten()
             y: np.ndarray = np.mean(data["results"], axis=1).flatten()
         if len(x) <= 100 or len(y) <= 100:
+            get_logger().warning("Not enough evaluation data to plot.")
             return True
 
         get_logger().info(f"Plotting evaluation results at {self.evaldir}")

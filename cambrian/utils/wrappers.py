@@ -17,14 +17,20 @@ class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
     """Wrapper around the MjCambrianEnv that acts as if there is a single animal.
 
     Will replace all multi-agent methods to just use the first animal.
+
+    Keyword Args:
+        animal_name: The name of the animal to use. If not provided, the first animal
+            will be used.
     """
 
-    def __init__(self, env: MjCambrianEnv):
+    def __init__(self, env: MjCambrianEnv, *, animal_name: Optional[str] = None):
         super().__init__(env)
 
-        self._animal = next(iter(env.animals.values()))
-        self.action_space = next(iter(env.action_spaces.values()))
-        self.observation_space = next(iter(env.observation_spaces.values()))
+        animal_name = animal_name or next(iter(env.animals.keys()))
+        assert animal_name in env.animals, f"Animal {animal_name} not found."
+        self._animal = env.animals[animal_name]
+        self.action_space = env.action_space(animal_name)
+        self.observation_space = env.observation_space(animal_name)
 
     def reset(self, *args, **kwargs) -> Tuple[Any, Dict[str, Any]]:
         obs, info = self.env.reset(*args, **kwargs)
@@ -41,6 +47,140 @@ class MjCambrianSingleAnimalEnvWrapper(gym.Wrapper):
             terminated[self._animal.name],
             truncated[self._animal.name],
             info[self._animal.name],
+        )
+
+
+class MjCambrianPettingZooEnvWrapper(gym.Wrapper):
+    """Wrapper around the MjCambrianEnv that acts as if there is a single agent, where
+    in actuallity, there's multi-agents.
+
+    SB3 doesn't support Dict action spaces, so this wrapper will flatten the action
+    into a single space. The observation can be a dict; however, nested dicts are not
+    allowed.
+
+    NOTE: All animals must be trainable
+    """
+
+    def __init__(self, env: MjCambrianEnv):
+        super().__init__(env)
+        self.env: MjCambrianEnv
+
+    def reset(self, *args, **kwargs) -> Dict[str, Any]:
+        obs, info = self.env.reset(*args, **kwargs)
+
+        # Flatten the observations
+        flattened_obs: Dict[str, Any] = {}
+        for animal_name, animal_obs in obs.items():
+            if isinstance(animal_obs, dict):
+                for key, value in animal_obs.items():
+                    flattened_obs[f"{animal_name}_{key}"] = value
+            else:
+                flattened_obs[animal_name] = animal_obs
+
+        return flattened_obs, info
+
+    def step(self, action: np.ndarray) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
+        # Convert the action back to a dict
+        action = action.reshape(-1, len(self.env.animals))
+        action = {
+            animal_name: action[:, i]
+            for i, animal_name in enumerate(self.env.animals.keys())
+        }
+        action = {
+            animal.name: animal.action_space.sample()
+            for animal in self.env.animals.values()
+        }
+
+        obs, reward, terminated, truncated, info = self.env.step(action)
+
+        # Accumulate the rewards, terminated, and truncated
+        reward = sum(reward.values())
+        terminated = any(terminated.values())
+        truncated = any(truncated.values())
+
+        # Flatten the observations
+        flattened_obs: Dict[str, Any] = {}
+        for animal_name, animal_obs in obs.items():
+            if isinstance(animal_obs, dict):
+                for key, value in animal_obs.items():
+                    flattened_obs[f"{animal_name}_{key}"] = value
+            else:
+                flattened_obs[animal_name] = animal_obs
+
+        return flattened_obs, reward, terminated, truncated, info
+
+    @property
+    def observation_space(self) -> gym.spaces.Dict:
+        """SB3 doesn't support nested Dict observation spaces, so we'll flatten it.
+        If each animal has a Dict observation space, we'll flatten it into a single
+        observation where the key in the dict is the animal name and the original space
+        name."""
+        observation_space: Dict[str, gym.Space] = {}
+        for animal in self.env.animals.values():
+            animal_observation_space = self.env.observation_space(animal.name)
+            if isinstance(animal_observation_space, gym.spaces.Dict):
+                for key, value in animal_observation_space.spaces.items():
+                    observation_space[f"{animal.name}_{key}"] = value
+            else:
+                observation_space[animal.name] = animal_observation_space
+        return gym.spaces.Dict(observation_space)
+
+    @property
+    def action_space(self) -> gym.spaces.Box:
+        """The only gym.Space that SB3 supports that's continuous for the action space
+        is a Box. We can assume each animal's action space is a Box, so we'll flatten
+        each action space into one Box for the environment.
+
+        Assumptions:
+            - All animals have the same number of actions
+            - All actions have the same shape
+            - All actions are continuous
+            - All actions are normalized between -1 and 1
+        """
+
+        # Get the first animal's action space
+        first_animal_name = next(iter(self.env.animals.keys()))
+        first_animal_action_space = self.env.action_space(first_animal_name)
+
+        # Check if the action space is continuous
+        assert isinstance(first_animal_action_space, gym.spaces.Box), (
+            "SB3 only supports continuous action spaces for the environment. "
+            f"Animal {first_animal_name} has a {type(first_animal_action_space)} action space."
+        )
+
+        # Get the shape of the action space
+        shape = first_animal_action_space.shape
+        low = first_animal_action_space.low
+        high = first_animal_action_space.high
+
+        # Check if all animals have the same number of actions
+        for animal_name, animal_action_space in self.env.action_spaces.items():
+            assert shape == animal_action_space.shape, (
+                "All animals must have the same number of actions. "
+                f"Animal {first_animal_name} has {shape} actions, but {animal_name} has {animal_action_space.shape} actions."
+            )
+
+            # Check if the action space is continuous
+            assert isinstance(animal_action_space, gym.spaces.Box), (
+                "SB3 only supports continuous action spaces for the environment. "
+                f"Animal {first_animal_name} has a {type(first_animal_action_space)} action space."
+            )
+
+            assert all(low == animal_action_space.low), (
+                "All actions must have the same low value. "
+                f"Animal {first_animal_name} has a low value of {low}, but {animal_name} has a low value of {animal_action_space.low}."
+            )
+
+            assert all(high == animal_action_space.high), (
+                "All actions must have the same high value. "
+                f"Animal {first_animal_name} has a high value of {high}, but {animal_name} has a high value of {animal_action_space.high}."
+            )
+
+        low = np.tile(low, len(self.env.animals))
+        high = np.tile(high, len(self.env.animals))
+        shape = (shape[0] * len(self.env.animals),)
+        return gym.spaces.Box(
+            low=low, high=high, shape=shape, dtype=first_animal_action_space.dtype
         )
 
 
