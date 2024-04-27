@@ -84,6 +84,24 @@ def euclidean_delta_from_init(
     return calc_delta(animal, info, animal.init_pos) * factor
 
 
+def euclidean_delta_to_object(
+    env: MjCambrianObjectEnv,
+    animal: MjCambrianAnimal,
+    terminated: bool,
+    truncated: bool,
+    info: Dict[str, Any],
+    *,
+    object: str,
+    factor: float = 1.0,
+):
+    """
+    Rewards the change in distance to an object over the previous step.
+    """
+    assert object in env.objects, f"Object {object} not found in environment."
+    # Multiply by -1 to reward getting closer to the object
+    return calc_delta(animal, info, env.objects[object].pos) * -factor
+
+
 def reward_if_close_to_object(
     env: MjCambrianObjectEnv,
     animal: MjCambrianAnimal,

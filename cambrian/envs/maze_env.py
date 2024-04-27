@@ -433,7 +433,7 @@ class MjCambrianMaze:
         Returns:
             np.ndarray: The chosen position. Is of size (2,).
         """
-        assert len(locations) > 0, "No locations to choose from"
+        assert len(locations) > 0, "Not enough locations to choose from"
 
         for _ in range(tries):
             idx = np.random.randint(low=0, high=len(locations))

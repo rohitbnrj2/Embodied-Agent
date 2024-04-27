@@ -1,12 +1,14 @@
 # @package _global_
 
 defaults:
-  # Use one maze for the time being
-  - /env/mazes/SQUARE@env.mazes.SQUARE
+  - /env/mazes/Y_STATIC@env.mazes.Y_STATIC
+  - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
 
-  # Adds two objects to the environment: a goal and an adversarial object
+  # Adds a single goal to the environment
+  # The intention for this exp config is that it's included in another exp config
+  # NOTE: if used with a maze environment, there must be a reset location available for
+  # the goal to be placed at.
   - /env/objects@env.objects.goal: goal
-  - /env/objects@env.objects.adversary: adversary
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
@@ -21,15 +23,6 @@ trainer:
   total_timesteps: 300_000
 
 env:
-  reward_fn:
-    euclidean_delta_from_init:
-      factor: 0.0
-    euclidean_delta_to_object:
-      _target_: cambrian.envs.reward_fns.euclidean_delta_to_object
-      _partial_: true
-      factor: 0.25
-      object: goal
-
   animals:
     animal_0:
       # Up the ctrl range to make the environment more difficult
@@ -52,8 +45,8 @@ env:
       eyes:
         # Each eye while will have a resolution of 1x1 and a field of view of 10x10
         eye:
-          resolution: [7, 7]
-          fov: [45, 45]
+          resolution: [1, 1]
+          fov: [10, 10]
 
 hydra:
   sweeper:

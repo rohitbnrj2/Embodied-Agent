@@ -1,14 +1,12 @@
 # @package _global_
 
 defaults:
-  - /env/mazes/Y_STATIC@env.mazes.Y_STATIC
-  - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
+  # Use one maze for the time being
+  - /env/mazes/SQUARE@env.mazes.SQUARE
 
-  # Adds a single goal to the environment
-  # The intention for this exp config is that it's included in another exp config
-  # NOTE: if used with a maze environment, there must be a reset localtion available for
-  # the goal to be placed at.
+  # Adds two objects to the environment: a goal and an adversarial object
   - /env/objects@env.objects.goal: goal
+  - /env/objects@env.objects.adversary: adversary
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
@@ -23,6 +21,15 @@ trainer:
   total_timesteps: 300_000
 
 env:
+  reward_fn:
+    euclidean_delta_from_init:
+      factor: 0.0
+    euclidean_delta_to_object:
+      _target_: cambrian.envs.reward_fns.euclidean_delta_to_object
+      _partial_: true
+      factor: 0.25
+      object: goal
+
   animals:
     animal_0:
       # Up the ctrl range to make the environment more difficult
@@ -46,7 +53,7 @@ env:
         # Each eye while will have a resolution of 1x1 and a field of view of 10x10
         eye:
           resolution: [1, 1]
-          fov: [10, 10]
+          fov: [45, 45]
 
 hydra:
   sweeper:
@@ -58,3 +65,18 @@ hydra:
         upper: 100
         step: 5
         integer: true
+      # Add the resolution of the eyes to the sweeper
+      env.animals.animal_0.eyes.eye.resolution.0:
+        init: 1
+        lower: 1
+        upper: 100
+        step: 5
+        integer: true
+    cheap_constraints:
+      - _target_: cambrian.ml.trainer.nevergrad_prune_fn
+        _partial_: true
+        parameters:
+          num_lon_eyes_to_generate: env.animals.animal_0.num_eyes_to_generate.1
+          width: env.animals.animal_0.eyes.eye.resolution.0
+          lon_range: ${env.animals.animal_0.eyes_lon_range}
+        fn: cambrian.envs.prune_fns.prune_anatomically_infeasible_eyes

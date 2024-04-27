@@ -2,7 +2,7 @@
 
 defaults:
   # Use the num_eyes config in this directory as the default
-  - /exp/insect_vision/num_eyes
+  - /exp/insect_vision/navigation_num_eyes
 
 hydra:
   sweeper:

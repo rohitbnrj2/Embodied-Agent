@@ -7,9 +7,9 @@ defaults:
   # Load the default exp config
   - exp
 
-  # Override the default environment to be a object_env. We are using objects above, 
-  # and so we need to specify the environment base which corresponds to the 
-  # object environment. This will also register the env config group as an 
+  # Override the default environment to be a object_env. We are using objects above,
+  # and so we need to specify the environment base which corresponds to the
+  # object environment. This will also register the env config group as an
   # MjCambrianObjectEnvConfig
   - override /env: object_env
 
