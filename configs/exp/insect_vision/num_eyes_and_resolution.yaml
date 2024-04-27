@@ -14,12 +14,6 @@ hydra:
         upper: 100
         step: 5
         integer: true
-      env.animals.animal_0.eyes.eye.resolution.1:
-        init: 1
-        lower: 1
-        upper: 100
-        step: 5
-        integer: true
     cheap_constraints:
       - _target_: cambrian.ml.trainer.nevergrad_prune_fn
         _partial_: true

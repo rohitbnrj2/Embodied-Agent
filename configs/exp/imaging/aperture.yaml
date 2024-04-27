@@ -1,8 +1,8 @@
 # @package _global_
 
 defaults:
-  # Use one maze for the time being
-  - /env/mazes/I_STATIC@env.mazes.I_STATIC
+  - /env/mazes/Y_STATIC@env.mazes.Y_STATIC
+  - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
 
   # Adds a single goal to the environment
   # The intention for this exp config is that it's included in another exp config
@@ -21,9 +21,21 @@ defaults:
   - override /env/animals: point
   - override /env/animals/eyes: optics
 
+trainer:
+  # decrease the number of timesteps to speed up the sweep
+  total_timesteps: 300_000
+
 env:
   animals:
     animal_0:
       eyes:
         eye_0:
-          resolution: [25, 25]
+          resolution: [10, 10]
+
+hydra:
+  sweeper:
+    parametrization:
+      env.animals.animal_0.eyes.eye_0.aperture:
+        init: 1.0
+        lower: 0.001
+        upper: 1.0

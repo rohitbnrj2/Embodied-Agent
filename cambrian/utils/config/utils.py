@@ -8,7 +8,7 @@ import re
 
 from hydra.core.config_store import ConfigStore
 import hydra_zen as zen
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf, DictConfig, ListConfig
 
 if TYPE_CHECKING:
     from cambrian.utils.config import MjCambrianBaseConfig
@@ -132,6 +132,9 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
     NOTE: yaml files aren't necessarily built to support globbing (like xml), so
     this method is fairly slow and should be used sparingly.
 
+    NOTE #2: List indexing is limited in support. To index an element in a list, you 
+    must use bracket notation, so `a[0].b` is supported, but `a.0.b` is not.
+
     Args:
         key (str): The key to glob. This is a dotlist key, like `a.b.*`. Multiple
             globs can be used, like `a.*.c.*.d.*`. Globs in keys can be used, as
@@ -145,11 +148,11 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
     if "*" not in key and "|" not in key:
         return OmegaConf.select(_root_, key)
 
-    def recursive_glob(config: Dict | Any, keys: List[str]) -> Dict:
-        if not keys or not isinstance(config, dict):
+    def recursive_glob(config: DictConfig | Any, keys: List[str]) -> Dict:
+        if not keys or not isinstance(config, DictConfig):
             return config
 
-        # Loop over all the keys and find each match with the passed key/pattern
+        # We'll loop over all the keys and find each match with the passed key/pattern
         result = {}
         current_key = keys[0].replace("*", ".*")
         for sub_key, sub_value in config.items():
@@ -160,6 +163,21 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
                 # If it's a match, we'll recursively glob the next key
                 matched_key = match.group()
                 result[matched_key] = recursive_glob(sub_value, keys[1:])
+
+        # This adds support for direct indexing. This is currently the only supported 
+        # way to do list accessing for globbing. To check, we'll clean the parentheses
+        # and see if the key exists in the config as is.
+        # NOTE: this is done after the recursive globbing in case the the key is found
+        # earlier
+        for clean_key in re.sub(r'^\((.*)\)$', r'\1', current_key).split('|'):
+            if clean_key in result:
+                continue
+
+            if sub_value := OmegaConf.select(config, clean_key):
+                # remove the brackets from the key
+                clean_key = re.sub(r'^\((.*)\)$', r'\1', clean_key)
+                result[clean_key] = recursive_glob(sub_value, keys[1:])
+
         return result
 
     def flatten(
@@ -177,8 +195,7 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
         return values
 
     # Glob the key(s)
-    config = OmegaConf.to_container(_root_)
-    globbed = recursive_glob(config, key.split("."))
+    globbed = recursive_glob(_root_, key.split("."))
 
     # Return the flattened or nested dict
     return flatten(globbed) if flattened else globbed

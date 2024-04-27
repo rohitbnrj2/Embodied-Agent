@@ -174,6 +174,19 @@ class MjCambrianContainerConfig:
             )
 
     @classmethod
+    def load_pickle(cls, path: Path | str, *, overrides: List[str] = []) -> Self | DictConfig | ListConfig:
+        """Load a pickled config."""
+        import cloudpickle
+
+        with open(path, "rb") as f:
+            cfg: Self = cloudpickle.load(f)
+        with cfg.set_readonly_temporarily(False), cfg.set_struct_temporarily(False):
+            cfg.merge_with_dotlist(overrides)
+            cfg.resolve()
+
+        return cfg
+
+    @classmethod
     def create(
         cls, *args, instantiate: bool = True, **instantiate_kwargs
     ) -> Self | DictConfig | ListConfig:

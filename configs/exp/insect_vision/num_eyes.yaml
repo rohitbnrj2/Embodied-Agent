@@ -22,10 +22,6 @@ trainer:
   # decrease the number of timesteps to speed up the sweep
   total_timesteps: 300_000
 
-  # prune_fn:
-  #   _target_: cambrian.ml.trainer.prune
-  #   _partial_: true
-
 env:
   animals:
     animal_0:
@@ -41,7 +37,7 @@ env:
                       - name: "act_y_${parent:xml}"
                       - ctrlrange: "-100.0 100.0"
 
-      num_eyes_to_generate: [1, 25]
+      num_eyes_to_generate: [1, 1]
 
       # The eyes can be placed anywhere on the longitudinal axis
       eyes_lon_range: [-180, 180]

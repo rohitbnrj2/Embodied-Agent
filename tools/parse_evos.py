@@ -250,13 +250,9 @@ def load_data(config: ParseEvosConfig) -> Data:
             # file doesn't exist.
             if (config_file := rank_data.path / "config.pkl").exists():
                 print(f"\tLoading config from {config_file}...")
-                with open(config_file, "rb") as f:
-                    rank_data.config = cast(MjCambrianConfig, pickle.load(f))
-                with rank_data.config.set_readonly_temporarily(False):
-                    with rank_data.config.set_struct_temporarily(False):
-                        rank_data.config.merge_with_dotlist(overrides)
-                        rank_data.config.resolve()
-                rank_data.config = config
+                rank_data.config = MjCambrianConfig.load_pickle(
+                    config_file, overrides=overrides
+                )
             elif (config_file := rank_data.path / "config.yaml").exists():
                 print(f"\tLoading config from {config_file}...")
                 rank_data.config = MjCambrianConfig.load(config_file, instantiate=False)
@@ -709,7 +705,6 @@ def run_eval(config: ParseEvosConfig, data: Data):
 def moving_average(values, window, mode="valid"):
     weights = np.repeat(1.0, window) / window
     return np.convolve(values, weights, mode=mode)
-
 
 
 # =======================================================

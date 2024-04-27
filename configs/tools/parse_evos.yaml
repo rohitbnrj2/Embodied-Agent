@@ -21,7 +21,7 @@ dry_run: False
 
 patterns:
   - seed
-  - env.animals.*.eyes.*.resolution
+  - env.animals.*.eyes.*.resolution[0]
   - env.animals.*.eyes.*.fov
   - custom.num_eyes
 overrides:

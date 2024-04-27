@@ -291,7 +291,8 @@ class MjCambrianProgressBarCallback(ProgressBarCallback):
 
     def __del__(self):
         """This string will restore the terminal back to its original state."""
-        print("\x1b[?25h")
+        if hasattr(self, "pbar"):
+            print("\x1b[?25h")
 
 
 class MjCambrianCallbackListWithSharedParent(CallbackList):
