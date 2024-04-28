@@ -30,6 +30,65 @@ env:
       factor: 0.25
       object: goal
 
+  objects:
+    goal:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_site
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - builtin: "checker"
+                      - rgb1: "0.8 0.2 0.2"
+                      - rgb2: "0.2 0.2 0.8"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 1
+
+    adversary:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_site
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - builtin: "checker"
+                      - rgb1: "0.8 0.2 0.2"
+                      - rgb2: "0.2 0.2 0.8"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "2 2"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.8 0.2 0.2 1.0
+                      - emission: 1
+
   animals:
     animal_0:
       # Up the ctrl range to make the environment more difficult
