@@ -67,7 +67,8 @@ def euclidean_delta_to_object(
     """
     Rewards the change in distance to an object over the previous step.
     """
-    assert object in env.objects, f"Object {object} not found in environment."
+    if object not in env.objects:
+        return 0.0
     # Multiply by -1 to reward getting closer to the object
     return -1 * calc_delta(animal, info, env.objects[object].pos) * factor
 

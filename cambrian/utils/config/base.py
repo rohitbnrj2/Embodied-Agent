@@ -502,11 +502,11 @@ class MjCambrianContainerConfig:
         """Set the state of the object from the pickled state."""
         __state__: Dict[str, Any] = state.pop("__state__")
         config = OmegaConf.create(state)
-        if __state__.get("instantiated"):
+        if instantiated := __state__.get("instantiated"):
             content = self.instantiate(config, as_container=True)
         else:
             content = config
-        self.__init__(content, config=config)
+        self.__init__(content, config=config, instantiated=instantiated)
 
     def __str__(self) -> str:
         return self.to_yaml(use_instantiated=False)

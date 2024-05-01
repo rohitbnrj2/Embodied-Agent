@@ -83,6 +83,9 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
             length 1, only one texture will be used. A length >= 1 is required.
             The keyword "default" is required for walls denoted simply as 1 or W.
             Other walls are specified as 1/W:<texture id>.
+
+        enabled_objects (Optional[List[str]]): The objects that are enabled in the
+            maze. If None, all objects are enabled.
     """
 
     xml: MjCambrianXML
@@ -94,6 +97,8 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
     smooth_walls: bool
 
     wall_texture_map: Dict[str, List[str]]
+
+    enabled_objects: Optional[List[str]] = None
 
 
 MjCambrianMazeSelectionFn: TypeAlias = Callable[
@@ -158,9 +163,11 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
             animal.init_pos = self._maze.generate_reset_pos()
 
         # For each object, generate an initial position
+        enabled_objects = self._maze.config.enabled_objects
         for obj in self.objects.values():
-            obj.pos[:2] = self._maze.generate_object_pos()
-            obj.pos[2] = self._maze.config.scale // 4
+            if enabled_objects is None or obj.name in enabled_objects:
+                obj.pos[:2] = self._maze.generate_object_pos()
+                obj.pos[2] = self._maze.config.scale // 4
 
         # Now reset the environment
         obs, info = super().reset(seed=seed, options=options)

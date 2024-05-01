@@ -2,11 +2,14 @@
 
 defaults:
   # Use one maze for the time being
-  - /env/mazes/SQUARE_OPEN@env.mazes.SQUARE_OPEN
+  - /env/mazes/SQUARE_OPEN@env.mazes.SQUARE_OPEN1
+  - /env/mazes/SQUARE_OPEN@env.mazes.SQUARE_OPEN2
 
   # Adds two objects to the environment: a goal and an adversarial object
-  - /env/objects@env.objects.goal: goal
-  - /env/objects@env.objects.adversary: adversary
+  - /env/objects@env.objects.goal1: goal
+  - /env/objects@env.objects.goal2: goal
+  - /env/objects@env.objects.adversary1: adversary
+  - /env/objects@env.objects.adversary2: adversary
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
@@ -28,8 +31,46 @@ env:
       factor: 0.25
       object: goal
 
+  mazes:
+    SQUARE_OPEN1:
+      enabled_objects:
+        - goal1
+        - adversary1
+    SQUARE_OPEN2:
+      enabled_objects:
+        - goal2
+        - adversary2
+
   objects:
-    goal:
+    goal1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - builtin: "checker"
+                      - rgb1: "0.8 0.2 0.2"
+                      - rgb2: "0.2 0.2 0.8"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal2:
       xml:
         overrides:
           - mujoco:
@@ -58,7 +99,35 @@ env:
                       - rgba: 0.2 0.8 0.2 1.0
                       - emission: 2
 
-    adversary:
+    adversary1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - builtin: "checker"
+                      - rgb1: "0.8 0.2 0.2"
+                      - rgb2: "0.2 0.2 0.8"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "2 2"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.8 0.2 0.2 1.0
+                      - emission: 2
+    adversary2:
       xml:
         overrides:
           - mujoco:

@@ -15,7 +15,7 @@ import pickle
 import numpy as np
 import mujoco as mj
 from gymnasium import spaces
-from pettingzoo import ParallelEnv
+from ray.rllib.env import MultiAgentEnv
 
 from cambrian.animals.animal import MjCambrianAnimal, MjCambrianAnimalConfig
 from cambrian.renderer import (
@@ -111,7 +111,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     animals: Dict[str, MjCambrianAnimalConfig]
 
 
-class MjCambrianEnv(ParallelEnv):
+class MjCambrianEnv(MultiAgentEnv):
     """A MjCambrianEnv defines a gymnasium environment that's based off mujoco.
 
     NOTES:
@@ -158,6 +158,12 @@ class MjCambrianEnv(ParallelEnv):
         self._record: bool = False
         self._rollout: Dict[str, Any] = {}
         self._overlays: Dict[str, Any] = {}
+
+        # These are rllib specific attributes
+        self._agent_ids = set(self._animals.keys())
+        self._obs_space_in_preferred_format = True
+        self._action_space_in_preferred_format = True
+        super().__init__()
 
     def _create_animals(self):
         """Helper method to create the animals."""
@@ -576,33 +582,7 @@ class MjCambrianEnv(ParallelEnv):
         return self._stashed_cumulative_reward
 
     @property
-    def agents(self) -> List[str]:
-        """Returns the agents in the environment.
-
-        This is part of the PettingZoo API.
-        """
-        return list(self._animals.keys())
-
-    @property
-    def num_agents(self) -> int:
-        """Returns the number of agents in the environment.
-
-        This is part of the PettingZoo API.
-        """
-        return len(self.agents)
-
-    @property
-    def possible_agents(self) -> List[str]:
-        """Returns the possible agents in the environment.
-
-        This is part of the PettingZoo API.
-
-        Assumes that the possible agents are the same as the agents.
-        """
-        return self.agents
-
-    @property
-    def observation_spaces(self) -> spaces.Dict:
+    def observation_space(self) -> spaces.Dict:
         """Creates the observation spaces.
 
         This is part of the PettingZoo API.
@@ -623,7 +603,7 @@ class MjCambrianEnv(ParallelEnv):
         return spaces.Dict(observation_spaces)
 
     @property
-    def action_spaces(self) -> spaces.Dict:
+    def action_space(self) -> spaces.Dict:
         """Creates the action spaces.
 
         This is part of the PettingZoo API.
@@ -642,33 +622,6 @@ class MjCambrianEnv(ParallelEnv):
             if animal.config.trainable:
                 action_spaces[name] = animal.action_space
         return spaces.Dict(action_spaces)
-
-    def observation_space(self, agent: str) -> spaces.Space:
-        """Returns the observation space for the given agent.
-
-        This is part of the PettingZoo API.
-        """
-        assert agent in list(
-            self.observation_spaces.keys()
-        ), f"Agent {agent} not found. Available: {list(self.observation_spaces.keys())}"
-        return self.observation_spaces[agent]
-
-    def action_space(self, agent: str) -> spaces.Space:
-        """Returns the action space for the given agent.
-
-        This is part of the PettingZoo API.
-        """
-        assert agent in list(
-            self.action_spaces.keys()
-        ), f"Agent {agent} not found. Available: {list(self.action_spaces.keys())}"
-        return self.action_spaces[agent]
-
-    def state(self) -> np.ndarray:
-        """Returns the state of the environment.
-
-        This is part of the PettingZoo API.
-        """
-        raise NotImplementedError("Not implemented yet.")
 
     def set_random_seed(self, seed: int | float):
         """Sets the seed for the environment."""
