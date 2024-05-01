@@ -38,6 +38,3 @@ renderer:
     # Overwrites the default value in the renderer config
     geomgroup:
       slice(2, None): False
-
-# By default, we'll enable the eye.
-enabled: True
