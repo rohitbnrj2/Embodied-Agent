@@ -4,12 +4,6 @@ defaults:
   - /env/mazes/Y_STATIC@env.mazes.Y_STATIC
   - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
 
-  # Adds a single goal to the environment
-  # The intention for this exp config is that it's included in another exp config
-  # NOTE: if used with a maze environment, there must be a reset localtion available for
-  # the goal to be placed at.
-  - /env/objects@env.objects.goal: goal
-
   # Use the maze_exp config as the base
   - /exp/maze_exp
 
@@ -26,6 +20,11 @@ trainer:
   total_timesteps: 300_000
 
 env:
+  reward_fn:
+    euclidean_delta_from_init:
+      _target_: cambrian.envs.reward_fns.euclidean_delta_from_init
+      _partial_: true
+
   animals:
     animal_0:
       eyes:

@@ -1,9 +1,6 @@
 defaults:
   - /${env/objects}@_here_
 
-# failure
-truncate_if_close: true
-
 xml:
   _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse
   _convert_: all

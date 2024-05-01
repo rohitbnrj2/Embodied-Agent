@@ -1,3 +1,5 @@
+"""Truncation indicates a failure before the episode is over."""
+
 from typing import Any, Dict, Optional, List
 
 import numpy as np
@@ -25,15 +27,25 @@ def exceeds_max_episode_steps(
 
 
 def truncate_if_close_to_object(
-    env: MjCambrianObjectEnv, animal: MjCambrianAnimal, info: Dict[str, Any], *, objects: Optional[List[str]] = None
+    env: MjCambrianObjectEnv,
+    animal: MjCambrianAnimal,
+    info: Dict[str, Any],
+    *,
+    objects: Optional[List[str]] = None,
+    distance_threshold: float = 2.0
 ) -> bool:
-    """Truncates the episode if the animal is close to an object. Truncate is only
-    true if the object is set to truncate_if_close = True."""
+    """Truncates the episode if the animal is close to an object.
+
+    Keyword Args:
+        objects (Optional[List[str]]): List of object names to check for closeness.
+            If None, all objects are checked. Defaults to None.
+        distance_threshold (float): Distance threshold for closeness. Defaults to 2.0.
+    """
     for obj in env.objects.values():
         if objects is not None and obj.name not in objects:
             continue
 
-        if obj.is_close(animal.pos) and obj.config.truncate_if_close:
+        if np.linalg.norm(obj.pos - animal.pos) < distance_threshold:
             return True
     return False
 

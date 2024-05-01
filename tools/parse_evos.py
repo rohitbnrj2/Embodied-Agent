@@ -12,7 +12,7 @@ This file works as follows:
     available data. This is useful for visualizing the evolution of the population.
 """
 
-from typing import Dict, Union, Optional, Any, List, cast, Tuple
+from typing import Dict, Union, Optional, Any, List, Tuple
 from pathlib import Path
 import os
 from dataclasses import field

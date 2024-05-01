@@ -145,6 +145,10 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[Any, Any]] = None
     ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
+        # Set the random seed first
+        if seed is not None:
+            self.set_random_seed(seed)
+
         # Choose the maze
         self._maze = self._maze_store.select_maze(self)
         self._maze_store.reset(self.model)
@@ -289,12 +293,15 @@ class MjCambrianMaze:
         height = self._config.height
         for i, (x, y) in enumerate(self._wall_locations):
             name = f"wall_{self._name}_{i}"
+            # Set the contype != conaffinity so walls don't collide with each other
             xml.add(
                 worldbody,
                 "geom",
                 name=name,
                 pos=f"{x} {y} {scale * height}",
                 size=f"{scale} {scale} {scale * height}",
+                contype="1",
+                conaffinity="2",
                 **{"class": f"maze_wall_{self._name}"},
             )
 

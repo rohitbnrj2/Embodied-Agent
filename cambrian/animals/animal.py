@@ -297,10 +297,6 @@ class MjCambrianAnimal:
             eye_configs = self._config.eyes
 
         for name, eye_config in eye_configs.items():
-            # Don't create the eye if it's disabled
-            if not eye_config.enabled:
-                continue
-
             self._eyes[name] = eye_config.instance(eye_config, name)
 
     def generate_xml(self) -> MjCambrianXML:

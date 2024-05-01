@@ -20,14 +20,6 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
             when creating the eye. Takes the config and the name of the eye as
             arguments.
 
-        enabled (bool): This gives the option to disable the eye. Disabling means the
-            animal won't create the eye and so it doesn't have an observation or
-            anything. This can be used when defining a sweeper config as it's most
-            likely the case that in order to optimize all parameters, the max number of
-            eyes must be defined in the config (as in the optimizer can't append/remove
-            eyes, but it can choose to enable or disable them). TODO: This can be
-            removed when/if we implement a genetic/evolution algorithm-based sweeper.
-
         fov (Tuple[float, float]): Independent of the `fovy` field in the MJCF
             xml. Used to calculate the sensorsize field. Specified in degrees. Mutually
             exclusive with `fovy`. If `focal` is unset, it is set to 1, 1. Will override
@@ -49,8 +41,6 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     """
 
     instance: Callable[[Self, str], "MjCambrianEye"]
-
-    enabled: bool
 
     fov: Tuple[float, float]
     focal: Tuple[float, float]

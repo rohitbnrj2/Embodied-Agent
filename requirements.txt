@@ -5,7 +5,6 @@ pyyaml
 scipy
 scikit-image
 imageio
-webp
 opencv-python
 fcmaes
 

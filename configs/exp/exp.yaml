@@ -39,3 +39,35 @@ trainer:
       # until the callback is called. This is because eval_env may not be defined
       # when this config is loaded.
       n_eval_episodes: ${eval_env.n_eval_episodes}
+
+env:
+  # Define the termination, truncation, and reward fns. All will use the combined_*
+  # functions to combine multiple functions into one. Default fns are then added
+  # that _should_ be applied to all sub-configs.
+  termination_fn:
+    _target_: cambrian.envs.termination_fns.combined_termination
+    _partial_: true
+
+    # No termination fns by default
+
+  truncation_fn:
+    _target_: cambrian.envs.truncation_fns.combined_truncation
+    _partial_: true
+
+    # Truncate (good) if the max episode steps is exceeded
+    exceeds_max_epsiode_steps:
+      _target_: cambrian.envs.truncation_fns.exceeds_max_episode_steps
+      _partial_: true
+
+  reward_fn:
+    _target_: cambrian.envs.reward_fns.combined_reward
+    _partial_: true
+
+    reward_for_termination:
+      _target_: cambrian.envs.reward_fns.reward_for_termination
+      _partial_: true
+      reward: 1.0
+    reward_for_truncation:
+      _target_: cambrian.envs.reward_fns.reward_for_truncation
+      _partial_: true
+      reward: -1.0

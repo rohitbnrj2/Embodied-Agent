@@ -77,8 +77,8 @@ class MjCambrianCombinedExtractor(MjCambrianBaseFeaturesExtractor):
         activation: nn.Module,
         image_extractor: MjCambrianBaseFeaturesExtractor,
     ) -> None:
-        # TODO we do not know features-dim here before going over all the items, so put
-        # something there. This is dirty!
+        # We do not know features-dim here before going over all the items, so put
+        # something there.
         super().__init__(observation_space, features_dim=1)
 
         extractors: Dict[str, torch.nn.Module] = {}
@@ -125,9 +125,14 @@ class MjCambrianImageFeaturesExtractor(MjCambrianBaseFeaturesExtractor):
     ):
         super().__init__(observation_space, features_dim)
 
-        self.queue_size = observation_space.shape[0]
+        n_channels = observation_space.shape[1]
+        height = observation_space.shape[2]
+        width = observation_space.shape[3]
+        self._num_pixels = n_channels * height * width
+
+        self._queue_size = observation_space.shape[0]
         self.temporal_linear = torch.nn.Sequential(
-            torch.nn.Linear(features_dim * self.queue_size, features_dim),
+            torch.nn.Linear(features_dim * self._queue_size, features_dim),
             activation(),
         )
 
@@ -147,14 +152,9 @@ class MjCambrianMLPExtractor(MjCambrianImageFeaturesExtractor):
     ) -> None:
         super().__init__(observation_space, features_dim, activation)
 
-        n_input_channels = 3  # rgb
-        height = observation_space.shape[2]
-        width = observation_space.shape[3]
-        self.num_pixels = n_input_channels * height * width
-
         layers = []
         layers.append(torch.nn.Flatten())
-        layers.append(torch.nn.Linear(self.num_pixels, architecture[0]))
+        layers.append(torch.nn.Linear(self._num_pixels, architecture[0]))
         layers.append(activation())
         for i in range(1, len(architecture)):
             layers.append(torch.nn.Linear(architecture[i - 1], architecture[i]))
@@ -166,135 +166,11 @@ class MjCambrianMLPExtractor(MjCambrianImageFeaturesExtractor):
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         B = observations.shape[0]
 
-        observations = observations.reshape(-1, self.num_pixels)  # [B, C * H * W]
+        observations = observations.reshape(-1, self._num_pixels)  # [B, C * H * W]
         encodings = self.mlp(observations)
         encodings = encodings.reshape(B, -1)
 
         return super().forward(encodings)
-
-
-class MjCambrianTransformerExtractor(MjCambrianImageFeaturesExtractor):
-    """Transformer feature extractor for small images."""
-
-    def __init__(
-        self,
-        observation_space: gym.Space,
-        features_dim: int,
-        activation: nn.Module,
-        nhead: int,
-        num_encoder_layers: int,
-        dim_feedforward: int,
-    ) -> None:
-        super().__init__(observation_space, features_dim, activation)
-
-        self.n_input_channels = 3  # rgb
-        height = observation_space.shape[2]
-        width = observation_space.shape[3]
-        self.num_pixels = self.n_input_channels * height * width
-        self.input_dim = height * width  # Treat each pixel as a sequence element
-
-        self.positional_encoding = nn.Parameter(
-            torch.randn(1, self.input_dim, self.n_input_channels)
-        )
-        self.encoder_layer = nn.TransformerEncoderLayer(
-            d_model=self.n_input_channels,
-            nhead=nhead,
-            dim_feedforward=dim_feedforward,
-            activation=activation(),
-        )
-        self.transformer_encoder = nn.TransformerEncoder(
-            self.encoder_layer,
-            num_layers=num_encoder_layers,
-            enable_nested_tensor=False,
-        )
-        self.final_linear = nn.Linear(self.n_input_channels, features_dim)
-        self.activation = activation()
-
-    def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        B = observations.shape[0]
-
-        observations = observations.reshape(-1, self.input_dim, self.n_input_channels)
-
-        observations += self.positional_encoding
-        encodings = self.transformer_encoder(observations)
-        encodings = encodings.mean(dim=1)  # Pooling over sequence dimension
-        encodings = self.final_linear(encodings)
-        encodings = self.activation(encodings)
-        encodings = encodings.reshape(B, -1)
-
-        return super().forward(encodings)
-
-
-class MjCambrianViTExtractor(MjCambrianImageFeaturesExtractor):
-    class PatchEmbedding(nn.Module):
-        def __init__(self, in_channels, patch_size, dim):
-            super().__init__()
-            self.patch_size = patch_size
-            self.proj = nn.Conv2d(
-                in_channels, dim, kernel_size=patch_size, stride=patch_size
-            )
-
-        def forward(self, x):
-            x = self.proj(x)  # B, C, H, W
-            x = x.flatten(2)  # B, C, HW
-            x = x.transpose(1, 2)  # B, HW, C
-            return x
-
-    def __init__(
-        self,
-        observation_space: gym.Space,
-        features_dim: int,
-        activation: nn.Module,
-        nhead: int,
-        num_encoder_layers: int,
-        dim_feedforward: int,
-        patch_size: int,
-        emb_dim: int,
-    ) -> None:
-        super().__init__(observation_space, features_dim, activation)
-
-        self.n_input_channels = 3  # RGB
-        height, width = observation_space.shape[2], observation_space.shape[3]
-        self.num_patches = (height // patch_size) * (width // patch_size)
-
-        self.patch_embedding = self.PatchEmbedding(
-            self.n_input_channels, patch_size, emb_dim
-        )
-
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, emb_dim))
-        self.positional_embeddings = nn.Parameter(
-            torch.randn(1, 1 + self.num_patches, emb_dim)
-        )
-        self.dropout = nn.Dropout(0.1)
-
-        self.encoder_layer = nn.TransformerEncoderLayer(
-            d_model=emb_dim,
-            nhead=nhead,
-            dim_feedforward=dim_feedforward,
-            activation=str(activation()).lower(),
-        )
-        self.transformer_encoder = nn.TransformerEncoder(
-            self.encoder_layer, num_layers=num_encoder_layers
-        )
-
-        self.final_linear = nn.Linear(emb_dim, features_dim)
-        self.activation = activation()
-
-    def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        B = observations.shape[0]
-        x = self.patch_embedding(observations)
-        cls_tokens = self.cls_token.expand(B, -1, -1)
-        x = torch.cat((cls_tokens, x), dim=1)
-        x += self.positional_embeddings
-        x = self.dropout(x)
-
-        x = self.transformer_encoder(x)
-        x = x[:, 0]  # Using the cls_token
-
-        x = self.final_linear(x)
-        x = self.activation(x)
-
-        return super().forward(x)
 
 
 class MjCambrianNatureCNNExtractor(MjCambrianImageFeaturesExtractor):
@@ -316,33 +192,30 @@ class MjCambrianNatureCNNExtractor(MjCambrianImageFeaturesExtractor):
         super().__init__(observation_space, features_dim, activation)
         # We assume CxHxW images (channels first)
 
-        n_input_channels = observation_space.shape[1]
+        n_channels = observation_space.shape[1]
         width, height = observation_space.shape[2], observation_space.shape[3]
 
         # Dynamically calculate kernel sizes and strides
-        kernel_sizes, strides = self.calculate_dynamic_params(width, height)
+        k_sizes, strides = self.calculate_dynamic_params(width, height)
 
         # Create CNN layers
         self.cnn = torch.nn.Sequential(
-            torch.nn.Conv2d(
-                n_input_channels, 32, kernel_size=kernel_sizes[0], stride=strides[0]
-            ),
+            torch.nn.Conv2d(n_channels, 32, kernel_size=k_sizes[0], stride=strides[0]),
             activation(),
-            torch.nn.Conv2d(32, 64, kernel_size=kernel_sizes[1], stride=strides[1]),
+            torch.nn.Conv2d(32, 64, kernel_size=k_sizes[1], stride=strides[1]),
             activation(),
-            torch.nn.Conv2d(64, 64, kernel_size=kernel_sizes[2], stride=strides[2]),
+            torch.nn.Conv2d(64, 64, kernel_size=k_sizes[2], stride=strides[2]),
             activation(),
             torch.nn.Flatten(),
         )
 
         # Compute shape by doing one forward pass
         with torch.no_grad():
-            n_flatten = self.cnn(
-                torch.as_tensor(observation_space.sample()[None][:, 0])
-            ).shape[1]
+            n_flatten = self.cnn(torch.as_tensor(observation_space.sample()))
+            n_flatten = n_flatten.shape[0] * n_flatten.shape[1]
 
         self.linear = torch.nn.Sequential(
-            torch.nn.Linear(n_flatten, features_dim), activation()
+            torch.nn.Linear(n_flatten, self._queue_size * features_dim), activation()
         )
 
     def calculate_dynamic_params(self, width, height):
@@ -359,11 +232,9 @@ class MjCambrianNatureCNNExtractor(MjCambrianImageFeaturesExtractor):
         return kernel_sizes, strides
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        T = observations.shape[1]
+        B = observations.shape[0]
 
-        encoding_list = []
-        for t in range(T):
-            encoding = self.linear(self.cnn(observations[:, t]))
-            encoding_list.append(encoding)
-
-        return super().forward(torch.stack(encoding_list, dim=1))
+        observations = observations.reshape(-1, *observations.shape[2:])
+        observations = self.cnn(observations)
+        observations = observations.reshape(B, -1)
+        return super().forward(self.linear(observations))

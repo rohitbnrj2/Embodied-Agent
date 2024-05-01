@@ -740,12 +740,32 @@ if __name__ == "__main__":
         env.reset(seed=config.seed)
         env.xml.write(config.expdir / "env.xml")
 
+        action = {
+            name: [-1.0, -0.0] for name, a in env.animals.items() if a.config.trainable
+        }
+
         if "human" in config.env.renderer.render_modes:
             import glfw
 
             def custom_key_callback(_, key, *args, **__):
                 if key == glfw.KEY_R:
                     env.reset()
+                elif key == glfw.KEY_UP:
+                    name = next(iter(action.keys()))
+                    action[name][0] += 0.001
+                    action[name][0] = min(1.0, action[name][0])
+                elif key == glfw.KEY_DOWN:
+                    name = next(iter(action.keys()))
+                    action[name][0] -= 0.001
+                    action[name][0] = max(-1.0, action[name][0])
+                elif key == glfw.KEY_LEFT:
+                    name = next(iter(action.keys()))
+                    action[name][1] -= 0.01
+                    action[name][1] = max(-1.0, action[name][1])
+                elif key == glfw.KEY_RIGHT:
+                    name = next(iter(action.keys()))
+                    action[name][1] += 0.01
+                    action[name][1] = min(1.0, action[name][1])
 
             env.renderer.viewer.custom_key_callback = custom_key_callback
 
@@ -754,11 +774,6 @@ if __name__ == "__main__":
             if max_steps and env.episode_step > max_steps:
                 break
 
-            action = {
-                name: [-0.1, -0.5]
-                for name, a in env.animals.items()
-                if a.config.trainable
-            }
             env.step(action)
             env.render()
 

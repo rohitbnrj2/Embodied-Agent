@@ -1,4 +1,4 @@
-from typing import Dict, Callable, Optional, Concatenate, Any
+from typing import Dict, Callable, Optional, Concatenate
 from pathlib import Path
 
 from stable_baselines3.common.vec_env import (
@@ -115,7 +115,7 @@ class MjCambrianTrainer:
 
         eval_env = self._make_env(self._config.eval_env, 1, monitor="eval_monitor.csv")
         model = self._make_model(eval_env)
-        model = model.load(self._config.expdir / "best_model")
+        # model = model.load(self._config.expdir / "best_model")
 
         n_runs = self._config.eval_env.n_eval_episodes
         filename = self._config.expdir / "eval"
@@ -175,26 +175,6 @@ class MjCambrianTrainer:
     def _make_model(self, env: VecEnv) -> MjCambrianModel:
         """This method creates the model."""
         return self._config.trainer.model(env=env)
-
-
-def nevergrad_prune_fn(
-    parameterization: Dict[str, Any],
-    /,
-    *,
-    parameters: Dict[str, Any],
-    fn: str,
-) -> bool:
-    """This function is used to prune experiments for nevergrad sweepers. It will
-    return False if the experiment should be pruned."""
-    from hydra.utils import get_method
-
-    arguments: Dict[str, Any] = {}
-    for argument_key, key_or_value in parameters.items():
-        if isinstance(key_or_value, str) and key_or_value in parameterization:
-            arguments[argument_key] = parameterization[key_or_value]
-        else:
-            arguments[argument_key] = key_or_value
-    return get_method(fn)(**arguments)
 
 
 if __name__ == "__main__":

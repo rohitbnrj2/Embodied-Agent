@@ -5,7 +5,7 @@ import mujoco as mj
 from gymnasium import spaces
 
 from cambrian.envs import MjCambrianEnvConfig, MjCambrianEnv
-from cambrian.utils import get_body_id
+from cambrian.utils import get_body_id, get_geom_id
 from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
 
@@ -17,25 +17,16 @@ class MjCambrianObjectConfig(MjCambrianBaseConfig):
     Attributes:
         xml (MjCambrianXML): The xml for the object.
 
-        # TODO: remove in favor of keyword arg in reward_fns
-        terminate_if_close (bool): Whether to terminate the episode if the animal is
-            close to the object. Termination indicates success.
-        truncate_if_close (bool): Whether to truncate the episode if the animal is
-            close to the object. Truncation indicates failure.
-        reward_if_close (float): The reward to give the animal if it is close to the
-            object.
-        distance_threshold (float): The distance to the object at which the
-            animal is assumed to be close to the object.
+        body_name (str): The name of the body in the xml that represents the object.
+        geom_name (str): The name of the geom in the xml that represents the object.
 
         use_as_obs (bool): Whether to use the object as an observation or not.
     """
 
     xml: MjCambrianXML
 
-    terminate_if_close: bool
-    truncate_if_close: bool
-    reward_if_close: float
-    distance_threshold: float
+    body_name: str
+    geom_name: str
 
     use_as_obs: bool
 
@@ -75,7 +66,6 @@ class MjCambrianObjectEnv(MjCambrianEnv):
         """Generates the xml for the environment."""
         xml = super().generate_xml()
 
-        # TODO: Add targets
         for obj in self._objects.values():
             xml += obj.generate_xml()
 
@@ -94,6 +84,10 @@ class MjCambrianObjectEnv(MjCambrianEnv):
             Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]: The observations for each
                 animal and the info dict for each animal.
         """
+        # Set the random seed first
+        if seed is not None:
+            self.set_random_seed(seed)
+
         # Reset each object
         # Update before super since it calls _update_obs and _update_info
         for obj in self._objects.values():
@@ -183,21 +177,21 @@ class MjCambrianObject:
 
         self._pos = np.array(self._config.pos)
 
+        self._model: mj.MjModel = None
+
     def generate_xml(self) -> MjCambrianXML:
         return MjCambrianXML.from_string(self._config.xml)
 
     def reset(self, model: mj.MjModel) -> np.ndarray:
         """Resets the object in the model. Will update it's pos."""
-        body_id = get_body_id(model, f"{self._name}_body")
-        assert body_id != -1, f"Body {self._name}_body not found in model"
+        self._model = model
+
+        body_id = get_body_id(model, self._config.body_name)
+        assert body_id != -1, f"Body {self._config.body_name} not found in model"
 
         model.body_pos[body_id] = self._pos
 
         return model.body_pos[body_id]
-
-    def is_close(self, pos: np.ndarray) -> bool:
-        """Helper function to check if the object is close to a position."""
-        return np.linalg.norm(self._pos - pos) < self._config.distance_threshold
 
     @property
     def pos(self) -> np.ndarray:
@@ -206,6 +200,11 @@ class MjCambrianObject:
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def geomid(self) -> int:
+        assert self._model is not None, "Model not set"
+        return get_geom_id(self._model, self._config.geom_name)
 
     @property
     def config(self) -> MjCambrianObjectConfig:

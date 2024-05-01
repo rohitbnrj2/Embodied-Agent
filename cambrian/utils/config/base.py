@@ -174,7 +174,9 @@ class MjCambrianContainerConfig:
             )
 
     @classmethod
-    def load_pickle(cls, path: Path | str, *, overrides: List[str] = []) -> Self | DictConfig | ListConfig:
+    def load_pickle(
+        cls, path: Path | str, *, overrides: List[str] = []
+    ) -> Self | DictConfig | ListConfig:
         """Load a pickled config."""
         import cloudpickle
 

@@ -12,13 +12,3 @@ defaults:
   # object environment. This will also register the env config group as an
   # MjCambrianObjectEnvConfig
   - override /env: object_env
-
-env:
-  termination_fn:
-    terminate_if_close_to_object:
-      _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
-      _partial_: true
-  truncation_fn:
-    truncate_if_close_to_object:
-      _target_: cambrian.envs.truncation_fns.truncate_if_close_to_object
-      _partial_: true

@@ -1,36 +1,38 @@
 # @package _global_
 
 defaults:
-  # Use one maze for the time being
-  - /env/mazes/I_STATIC@env.mazes.I_STATIC
-
-  # Adds a single goal to the environment
-  # The intention for this exp config is that it's included in another exp config
-  # NOTE: if used with a maze environment, there must be a reset localtion available for
-  # the goal to be placed at.
-  - /env/objects@env.objects.goal: goal
+  - /env/mazes/Y_STATIC@env.mazes.Y_STATIC
+  - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
 
   # Define one animal
   - /env/animals@env.animals.animal_0: ${env/animals}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_0: ${env/animals/eyes}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye_1: ${env/animals/eyes}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye: ${env/animals/eyes}
   - override /env/animals: point
+
+  # This is already the default, but make it explicit
+  - override /trainer/model/policy_kwargs: mlp
 
 trainer:
   # decrease the number of timesteps to speed up the sweep
   total_timesteps: 300_000
 
 env:
+  reward_fn:
+    euclidean_delta_from_init:
+      _target_: cambrian.envs.reward_fns.euclidean_delta_from_init
+      _partial_: true
+
   animals:
     animal_0:
+      # Generate 4 eyes, each with a resolution of 10x10 and a field of view of 25x25
+      num_eyes_to_generate: [1, 4]
       eyes:
-        eye_0:
-          coord: [10, -25]
-        eye_1:
-          coord: [10, 25]
+        eye:
+          resolution: [10, 1]
+          fov: [25, 25]
 
 hydra:
   sweeper:

@@ -177,6 +177,7 @@ def instantiate_resolver(target: str, /, *args, _root_: DictConfig) -> Any:
             cause=e,
         )
 
+
 @register_new_resolver("pattern")
 def pattern_resolver(*pattern: str) -> str:
     from cambrian.utils.config.utils import build_pattern

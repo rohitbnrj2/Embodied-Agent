@@ -9,7 +9,7 @@
     </default>
     <worldbody>
         <body name="${parent:xml}_body" childclass="object">
-            <site name="${parent:xml}_site" material="${parent:xml}_mat" size="1.0" />
+            <geom name="${parent:xml}_geom" type="sphere" material="${parent:xml}_mat" size="1.0" contype="0" conaffinity="0" />
             <site name="${parent:xml}_top_site" material="${parent:xml}_top_mat" pos="0 0 1.0"
                 size="0.2" group="3" />
         </body>

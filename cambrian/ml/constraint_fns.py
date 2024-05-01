@@ -1,15 +1,31 @@
-from typing import Tuple
+from typing import Tuple, Dict, Any
 
 import numpy as np
 
 
-def prune_anatomically_infeasible_eyes(
+def nevergrad_constraint_fn(
+    parameterization: Dict[str, Any], /, *, fn: str, **parameters: Any
+) -> bool:
+    """This function is used to prune experiments for nevergrad sweepers. It will
+    return False if the experiment should be pruned."""
+    from hydra.utils import get_method
+
+    arguments: Dict[str, Any] = {}
+    for argument_key, key_or_value in parameters.items():
+        if isinstance(key_or_value, str) and key_or_value in parameterization:
+            arguments[argument_key] = parameterization[key_or_value]
+        else:
+            arguments[argument_key] = key_or_value
+    return get_method(fn)(**arguments)
+
+
+def constrain_anatomically_feasible_eyes(
     *,
     num_lon_eyes_to_generate: int,
     width: int,
     lon_range: Tuple[float, float],
     radius: float = 0.1,
-    pixel_size: float = 5e-3
+    pixel_size: float = 5e-3,
 ) -> bool:
     """This method will check whether the eye config, if placed num_lon_eyes along
     the longitude of the animal, would be anatomically feasible. Anatomically feasible

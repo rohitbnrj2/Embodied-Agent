@@ -8,6 +8,7 @@ import glfw
 import numpy as np
 import mujoco as mj
 import OpenGL.GL as GL
+import imageio
 
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.utils.logger import get_logger
@@ -536,6 +537,7 @@ class MjCambrianRenderer:
         fps: int = 50,
     ):
         save_mode = save_mode or self._config.save_mode
+        duration = 1000 / fps
 
         assert self._record, "Cannot save without recording."
         assert len(self._rgb_buffer) > 0, "Cannot save empty buffer."
@@ -546,34 +548,23 @@ class MjCambrianRenderer:
         rgb_buffer = (np.array(self._rgb_buffer) * 255.0).astype(np.uint8)
 
         if save_mode & MjCambrianRendererSaveMode.MP4:
-            import imageio
-
             try:
                 mp4 = path.with_suffix(".mp4")
-                writer = imageio.get_writer(mp4, fps=fps)
-                for image in rgb_buffer:
-                    writer.append_data(image)
-                writer.close()
+                imageio.mimwrite(mp4, rgb_buffer, fps=fps)
             except TypeError:
                 self._logger.warning(
                     "imageio is not compiled with ffmpeg. "
                     "You may need to install it with `pip install imageio[ffmpeg]`."
                 )
         if save_mode & MjCambrianRendererSaveMode.PNG:
-            import imageio
-
             png = path.with_suffix(".png")
             imageio.imwrite(png, rgb_buffer[-1])
         if save_mode & MjCambrianRendererSaveMode.GIF:
-            import imageio
-
-            duration = 1000 / fps
             gif = path.with_suffix(".gif")
             imageio.mimwrite(gif, rgb_buffer, loop=0, duration=duration)
         if save_mode & MjCambrianRendererSaveMode.WEBP:
-            import webp
-
-            webp.mimwrite(path.with_suffix(".webp"), rgb_buffer, fps=fps, lossless=True)
+            webp = path.with_suffix(".webp")
+            imageio.mimwrite(webp, rgb_buffer, duration=1 / fps, lossless=True)
 
         self._logger.debug(f"Saved visualization at {path}")
 

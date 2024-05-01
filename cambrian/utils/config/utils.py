@@ -8,7 +8,7 @@ import re
 
 from hydra.core.config_store import ConfigStore
 import hydra_zen as zen
-from omegaconf import OmegaConf, DictConfig, ListConfig
+from omegaconf import OmegaConf, DictConfig
 
 if TYPE_CHECKING:
     from cambrian.utils.config import MjCambrianBaseConfig
@@ -132,7 +132,7 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
     NOTE: yaml files aren't necessarily built to support globbing (like xml), so
     this method is fairly slow and should be used sparingly.
 
-    NOTE #2: List indexing is limited in support. To index an element in a list, you 
+    NOTE #2: List indexing is limited in support. To index an element in a list, you
     must use bracket notation, so `a[0].b` is supported, but `a.0.b` is not.
 
     Args:
@@ -164,18 +164,18 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
                 matched_key = match.group()
                 result[matched_key] = recursive_glob(sub_value, keys[1:])
 
-        # This adds support for direct indexing. This is currently the only supported 
+        # This adds support for direct indexing. This is currently the only supported
         # way to do list accessing for globbing. To check, we'll clean the parentheses
         # and see if the key exists in the config as is.
         # NOTE: this is done after the recursive globbing in case the the key is found
         # earlier
-        for clean_key in re.sub(r'^\((.*)\)$', r'\1', current_key).split('|'):
+        for clean_key in re.sub(r"^\((.*)\)$", r"\1", current_key).split("|"):
             if clean_key in result:
                 continue
 
             if sub_value := OmegaConf.select(config, clean_key):
                 # remove the brackets from the key
-                clean_key = re.sub(r'^\((.*)\)$', r'\1', clean_key)
+                clean_key = re.sub(r"^\((.*)\)$", r"\1", clean_key)
                 result[clean_key] = recursive_glob(sub_value, keys[1:])
 
         return result
@@ -199,6 +199,7 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
 
     # Return the flattened or nested dict
     return flatten(globbed) if flattened else globbed
+
 
 def build_pattern(patterns: List[str]) -> str:
     """Build a glob pattern from the passed patterns.

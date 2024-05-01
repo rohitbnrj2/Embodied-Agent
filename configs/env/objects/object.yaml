@@ -1,10 +1,8 @@
 # @package custom.default.object
 # We aren't actually going to use this object, so store it in the special attr `custom` which isn't read
 
-terminate_if_close: false
-truncate_if_close: false
-reward_if_close: 0.0
-distance_threshold: 2.0
+body_name: ${parent:}_body
+geom_name: ${parent:}_geom
 
 use_as_obs: false
 
