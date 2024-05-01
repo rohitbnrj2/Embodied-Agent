@@ -25,11 +25,16 @@ trainer:
 
 env:
   reward_fn:
-    euclidean_delta_to_object:
+    euclidean_delta_to_goal1:
       _target_: cambrian.envs.reward_fns.euclidean_delta_to_object
       _partial_: true
       factor: 0.25
-      object: goal
+      object: goal1
+    euclidean_delta_to_goal2:
+      _target_: cambrian.envs.reward_fns.euclidean_delta_to_object
+      _partial_: true
+      factor: 0.25
+      object: goal2
 
   mazes:
     SQUARE_OPEN1:
