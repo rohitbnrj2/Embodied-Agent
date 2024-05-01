@@ -85,12 +85,8 @@ automatically save the video to `logs/<date>/<exp>/eval.*`. Use `-h` to see opti
 ## Running evo
 
 ```bash
-bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT> -m
+bash scripts/local.sh scripts/evo.sh exp=<EXPERIMENT>
 ```
-
-Here, `-m` stands for `--multirun`. This will spawn multiple sweep instances of the
-`trainer.py` script. See the config files sweep parameters and/or
-[hydra](https://hydra.cc/docs/intro) for more details.
 
 > [!NOTE]
 > You may get an error saying something along the lines
@@ -132,12 +128,30 @@ bash scripts/local.sh scripts/eval.sh exp=<EXPERIMENT>
 
 ```bash
 # If running headless
-sbatch scripts/sc.sh scripts/train.sh exp=<EXPERIMENT> -m
+sbatch scripts/sc.sh scripts/evo.sh exp=<EXPERIMENT>
 # If running in interactive mode
-bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT> -m
+bash scripts/local.sh scripts/evo.sh exp=<EXPERIMENT>
 ```
 
 ## Other things
+
+### Introspection into the Configs
+
+You can introspect into the configs by running the following:
+
+```bash
+python <ANY SCRIPT> exp=<EXPERIMENT> -c all
+```
+
+This will print out the entire config. You can print out specific parts of the config
+using `-p <dot.separated.path>`.
+
+```bash
+python <ANY SCRIPT> exp=<EXPERIMENT> -p <dot.separated.path>
+```
+
+> [!NOTE]
+> This is hydra syntax. For more information, run `python <ANY SCRIPT> --hydra-help`.
 
 ### Configs/Overrides
 
