@@ -21,6 +21,9 @@ class MjCambrianObjectConfig(MjCambrianBaseConfig):
         geom_name (str): The name of the geom in the xml that represents the object.
 
         use_as_obs (bool): Whether to use the object as an observation or not.
+
+        pos (Optional[Tuple[float | int, float | int, float | int]]): The position of
+            the object.
     """
 
     xml: MjCambrianXML
@@ -30,7 +33,7 @@ class MjCambrianObjectConfig(MjCambrianBaseConfig):
 
     use_as_obs: bool
 
-    pos: Tuple[float, float, float]
+    pos: Optional[Tuple[float | int, float | int, float | int]] = None
 
 
 @config_wrapper
@@ -175,7 +178,7 @@ class MjCambrianObject:
         self._config = config
         self._name = name
 
-        self._pos = np.array(self._config.pos)
+        self._pos = np.array(self._config.pos) if self._config.pos else np.zeros(3)
 
         self._model: mj.MjModel = None
 

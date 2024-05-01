@@ -579,7 +579,7 @@ class MjCambrianContainerConfig:
                 content, config=config, instantiated=instantiated
             )
         else:
-            get_value = not as_node or isinstance(content, Node)
+            get_value = isinstance(content, Node)
             assert not get_value or content is not None, f"Content is None: {key}"
             return content._value() if get_value else content
 

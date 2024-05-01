@@ -166,8 +166,15 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
         enabled_objects = self._maze.config.enabled_objects
         for obj in self.objects.values():
             if enabled_objects is None or obj.name in enabled_objects:
-                obj.pos[:2] = self._maze.generate_object_pos()
-                obj.pos[2] = self._maze.config.scale // 4
+                if init_pos := obj.config.pos:
+                    # If the initial pos is set in the config, we'll interpret it as
+                    # a position in the maze and convert it to global coordinates
+                    obj.pos[:2] = self._maze.cell_rowcol_to_xy(list(init_pos)[:2])
+                    obj.pos[2] = init_pos[2]
+                else:
+                    # If the initial object pos is not set, generate a new one
+                    obj.pos[:2] = self._maze.generate_object_pos()
+                    obj.pos[2] = self._maze.config.scale // 4
 
         # Now reset the environment
         obs, info = super().reset(seed=seed, options=options)
@@ -361,6 +368,17 @@ class MjCambrianMaze:
 
     # ==================
 
+    def cell_rowcol_to_xy(self, rowcol_pos: np.ndarray) -> np.ndarray:
+        x = (rowcol_pos[1] + 0.5) * self._config.scale - self.x_map_center
+        y = self.y_map_center - (rowcol_pos[0] + 0.5) * self._config.scale
+
+        return np.array([x, y])
+
+    def cell_xy_to_rowcol(self, xy_pos: np.ndarray) -> np.ndarray:
+        i = np.floor((self.y_map_center - xy_pos[1]) / self._config.scale)
+        j = np.floor((xy_pos[0] + self.x_map_center) / self._config.scale)
+        return np.array([i, j], dtype=int)
+
     def compute_optimal_path(self, start: np.ndarray, target: np.ndarray) -> np.ndarray:
         """Computes the optimal path from the start position to the target.
 
@@ -368,19 +386,8 @@ class MjCambrianMaze:
         """
         from typing import Deque
 
-        def cell_rowcol_to_xy(rowcol_pos: np.ndarray) -> np.ndarray:
-            x = (rowcol_pos[1] + 0.5) * self._config.scale - self.x_map_center
-            y = self.y_map_center - (rowcol_pos[0] + 0.5) * self._config.scale
-
-            return np.array([x, y])
-
-        def cell_xy_to_rowcol(xy_pos: np.ndarray) -> np.ndarray:
-            i = np.floor((self.y_map_center - xy_pos[1]) / self._config.scale)
-            j = np.floor((xy_pos[0] + self.x_map_center) / self._config.scale)
-            return np.array([i, j], dtype=int)
-
-        start = cell_xy_to_rowcol(start)
-        target = cell_xy_to_rowcol(target)
+        start = self.cell_xy_to_rowcol(start)
+        target = self.cell_xy_to_rowcol(target)
 
         rows = self._map.shape[0]
         cols = self._map.shape[1]
@@ -395,8 +402,8 @@ class MjCambrianMaze:
             current = path[-1]
             if np.all(current == target):
                 # Convert path from indices to positions
-                path = [cell_rowcol_to_xy(pos) for pos in path]
-                path.append(cell_rowcol_to_xy(target))
+                path = [self.cell_rowcol_to_xy(pos) for pos in path]
+                path.append(self.cell_rowcol_to_xy(target))
                 return np.array(path)
 
             # Check all moves (left, right, up, down, and all diagonals)

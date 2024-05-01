@@ -5,5 +5,3 @@ body_name: ${parent:}_body
 geom_name: ${parent:}_geom
 
 use_as_obs: false
-
-pos: [0, 0, 0]

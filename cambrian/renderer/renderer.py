@@ -564,7 +564,7 @@ class MjCambrianRenderer:
             imageio.mimwrite(gif, rgb_buffer, loop=0, duration=duration)
         if save_mode & MjCambrianRendererSaveMode.WEBP:
             webp = path.with_suffix(".webp")
-            imageio.mimwrite(webp, rgb_buffer, duration=1 / fps, lossless=True)
+            imageio.mimwrite(webp, rgb_buffer, fps=fps, lossless=True)
 
         self._logger.debug(f"Saved visualization at {path}")
 

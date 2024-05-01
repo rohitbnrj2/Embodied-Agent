@@ -23,10 +23,6 @@ trainer:
 env:
   # Set the reward fns
   reward_fn:
-    euclidean_delta_from_init:
-      factor: 0.0
-    penalize_if_has_contacts:
-      penalty: 0.0
     predator_reward_if_prey_in_view:
       _target_: cambrian.envs.reward_fns.reward_if_animals_in_view
       _partial_: true
