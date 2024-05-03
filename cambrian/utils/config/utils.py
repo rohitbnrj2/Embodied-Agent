@@ -3,7 +3,7 @@ from dataclasses import dataclass, fields, make_dataclass
 import enum
 from functools import partial
 import argparse
-import os
+from pathlib import Path
 import re
 
 from hydra.core.config_store import ConfigStore
@@ -21,7 +21,7 @@ def run_hydra(
     /,
     *,
     parser: argparse.ArgumentParser = argparse.ArgumentParser(),
-    config_path: str = f"{os.getcwd()}/configs",
+    config_path: Path | str = Path.cwd() / "configs",
     config_name: str = "base",
     instantiate: bool = True,
     **kwargs,
@@ -54,7 +54,7 @@ def run_hydra(
     Keyword Args:
         parser (argparse.ArgumentParser): The parser to use for the hydra
             application. If None, a new parser will be created.
-        config_path (str): The path to the config directory. This should be the
+        config_path (Path | str): The path to the config directory. This should be the
             absolute path to the directory containing the config files. By default,
             this is set to the current working directory.
         config_name (str): The name of the config file to use. This should be the
@@ -105,14 +105,16 @@ def run_hydra(
 
         return partial(fn, **vars(parsed_args))
 
-    @hydra.main(version_base=None, config_path=config_path, config_name=config_name)
+    @hydra.main(
+        version_base=None, config_path=str(config_path), config_name=config_name
+    )
     @hydra_argparse_override
-    def main(cfg: DictConfig, **kwargs):
+    def main(cfg: DictConfig, **fn_kwargs):
         from cambrian.utils.config import MjCambrianBaseConfig
 
         if instantiate:
             cfg = MjCambrianBaseConfig.instantiate(cfg, **kwargs)
-        return main_fn(cfg, **kwargs)
+        return main_fn(cfg, **fn_kwargs)
 
     main()
 

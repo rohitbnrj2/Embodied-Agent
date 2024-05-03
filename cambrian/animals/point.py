@@ -231,7 +231,7 @@ class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):
             assert isinstance(env, MjCambrianMazeEnv), "env must be a MjCambrianMazeEnv"
             assert self._target_object in env.objects, (
                 f"Target object {self._target_object} not an available object. "
-                f"Options are {env.objects.keys()}"
+                f"Options are {list(env.objects.keys())}"
             )
 
             self._optimal_trajectory = env.maze.compute_optimal_path(

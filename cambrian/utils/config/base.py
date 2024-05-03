@@ -135,7 +135,7 @@ class MjCambrianContainerConfig:
     @classmethod
     def compose(
         cls,
-        config_dir: str,
+        config_dir: Path | str,
         config_name: str,
         *,
         overrides: List[str] = [],
@@ -149,7 +149,7 @@ class MjCambrianContainerConfig:
         if GlobalHydra().is_initialized():
             GlobalHydra().clear()
 
-        with hydra.initialize_config_dir(config_dir, version_base=None):
+        with hydra.initialize_config_dir(str(config_dir), version_base=None):
             hydra_config = hydra.compose(
                 config_name=config_name, overrides=overrides, return_hydra_config=True
             )

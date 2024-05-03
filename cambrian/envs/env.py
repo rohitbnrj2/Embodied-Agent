@@ -774,7 +774,7 @@ if __name__ == "__main__":
             if max_steps and env.episode_step > max_steps:
                 break
 
-            env.step(action)
+            env.step(action.copy())
             env.render()
 
             if record:

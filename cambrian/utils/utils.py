@@ -499,6 +499,7 @@ def safe_eval(src: Any):
         "sum": sum,
         "len": len,
         "round": round,
+        "list": list,
         "int": int,
         "float": float,
         "str": str,

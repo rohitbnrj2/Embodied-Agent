@@ -1,0 +1,18 @@
+# @package _global_
+
+defaults:
+  - /PSFGeneratorConfig
+  - /env/animals/eyes@eye: optics
+  - _self_
+
+output: '???'
+
+quantize: false
+
+init: '???'
+
+radial:
+  type: EQUATION
+random:
+  type: UNIFORM
+constant: 0.0

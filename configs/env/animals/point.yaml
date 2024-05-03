@@ -17,5 +17,5 @@ body_name: "point_${parent:}"
 joint_name: "ball_x_${parent:}"
 geom_name: "point_geom_${parent:}"
 
-eyes_lat_range: [-5, 25]
+eyes_lat_range: [-5, 5]
 eyes_lon_range: [-60, 60]

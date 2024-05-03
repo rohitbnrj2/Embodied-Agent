@@ -174,7 +174,7 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
                 else:
                     # If the initial object pos is not set, generate a new one
                     obj.pos[:2] = self._maze.generate_object_pos()
-                    obj.pos[2] = self._maze.config.scale // 4
+                    obj.pos[2] = self._maze.config.scale / 4.0
 
         # Now reset the environment
         obs, info = super().reset(seed=seed, options=options)

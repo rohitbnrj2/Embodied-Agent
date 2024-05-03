@@ -12,13 +12,13 @@
 
       <joint name="ball_x_${parent:xml}" type="slide" pos="0 0 0" axis="1 0 0" damping="1" limited="false"/>
       <joint name="ball_y_${parent:xml}" type="slide" pos="0 0 0" axis="0 1 0" damping="1" limited="false"/>
-      <joint name="ball_z_${parent:xml}" type="hinge" pos="0 0 0" axis="0 0 1" damping="1" limited="false"/>
+      <joint name="ball_yaw_${parent:xml}" type="hinge" pos="0 0 0" axis="0 0 1" damping="1" limited="false"/>
     </body>
   </worldbody>
   <actuator>
     <!-- These are just dummy actuators for providing ranges -->
     <velocity name="act_x_${parent:xml}" joint="ball_x_${parent:xml}" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100"/>
     <velocity name="act_y_${parent:xml}" joint="ball_y_${parent:xml}" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100"/>
-    <position name="act_z_${parent:xml}" joint="ball_z_${parent:xml}" ctrlrange="-3.14 3.14" ctrllimited="true" gear="1"/>
+    <position name="act_yaw_${parent:xml}" joint="ball_yaw_${parent:xml}" ctrlrange="-3.14 3.14" ctrllimited="true" gear="1"/>
   </actuator>
 </mujoco>
