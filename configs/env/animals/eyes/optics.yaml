@@ -26,17 +26,18 @@ wavelengths: [610e-9, 530e-9, 470e-9]
 
 # Initialize the height map with 0.5 and refractive_index of 1. This is equivalent to
 # no height map.
-refractive_index: 1.0
+refractive_index: 1.5
 height_map: ${eval:'[[.5] * ${.pupil_resolution.0} for _ in [0] * ${.pupil_resolution.1}]'}
 
 # Pre-compute the psf at specific depths. This will speed up the simulation speed at the
 # cost of accuracy of the psf at any given depth
-depths:
-  - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 5'}
-  - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 10'}
-  - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 100'}
-  - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 1000'}
-  - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 10000'}
+depths: []
+  # Removing these for now...
+  # - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 5'}
+  # - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 10'}
+  # - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 100'}
+  # - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 1000'}
+  # - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 10000'}
 
 renderer:
   render_modes: [rgb_array, depth_array]

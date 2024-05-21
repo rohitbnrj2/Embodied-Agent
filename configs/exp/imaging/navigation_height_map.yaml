@@ -53,7 +53,7 @@ env:
         eye:
           resolution: [50, 50]
           fov: [100, 100]
-          aperture: 0.0
+          aperture: 1.0
 
 hydra:
   sweeper:
