@@ -56,7 +56,7 @@ direction: maximize
 # NOTE #2: Some algorithms use the budget and num_workers as part of the optimization
 # to know how exploratory to be. So be careful setting this number very large with
 # the intention of stopping early.
-n_trials: ${eval:'int(${oc.select:custom.variables.num_generations, 20} * ${.n_jobs})'}
+n_trials: ${eval:'int(${oc.select:evo.num_generations,20} * ${.n_jobs})'}
 
 # This defines the number of a parallel candidates you want to test at one time.
 # This will default to 1 for most launchers. If the launcher is submitit, it will

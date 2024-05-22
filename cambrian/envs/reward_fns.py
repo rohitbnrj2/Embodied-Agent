@@ -108,10 +108,10 @@ def penalize_if_has_contacts(
     truncated: bool,
     info: Dict[str, Any],
     *,
-    penalty: float = -1.0,
+    penalty: float,
 ) -> float:
     """Penalizes the animal if it has contacts with the ground."""
-    return penalty if info["has_contacts"] else 0.0
+    return penalty if info.get("has_contacts", False) else 0.0
 
 
 def reward_if_animals_in_view(

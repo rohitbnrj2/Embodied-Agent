@@ -3,7 +3,6 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=4-00:00:00
-#SBATCH --qos=high
 #SBATCH --job-name mj_training
 #SBATCH --output=out/R-%x.%j_%a.out
 #SBATCH --error=out/R-%x.%j_%a.err

@@ -1,6 +1,8 @@
+from typing import Optional
 from pathlib import Path
 
 from cambrian.ml.trainer import MjCambrianTrainerConfig
+from cambrian.ml.evo import MjCambrianEvoConfig
 from cambrian.envs import MjCambrianEnvConfig
 from cambrian.utils.config import MjCambrianBaseConfig
 from cambrian.utils.config.utils import config_wrapper, run_hydra
@@ -39,6 +41,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
     seed: int
 
     trainer: MjCambrianTrainerConfig
+    evo: Optional[MjCambrianEvoConfig] = None
     env: MjCambrianEnvConfig
     eval_env: MjCambrianEnvConfig
 

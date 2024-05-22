@@ -20,7 +20,7 @@ defaults:
 
 trainer:
   # decrease the number of timesteps to speed up the sweep
-  total_timesteps: 1_000_000
+  total_timesteps: 750_000
 
 env:
   reward_fn:
@@ -64,6 +64,7 @@ env:
                       - name: ${parent:xml}_mat
                       - texture: "${parent:xml}_tex"
                       - texrepeat: "5 5"
+                      - emission: 1
                   - material:
                       - name: ${parent:xml}_top_mat
                       - rgba: 0.2 0.8 0.2 1.0
@@ -93,6 +94,7 @@ env:
                       - name: ${parent:xml}_mat
                       - texture: "${parent:xml}_tex"
                       - texrepeat: "2 2"
+                      - emission: 1
                   - material:
                       - name: ${parent:xml}_top_mat
                       - rgba: 0.8 0.2 0.2 1.0

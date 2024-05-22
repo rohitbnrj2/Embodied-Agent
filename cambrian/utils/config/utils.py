@@ -146,10 +146,6 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
             output will be a nested dict. Defaults to False.
         _root_ (DictConfig): The root config.
     """
-    # Early exit if no globs
-    if "*" not in key and "|" not in key:
-        return OmegaConf.select(_root_, key)
-
     def recursive_glob(config: DictConfig | Any, keys: List[str]) -> Dict:
         if not keys or not isinstance(config, DictConfig):
             return config

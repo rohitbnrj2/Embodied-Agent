@@ -1,0 +1,26 @@
+# @package _global_
+
+# Update the seed based on the current generation and rank such that each agent's is unique
+seed: |
+  ${eval:'${trainer.n_envs} * (${evo.generation} *
+  ${evo.num_agents_per_node} * ${evo.num_nodes} +
+  ${evo.global_rank})'}
+
+# Update the logdir to use the generation and rank syntax
+expdir: ${path:${logdir},generation_${evo.generation},rank_${evo.global_rank}}
+
+# Now, update the evo variables
+evo:
+    # The number of nodes in the slurm array job, and how many individual tasks to run
+    # on each node (i.e. how many parallel agents to train).
+    num_nodes: ${oc.env:SLURM_ARRAY_TASK_COUNT,1}
+    num_agents_per_node: ${oc.env:SLURM_NTASKS,1}
+
+    # The local rank of the agent on the node, and the global rank of the agent across
+    # all nodes.
+    local_rank: ${oc.env:SLURM_PROCID,0}
+    global_rank: ${eval:'${oc.env:SLURM_ARRAY_TASK_ID, 0} * ${.num_agents_per_node} + ${.local_rank}'}
+
+    # The current generation of the agent, and the total number of generations to run.
+    num_generations: 20
+    generation: ${eval:'int((${hydra_select:job.num, 0} - ${.global_rank}) / (${.num_agents_per_node} * ${.num_nodes}))'}

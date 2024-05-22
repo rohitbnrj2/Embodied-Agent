@@ -29,7 +29,6 @@ from cambrian.utils.config import (
     MjCambrianConfig,
     run_hydra,
     config_wrapper,
-    build_pattern,
 )
 
 # =======================================================
@@ -316,7 +315,7 @@ def plot_helper(
 def plot_config(
     config: MjCambrianConfig,
     xvalues: Any,
-    pattern: str,
+    patterns: List[str],
     *,
     dry_run: bool = False,
     **kwargs,
@@ -342,13 +341,16 @@ def plot_config(
             **kwargs,
         )
 
-    # Get the config attributes to plot
-    data = config.glob(pattern, flatten=True)
-    assert data, f"No data found for pattern {pattern}."
+    for pattern in patterns:
+        # Get the config attributes to plot
+        data = config.glob(pattern, flatten=True)
+        if not data:
+            print(f"WARNING: no data found for pattern {pattern}.")
+            continue
 
-    # Now loop through each key and plot the values
-    for attr, values in data.items():
-        plot_config_helper(attr, values, **kwargs)
+        # Now loop through each key and plot the values
+        for attr, values in data.items():
+            plot_config_helper(attr, values, **kwargs)
 
 
 def plot_evaluations(
@@ -429,7 +431,7 @@ def plot_monitor(
 def plot_monitor_and_config(
     monitor: Dict[str, Any],
     config: MjCambrianConfig,
-    pattern: str,
+    patterns: List[str],
     *,
     dry_run: bool = False,
     window: int = 100,
@@ -437,53 +439,55 @@ def plot_monitor_and_config(
 ):
     """Plot the monitor data."""
 
-    # Get the config attributes to plot
-    data = config.glob(pattern, flatten=True)
+    for pattern in patterns:
+        # Get the config attributes to plot
+        data = config.glob(pattern, flatten=True)
 
-    # Now loop through each key and plot the values
-    for attr, values in data.items():
-        # If xvalues is a list, we'll average it
-        if isinstance(values, list):
-            values = np.average(values)
+        # Now loop through each key and plot the values
+        for attr, values in data.items():
+            # If xvalues is a list, we'll average it
+            if isinstance(values, list):
+                values = np.average(values)
 
-        # Now plot the monitor data
-        plot_monitor(
-            monitor,
-            values,
-            dry_run=dry_run,
-            window=window,
-            xlabel=attr,
-            **kwargs,
-        )
+            # Now plot the monitor data
+            plot_monitor(
+                monitor,
+                values,
+                dry_run=dry_run,
+                window=window,
+                xlabel=attr,
+                **kwargs,
+            )
 
 
 def plot_evaluations_and_config(
     evaluations: Dict[str, Any],
     config: MjCambrianConfig,
-    pattern: str,
+    patterns: List[str],
     *,
     dry_run: bool = False,
     **kwargs,
 ):
     """Plot the evaluations data."""
 
-    # Get the config attributes to plot
-    data = config.glob(pattern, flatten=True)
+    for pattern in patterns:
+        # Get the config attributes to plot
+        data = config.glob(pattern, flatten=True)
 
-    # Now loop through each key and plot the values
-    for attr, values in data.items():
-        # If xvalues is a list, we'll average it
-        if isinstance(values, list):
-            values = np.average(values)
+        # Now loop through each key and plot the values
+        for attr, values in data.items():
+            # If xvalues is a list, we'll average it
+            if isinstance(values, list):
+                values = np.average(values)
 
-        # Now plot the evaluations data
-        plot_evaluations(
-            evaluations,
-            values,
-            dry_run=dry_run,
-            xlabel=attr,
-            **kwargs,
-        )
+            # Now plot the evaluations data
+            plot_evaluations(
+                evaluations,
+                values,
+                dry_run=dry_run,
+                xlabel=attr,
+                **kwargs,
+            )
 
 
 def plot_average_line(ax: plt.Axes):
@@ -553,14 +557,10 @@ def run_plot(config: ParseEvosConfig, data: Data):
                 if config.verbose > 1:
                     print("\t\tPlotting config data...")
 
-                # Build the glob pattern for the config attributes
-                # * indicates anything (like names which we don't know beforehand) and (|) indicates
-                # an OR operation (i.e. (resolution|fov) matches either resolution or fov)
-                pattern = build_pattern(config.patterns)
                 plot_config(
                     rank_data.config,
                     generation,
-                    pattern,
+                    config.patterns,
                     color=color,
                     marker=marker,
                     xlabel="generation",
@@ -602,11 +602,10 @@ def run_plot(config: ParseEvosConfig, data: Data):
                     print("\t\tPlotting monitor and config data...")
 
                 # Build the glob pattern for the config attributes
-                pattern = build_pattern(config.patterns)
                 plot_monitor_and_config(
                     rank_data.monitor,
                     rank_data.config,
-                    pattern,
+                    config.patterns,
                     color=color,
                     marker=marker,
                     dry_run=config.dry_run,
@@ -618,11 +617,10 @@ def run_plot(config: ParseEvosConfig, data: Data):
                     print("\t\tPlotting evaluations and config data...")
 
                 # Build the glob pattern for the config attributes
-                pattern = build_pattern(config.patterns)
                 plot_evaluations_and_config(
                     rank_data.evaluations,
                     rank_data.config,
-                    pattern,
+                    config.patterns,
                     color=color,
                     marker=marker,
                     dry_run=config.dry_run,

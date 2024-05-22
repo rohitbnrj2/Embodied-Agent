@@ -7,9 +7,10 @@ defaults:
 # compute node. This way, you can limit the total job length to some maximum value.
 timeout_min: ${eval:'60*24'} # 1 day (in min)
 
-# Supercloud only allows allocation of 4 gpus, meaning we can only really use
-# 4 nodes at any one time. To optimize usage of resources, we want to use all 4 nodes
-# and also have multiple parallel workers on each node. This can manifest in a few ways:
+# Supercloud only allows allocation of 4 nodes, meaning we can only really use
+# 8 gpus at any one time (since there are 2 gpus per node). To optimize usage of 
+# resources, we want to use all 4 nodes and also have multiple parallel workers on each 
+# node. This can manifest in a few ways:
 #   - we could have multiple parallel environments running on the same node which
 #     provides more training samples per update at the cost of sample efficiency
 #   - or we could have multiple trainers running on the same node which provides more
@@ -22,8 +23,8 @@ timeout_min: ${eval:'60*24'} # 1 day (in min)
 nodes: 1
 tasks_per_node: ${eval:'int(40 // ${.cpus_per_task})'}
 cpus_per_task: ${trainer.n_envs}
-gres: gpu:volta:1
-array_parallelism: 4 # number of parallel array jobs launched; sc only allows 4 gpus
+gres: gpu:volta:2
+array_parallelism: 4 # number of parallel array jobs launched; sc only allows 4 nodes
 
 # This will increase the likelyhood of a job being selected during peak hours.
 qos: high

@@ -23,6 +23,12 @@ patterns:
   - seed
   - env.animals.*.eyes.*.resolution[0]
   - env.animals.*.eyes.*.fov
+  - trainer.model.policy_kwargs.features_extractor_kwargs.output_dim
+  - trainer.model.policy_kwargs.features_extractor_kwargs.image_extractor.architecture
   - custom.num_eyes
 overrides:
   - custom.num_eyes=${eval:'math.prod(${env.animals.animal_0.num_eyes_to_generate})'}
+
+hydra:
+  run:
+    dir: ${output}
