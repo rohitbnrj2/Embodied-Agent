@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Self
+from typing import Tuple, Callable, Self, TypeVar, Generic
 import numpy as np
 
 import mujoco as mj
@@ -50,8 +50,9 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
 
     renderer: MjCambrianRendererConfig
 
+T = TypeVar("T", bound=MjCambrianEyeConfig)
 
-class MjCambrianEye:
+class MjCambrianEye(Generic[T]):
     """Defines an eye for the cambrian environment. It essentially wraps a mujoco Camera
     object and provides some helper methods for rendering and generating the XML. The
     eye is attached to the parent body such that movement of the parent body will move
@@ -62,7 +63,7 @@ class MjCambrianEye:
         name (str): The name of the eye.
     """
 
-    def __init__(self, config: MjCambrianEyeConfig, name: str):
+    def __init__(self, config: T, name: str):
         self._config = config
         self._name = name
 
@@ -187,7 +188,7 @@ class MjCambrianEye:
         return obs
 
     @property
-    def config(self) -> MjCambrianEyeConfig:
+    def config(self) -> T:
         """The config for the eye."""
         return self._config
 

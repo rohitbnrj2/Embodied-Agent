@@ -26,8 +26,10 @@ wavelengths: [610e-9, 530e-9, 470e-9]
 
 # Initialize the height map with 0.5 and refractive_index of 1. This is equivalent to
 # no height map.
+f_stop: 2.0
 refractive_index: 1.5
-height_map: ${eval:'[[.5] * ${.pupil_resolution.0} for _ in [0] * ${.pupil_resolution.1}]'}
+height_map:
+  ${eval:'[[${.custom.height_map_height} / 2] * ${.pupil_resolution.0} for _ in [0] * ${.pupil_resolution.1}]'}
 
 # Pre-compute the psf at specific depths. This will speed up the simulation speed at the
 # cost of accuracy of the psf at any given depth
@@ -47,3 +49,6 @@ renderer:
   # "scene" resolution.
   width: ${eval:'${..pupil_resolution.0} * 2 + 1'}
   height: ${eval:'${..pupil_resolution.1} * 2 + 1'}
+
+custom:
+  height_map_height: ${eval:'max([l / (${..refractive_index} - 1) for l in ${..wavelengths}])'}

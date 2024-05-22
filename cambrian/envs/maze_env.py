@@ -123,14 +123,12 @@ class MjCambrianMazeEnvConfig(MjCambrianObjectEnvConfig):
 
 class MjCambrianMazeEnv(MjCambrianObjectEnv):
     def __init__(self, config: MjCambrianMazeEnvConfig, **kwargs):
-        self._config: MjCambrianMazeEnvConfig = config
+        self._config = config
 
         # Have to initialize the mazes first since generate_xml is called from the
         # MjCambrianEnv constructor
         self._maze: MjCambrianMaze = None
-        self._maze_store = MjCambrianMazeStore(
-            self._config.mazes, self._config.maze_selection_fn
-        )
+        self._maze_store = MjCambrianMazeStore(config.mazes, config.maze_selection_fn)
 
         super().__init__(config, **kwargs)
 
