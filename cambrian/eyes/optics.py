@@ -67,29 +67,29 @@ class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
 
     def _initialize(self):
         """This will initialize the parameters used during the PSF calculation."""
-        # Mx,My defines the number of pixels in x,y direction (i.e. width, height) of
+        # pupil_Mx,pupil_My defines the number of pixels in x,y direction (i.e. width, height) of
         # the pupil
-        Mx, My = self._config.pupil_resolution
-        assert Mx > 2 and My > 2, f"Pupil resolution must be > 2: {Mx=}, {My=}"
-        assert Mx % 2 and My % 2, f"Pupil resolution must be odd: {Mx=}, {My=}"
+        pupil_Mx, pupil_My = self._config.pupil_resolution
+        assert pupil_Mx > 2 and pupil_My > 2, f"Pupil resolution must be > 2: {pupil_Mx=}, {pupil_My=}"
+        assert pupil_Mx % 2 and pupil_My % 2, f"Pupil resolution must be odd: {pupil_Mx=}, {pupil_My=}"
 
-        # dx/dy defines the pixel pitch (m) (i.e. distance between the centers of
+        # pupil_dx/pupil_dy defines the pixel pitch (m) (i.e. distance between the centers of
         # adjacent pixels) of the pupil and Lx/Ly defines the size of the pupil plane
         fx, fy = self._config.focal
         Lx, Ly = fx / self._config.f_stop, fy / self._config.f_stop
-        dx, dy = Lx / Mx, Ly / My
+        pupil_dx, pupil_dy = Lx / pupil_Mx, Ly / pupil_My
 
         # Image plane coords
         # TODO: fragile to floating point errors, must use double here. okay to convert
         # to float after psf operations
-        x1 = torch.linspace(-Lx / 2.0, Lx / 2.0, Mx).double()
-        y1 = torch.linspace(-Ly / 2.0, Ly / 2.0, My).double()
+        x1 = torch.linspace(-Lx / 2.0, Lx / 2.0, pupil_Mx).double()
+        y1 = torch.linspace(-Ly / 2.0, Ly / 2.0, pupil_My).double()
         X1, Y1 = torch.meshgrid(x1, y1, indexing="ij")
         X1_Y1 = X1.square() + Y1.square()
 
         # Frequency coords
-        freqx = torch.linspace(-1.0 / (2.0 * dx), 1.0 / (2.0 * dx), Mx)
-        freqy = torch.linspace(-1.0 / (2.0 * dy), 1.0 / (2.0 * dy), My)
+        freqx = torch.linspace(-1.0 / (2.0 * pupil_dx), 1.0 / (2.0 * pupil_dx), pupil_Mx)
+        freqy = torch.linspace(-1.0 / (2.0 * pupil_dy), 1.0 / (2.0 * pupil_dy), pupil_My)
         FX, FY = torch.meshgrid(freqx, freqy, indexing="ij")
 
         # Aperture mask

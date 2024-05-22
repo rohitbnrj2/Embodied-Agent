@@ -82,11 +82,6 @@ def create_radial_height_map(config: PSFGeneratorConfig) -> np.ndarray:
     Mx, My = config.eye.pupil_resolution
     maxr = np.sqrt((Mx / 2) ** 2 + (My / 2) ** 2)
 
-    Lx, Ly = config.eye.sensorsize
-    x1 = np.linspace(-Lx / 2.0, Lx / 2.0, Mx)
-    y1 = np.linspace(-Ly / 2.0, Ly / 2.0, My)
-    X1, Y1 = np.meshgrid(x1, y1)
-
     if config.radial.type is RadialType.UNIFORM:
         h_r = np.random.uniform(0, 1, np.ceil(maxr).astype(int))
     elif config.radial.type is RadialType.FROM_ZEROS:
