@@ -31,7 +31,7 @@ def resize_with_aspect_fill(image: np.ndarray, width: int, height: int):
     return result
 
 
-def convert_depth_to_rgb(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
+def convert_depth_distances(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
     """https://github.com/google-deepmind/mujoco/blob/main/python/mujoco/renderer.py"""
     # Get the distances to the near and far clipping planes.
     extent = model.stat.extent

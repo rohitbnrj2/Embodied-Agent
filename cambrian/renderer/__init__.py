@@ -5,7 +5,7 @@ from cambrian.renderer.renderer import (
 )  # noqa
 from cambrian.renderer.render_utils import (
     resize_with_aspect_fill,
-    convert_depth_to_rgb,
+    convert_depth_distances,
 )  # noqa
 
 # MuJoCo supports specifying the MuJoCo OpenGL backend via the MUJOCO_GL environment
@@ -28,5 +28,5 @@ __all__ = [
     "MjCambrianRendererConfig",
     "MjCambrianRendererSaveMode",
     "resize_with_aspect_fill",
-    "convert_depth_to_rgb",
+    "convert_depth_distances",
 ]

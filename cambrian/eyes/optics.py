@@ -4,6 +4,7 @@ import torch
 import numpy as np
 
 from cambrian.eyes import MjCambrianEyeConfig, MjCambrianEye
+from cambrian.utils import make_odd
 from cambrian.utils.config import config_wrapper
 
 
@@ -21,8 +22,9 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
 
         f_stop (float): F-stop of the lens. This is used to calculate the PSF.
         refractive_index (float): Refractive index of the lens material.
-        height_map (List[List[float]]): Height map of the lens. This is used to
-            calculate the phase shift of the light passing through the lens.
+        height_map (List[float]): Height map of the lens. This is used to
+            calculate the phase shift of the light passing through the lens. Uses a
+            radially symmetric approximation.
 
         pupil_resolution (Tuple[int, int]): Resolution of the pupil plane. This
             is used to calculate the PSF.
@@ -39,7 +41,7 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
 
     f_stop: float
     refractive_index: float
-    height_map: List[List[float]]
+    height_map: List[float]
 
     depths: List[float]
 
@@ -69,9 +71,13 @@ class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
         """This will initialize the parameters used during the PSF calculation."""
         # pupil_Mx,pupil_My defines the number of pixels in x,y direction (i.e. width, height) of
         # the pupil
-        pupil_Mx, pupil_My = self._config.pupil_resolution
-        assert pupil_Mx > 2 and pupil_My > 2, f"Pupil resolution must be > 2: {pupil_Mx=}, {pupil_My=}"
-        assert pupil_Mx % 2 and pupil_My % 2, f"Pupil resolution must be odd: {pupil_Mx=}, {pupil_My=}"
+        pupil_Mx, pupil_My = torch.tensor(self._config.pupil_resolution)
+        assert (
+            pupil_Mx > 2 and pupil_My > 2
+        ), f"Pupil resolution must be > 2: {pupil_Mx=}, {pupil_My=}"
+        assert (
+            pupil_Mx % 2 and pupil_My % 2
+        ), f"Pupil resolution must be odd: {pupil_Mx=}, {pupil_My=}"
 
         # pupil_dx/pupil_dy defines the pixel pitch (m) (i.e. distance between the centers of
         # adjacent pixels) of the pupil and Lx/Ly defines the size of the pupil plane
@@ -88,8 +94,12 @@ class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
         X1_Y1 = X1.square() + Y1.square()
 
         # Frequency coords
-        freqx = torch.linspace(-1.0 / (2.0 * pupil_dx), 1.0 / (2.0 * pupil_dx), pupil_Mx)
-        freqy = torch.linspace(-1.0 / (2.0 * pupil_dy), 1.0 / (2.0 * pupil_dy), pupil_My)
+        freqx = torch.linspace(
+            -1.0 / (2.0 * pupil_dx), 1.0 / (2.0 * pupil_dx), pupil_Mx
+        )
+        freqy = torch.linspace(
+            -1.0 / (2.0 * pupil_dy), 1.0 / (2.0 * pupil_dy), pupil_My
+        )
         FX, FY = torch.meshgrid(freqx, freqy, indexing="ij")
 
         # Aperture mask
@@ -104,7 +114,13 @@ class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
         # Calculate the pupil from the height map
         # NOTE: Have to convert to numpy then to tensor to avoid issues with
         # MjCambrianConfigContainer
-        height_map = torch.tensor(np.asanyarray(self._config.height_map)).float()
+        maxr = torch.sqrt((pupil_Mx / 2).square() + (pupil_My / 2).square())
+        h_r = torch.zeros(torch.ceil(maxr).to(int)) + 0.5
+        x, y = torch.meshgrid(
+            torch.arange(pupil_Mx), torch.arange(pupil_My), indexing="ij"
+        )
+        r = torch.sqrt((x - pupil_Mx / 2).square() + (y - pupil_My / 2).square())
+        height_map = h_r[r.to(torch.int64)]
         phi_m = k * (self._config.refractive_index - 1.0) * height_map
         pupil = A * torch.exp(phi_m)
 
@@ -113,7 +129,7 @@ class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
         sx, sy = self._config.sensorsize
         scene_dx = sx / self._config.renderer.width
         scene_dy = sy / self._config.renderer.height
-        psf_resolution = (int(Lx / scene_dx), int(Ly / scene_dy))
+        psf_resolution = (make_odd(Lx / scene_dx), make_odd(Ly / scene_dy))
 
         # Pre-compute some values that are reused in the PSF calculation
         H_valid = torch.sqrt(FX.square() + FY.square()) < (1.0 / wavelengths)
@@ -135,6 +151,7 @@ class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
         self._k = k.to(self._device)
         self._A = A.to(self._device)
         self._pupil = pupil.to(self._device)
+        self._height_map = height_map.to(self._device)
         self._psf_resolution = psf_resolution
 
     def _precompute_psfs(self):
@@ -158,13 +175,14 @@ class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
 
         # Normalize the PSF by channel
         psf: torch.Tensor = u3.abs().square()
+        psf = self._resize(psf)
         psf /= psf.sum(axis=(1, 2)).reshape(-1, 1, 1)
 
         # TODO: we have to do this post-calculations otherwise there are differences
         # between previous algo
         psf = psf.float()
 
-        return self._resize(psf)
+        return psf
 
     def render(self) -> np.ndarray:
         """Overwrites the default render method to apply the depth invariant PSF to the
@@ -177,7 +195,7 @@ class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
 
         # Calculate the depth. Remove the sky depth, which is capped at the extent
         # of the configured environment and apply a far field approximation assumption.
-        depth = depth[depth <= np.max(depth)]
+        depth = depth[depth < np.max(depth)]
         depth = np.clip(depth, 5 * max(self.config.focal), np.inf)
         mean_depth = torch.tensor(np.mean(depth), device=self._device)
 
@@ -244,9 +262,16 @@ if __name__ == "__main__":
     from cambrian.utils import setattrs_temporary
     from cambrian.utils.cambrian_xml import MjCambrianXML
     from cambrian.utils.config import run_hydra, MjCambrianConfig
-    from cambrian.renderer import convert_depth_to_rgb
 
-    def run(config: MjCambrianConfig):
+    def run(config: MjCambrianConfig, aperture: float = None):
+        if aperture is not None:
+            animal_config = next(iter(config.env.animals.values()))
+            eye_name, eye_config = next(iter(animal_config.eyes.items()))
+            eye_config1 = eye_config.copy()
+            eye_config1.set_readonly(False)
+            eye_config1.aperture = aperture
+            animal_config.eyes[eye_name] = eye_config1
+
         # xml = MjCambrianXML.from_string(config.env.xml)
         xml = MjCambrianXML("models/test.xml")
 
@@ -269,15 +294,14 @@ if __name__ == "__main__":
 
         # Get the first eye
         eye: MjCambrianOpticsEye = next(iter(animal.eyes.values()))
+        eye._renderer.viewer._scene.flags[mj.mjtRndFlag.mjRND_SKYBOX] = 1
         rgb, depth = eye._renderer.render()
         obs = eye.render()
 
         # Get the PSFs
-        filtered_depth = depth[depth <= np.max(depth)]
+        filtered_depth = depth[depth < np.max(depth)]
         filtered_depth = np.clip(filtered_depth, 5 * max(eye.config.focal), np.inf)
         mean_depth = torch.tensor(filtered_depth.mean(), device=eye._device)
-
-        mean_depth = torch.tensor(1.4, device=eye._device)
 
         with eye.config.set_readonly_temporarily(False), setattrs_temporary(
             (eye.config, dict(refractive_index=1))
@@ -290,7 +314,7 @@ if __name__ == "__main__":
         psf = (psf - psf.min()) / (psf.max() - psf.min())
 
         # Get the height map and pupil
-        height_map = torch.tensor(np.asanyarray(eye.config.height_map)).float()
+        height_map = eye._height_map.cpu().numpy()
         aperture_img: np.ndarray = eye._A.cpu().numpy()
 
         # Plot the image and depth
@@ -301,7 +325,7 @@ if __name__ == "__main__":
 
         fig, ax = plt.subplots(4, 2, figsize=(20, 30))  # r, c
         imshow(ax[0, 0], rgb.transpose(1, 0, 2), "Image")
-        imshow(ax[0, 1], convert_depth_to_rgb(model, depth).T, "Depth", cmap="gray")
+        imshow(ax[0, 1], depth.transpose(1, 0), "Depth", cmap="gray")
         imshow(ax[1, 0], obs.transpose(1, 0, 2), "Observation")
         imshow(ax[1, 1], aperture_img, f"Aperture: {eye.config.aperture}", cmap="gray")
         imshow(ax[2, 0], aperture_only_psf.transpose(1, 2, 0), "Aperture Only PSF")
@@ -322,41 +346,11 @@ if __name__ == "__main__":
         config.set_readonly(False)
         config.logdir.mkdir(parents=True, exist_ok=True)
 
-        animal_config = next(iter(config.env.animals.values()))
-        eye_name, eye_config = next(iter(animal_config.eyes.items()))
-        eye_config: MjCambrianOpticsEyeConfig
-
-        # Run with default config
         run(config)
-
-        # Set the aperture to 0.5
-        eye_config1 = eye_config.copy()
-        eye_config1.aperture = 0.5
-        animal_config.eyes[eye_name] = eye_config1
-        run(config)
-
-        # Set the aperture to 0.1
-        eye_config2 = eye_config.copy()
-        eye_config2.aperture = 0.1
-        animal_config.eyes[eye_name] = eye_config2
-        run(config)
-
-        # Set the aperture to 0.0
-        eye_config3 = eye_config.copy()
-        eye_config3.aperture = 0.0
-        animal_config.eyes[eye_name] = eye_config3
-        run(config)
-
-        # Set the aperture to 0.9
-        eye_config4 = eye_config.copy()
-        eye_config4.aperture = 0.9
-        animal_config.eyes[eye_name] = eye_config4
-        run(config)
-
-        # Set the aperture to 1.0
-        eye_config5 = eye_config.copy()
-        eye_config5.aperture = 1.0
-        animal_config.eyes[eye_name] = eye_config5
-        run(config)
+        run(config, 0.5)
+        run(config, 0.1)
+        run(config, 0.0)
+        run(config, 0.9)
+        run(config, 0.99)
 
     run_hydra(main)

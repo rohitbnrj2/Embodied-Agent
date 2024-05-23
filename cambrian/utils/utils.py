@@ -146,6 +146,12 @@ def is_number(maybe_num: Any) -> bool:
     return isinstance(maybe_num, Number)
 
 
+def make_odd(num: int | float) -> int:
+    """Make a number odd by adding 1 if it is even. If `num` is a float, it is cast to
+    an int."""
+    return int(num) if num % 2 == 1 else int(num) + 1
+
+
 # =============
 # Mujoco utils
 

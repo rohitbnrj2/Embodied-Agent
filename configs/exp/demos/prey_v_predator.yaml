@@ -1,0 +1,36 @@
+# @package _global_
+
+defaults:
+  # Use one maze for the time being
+  - /env/mazes/SQUARE@env.mazes.SQUARE
+
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+  # Define two animals
+  - /env/animals@env.animals.animal_0: point_predator
+  - /env/animals@env.animals.animal_1: point_prey
+
+trainer:
+  total_timesteps: 1_000_000
+
+  wrappers:
+    animal_env_wrapper:
+      _target_: cambrian.utils.wrappers.MjCambrianPettingZooEnvWrapper
+      animal_name: animal_1
+
+env:
+  # Set the reward fns
+  reward_fn:
+    euclidean_delta_from_init:
+      factor: 0.0
+    penalize_if_has_contacts:
+      penalty: 0.0
+    reward_if_animals_in_view:
+      _target_: cambrian.envs.reward_fns.reward_if_animals_in_view
+      _partial_: true
+
+      # Negative reward for being close to the prey cause we want to avoid it
+      from_animals: [animal_0]
+      to_animals: [animal_1]
+      reward_in_view: -0.75

@@ -11,6 +11,7 @@ import OpenGL.GL as GL
 import imageio
 
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
+from cambrian.renderer.render_utils import convert_depth_distances
 from cambrian.utils.logger import get_logger
 from cambrian.utils.config import (
     MjCambrianBaseConfig,
@@ -522,7 +523,10 @@ class MjCambrianRenderer:
         if self._record and not resetting:
             self._rgb_buffer.append(rgb.copy().transpose(1, 0, 2))
 
-        return (rgb, depth) if "depth_array" in self._config.render_modes else rgb
+        if "depth_array" in self._config.render_modes:
+            depth = convert_depth_distances(self._viewer._model, depth)
+            return rgb, depth
+        return rgb
 
     def is_running(self):
         return self._viewer.is_running()
