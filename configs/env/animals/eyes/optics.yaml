@@ -28,7 +28,7 @@ wavelengths: [610e-9, 530e-9, 470e-9]
 # no height map.
 f_stop: 2.0
 refractive_index: 1.5
-height_map: ${eval:'[[${.custom.height_map_height} / 2] * ${.pupil_resolution.0}]'}
+height_map: ${eval:'[0.5] * ${.pupil_resolution.0}'}
 
 # Pre-compute the psf at specific depths. This will speed up the simulation speed at the
 # cost of accuracy of the psf at any given depth

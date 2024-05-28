@@ -45,6 +45,33 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
 
     depths: List[float]
 
+# utility functions for optics
+
+def convert_hmap(hmap, wavelengths, refractive_index):
+    """
+    hydra needs the hmap to be [0,1] range but we need 
+    to convert it to the correct range before calcuating the 
+    pupil function. 
+    Args:
+        hmap: torch.tensor with range [0,1]
+        wavelengths: np.array with shape (3,) with the wavelengths of the RGB channels
+        refractive_index: float with the refractive index of the lens material
+    Out: 
+        hmap: torch.tensor with range [0, max_height]
+    """
+    hmap_max_height = get_max_height(wavelengths, refractive_index)
+    hmap *= hmap_max_height
+    return hmap
+
+def get_max_height(wavelengths, refractive_index):
+    maxs = []
+    for _lambda in wavelengths:
+        k = 2*np.pi/_lambda
+        _max = (2*np.pi) / (k * (refractive_index - 1.))
+        maxs.append(_max)
+    hmap_max_height = np.max(np.array(maxs))
+    return hmap_max_height
+
 
 class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
     """This class applies the depth invariant PSF to the image.
@@ -120,8 +147,11 @@ class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
             torch.arange(pupil_Mx), torch.arange(pupil_My), indexing="ij"
         )
         r = torch.sqrt((x - pupil_Mx / 2).square() + (y - pupil_My / 2).square())
-        height_map = h_r[r.to(torch.int64)]
-        phi_m = k * (self._config.refractive_index - 1.0) * height_map
+        height_map = h_r[r.to(torch.int64)] # (n, n)
+        # phi_m = k * (self._config.refractive_index - 1.0) * height_map 
+        phi_m = k * (self._config.refractive_index - 1.0) * convert_hmap(height_map, 
+                                                                         self._config.wavelengths, 
+                                                                         self._config.refractive_index)
         pupil = A * torch.exp(phi_m)
 
         # Determine the scaled down psf size. Will resample the psf such that the conv
@@ -314,7 +344,9 @@ if __name__ == "__main__":
         psf = (psf - psf.min()) / (psf.max() - psf.min())
 
         # Get the height map and pupil
-        height_map = eye._height_map.cpu().numpy()
+        height_map = convert_hmap(eye._height_map, 
+                                  eye.config.wavelengths, 
+                                  eye.config.refractive_index).cpu().numpy()
         aperture_img: np.ndarray = eye._A.cpu().numpy()
 
         # Plot the image and depth
