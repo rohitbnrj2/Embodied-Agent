@@ -2,14 +2,99 @@
 
 defaults:
   # Use one maze for the time being
-  - /env/mazes/SQUARE_OPEN@env.mazes.SQUARE_OPEN1
-  - /env/mazes/SQUARE_OPEN@env.mazes.SQUARE_OPEN2
+  - /env/mazes/detection/DETECTION_END_C_F2@env.mazes.detection.DETECTION_END_C_F2
+  - /env/mazes/detection/DETECTION_END_C_F4@env.mazes.detection.DETECTION_END_C_F4
+  - /env/mazes/detection/DETECTION_END_C_F8@env.mazes.detection.DETECTION_END_C_F8
+  - /env/mazes/detection/DETECTION_END_C_F20@env.mazes.detection.DETECTION_END_C_F20
+  - /env/mazes/detection/DETECTION_END_C_F40@env.mazes.detection.DETECTION_END_C_F40
+  - /env/mazes/detection/DETECTION_END_C_F60@env.mazes.detection.DETECTION_END_C_F60
+
+  - /env/mazes/detection/DETECTION_END_C_F2_1@env.mazes.detection.DETECTION_END_C_F2_1
+  - /env/mazes/detection/DETECTION_END_C_F4_1@env.mazes.detection.DETECTION_END_C_F4_1
+  - /env/mazes/detection/DETECTION_END_C_F8_1@env.mazes.detection.DETECTION_END_C_F8_1
+  - /env/mazes/detection/DETECTION_END_C_F20_1@env.mazes.detection.DETECTION_END_C_F20_1
+  - /env/mazes/detection/DETECTION_END_C_F40_1@env.mazes.detection.DETECTION_END_C_F40_1
+  - /env/mazes/detection/DETECTION_END_C_F60_1@env.mazes.detection.DETECTION_END_C_F60_1
+  - /env/mazes/detection/DETECTION_END_C_F2_2@env.mazes.detection.DETECTION_END_C_F2_2
+  - /env/mazes/detection/DETECTION_END_C_F4_2@env.mazes.detection.DETECTION_END_C_F4_2
+  - /env/mazes/detection/DETECTION_END_C_F8_2@env.mazes.detection.DETECTION_END_C_F8_2
+  - /env/mazes/detection/DETECTION_END_C_F20_2@env.mazes.detection.DETECTION_END_C_F20_2
+  - /env/mazes/detection/DETECTION_END_C_F40_2@env.mazes.detection.DETECTION_END_C_F40_2
+  - /env/mazes/detection/DETECTION_END_C_F60_2@env.mazes.detection.DETECTION_END_C_F60_2
+  - /env/mazes/detection/DETECTION_END_C_F2_3@env.mazes.detection.DETECTION_END_C_F2_3
+  - /env/mazes/detection/DETECTION_END_C_F4_3@env.mazes.detection.DETECTION_END_C_F4_3
+  - /env/mazes/detection/DETECTION_END_C_F8_3@env.mazes.detection.DETECTION_END_C_F8_3
+  - /env/mazes/detection/DETECTION_END_C_F20_3@env.mazes.detection.DETECTION_END_C_F20_3
+  - /env/mazes/detection/DETECTION_END_C_F60_3@env.mazes.detection.DETECTION_END_C_F60_3
+  - /env/mazes/detection/DETECTION_END_C_F2_4@env.mazes.detection.DETECTION_END_C_F2_4
+  - /env/mazes/detection/DETECTION_END_C_F4_4@env.mazes.detection.DETECTION_END_C_F4_4
+  - /env/mazes/detection/DETECTION_END_C_F8_4@env.mazes.detection.DETECTION_END_C_F8_4
+  - /env/mazes/detection/DETECTION_END_C_F20_4@env.mazes.detection.DETECTION_END_C_F20_4
+  - /env/mazes/detection/DETECTION_END_C_F40_4@env.mazes.detection.DETECTION_END_C_F40_4
+  - /env/mazes/detection/DETECTION_END_C_F60_4@env.mazes.detection.DETECTION_END_C_F60_4
 
   # Adds two objects to the environment: a goal and an adversarial object
-  - /env/objects@env.objects.goal1: goal
-  - /env/objects@env.objects.goal2: goal
-  - /env/objects@env.objects.adversary1: adversary
-  - /env/objects@env.objects.adversary2: adversary
+  - /env/objects@env.objects.goal_f2: goal
+  - /env/objects@env.objects.goal_f4: goal
+  - /env/objects@env.objects.goal_f8: goal
+  - /env/objects@env.objects.goal_f20: goal
+  - /env/objects@env.objects.goal_f40: goal
+  - /env/objects@env.objects.goal_f60: goal
+  - /env/objects@env.objects.adversary_f2: adversary
+  - /env/objects@env.objects.adversary_f4: adversary
+  - /env/objects@env.objects.adversary_f8: adversary
+  - /env/objects@env.objects.adversary_f20: adversary
+  - /env/objects@env.objects.adversary_f40: adversary
+  - /env/objects@env.objects.adversary_f60: adversary
+
+  - /env/objects@env.objects.goal_f2_1: goal
+  - /env/objects@env.objects.goal_f4_1: goal
+  - /env/objects@env.objects.goal_f8_1: goal
+  - /env/objects@env.objects.goal_f20_1: goal
+  - /env/objects@env.objects.goal_f40_1: goal
+  - /env/objects@env.objects.goal_f60_1: goal
+  - /env/objects@env.objects.adversary_f2_1: adversary
+  - /env/objects@env.objects.adversary_f4_1: adversary
+  - /env/objects@env.objects.adversary_f8_1: adversary
+  - /env/objects@env.objects.adversary_f20_1: adversary
+  - /env/objects@env.objects.adversary_f40_1: adversary
+  - /env/objects@env.objects.adversary_f60_1: adversary
+  - /env/objects@env.objects.goal_f2_2: goal
+  - /env/objects@env.objects.goal_f4_2: goal
+  - /env/objects@env.objects.goal_f8_2: goal
+  - /env/objects@env.objects.goal_f20_2: goal
+  - /env/objects@env.objects.goal_f40_2: goal
+  - /env/objects@env.objects.goal_f60_2: goal
+  - /env/objects@env.objects.adversary_f2_2: adversary
+  - /env/objects@env.objects.adversary_f4_2: adversary
+  - /env/objects@env.objects.adversary_f8_2: adversary
+  - /env/objects@env.objects.adversary_f20_2: adversary
+  - /env/objects@env.objects.adversary_f40_2: adversary
+  - /env/objects@env.objects.adversary_f60_2: adversary
+  - /env/objects@env.objects.goal_f2_3: goal
+  - /env/objects@env.objects.goal_f4_3: goal
+  - /env/objects@env.objects.goal_f8_3: goal
+  - /env/objects@env.objects.goal_f20_3: goal
+  - /env/objects@env.objects.goal_f40_3: goal
+  - /env/objects@env.objects.goal_f60_3: goal
+  - /env/objects@env.objects.adversary_f2_3: adversary
+  - /env/objects@env.objects.adversary_f4_3: adversary
+  - /env/objects@env.objects.adversary_f8_3: adversary
+  - /env/objects@env.objects.adversary_f20_3: adversary
+  - /env/objects@env.objects.adversary_f40_3: adversary
+  - /env/objects@env.objects.adversary_f60_3: adversary
+  - /env/objects@env.objects.goal_f2_4: goal
+  - /env/objects@env.objects.goal_f4_4: goal
+  - /env/objects@env.objects.goal_f8_4: goal
+  - /env/objects@env.objects.goal_f20_4: goal
+  - /env/objects@env.objects.goal_f40_4: goal
+  - /env/objects@env.objects.goal_f60_4: goal
+  - /env/objects@env.objects.adversary_f2_4: adversary
+  - /env/objects@env.objects.adversary_f4_4: adversary
+  - /env/objects@env.objects.adversary_f8_4: adversary
+  - /env/objects@env.objects.adversary_f20_4: adversary
+  - /env/objects@env.objects.adversary_f40_4: adversary
+  - /env/objects@env.objects.adversary_f60_4: adversary
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
@@ -25,29 +110,40 @@ trainer:
 
 env:
   reward_fn:
-    euclidean_delta_to_goal1:
-      _target_: cambrian.envs.reward_fns.euclidean_delta_to_object
+    euclidean_delta_to_objects:
+      _target_: cambrian.envs.reward_fns.euclidean_delta_to_objects
       _partial_: true
       factor: 0.25
-      object: goal1
-    euclidean_delta_to_goal2:
-      _target_: cambrian.envs.reward_fns.euclidean_delta_to_object
-      _partial_: true
-      factor: 0.25
-      object: goal2
+      objects: [goal_f2, goal_f4, goal_f8, goal_f20, f40, f60]
 
   mazes:
-    SQUARE_OPEN1:
+    DETECTION_END_C_F2:
       enabled_objects:
-        - goal1
-        - adversary1
-    SQUARE_OPEN2:
+        - goal_f2
+        - adversary_f2
+    DETECTION_END_C_F4:
       enabled_objects:
-        - goal2
-        - adversary2
+        - goal_f4
+        - adversary_f4
+    DETECTION_END_C_F8:
+      enabled_objects:
+        - goal_f8
+        - adversary_f8
+    DETECTION_END_C_F20:
+      enabled_objects:
+        - goal_f20
+        - adversary_f20
+    DETECTION_END_C_F40:
+      enabled_objects:
+        - goal_f40
+        - adversary_f40
+    DETECTION_END_C_F60:
+      enabled_objects:
+        - goal_f60
+        - adversary_f60
 
   objects:
-    goal1:
+    goal_f2:
       xml:
         overrides:
           - mujoco:
@@ -57,13 +153,11 @@ env:
                       - childclass: object
                       - site:
                           - name: ${parent:xml}_geom
-                          - euler: "0 90 0"
+                          - euler: "0 0 0"
               - asset:
                   - texture:
                       - name: "${parent:xml}_tex"
-                      - builtin: "checker"
-                      - rgb1: "0.8 0.2 0.2"
-                      - rgb2: "0.2 0.2 0.8"
+                      - file: "objects/detection_vertical_2.png"
                       - height: "10"
                       - width: "10"
                       - type: "2d"
@@ -75,7 +169,7 @@ env:
                       - name: ${parent:xml}_top_mat
                       - rgba: 0.2 0.8 0.2 1.0
                       - emission: 2
-    goal2:
+    goal_f4:
       xml:
         overrides:
           - mujoco:
@@ -85,13 +179,11 @@ env:
                       - childclass: object
                       - site:
                           - name: ${parent:xml}_geom
-                          - euler: "0 90 0"
+                          - euler: "0 0 0"
               - asset:
                   - texture:
                       - name: "${parent:xml}_tex"
-                      - builtin: "checker"
-                      - rgb1: "0.8 0.2 0.2"
-                      - rgb2: "0.2 0.2 0.8"
+                      - file: "objects/detection_vertical_4.png"
                       - height: "10"
                       - width: "10"
                       - type: "2d"
@@ -103,8 +195,7 @@ env:
                       - name: ${parent:xml}_top_mat
                       - rgba: 0.2 0.8 0.2 1.0
                       - emission: 2
-
-    adversary1:
+    goal_f8:
       xml:
         overrides:
           - mujoco:
@@ -114,27 +205,101 @@ env:
                       - childclass: object
                       - site:
                           - name: ${parent:xml}_geom
-                          - euler: "0 90 0"
+                          - euler: "0 0 0"
               - asset:
                   - texture:
                       - name: "${parent:xml}_tex"
-                      - builtin: "checker"
-                      - rgb1: "0.8 0.2 0.2"
-                      - rgb2: "0.2 0.2 0.8"
+                      - file: "objects/detection_vertical_8.png"
                       - height: "10"
                       - width: "10"
                       - type: "2d"
                   - material:
                       - name: ${parent:xml}_mat
                       - texture: "${parent:xml}_tex"
-                      - texrepeat: "2 2"
+                      - texrepeat: "5 5"
                   - material:
                       - name: ${parent:xml}_top_mat
-                      - rgba: 0.8 0.2 0.2 1.0
+                      - rgba: 0.2 0.8 0.2 1.0
                       - emission: 2
-    adversary2:
-      pos: [1, 1, 0.5]
-
+    goal_f20:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_20.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f40:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_40.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f60:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_60.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f2:
       xml:
         overrides:
           - mujoco:
@@ -148,19 +313,147 @@ env:
               - asset:
                   - texture:
                       - name: "${parent:xml}_tex"
-                      - builtin: "checker"
-                      - rgb1: "0.8 0.2 0.2"
-                      - rgb2: "0.2 0.2 0.8"
+                      - file: "objects/detection_vertical_2.png"
                       - height: "10"
                       - width: "10"
                       - type: "2d"
                   - material:
                       - name: ${parent:xml}_mat
                       - texture: "${parent:xml}_tex"
-                      - texrepeat: "2 2"
+                      - texrepeat: "5 5"
                   - material:
                       - name: ${parent:xml}_top_mat
-                      - rgba: 0.8 0.2 0.2 1.0
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_4.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f8:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_8.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f20:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_20.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f40:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_40.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f60:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_60.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
                       - emission: 2
 
   animals:
@@ -187,6 +480,1367 @@ env:
         eye:
           resolution: [1, 1]
           fov: [45, 45]
+
+eval_env:
+  reward_fn:
+    euclidean_delta_to_objects:
+      _target_: cambrian.envs.reward_fns.euclidean_delta_to_objects
+      _partial_: true
+      factor: 0.25
+      objects: [goal_f2_1, goal_f2_2, goal_f2_3, goal_f2_4,
+                goal_f4_1, goal_f4_2, goal_f4_3, goal_f4_4, 
+                goal_f8_1, goal_f8_2, goal_f8_3, goal_f8_4, 
+                goal_f20_1, goal_f20_2, goal_f20_3, goal_f20_4, 
+                goal_f40_1, goal_f40_2, goal_f40_3, goal_f40_4, 
+                goal_f60_1, goal_f60_2, goal_f60_3, goal_f60_4] 
+
+  mazes:
+    DETECTION_END_C_F2:
+      enabled_objects:
+        - goal_f2_1
+        - adversary_f2_1
+    DETECTION_END_C_F2_2:
+      enabled_objects:
+        - goal_f2_2
+        - adversary_f2_2
+    DETECTION_END_C_F2_3:
+      enabled_objects:
+        - goal_f2_3
+        - adversary_f2_3
+    DETECTION_END_C_F2_4:
+      enabled_objects:
+        - goal_f2_4
+        - adversary_f2_4
+    DETECTION_END_C_F4:
+      enabled_objects:
+        - goal_f4_1
+        - adversary_f4_1
+    DETECTION_END_C_F4_2:
+      enabled_objects:
+        - goal_f4_2
+        - adversary_f4_2
+    DETECTION_END_C_F4_3:
+      enabled_objects:
+        - goal_f4_3
+        - adversary_f4_3
+    DETECTION_END_C_F4_4:
+      enabled_objects:
+        - goal_f4_4
+        - adversary_f4_4
+    DETECTION_END_C_F8:
+      enabled_objects:
+        - goal_f8_1
+        - adversary_f8_1
+    DETECTION_END_C_F8_2:
+      enabled_objects:
+        - goal_f8_2
+        - adversary_f8_2
+    DETECTION_END_C_F8_3:
+      enabled_objects:
+        - goal_f8_3
+        - adversary_f8_3
+    DETECTION_END_C_F8_4:
+      enabled_objects:
+        - goal_f8_4
+        - adversary_f8_4
+    DETECTION_END_C_F20:
+      enabled_objects:
+        - goal_f20_1
+        - adversary_f20_1
+    DETECTION_END_C_F20_2:
+      enabled_objects:
+        - goal_f20_2
+        - adversary_f20_2
+    DETECTION_END_C_F20_3:
+      enabled_objects:
+        - goal_f20_3
+        - adversary_f20_3
+    DETECTION_END_C_F20_4:
+      enabled_objects:
+        - goal_f20_4
+        - adversary_f20_4
+    DETECTION_END_C_F40:
+      enabled_objects:
+        - goal_f40_1
+        - adversary_f40_1
+    DETECTION_END_C_F40_2:
+      enabled_objects:
+        - goal_f40_2
+        - adversary_f40_2
+    DETECTION_END_C_F40_3:
+      enabled_objects:
+        - goal_f40_3
+        - adversary_f40_3
+    DETECTION_END_C_F40_4:
+      enabled_objects:
+        - goal_f40_4
+        - adversary_f40_4
+    DETECTION_END_C_F60:
+      enabled_objects:
+        - goal_f60_1
+        - adversary_f60_1
+    DETECTION_END_C_F60_2:
+      enabled_objects:
+        - goal_f60_2
+        - adversary_f60_2
+    DETECTION_END_C_F60_3:
+      enabled_objects:
+        - goal_f60_3
+        - adversary_f60_3
+    DETECTION_END_C_F60_4:
+      enabled_objects:
+        - goal_f60_4
+        - adversary_f60_4
+
+ objects: 
+    goal_f2_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_2.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f2_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_2.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f2_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_2.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f2_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_2.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f4_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_4.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f4_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_4.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f4_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_4.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f4_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_4.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f8_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_8.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f8_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_8.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f8_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_8.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f8_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_8.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f20_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_20.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f20_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_20.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f20_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_20.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f20_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_20.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f40_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_40.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f40_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_40.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f40_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_40.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f40_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_40.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f60_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_60.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f60_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_60.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f60_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_60.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    goal_f60_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 0 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_60.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f2_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_2.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f2_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_2.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f2_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_2.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f2_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_2.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f4_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_4.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f4_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_4.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f4_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_4.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f4_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_4.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f8_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_8.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f8_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_8.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f8_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_8.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f8_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_8.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f20_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_20.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f20_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_20.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f20_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_20.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f20_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_20.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f40_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_40.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f40_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_40.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f40_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_40.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f40_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_40.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f60_1:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_60.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f60_2:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_60.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f60_3:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_60.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
+    adversary_f60_4:
+      xml:
+        overrides:
+          - mujoco:
+              - worldbody:
+                  - body:
+                      - name: ${parent:xml}_body
+                      - childclass: object
+                      - site:
+                          - name: ${parent:xml}_geom
+                          - euler: "0 90 0"
+              - asset:
+                  - texture:
+                      - name: "${parent:xml}_tex"
+                      - file: "objects/detection_vertical_60.png"
+                      - height: "10"
+                      - width: "10"
+                      - type: "2d"
+                  - material:
+                      - name: ${parent:xml}_mat
+                      - texture: "${parent:xml}_tex"
+                      - texrepeat: "5 5"
+                  - material:
+                      - name: ${parent:xml}_top_mat
+                      - rgba: 0.2 0.8 0.2 1.0
+                      - emission: 2
 
 hydra:
   sweeper:

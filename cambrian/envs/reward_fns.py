@@ -73,6 +73,32 @@ def euclidean_delta_to_object(
     return -1 * calc_delta(animal, info, env.objects[object].pos) * factor
 
 
+def euclidean_delta_to_objects(
+    env: MjCambrianObjectEnv,
+    animal: MjCambrianAnimal,
+    terminated: bool,
+    truncated: bool,
+    info: Dict[str, Any],
+    *,
+    objects: Optional[List[str]] = None,
+    factor: float = 1.0,
+):
+    """
+    Rewards the change in distance to any enabled object over the previous step.
+    """
+    reward = 0.0
+    for obj in env.objects.values():
+        if objects is not None and obj.name not in objects:
+            continue
+
+        if obj.name not in env.maze.config.enabled_objects:
+            continue
+
+        # Multiply by -1 to reward getting closer to the object
+        reward = -1 * calc_delta(animal, info, obj.pos) * factor
+    return reward
+
+
 def reward_if_close_to_object(
     env: MjCambrianObjectEnv,
     animal: MjCambrianAnimal,
