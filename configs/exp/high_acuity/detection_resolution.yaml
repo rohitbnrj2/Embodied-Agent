@@ -9,29 +9,29 @@ defaults:
   - /env/mazes/detection/DETECTION_END_C_F40@env.mazes.detection.DETECTION_END_C_F40
   - /env/mazes/detection/DETECTION_END_C_F60@env.mazes.detection.DETECTION_END_C_F60
 
-  - /env/mazes/detection/DETECTION_END_C_F2_1@env.mazes.detection.DETECTION_END_C_F2_1
-  - /env/mazes/detection/DETECTION_END_C_F4_1@env.mazes.detection.DETECTION_END_C_F4_1
-  - /env/mazes/detection/DETECTION_END_C_F8_1@env.mazes.detection.DETECTION_END_C_F8_1
-  - /env/mazes/detection/DETECTION_END_C_F20_1@env.mazes.detection.DETECTION_END_C_F20_1
-  - /env/mazes/detection/DETECTION_END_C_F40_1@env.mazes.detection.DETECTION_END_C_F40_1
-  - /env/mazes/detection/DETECTION_END_C_F60_1@env.mazes.detection.DETECTION_END_C_F60_1
-  - /env/mazes/detection/DETECTION_END_C_F2_2@env.mazes.detection.DETECTION_END_C_F2_2
-  - /env/mazes/detection/DETECTION_END_C_F4_2@env.mazes.detection.DETECTION_END_C_F4_2
-  - /env/mazes/detection/DETECTION_END_C_F8_2@env.mazes.detection.DETECTION_END_C_F8_2
-  - /env/mazes/detection/DETECTION_END_C_F20_2@env.mazes.detection.DETECTION_END_C_F20_2
-  - /env/mazes/detection/DETECTION_END_C_F40_2@env.mazes.detection.DETECTION_END_C_F40_2
-  - /env/mazes/detection/DETECTION_END_C_F60_2@env.mazes.detection.DETECTION_END_C_F60_2
-  - /env/mazes/detection/DETECTION_END_C_F2_3@env.mazes.detection.DETECTION_END_C_F2_3
-  - /env/mazes/detection/DETECTION_END_C_F4_3@env.mazes.detection.DETECTION_END_C_F4_3
-  - /env/mazes/detection/DETECTION_END_C_F8_3@env.mazes.detection.DETECTION_END_C_F8_3
-  - /env/mazes/detection/DETECTION_END_C_F20_3@env.mazes.detection.DETECTION_END_C_F20_3
-  - /env/mazes/detection/DETECTION_END_C_F60_3@env.mazes.detection.DETECTION_END_C_F60_3
-  - /env/mazes/detection/DETECTION_END_C_F2_4@env.mazes.detection.DETECTION_END_C_F2_4
-  - /env/mazes/detection/DETECTION_END_C_F4_4@env.mazes.detection.DETECTION_END_C_F4_4
-  - /env/mazes/detection/DETECTION_END_C_F8_4@env.mazes.detection.DETECTION_END_C_F8_4
-  - /env/mazes/detection/DETECTION_END_C_F20_4@env.mazes.detection.DETECTION_END_C_F20_4
-  - /env/mazes/detection/DETECTION_END_C_F40_4@env.mazes.detection.DETECTION_END_C_F40_4
-  - /env/mazes/detection/DETECTION_END_C_F60_4@env.mazes.detection.DETECTION_END_C_F60_4
+  - /env/mazes/detection/DETECTION_END_C_F2_1@env.mazes.detection.DETECTION_END_C_F2
+  - /env/mazes/detection/DETECTION_END_C_F4_1@env.mazes.detection.DETECTION_END_C_F4
+  - /env/mazes/detection/DETECTION_END_C_F8_1@env.mazes.detection.DETECTION_END_C_F8
+  - /env/mazes/detection/DETECTION_END_C_F20_1@env.mazes.detection.DETECTION_END_C_F20
+  - /env/mazes/detection/DETECTION_END_C_F40_1@env.mazes.detection.DETECTION_END_C_F40
+  - /env/mazes/detection/DETECTION_END_C_F60_1@env.mazes.detection.DETECTION_END_C_F60
+  - /env/mazes/detection/DETECTION_END_C_F2_2@env.mazes.detection.DETECTION_END_C_F2
+  - /env/mazes/detection/DETECTION_END_C_F4_2@env.mazes.detection.DETECTION_END_C_F4
+  - /env/mazes/detection/DETECTION_END_C_F8_2@env.mazes.detection.DETECTION_END_C_F8
+  - /env/mazes/detection/DETECTION_END_C_F20_2@env.mazes.detection.DETECTION_END_C_F20
+  - /env/mazes/detection/DETECTION_END_C_F40_2@env.mazes.detection.DETECTION_END_C_F40
+  - /env/mazes/detection/DETECTION_END_C_F60_2@env.mazes.detection.DETECTION_END_C_F60
+  - /env/mazes/detection/DETECTION_END_C_F2_3@env.mazes.detection.DETECTION_END_C_F2
+  - /env/mazes/detection/DETECTION_END_C_F4_3@env.mazes.detection.DETECTION_END_C_F4
+  - /env/mazes/detection/DETECTION_END_C_F8_3@env.mazes.detection.DETECTION_END_C_F8
+  - /env/mazes/detection/DETECTION_END_C_F20_3@env.mazes.detection.DETECTION_END_C_F20
+  - /env/mazes/detection/DETECTION_END_C_F60_3@env.mazes.detection.DETECTION_END_C_F60
+  - /env/mazes/detection/DETECTION_END_C_F2_4@env.mazes.detection.DETECTION_END_C_F2
+  - /env/mazes/detection/DETECTION_END_C_F4_4@env.mazes.detection.DETECTION_END_C_F4
+  - /env/mazes/detection/DETECTION_END_C_F8_4@env.mazes.detection.DETECTION_END_C_F8
+  - /env/mazes/detection/DETECTION_END_C_F20_4@env.mazes.detection.DETECTION_END_C_F20
+  - /env/mazes/detection/DETECTION_END_C_F40_4@env.mazes.detection.DETECTION_END_C_F40
+  - /env/mazes/detection/DETECTION_END_C_F60_4@env.mazes.detection.DETECTION_END_C_F60
 
   # Adds two objects to the environment: a goal and an adversarial object
   - /env/objects@env.objects.goal_f2: goal
