@@ -1,0 +1,23 @@
+defaults:
+  # For some reason need // in the beginning if using interpolation like ${env/mazes}
+  - //env/mazes/${env/mazes}@_here_
+
+map: |-
+  [
+    [1, 1, 1, 1, 1, 1],
+    [1, R, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 1],
+    [1, 0, X, X, 0, 1],
+    [1, 0, X, X, 0, 1],
+    [1, 0, 0, 0, 0, 1],
+    [1, 1, 1, 1, 1, 1]
+  ]
+scale: 1
+
+
+wall_texture_map:
+  L: [tree]
+  R: [tree]
+  E: [tree]

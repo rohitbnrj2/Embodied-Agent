@@ -1,0 +1,7 @@
+defaults:
+  - /${env/objects}@_here_
+
+xml:
+  _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse
+  _convert_: all
+  xml_string: ${read:${path:models,objects,sphere.xml}}

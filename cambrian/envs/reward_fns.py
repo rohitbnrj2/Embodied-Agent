@@ -5,6 +5,7 @@ import mujoco as mj
 
 from cambrian.envs import MjCambrianEnv
 from cambrian.envs.object_env import MjCambrianObjectEnv
+from cambrian.envs.maze_env import MjCambrianMazeEnv
 from cambrian.animals import MjCambrianAnimal
 
 # =====================
@@ -54,27 +55,8 @@ def euclidean_delta_from_init(
     return calc_delta(animal, info, animal.init_pos) * factor
 
 
-def euclidean_delta_to_object(
-    env: MjCambrianObjectEnv,
-    animal: MjCambrianAnimal,
-    terminated: bool,
-    truncated: bool,
-    info: Dict[str, Any],
-    *,
-    object: str,
-    factor: float = 1.0,
-):
-    """
-    Rewards the change in distance to an object over the previous step.
-    """
-    if object not in env.objects:
-        return 0.0
-    # Multiply by -1 to reward getting closer to the object
-    return -1 * calc_delta(animal, info, env.objects[object].pos) * factor
-
-
 def euclidean_delta_to_objects(
-    env: MjCambrianObjectEnv,
+    env: MjCambrianMazeEnv,
     animal: MjCambrianAnimal,
     terminated: bool,
     truncated: bool,
@@ -86,17 +68,16 @@ def euclidean_delta_to_objects(
     """
     Rewards the change in distance to any enabled object over the previous step.
     """
-    reward = 0.0
+    accumulated_reward = 0.0
     for obj in env.objects.values():
         if objects is not None and obj.name not in objects:
             continue
-
-        if obj.name not in env.maze.config.enabled_objects:
+        elif obj.name not in env.maze.config.enabled_objects:
             continue
 
         # Multiply by -1 to reward getting closer to the object
-        reward = -1 * calc_delta(animal, info, obj.pos) * factor
-    return reward
+        accumulated_reward = -1 * calc_delta(animal, info, obj.pos) * factor
+    return accumulated_reward
 
 
 def reward_if_close_to_object(

@@ -117,6 +117,11 @@ class MjCambrianTrainer:
         model = self._make_model(eval_env)
         # model = model.load(self._config.expdir / "best_model")
 
+        # Save the eval environments xml
+        xml_path = self._config.expdir / "eval_env.xml"
+        cambrian_env: MjCambrianEnv = eval_env.envs[0].unwrapped
+        cambrian_env.xml.write(xml_path)
+
         n_runs = self._config.eval_env.n_eval_episodes
         filename = self._config.expdir / "eval"
         record_kwargs = dict(

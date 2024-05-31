@@ -9,14 +9,19 @@ from typing import (
     Concatenate,
 )
 from enum import Enum
+import itertools
 
 import mujoco as mj
 import numpy as np
 
 from cambrian.envs.env import MjCambrianEnv
-from cambrian.envs.object_env import MjCambrianObjectEnv, MjCambrianObjectEnvConfig
+from cambrian.envs.object_env import (
+    MjCambrianObjectEnv,
+    MjCambrianObjectEnvConfig,
+    MjCambrianObject,
+)
 from cambrian.animals.animal import MjCambrianAnimal
-from cambrian.utils import get_geom_id
+from cambrian.utils import get_geom_id, safe_index
 from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
 
@@ -75,8 +80,6 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
         height (float): The height of the walls in the MuJoCo simulation.
         flip (bool): Whether to flip the maze or not. If True, the maze will be
             flipped along the x-axis.
-        smooth_walls (bool): Whether to smooth the walls such that they are continuous
-            appearing. This is an approximated as a spline fit to the walls.
 
         wall_texture_map (Dict[str, List[str]]): The mapping from texture id to
             texture names. Textures in the list are chosen at random. If the list is of
@@ -94,7 +97,6 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
     scale: float
     height: float
     flip: bool
-    smooth_walls: bool
 
     wall_texture_map: Dict[str, List[str]]
 
@@ -185,10 +187,11 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
 
             # Update the camera distance to match the current maze's extent
             viewer.camera.distance = viewer.config.select("camera.distance", default=1)
-            if self._maze.ratio < 2:
-                viewer.camera.distance *= renderer.ratio * self._maze.min_dim
+            if self._maze.ratio < 1:
+                factor = renderer.ratio * self._maze.min_dim / self._maze.ratio
             else:
-                viewer.camera.distance *= self._maze.max_dim / renderer.ratio
+                factor = self._maze.max_dim / renderer.ratio * self._maze.ratio
+            viewer.camera.distance *= factor
 
         return obs, info
 
@@ -546,7 +549,12 @@ class MjCambrianMaze:
         """Returns a point which aids in placement of a camera to visualize this maze."""
         # NOTE: Negative because of convention based on BEV camera
         assert self._starting_x is not None, "Maze has not been initialized"
-        return np.array([-self._starting_x + len(self._map[0]), 0, 0])
+        return np.array([-self._starting_x + len(self._map[0]) / 2, 0, 0])
+
+    @property
+    def object_locations(self) -> List[np.ndarray]:
+        """Returns the object locations."""
+        return self._object_locations
 
 
 # ================================
@@ -673,5 +681,70 @@ class MjCambrianMazeStore:
 
     def select_maze_cycle(self, env: "MjCambrianEnv") -> MjCambrianMaze:
         """Selects a maze based on a cycle."""
-        idx = self.maze_list.index(self._current_maze) if self._current_maze else -1
+        idx = safe_index(self.maze_list, self._current_maze, default=-1)
         return self.maze_list[(idx + 1) % len(self.maze_list)]
+
+    def select_maze_cycle_objects(
+        self, env: MjCambrianMazeEnv, *, max_permutations_per_maze: Optional[int] = None
+    ) -> MjCambrianMaze:
+        """This selection function will cycle through all combinations of enabled
+        objects in each maze.
+
+        Basically, it will cycle through each maze. And for each maze, it will set the
+        initial position of each enabled objects such that all permutations of the
+        placement of the objects are covered.
+        """
+        # Current maze index
+        maze_idx: int = safe_index(self.maze_list, self._current_maze, default=0)
+        maze = self.maze_list[maze_idx]
+
+        # Get all the enabled objects and position locations
+        objects: List[MjCambrianObject] = []
+        positions: List[np.ndarray] = []
+        for obj in env.objects.values():
+            # Only consider enabled objects
+            if maze.config.enabled_objects is not None:
+                if obj.name not in maze.config.enabled_objects:
+                    continue
+
+            # Calculate the object's position. The first iteration, it may be None or
+            # have None values.
+            pos = None
+            if obj.config.pos is not None and any(p for p in obj.config.pos[:2]):
+                pos = obj.config.pos[:2]
+
+            objects.append(obj)
+            positions.append(pos)
+
+        # Calculate all permutations
+        object_locations = [
+            maze.cell_xy_to_rowcol(p).tolist() for p in maze.object_locations
+        ]
+        permutations = list(itertools.permutations(object_locations, len(positions)))
+
+        # Get the current permutation
+        idx = safe_index(permutations, tuple(positions), default=-1) + 1
+        max_num_permutations = max_permutations_per_maze or len(positions)
+        if idx == max_num_permutations:
+            # Reset the object positions
+            for obj in objects:
+                with obj.config.set_readonly_temporarily(False):
+                    obj.config.pos = None
+
+            # If we've reached the end of the permutations, move to the next maze
+            self._current_maze = self.maze_list[(maze_idx + 1) % len(self.maze_list)]
+            return self.select_maze_cycle_objects(
+                env, max_permutations_per_maze=max_permutations_per_maze
+            )
+
+        # Otherwise, update the object positions
+        permutation = permutations[idx]
+        for obj, pos in zip(objects, permutation):
+            with obj.config.set_readonly_temporarily(False):
+                if obj.config.pos is not None:
+                    obj.config.pos[:2] = pos
+                else:
+                    z = maze.config.scale / 4.0
+                    obj.config.pos = [*pos, z]
+
+        return maze

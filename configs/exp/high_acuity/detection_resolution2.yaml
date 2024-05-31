@@ -1,0 +1,147 @@
+# @package _global_
+
+defaults:
+  # Training objects
+  - /exp/high_acuity/objects@env.objects.goal_f2: goal
+  - /exp/high_acuity/objects@env.objects.goal_f4: goal
+  - /exp/high_acuity/objects@env.objects.goal_f8: goal
+  - /exp/high_acuity/objects@env.objects.goal_f20: goal
+  - /exp/high_acuity/objects@env.objects.goal_f40: goal
+  - /exp/high_acuity/objects@env.objects.goal_f60: goal
+  - /exp/high_acuity/objects@env.objects.adversary_f2: adversary
+  - /exp/high_acuity/objects@env.objects.adversary_f4: adversary
+  - /exp/high_acuity/objects@env.objects.adversary_f8: adversary
+  - /exp/high_acuity/objects@env.objects.adversary_f20: adversary
+  - /exp/high_acuity/objects@env.objects.adversary_f40: adversary
+  - /exp/high_acuity/objects@env.objects.adversary_f60: adversary
+
+  # Training mazes
+  - /env/mazes/detection@env.mazes.DETECTION_END_C_F2: DETECTION_END_C
+  - /env/mazes/detection@env.mazes.DETECTION_END_C_F4: DETECTION_END_C
+  - /env/mazes/detection@env.mazes.DETECTION_END_C_F8: DETECTION_END_C
+  - /env/mazes/detection@env.mazes.DETECTION_END_C_F20: DETECTION_END_C
+  - /env/mazes/detection@env.mazes.DETECTION_END_C_F40: DETECTION_END_C
+  - /env/mazes/detection@env.mazes.DETECTION_END_C_F60: DETECTION_END_C
+
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+  # Define one animal
+  - /env/animals@env.animals.animal_0: ${env/animals}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye: ${env/animals/eyes}
+  - override /env/animals: point
+
+trainer:
+  # decrease the number of timesteps to speed up the sweep
+  total_timesteps: 1_000_000
+
+env:
+  reward_fn:
+    euclidean_delta_to_objects:
+      _target_: cambrian.envs.reward_fns.euclidean_delta_to_objects
+      _partial_: true
+      factor: 0.25
+      objects: [goal_f2, goal_f4, goal_f8, goal_f20, goal_f40, goal_f60]
+
+  objects:
+    # Goals
+    goal_f2:
+      custom:
+        frequency: 2
+    goal_f4:
+      custom:
+        frequency: 4
+    goal_f8:
+      custom:
+        frequency: 8
+    goal_f20:
+      custom:
+        frequency: 20
+    goal_f40:
+      custom:
+        frequency: 40
+    goal_f60:
+      custom:
+        frequency: 60
+
+    # Adversaries
+    adversary_f2:
+      custom:
+        frequency: 2
+    adversary_f4:
+      custom:
+        frequency: 4
+    adversary_f8:
+      custom:
+        frequency: 8
+    adversary_f20:
+      custom:
+        frequency: 20
+    adversary_f40:
+      custom:
+        frequency: 40
+    adversary_f60:
+      custom:
+        frequency: 60
+
+  mazes:
+    DETECTION_END_C_F2:
+      enabled_objects:
+        - goal_f2
+        - adversary_f2
+    DETECTION_END_C_F4:
+      enabled_objects:
+        - goal_f4
+        - adversary_f4
+    DETECTION_END_C_F8:
+      enabled_objects:
+        - goal_f8
+        - adversary_f8
+    DETECTION_END_C_F20:
+      enabled_objects:
+        - goal_f20
+        - adversary_f20
+    DETECTION_END_C_F40:
+      enabled_objects:
+        - goal_f40
+        - adversary_f40
+    DETECTION_END_C_F60:
+      enabled_objects:
+        - goal_f60
+        - adversary_f60
+
+eval_env:
+  # Set the number of eval episodes to be the total number of possible permutations
+  # TODO: calculate this dynamically, set to (n!) / (n - k)! where n is number of
+  # positions each object can be placed (4 but we cap to 2 below) and k is number of
+  # objects for each maze (2). And then there are 6 mazes in total, so
+  # 6 * (2!) / (2 - 2)! = 12. NOTE: If we didn't cap, the total would be 72.
+  n_eval_episodes: 12
+
+  # Update the maze selection fn to dynamically cycle through all permutations of
+  # object placements
+  maze_selection_fn:
+    _target_: cambrian.envs.maze_env.MjCambrianMazeStore.select_maze_cycle_objects
+    max_permutations_per_maze: 2
+
+hydra:
+  sweeper:
+    parametrization:
+      # Add the resolution of the eyes to the sweeper. This will optimize just the
+      # width.
+      env.animals.animal_0.eyes.eye.resolution.0:
+        init: 1
+        lower: 1
+        upper: 100
+        step: 5
+        integer: true
+
+    # Add a cheap constraint to restrict the number of eyes generated to be
+    # "anatomically feasible"
+    cheap_constraints:
+      - _target_: cambrian.ml.constraint_fns.nevergrad_constraint_fn
+        _partial_: true
+        fn: cambrian.ml.constraint_fns.constrain_anatomically_feasible_eyes
+        num_lon_eyes_to_generate: env.animals.animal_0.num_eyes_to_generate.1
+        width: env.animals.animal_0.eyes.eye.resolution.0
+        lon_range: ${env.animals.animal_0.eyes_lon_range}

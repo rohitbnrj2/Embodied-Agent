@@ -153,6 +153,17 @@ def make_odd(num: int | float) -> int:
     return int(num) if num % 2 == 1 else int(num) + 1
 
 
+def safe_index(
+    arr: List[Any], value: Any, *, default: Optional[int] = None
+) -> int | None:
+    """Safely get the index of a value in a list. If the value is not in the list, None
+    is returned."""
+    try:
+        return arr.index(value)
+    except ValueError:
+        return default
+
+
 # =============
 # Mujoco utils
 
@@ -514,95 +525,92 @@ def safe_eval(src: Any):
     }
     return literal_eval_with_callables(src, {"math": math, **supported_builtins})
 
+
 def calc_mtf_sum(psf, camera_px_pitch, face_freq, noise_floor=0.0):
     """
     Calculate MTF and the sum of MTF values for indices lower than max_index using PyTorch.
-    
+
     Parameters:
     - psf: CxHxW tensor representing the point spread function.
     - camera_px_pitch: Pixel pitch of the camera in millimeters.
     - max_index: The threshold index below which the sum of MTF values is calculated.
-    
+
     Returns:
     - frequencyAxis: The frequency axis for the MTF.
     - radialAvg: The radial average of the MTF.
     - sum_below_max_index: The sum of MTF values for indices lower than max_index.
     """
     # Calculate OTF
-    otf = torch.fft.fftshift(torch.fft.fft2(psf), dim = (2, 3))
-    
+    otf = torch.fft.fftshift(torch.fft.fft2(psf), dim=(2, 3))
+
     mtf_orig = torch.abs(otf)
     # Calculate MTF
     mtf = torch.abs(otf) - noise_floor
 
     # Compute the radial average and sum below max_index
-    _,_ ,rows, cols = mtf.shape
+    _, _, rows, cols = mtf.shape
     if rows % 2 == 0:
         x = torch.linspace(-cols // 2, cols // 2 - 1, steps=cols)
         y = torch.linspace(-rows // 2, rows // 2 - 1, steps=rows)
     else:
-        x = torch.linspace(-cols // 2+1, cols // 2 , steps=cols)
-        y = torch.linspace(-rows // 2+1, rows // 2 , steps=rows)
-    X, Y = torch.meshgrid(x, y, indexing='ij')
-#     import pdb; pdb.set_trace()
+        x = torch.linspace(-cols // 2 + 1, cols // 2, steps=cols)
+        y = torch.linspace(-rows // 2 + 1, rows // 2, steps=rows)
+    X, Y = torch.meshgrid(x, y, indexing="ij")
+    #     import pdb; pdb.set_trace()
     R = torch.sqrt(X**2 + Y**2)
     R = torch.round(R).type(torch.int64)
-#     import pdb; pdb.set_trace()
-    
+    #     import pdb; pdb.set_trace()
+
     # Define the pixel pitch (in millimeters)
-    pixelPitch = camera_px_pitch*1e3
-    
-    
+    pixelPitch = camera_px_pitch * 1e3
+
     # print("pixel pitch (mm) :", pixelPitch)
 
     # Calculate Nyquist Frequency (in cycles/mm)
     nyquistFreq = 1 / (2 * pixelPitch)
 
     # Number of frequency points
-    numPoints = rows//2 + (0 if rows % 2 == 0 else 1)
+    numPoints = rows // 2 + (0 if rows % 2 == 0 else 1)
     sensorSize = pixelPitch * numPoints
-    #Get the lowest frequency 
+    # Get the lowest frequency
     lowestFreq = 1 / (sensorSize)
     frequencyAxis = torch.linspace(lowestFreq, nyquistFreq, steps=numPoints)
-    
-    for ind,freq in enumerate(frequencyAxis):
-        if freq>face_freq:
-            max_index=ind
-            # print(max_index)
-            break 
-            
-    maxRadius = torch.round(torch.max(X)).type(torch.int64)
-    
-    mask_end = (R <= maxRadius)
 
-    
-    mask_in = (R < max_index)
+    for ind, freq in enumerate(frequencyAxis):
+        if freq > face_freq:
+            max_index = ind
+            # print(max_index)
+            break
+
+    maxRadius = torch.round(torch.max(X)).type(torch.int64)
+
+    mask_end = R <= maxRadius
+
+    mask_in = R < max_index
     mask_out = (R >= max_index) * mask_end
-    mtf_r=mtf[0,0,...]
-    mtf_g=mtf[0,1,...]
-    mtf_b=mtf[0,2,...]
-    
-    mtf_r_orig=mtf_orig[0,0,...]
-    mtf_g_orig=mtf_orig[0,1,...]
-    mtf_b_orig=mtf_orig[0,2,...]
-    
+    mtf_r = mtf[0, 0, ...]
+    mtf_g = mtf[0, 1, ...]
+    mtf_b = mtf[0, 2, ...]
+
+    mtf_r_orig = mtf_orig[0, 0, ...]
+    mtf_g_orig = mtf_orig[0, 1, ...]
+    mtf_b_orig = mtf_orig[0, 2, ...]
+
     sum_value_in_r = torch.sum(mtf_r[mask_in])
     sum_value_in_g = torch.sum(mtf_g[mask_in])
     sum_value_in_b = torch.sum(mtf_b[mask_in])
-    
+
     sum_value_out_r = torch.sum(mtf_r[mask_out])
     sum_value_out_g = torch.sum(mtf_g[mask_out])
     sum_value_out_b = torch.sum(mtf_b[mask_out])
-    
-    
 
-    radialAvg_R = torch.zeros(maxRadius +1, dtype=mtf.dtype)
-    radialAvg_G = torch.zeros(maxRadius +1, dtype=mtf.dtype)
-    radialAvg_B = torch.zeros(maxRadius +1, dtype=mtf.dtype)
-    
-    for r in range(maxRadius +1):
-        mask = (R == r)
-#         import pdb; pdb.set_trace()
+    radialAvg_R = torch.zeros(maxRadius + 1, dtype=mtf.dtype)
+    radialAvg_G = torch.zeros(maxRadius + 1, dtype=mtf.dtype)
+    radialAvg_B = torch.zeros(maxRadius + 1, dtype=mtf.dtype)
+
+    for r in range(maxRadius + 1):
+        mask = R == r
+        #         import pdb; pdb.set_trace()
         if torch.any(mask):
             radial_value = torch.mean(mtf_r_orig[mask])
             radialAvg_R[r] = radial_value
@@ -610,5 +618,18 @@ def calc_mtf_sum(psf, camera_px_pitch, face_freq, noise_floor=0.0):
             radialAvg_G[r] = radial_value
             radial_value = torch.mean(mtf_b_orig[mask])
             radialAvg_B[r] = radial_value
-    
-    return sum_value_in_r, sum_value_in_g, sum_value_in_b, sum_value_out_r, sum_value_out_g, sum_value_out_b, frequencyAxis, mtf_orig, radialAvg_R, radialAvg_G, radialAvg_B, max_index
+
+    return (
+        sum_value_in_r,
+        sum_value_in_g,
+        sum_value_in_b,
+        sum_value_out_r,
+        sum_value_out_g,
+        sum_value_out_b,
+        frequencyAxis,
+        mtf_orig,
+        radialAvg_R,
+        radialAvg_G,
+        radialAvg_B,
+        max_index,
+    )

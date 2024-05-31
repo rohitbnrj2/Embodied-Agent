@@ -39,6 +39,7 @@ def search_resolver(
             - "value": Will return the value of the found key. Key must be set.
             - "parent_key": Will return the parent's key. If key is None, won't do
                 any recursion and will return the parent's key.
+            - "path": Will return the path to the key.
         depth (int, optional): The depth of the search. Used internally
             in this method and unsettable from the config. Avoids checking the parent
             key.
@@ -70,6 +71,15 @@ def search_resolver(
             # If we're at a key that's not the parent and the parent has the key we're
             # looking for, we'll return the parent
             return search_resolver(None, mode=mode, depth=depth + 1, _parent_=_parent_)
+        else:
+            # Otherwise, we'll keep searching up the parent chain
+            return search_resolver(
+                key, mode=mode, depth=depth + 1, _parent_=_parent_._parent
+            )
+    elif mode == "path":
+        if key in _parent_:
+            # If the key is in the parent, we'll return the path
+            return _parent_._get_full_key(key)
         else:
             # Otherwise, we'll keep searching up the parent chain
             return search_resolver(
@@ -128,7 +138,9 @@ def glob(key: str, flattened: bool = False, /, *, _root_: DictConfig) -> List[st
 
 
 @register_new_resolver("hydra_select")
-def hydra_select(key: str, default: Optional[Any] = None, /, *, _root_: DictConfig) -> Any | None:
+def hydra_select(
+    key: str, default: Optional[Any] = None, /, *, _root_: DictConfig
+) -> Any | None:
     """This is similar to the regular hydra resolver, but this won't through an error
     if the global hydra config is unset. Instead, it will return another interpolation
     using dotpath notation directly. As in, ${hydra_select:runtime.choices.test}, if
@@ -138,7 +150,9 @@ def hydra_select(key: str, default: Optional[Any] = None, /, *, _root_: DictConf
     try:
         return OmegaConf.select(HydraConfig.get(), key, default=default)
     except ValueError:
-        return OmegaConf.select(_root_, f"hydra.{key}", default=default, throw_on_missing=True)
+        return OmegaConf.select(
+            _root_, f"hydra.{key}", default=default, throw_on_missing=True
+        )
 
 
 @register_new_resolver("path")
@@ -183,3 +197,8 @@ def pattern_resolver(*pattern: str) -> str:
     from cambrian.utils.config.utils import build_pattern
 
     return build_pattern(*pattern)
+
+
+@register_new_resolver("custom")
+def custom_resolver(target: str, default: Optional[Any] = None, /):
+    return f"${{oc.select:${{search:custom,'path'}}.{target}, {default}}}"

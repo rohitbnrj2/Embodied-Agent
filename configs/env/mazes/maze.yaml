@@ -9,7 +9,6 @@ xml:
 scale: 4.0
 height: 0.5
 flip: False
-smooth_walls: False
 
 wall_texture_map:
   default: [vertical_10]
