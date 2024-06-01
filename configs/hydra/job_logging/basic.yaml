@@ -6,7 +6,7 @@ defaults:
 
 loggers:
   cambrian:
-    LEVEL: DEBUG
+    level: DEBUG
     handlers: [file_out, file_err, stdout_debug, stderr]
 
     # Set propagate to false to avoid double logging
@@ -14,5 +14,5 @@ loggers:
     # the root.
     propagate: false
 root:
-  LEVEL: INFO
+  level: INFO
   handlers: [file_out, file_err, stdout_info, stderr]

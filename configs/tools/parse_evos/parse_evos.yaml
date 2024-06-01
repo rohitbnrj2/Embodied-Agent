@@ -1,0 +1,72 @@
+# @package _global_
+
+defaults:
+  - /ParseEvosConfig
+
+  - plots: 
+    - average_hidden_layer_size
+    - fov
+    - nn_output_layer_size
+    - number_of_eyes
+    - width
+    - placement
+
+  - _self_
+
+folder: '???'
+output: ${path:${folder},parse_evos}
+plots_folder: ${path:${output},plots}
+evals_folder: ${path:${output},evals}
+
+force: False
+no_save: False
+no_check_finished: False
+quiet: False
+debug: False
+
+plot: False
+eval: False
+
+dry_run: False
+
+overrides:
+  - custom.num_eyes=${eval:'math.prod(${env.animals.animal_0.num_eyes_to_generate})'}
+
+hydra:
+  run:
+    dir: ${output}
+  sweep:
+    dir: ${path:logs,${now:%Y-%m-%d},${hydra_select:job.name}}
+  job:
+    name: parse_evos
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '%(levelname)-8s | %(module)s.%(funcName)s :: %(message)s'
+    loggers:
+      cambrian:
+        level: INFO
+        handlers: [stdout, stderr]
+        propagate: false
+    root:
+      level: INFO
+      handlers: [stdout, stderr]
+    handlers:
+      stdout:
+        class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+        level: DEBUG
+        filters:
+        - max_level
+      stderr:
+        class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
+        formatter: simple
+        stream: ext://sys.stderr
+        level: WARNING
+    filters:
+      max_level:
+        (): cambrian.utils.logger.MjCambrianLoggerMaxLevelFilter
+        max_level: INFO
+    disable_existing_loggers: false

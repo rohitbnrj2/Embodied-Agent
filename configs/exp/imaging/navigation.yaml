@@ -1,0 +1,41 @@
+# @package _global_
+
+defaults:
+  - /env/mazes/Y_STATIC@env.mazes.Y_STATIC
+  - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
+
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+  # Define one animal
+  - /env/animals@env.animals.animal_0: ${env/animals}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye: ${env/animals/eyes}
+  - override /env/animals: point
+
+trainer:
+  # decrease the number of timesteps to speed up the sweep
+  total_timesteps: 300_000
+
+env:
+  reward_fn:
+    euclidean_delta_from_init:
+      _target_: cambrian.envs.reward_fns.euclidean_delta_from_init
+      _partial_: true
+    penalize_if_has_contacts:
+      _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
+      _partial_: true
+      penalty: -1.0 # large penalty
+
+  animals:
+    animal_0:
+      # Up the ctrl range to make the environment more difficult
+      xml:
+        overrides:
+          - mujoco:
+              - actuator:
+                  - velocity:
+                      - name: "act_x_${parent:xml}"
+                      - ctrlrange: "-100.0 100.0"
+                  - velocity:
+                      - name: "act_y_${parent:xml}"
+                      - ctrlrange: "-100.0 100.0"

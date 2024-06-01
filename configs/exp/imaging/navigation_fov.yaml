@@ -1,0 +1,34 @@
+# @package _global_
+
+defaults:
+  - /exp/imaging/navigation@_here_
+
+trainer:
+  # decrease the number of timesteps to speed up the sweep
+  total_timesteps: 300_000
+
+env:
+  animals:
+    animal_0:
+
+      num_eyes_to_generate: [1, 2]
+
+      # The eyes are placed at -45 and 45 degrees
+      eyes_lon_range: [-45, 45]
+
+      eyes:
+        # Each eye while will have a resolution of 1x1 and a field of view of 10x10
+        eye:
+          resolution: [20, 20]
+          fov: [1, 1]
+
+hydra:
+  sweeper:
+    parametrization:
+      # Add the resolution of the eyes to the sweeper
+      env.animals.animal_0.eyes.eye.fov.0:
+        init: 1
+        lower: 1
+        upper: 180
+        step: 20
+        integer: true

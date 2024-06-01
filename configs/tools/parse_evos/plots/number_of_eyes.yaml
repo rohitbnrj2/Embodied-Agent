@@ -1,0 +1,72 @@
+number_of_eyes_vs_generation:
+  xdata:
+    type: GENERATION
+  ydata:
+    type: CONFIG
+    pattern: custom.num_eyes
+    label: Number of Eyes
+number_of_eyes_vs_generation_vs_training_reward_color:
+  xdata:
+    type: GENERATION
+  ydata:
+    type: CONFIG
+    pattern: custom.num_eyes
+    label: Number of Eyes
+  color_data:
+    type: MONITOR
+width_vs_number_of_eyes:
+  xdata:
+    type: CONFIG
+    pattern: custom.num_eyes
+    label: Number of Eyes
+  ydata:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.resolution[0]
+    label: Width
+width_vs_number_of_eyes_vs_generation_color:
+  xdata:
+    type: CONFIG
+    pattern: custom.num_eyes
+    label: Number of Eyes
+  ydata:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.resolution[0]
+    label: Width
+  color_data:
+    type: GENERATION
+    cmap: viridis
+width_vs_number_of_eyes_vs_training_reward_color:
+  xdata:
+    type: CONFIG
+    pattern: custom.num_eyes
+    label: Number of Eyes
+  ydata:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.resolution[0]
+    label: Width
+  color_data:
+    type: MONITOR
+training_reward_vs_number_of_eyes:
+  xdata:
+    type: CONFIG
+    pattern: custom.num_eyes
+    label: Number of Eyes
+  ydata:
+    type: MONITOR
+training_reward_vs_number_of_eyes_vs_generation_color:
+  xdata:
+    type: CONFIG
+    pattern: custom.num_eyes
+    label: Number of Eyes
+  ydata:
+    type: MONITOR
+  color_data:
+    type: GENERATION
+    cmap: viridis
+fitness_vs_number_of_eyes:
+  xdata:
+    type: CONFIG
+    pattern: custom.num_eyes
+    label: Number of Eyes
+  ydata:
+    type: EVALUATION

@@ -1,0 +1,52 @@
+# lat_vs_generation:
+#   xdata:
+#     type: GENERATION
+#   ydata:
+#     type: CUSTOM
+#     label: Latitudinal Placement
+#     custom_fn: 
+#       _target_: custom_axis_fns.parse_eye_range
+#       _partial_: True
+#       pattern: env.animals.*.eyes_lat_range
+lat0_vs_generation:
+  xdata:
+    type: GENERATION
+  ydata:
+    type: CONFIG
+    pattern: env.animals.*.eyes_lat_range[0]
+    label: Latitudinal Min Range
+training_reward_vs_lat0:
+  xdata:
+    type: CONFIG
+    pattern: env.animals.*.eyes_lat_range[0]
+    label: Latitudinal Min Range
+  ydata:
+    type: MONITOR
+fitness_vs_lat0:
+  xdata:
+    type: CONFIG
+    pattern: env.animals.*.eyes_lat_range[0]
+    label: Latitudinal Min Range
+  ydata:
+    type: EVALUATION
+lat1_vs_generation:
+  xdata:
+    type: GENERATION
+  ydata:
+    type: CONFIG
+    pattern: env.animals.*.eyes_lat_range[1]
+    label: Latitudinal Max Range
+training_reward_vs_lat1:
+  xdata:
+    type: CONFIG
+    pattern: env.animals.*.eyes_lat_range[1]
+    label: Latitudinal Max Range
+  ydata:
+    type: MONITOR
+fitness_vs_lat1:
+    xdata:
+      type: CONFIG
+      pattern: env.animals.*.eyes_lat_range[1]
+      label: Latitudinal Max Range
+    ydata:
+      type: EVALUATION

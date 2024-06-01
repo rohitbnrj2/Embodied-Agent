@@ -1,0 +1,21 @@
+fov_vs_generation:
+  xdata:
+    type: GENERATION
+  ydata:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.fov
+    label: FOV
+training_reward_vs_fov:
+  xdata:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.fov
+    label: FOV
+  ydata:
+    type: MONITOR
+fitness_vs_fov:
+  xdata:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.fov
+    label: FOV
+  ydata:
+    type: EVALUATION

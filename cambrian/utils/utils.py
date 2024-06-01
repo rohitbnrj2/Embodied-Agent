@@ -88,8 +88,13 @@ def calculate_fitness(evaluations_npz: Path) -> float:
         filtered_data = data[(data > q1 - 1.5 * iqr) & (data < q3 + 1.5 * iqr)]
         return float(np.mean(np.sort(filtered_data)[-len(filtered_data) // 4 :]))
 
-    data = np.load(evaluations_npz)
-    rewards = data["results"]
+    # The rewards array will be stored in a 2D array where each row represents each
+    # evaluation run and each column represents the rewards for each evaluation step.
+    # We may run multiple steps of the same or slightly different environment to reduce
+    # variance. We will average the rewards across each row to get the final rewards.
+    rewards = np.load(evaluations_npz)["results"]
+    rewards = np.mean(rewards, axis=1)
+
     return top_25_excluding_outliers(rewards)
 
 
@@ -145,6 +150,9 @@ def is_number(maybe_num: Any) -> bool:
     from numbers import Number
 
     return isinstance(maybe_num, Number)
+
+def is_integer(maybe_int: Any):
+    return isinstance(maybe_int, int) or np.all(np.mod(maybe_int, 1) == 0)
 
 
 def make_odd(num: int | float) -> int:

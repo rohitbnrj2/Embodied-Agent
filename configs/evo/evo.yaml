@@ -22,5 +22,5 @@ evo:
     global_rank: ${eval:'${oc.env:SLURM_ARRAY_TASK_ID, 0} * ${.num_agents_per_node} + ${.local_rank}'}
 
     # The current generation of the agent, and the total number of generations to run.
-    num_generations: 20
+    num_generations: 50
     generation: ${eval:'int((${hydra_select:job.num, 0} - ${.global_rank}) / (${.num_agents_per_node} * ${.num_nodes}))'}
