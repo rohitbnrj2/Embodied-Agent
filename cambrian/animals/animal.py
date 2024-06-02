@@ -268,24 +268,14 @@ class MjCambrianAnimal:
                 len(self._config.eyes) == 1
             ), "Only one eye config should be specified."
 
-            # Check if the lat and/or lon range have the same end point. If they do,
-            # make them exclusive rather than inclusive of the end points. These are
-            # angles, so we check if their wrapped values are the same.
-            eyes_lat_range, lat_inclusive = self._config.eyes_lat_range, True
-            eyes_lon_range, lon_inclusive = self._config.eyes_lon_range, True
-            if eyes_lat_range[0] % 360 == eyes_lat_range[1] % 360:
-                lat_inclusive = False
-            if eyes_lon_range[0] % 360 == eyes_lon_range[1] % 360:
-                lon_inclusive = False
-
             base_eye_name, base_eye_config = list(self._config.eyes.items())[0]
 
             # Place the eyes uniformly on a spherical grid. The number of latitude and
             # longitudinaly bins is defined by the two attributes in `eyes`,
             # respectively.
             nlat, nlon = self._config.num_eyes_to_generate
-            lat_bins = generate_sequence_from_range(eyes_lat_range, nlat, lat_inclusive)
-            lon_bins = generate_sequence_from_range(eyes_lon_range, nlon, lon_inclusive)
+            lat_bins = generate_sequence_from_range(self._config.eyes_lat_range, nlat)
+            lon_bins = generate_sequence_from_range(self._config.eyes_lon_range, nlon)
             for lat_idx, lat in enumerate(lat_bins):
                 for lon_idx, lon in enumerate(lon_bins):
                     eye_name = f"{base_eye_name}_{lat_idx}_{lon_idx}"

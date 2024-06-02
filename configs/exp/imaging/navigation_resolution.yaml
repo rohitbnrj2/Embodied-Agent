@@ -13,7 +13,7 @@ env:
       num_eyes_to_generate: [1, 2]
 
       # The eyes can be placed anywhere on the longitudinal axis
-      eyes_lon_range: [-180, 180]
+      eyes_lon_range: [-90, 90]
 
       eyes:
         # Each eye while will have a resolution of 1x1 and a field of view of 10x10

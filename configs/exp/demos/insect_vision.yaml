@@ -6,7 +6,7 @@ defaults:
 env:
   animals:
     animal_0:
-      eyes_lon_range: [-180, 180]
+      eyes_lon_range: [-90, 90]
       num_eyes_to_generate: [40, 40]
       eyes:
         animal_0_eye_0:

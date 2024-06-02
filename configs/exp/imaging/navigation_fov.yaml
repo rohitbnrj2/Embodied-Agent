@@ -13,8 +13,8 @@ env:
 
       num_eyes_to_generate: [1, 2]
 
-      # The eyes are placed at -45 and 45 degrees
-      eyes_lon_range: [-45, 45]
+      # The eyes are placed at -30 and 30 degrees
+      eyes_lon_range: [-30, 30]
 
       eyes:
         # Each eye while will have a resolution of 1x1 and a field of view of 10x10
@@ -30,5 +30,5 @@ hydra:
         init: 1
         lower: 1
         upper: 180
-        step: 20
+        step: 45
         integer: true
