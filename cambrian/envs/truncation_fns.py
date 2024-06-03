@@ -71,6 +71,16 @@ def truncate_if_has_contacts(
     return info["has_contacts"]
 
 
+def truncate_if_low_reward(
+    env: MjCambrianEnv,
+    animal: MjCambrianAnimal,
+    info: Dict[str, Any],
+    threshold: float,
+) -> bool:
+    """Truncates the episode if the reward is less than a certain threshold."""
+    return env.cumulative_reward < threshold
+
+
 def combined_truncation(
     env: MjCambrianEnv, animal: MjCambrianAnimal, info: Dict[str, Any], **truncation_fns
 ) -> bool:

@@ -1,0 +1,5 @@
+training_reward_vs_generation:
+  xdata:
+    type: GENERATION
+  ydata:
+    type: MONITOR

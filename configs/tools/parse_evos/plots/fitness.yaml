@@ -1,0 +1,10 @@
+fitness_vs_generation:
+  xdata:
+    type: GENERATION
+  ydata:
+    type: EVALUATION
+fitness_vs_training_reward:
+  xdata:
+    type: MONITOR
+  ydata:
+    type: EVALUATION

@@ -27,6 +27,7 @@ from omegaconf import (
 )
 from omegaconf.errors import ConfigKeyError
 
+from cambrian.utils import safe_eval
 from cambrian.utils.config.utils import config_wrapper, glob
 
 # =============================================================================
@@ -345,6 +346,21 @@ class MjCambrianContainerConfig:
                 output will be a nested dict. Defaults to False.
         """
         return glob(key, flatten, self._config)
+
+    def globbed_eval(
+        self, src: str, *, key: Optional[str] = None, **patterns: str
+    ) -> Any:
+        """This method will evaluate a specific `src` given globbed patterns."""
+        variables = {}
+        for _key, pattern in patterns.items():
+            variable = self.glob(pattern, flatten=True)
+            variables[_key] = variable
+
+        result: Dict[str, Any] = safe_eval(src, variables)
+        if key is not None:
+            assert key in result, f"Return key {key} not found in {list(result.keys())}"
+            return result[key]
+        return result
 
     def keys(self) -> KeysView[Any]:
         """Wrapper of the keys method to return the keys of the content."""

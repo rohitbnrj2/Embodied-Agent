@@ -1,5 +1,17 @@
 # @package _global_
 
+# In inner loop testing, the following values were successful:
+# eyes_lon_range: [-10, 10]
+# resolution: [20, 20]
+# fov: [30, 30]
+
+# And the following values were unsuccessful:
+# eyes_lon_range: [-90, 90]
+# resolution: [20, 20]
+# fov: [30, 30]
+
+# We'll set the initial conditions to -90, 90 for the eyes_lon_range
+
 defaults:
   - /exp/imaging/navigation@_here_
 
@@ -9,7 +21,7 @@ env:
       num_eyes_to_generate: [1, 2]
 
       # The eyes are placed on a grid of latitudes and longitudes
-      eyes_lon_range: [-90, 90]
+      eyes_lon_range: [-10, 10]
 
       eyes:
         # Each eye while will have a resolution of 20x20 and a field of view of 30x30
@@ -25,11 +37,11 @@ hydra:
         init: -90
         lower: -180
         upper: -1
-        step: 45
+        step: 30
         integer: true
       env.animals.animal_0.eyes_lon_range.1:
         init: 90
         lower: 1
         upper: 180
-        step: 45
+        step: 30
         integer: true

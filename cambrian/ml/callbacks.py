@@ -189,7 +189,7 @@ class MjCambrianEvalCallback(EvalCallback):
         # If done, do some logging
         if locals_["done"]:
             run = locals_["episode_counts"][locals_["i"]]
-            cumulative_reward = env.cumulative_reward
+            cumulative_reward = env.stashed_cumulative_reward
             get_logger().info(f"Run {run} done. Cumulative reward: {cumulative_reward}")
 
         super()._log_success_callback(locals_, globals_)

@@ -1,5 +1,15 @@
 # @package _global_
 
+# In inner loop testing, the following values were successful:
+# eyes_lon_range: [-30, 30]
+# resolution: [20, 20]
+# fov: [30, 30]
+
+# And the following values were unsuccessful (albeit only slightly worse)
+# eyes_lon_range: [-30, 30]
+# resolution: [20, 20]
+# fov: [1, 1]
+
 defaults:
   - /exp/imaging/navigation@_here_
 
@@ -10,7 +20,6 @@ trainer:
 env:
   animals:
     animal_0:
-
       num_eyes_to_generate: [1, 2]
 
       # The eyes are placed at -30 and 30 degrees

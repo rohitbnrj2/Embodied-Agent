@@ -1,52 +1,62 @@
-# lat_vs_generation:
-#   xdata:
-#     type: GENERATION
-#   ydata:
-#     type: CUSTOM
-#     label: Latitudinal Placement
-#     custom_fn: 
-#       _target_: custom_axis_fns.parse_eye_range
-#       _partial_: True
-#       pattern: env.animals.*.eyes_lat_range
-lat0_vs_generation:
+lon_diff_vs_generation:
+  xdata:
+    type: GENERATION
+  ydata:
+    type: CUSTOM
+    label: Longitudinal Difference
+    custom_fn: 
+      _target_: custom_axis_fns.eye_range_diff
+      _partial_: True
+      pattern: env.animals.*.eyes_lon_range
+lon_mean_vs_generation:
+  xdata:
+    type: GENERATION
+  ydata:
+    type: CUSTOM
+    label: Longitudinal Mean
+    custom_fn: 
+      _target_: custom_axis_fns.eye_range_mean
+      _partial_: True
+      pattern: env.animals.*.eyes_lon_range
+lon0_vs_generation:
   xdata:
     type: GENERATION
   ydata:
     type: CONFIG
-    pattern: env.animals.*.eyes_lat_range[0]
-    label: Latitudinal Min Range
-training_reward_vs_lat0:
+    pattern: env.animals.*.eyes_lon_range[0]
+    label: Longitudinal Min Range
+training_reward_vs_lon0:
   xdata:
     type: CONFIG
-    pattern: env.animals.*.eyes_lat_range[0]
-    label: Latitudinal Min Range
+    pattern: env.animals.*.eyes_lon_range[0]
+    label: Longitudinal Min Range
   ydata:
     type: MONITOR
-fitness_vs_lat0:
+fitness_vs_lon0:
   xdata:
     type: CONFIG
-    pattern: env.animals.*.eyes_lat_range[0]
-    label: Latitudinal Min Range
+    pattern: env.animals.*.eyes_lon_range[0]
+    label: Longitudinal Min Range
   ydata:
     type: EVALUATION
-lat1_vs_generation:
+lon1_vs_generation:
   xdata:
     type: GENERATION
   ydata:
     type: CONFIG
-    pattern: env.animals.*.eyes_lat_range[1]
-    label: Latitudinal Max Range
-training_reward_vs_lat1:
+    pattern: env.animals.*.eyes_lon_range[1]
+    label: Longitudinal Max Range
+training_reward_vs_lon1:
   xdata:
     type: CONFIG
-    pattern: env.animals.*.eyes_lat_range[1]
-    label: Latitudinal Max Range
+    pattern: env.animals.*.eyes_lon_range[1]
+    label: Longitudinal Max Range
   ydata:
     type: MONITOR
-fitness_vs_lat1:
+fitness_vs_lon1:
     xdata:
       type: CONFIG
-      pattern: env.animals.*.eyes_lat_range[1]
-      label: Latitudinal Max Range
+      pattern: env.animals.*.eyes_lon_range[1]
+      label: Longitudinal Max Range
     ydata:
       type: EVALUATION

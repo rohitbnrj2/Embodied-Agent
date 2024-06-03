@@ -24,18 +24,10 @@ env:
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
       _partial_: true
-      penalty: -1.0 # large penalty
+      penalty: -1.0
 
-  animals:
-    animal_0:
-      # Up the ctrl range to make the environment more difficult
-      xml:
-        overrides:
-          - mujoco:
-              - actuator:
-                  - velocity:
-                      - name: "act_x_${parent:xml}"
-                      - ctrlrange: "-100.0 100.0"
-                  - velocity:
-                      - name: "act_y_${parent:xml}"
-                      - ctrlrange: "-100.0 100.0"
+  truncation_fn:
+    truncate_if_low_reward:
+      _target_: cambrian.envs.truncation_fns.truncate_if_low_reward
+      _partial_: true
+      threshold: -50.0

@@ -242,7 +242,7 @@ def try_load_pickle_data(folder: Path) -> Union[None, Dict]:
         get_logger().info(f"Loaded parsed data from {pickle_file}.")
         return generations
 
-    get_logger().warn(f"Could not load {pickle_file}.")
+    get_logger().warning(f"Could not load {pickle_file}.")
     return None
 
 
@@ -330,7 +330,7 @@ def load_data(config: ParseEvosConfig) -> Data:
                 not (rank_data.path / "finished").exists()
                 and not config.no_check_finished
             ):
-                get_logger().warn(
+                get_logger().warning(
                     f"\t\tSkipping rank {rank} because it is not finished."
                 )
                 continue
@@ -363,8 +363,7 @@ def load_data(config: ParseEvosConfig) -> Data:
     return data
 
 
-def get_axis_label(axis_data: AxisData) -> str:
-    label: str
+def get_axis_label(axis_data: AxisData, label: str = "") -> str:
     if axis_data.type is AxisDataType.GENERATION:
         label = "Generation"
     elif axis_data.type is AxisDataType.CONFIG:
@@ -375,8 +374,6 @@ def get_axis_label(axis_data: AxisData) -> str:
         label = "Walltime (minutes)"
     elif axis_data.type is AxisDataType.EVALUATION:
         label = "Fitness"
-    else:
-        raise ValueError(f"Unknown data type {axis_data.type}.")
     return axis_data.label or label
 
 
@@ -652,15 +649,11 @@ def add_colorbar(
 
 def plot_average_line(ax: plt.Axes):
     """Extracts the data from a figure and plots the average line along with
-    the standard deviation."""
+    the standard deviation. NOTE: does not support 3d"""
 
     # Extract the data from the plot
-    x_data, y_data = [], []
-    for line in ax.lines:
-        x, y = line.get_xydata().T
-        x_data.append(x)
-        y_data.append(y)
-    x_data, y_data = np.array(x_data), np.array(y_data)
+    x_data, y_data, z_data = extract_data(ax, return_data=True)
+    assert z_data is None, "Average line does not support 3d plots."
 
     # Calculates the average y value for each unique x value
     x, y, y_std = [], [], []
@@ -677,6 +670,10 @@ def plot_average_line(ax: plt.Axes):
 
 def run_plot(config: ParseEvosConfig, data: Data):
     get_logger().info("Plotting data...")
+
+    # Update the rcparams.figure.max_open_warning to suppress the warning
+    get_logger().debug(f"Setting max open warning to {len(config.plots)}.")
+    plt.rcParams["figure.max_open_warning"] = len(config.plots)
 
     for generation, generation_data in data.generations.items():
         # Only plot the generation we want, if specified
@@ -754,6 +751,18 @@ def run_plot(config: ParseEvosConfig, data: Data):
                     ax, return_data=True, return_color=True
                 )
                 is_3d = zdata is not None
+
+                # We'll ignore any plots which don't have unique data along any axis
+                # These plots aren't really useful as there is no independent variable.
+                if np.all(xdata == xdata[0]):
+                    get_logger().debug(f"Skipping plot {plot_name}: no unique xdata.")
+                    continue
+                elif np.all(ydata == ydata[0]):
+                    get_logger().debug(f"Skipping plot {plot_name}: no unique ydata.")
+                    continue
+                elif is_3d and np.all(zdata == zdata[0]):
+                    get_logger().debug(f"Skipping plot {plot_name}: no unique zdata.")
+                    continue
 
                 # Adjust the points, if necessary
                 adjust_points(ax, xdata, ydata, zdata)

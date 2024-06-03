@@ -502,6 +502,10 @@ def literal_eval_with_callables(
             return results
         elif isinstance(node, ast.ListComp):
             return _convert(ast.GeneratorExp(node.elt, node.generators))
+        elif isinstance(node, ast.Subscript):
+            obj = _convert(node.value)
+            index = _convert(node.slice)
+            return obj[index]
         else:
             raise ValueError(f"Unsupported node type: {type(node)}")
 
@@ -510,7 +514,7 @@ def literal_eval_with_callables(
     return _convert(node)
 
 
-def safe_eval(src: Any):
+def safe_eval(src: Any, additional_vars: Dict[str, Any] = {}) -> Any:
     """This method will evaluate the source code in a safe manner. This is useful for
     evaluating expressions in the config file. This will only allow certain builtins,
     numpy, and will not allow any other code execution."""
@@ -531,7 +535,11 @@ def safe_eval(src: Any):
         "str": str,
         "bool": bool,
     }
-    return literal_eval_with_callables(src, {"math": math, **supported_builtins})
+    safe_vars = {"math": math, **supported_builtins, **additional_vars}
+    try:
+        return literal_eval_with_callables(src, safe_vars)
+    except ValueError as e:
+        raise ValueError(f"Error evaluating expression '{src}': {e}") from e
 
 
 def calc_mtf_sum(psf, camera_px_pitch, face_freq, noise_floor=0.0):

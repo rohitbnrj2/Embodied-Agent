@@ -573,6 +573,11 @@ class MjCambrianEnv(ParallelEnv):
     @property
     def cumulative_reward(self) -> float:
         """Returns the cumulative reward."""
+        return self._cumulative_reward
+
+    @property
+    def stashed_cumulative_reward(self) -> float:
+        """Returns the previous cumulative reward."""
         return self._stashed_cumulative_reward
 
     @property
