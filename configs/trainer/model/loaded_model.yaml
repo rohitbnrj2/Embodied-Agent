@@ -1,0 +1,3 @@
+_target_: cambrian.ml.model.MjCambrianModel.load
+_partial_: true
+path: '???' # Path to the model to load; set via command line

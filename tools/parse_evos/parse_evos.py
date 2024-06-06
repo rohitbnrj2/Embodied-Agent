@@ -28,6 +28,7 @@ from matplotlib.colors import Normalize, LinearSegmentedColormap
 from matplotlib.ticker import MaxNLocator
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 import hydra
+import hydra.conf
 
 from cambrian.utils import calculate_fitness, is_integer
 from cambrian.utils.logger import get_logger
@@ -48,9 +49,9 @@ ParsedPlotData: TypeAlias = Tuple[
     ParsedAxisData, ParsedAxisData, ParsedAxisData | None, Color
 ]
 ExtractedData: TypeAlias = (
-    np.ndarray
+    np.ndarray | None
     | Tuple[np.ndarray, np.ndarray, np.ndarray | None]
-    | Tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]
+    | Tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray | None]
 )
 
 # =======================================================
@@ -173,6 +174,8 @@ class ParseEvosConfig(MjCambrianBaseConfig):
         output (Path): The output folder.
         plots_folder (Path): The folder to save the plots.
         evals_folder (Path): The folder to save the evaluations.
+        hydra_folder (Optional[Path]): The sweep folder where the hydra config is saved.
+            If specified, additional plots or plot features may be enabled.
 
         force (bool): Force loading of the data. If not passed, this script will try to
             find a parse_evos.pkl file and load that instead.
@@ -194,12 +197,14 @@ class ParseEvosConfig(MjCambrianBaseConfig):
 
         plots (Dict[str, PlotData]): The plots to create.
         overrides (List[str]): Overrides for the config.
+        hydra_config (Optional[hydra.conf.HydraConf]): The hydra config.
     """
 
     folder: Path
     output: Path
     plots_folder: Path
     evals_folder: Path
+    hydra_folder: Optional[Path] = None
 
     force: bool
     no_save: bool
@@ -217,6 +222,7 @@ class ParseEvosConfig(MjCambrianBaseConfig):
 
     plots: Dict[str, PlotData]
     overrides: List[str]
+    hydra_config: Optional[Dict[str, Any]] = None
 
 
 # =======================================================
@@ -306,7 +312,7 @@ def load_data(config: ParseEvosConfig) -> Data:
     data = get_generation_file_paths(config.folder)
 
     # Convert the overrides to a list
-    overrides = OmegaConf.to_container(config.overrides)
+    overrides = config.overrides.to_container()
 
     # Walk through each generation/rank and parse the config, evaluations and monitor
     # data
@@ -410,9 +416,7 @@ def parse_axis_data(
         data = rank_data.fitness
     elif axis_data.type is AxisDataType.CUSTOM:
         assert axis_data.custom_fn is not None, "Custom function is required."
-        # Instanitate the custom fn using hydra
-        custom_fn = hydra.utils.instantiate(axis_data.custom_fn)
-        return custom_fn(axis_data, data, generation_data, rank_data)
+        return axis_data.custom_fn(axis_data, data, generation_data, rank_data)
     else:
         raise ValueError(f"Unknown data type {axis_data.type}.")
 
@@ -523,6 +527,11 @@ def extract_data(
             c_data.append(c)
         c_data = np.array(c_data)
 
+        # All the colors are None if the color is set to a solid color (i.e. SOLID)
+        # We'll return None in that case
+        if np.all([c is None for c in c_data]):
+            c_data = None
+
     if return_data and return_color:
         return x_data, y_data, z_data, c_data
     elif return_data:
@@ -576,7 +585,7 @@ def plot_helper(
 
 
 def adjust_points(
-    ax: plt.Axes, xdata: np.ndarray, ydata: np.ndarray, zdata: np.ndarray | None
+    ax: plt.Axes, xdata: np.ndarray, ydata: np.ndarray, zdata: np.ndarray | None, cdata: np.ndarray | None,
 ):
     """This method will adjust the points depending on different conditions.
 
@@ -595,8 +604,14 @@ def adjust_points(
     for point, count in zip(unique, counts):
         if count > 1:
             idx = np.where(np.all(data == point, axis=1))[0]
+
             for i in idx:
                 ax.collections[i].set_sizes(ax.collections[i].get_sizes() * count)
+
+            # Set the color to the average of the colors that are stacked together
+            if cdata is not None:
+                color = np.mean(cdata[idx], axis=0)
+                ax.collections[idx[-1]].set_array(color) # the last point is in front
 
 
 def add_legend(ax: plt.Axes):
@@ -608,17 +623,15 @@ def add_legend(ax: plt.Axes):
 def add_colorbar(
     color_data: ColorData | None,
     ax: plt.Axes,
-    colors: np.ndarray,
+    colors: np.ndarray | None,
     *,
     vmin: Optional[float] = None,
     vmax: Optional[float] = None,
     only_unique: bool = True,
 ):
     """Normalize the colors and add a colorbar to the plot."""
-    # Don't add a colorbar if there is only one color or if all the colors are None.
-    if np.all([c is None for c in colors]):
-        return
-    elif len(np.unique(colors)) == 1 and only_unique:
+    # Don't add a colorbar if there is only one color
+    if colors is None or (len(np.unique(colors)) == 1 and only_unique):
         return
 
     # Normalize the colorbar first
@@ -666,6 +679,9 @@ def plot_average_line(ax: plt.Axes):
     # Plot the data
     plt.plot(x, y, "C0-", alpha=0.5)
     plt.fill_between(x, y - y_std, y + y_std, alpha=0.2, facecolor="C0")
+
+def plot_constraints(ax: plt.Axes, hydra_config: hydra.conf.HydraConf):
+    print(hydra_config.sweeper.parameterization)
 
 
 def run_plot(config: ParseEvosConfig, data: Data):
@@ -765,7 +781,7 @@ def run_plot(config: ParseEvosConfig, data: Data):
                     continue
 
                 # Adjust the points, if necessary
-                adjust_points(ax, xdata, ydata, zdata)
+                adjust_points(ax, xdata, ydata, zdata, cdata)
 
                 # Plot the average line
                 if plot_data.use_average_line:
@@ -785,7 +801,15 @@ def run_plot(config: ParseEvosConfig, data: Data):
                 if is_3d and is_integer(zdata):
                     ax.zaxis.set_major_locator(MaxNLocator(integer=True))
             except (ValueError, TypeError) as e:
-                get_logger().error(f"Error extracting data from plot {plot_name}: {e}")
+                # Get the line number of the error
+                if config.debug:
+                    raise e
+                _fn_name = e.__traceback__.tb_frame.f_code.co_name
+                _line_number = e.__traceback__.tb_lineno
+                get_logger().error(
+                    f"{_fn_name}:{_line_number}: "
+                    f"Error extracting data from plot {plot_name}: {e}"
+                )
                 continue
 
             # Set the aspect ratio
@@ -865,6 +889,15 @@ def main(config: ParseEvosConfig):
     config.plots_folder.mkdir(parents=True, exist_ok=True)
     config.evals_folder.mkdir(parents=True, exist_ok=True)
 
+    if (hydra_folder := config.hydra_folder) is not None:
+        assert hydra_folder.exists(), f"Folder {hydra_folder} does not exist."
+        hydra_config = OmegaConf.load(hydra_folder / ".hydra" / "hydra.yaml")
+        with config.set_readonly_temporarily(False):
+            config.hydra_config = hydra_config
+
+        print(config.hydra_config.sweeper.parameterization)
+        exit()
+
     if config.force or (data := try_load_pickle_data(config.folder)) is None:
         data = load_data(config)
 
@@ -878,4 +911,4 @@ def main(config: ParseEvosConfig):
 
 
 if __name__ == "__main__":
-    run_hydra(main, config_name="tools/parse_evos/parse_evos", instantiate=False)
+    run_hydra(main, config_name="tools/parse_evos/parse_evos")

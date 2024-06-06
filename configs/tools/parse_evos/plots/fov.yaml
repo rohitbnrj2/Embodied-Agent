@@ -1,21 +1,50 @@
-fov_vs_generation:
+fov0_vs_generation:
   xdata:
     type: GENERATION
   ydata:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.fov
-    label: FOV
-training_reward_vs_fov:
+    pattern: env.animals.*.eyes.*.fov[0]
+    label: Horizontal FOV
+fov0_vs_generation_vs_training_reward_color:
+  xdata:
+    type: GENERATION
+  ydata:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.fov[0]
+    label: Horizontal FOV
+  color_data:
+    type: MONITOR
+training_reward_vs_fov0:
   xdata:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.fov
-    label: FOV
+    pattern: env.animals.*.eyes.*.fov[0]
+    label: Horizontal FOV
   ydata:
     type: MONITOR
-fitness_vs_fov:
+fitness_vs_fov0:
   xdata:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.fov
-    label: FOV
+    pattern: env.animals.*.eyes.*.fov[0]
+    label: Horizontal FOV
   ydata:
     type: EVALUATION
+fov0_vs_fov1:
+  xdata:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.fov[0]
+    label: Horizontal FOV
+  ydata:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.fov[1]
+    label: Vertical FOV
+fov0_vs_fov1_vs_training_reward_color:
+  xdata:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.fov[0]
+    label: Horizontal FOV
+  ydata:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.fov[1]
+    label: Vertical FOV
+  color_data:
+    type: MONITOR

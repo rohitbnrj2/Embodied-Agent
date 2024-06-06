@@ -6,8 +6,8 @@ seed: |
   ${evo.num_agents_per_node} * ${evo.num_nodes} +
   ${evo.global_rank})'}
 
-# Update the logdir to use the generation and rank syntax
-expdir: ${path:${logdir},generation_${evo.generation},rank_${evo.global_rank}}
+# Update the subdir to use the generation and rank syntax
+expsubdir: generation_${evo.generation}/rank_${evo.global_rank} 
 
 # Now, update the evo variables
 evo:

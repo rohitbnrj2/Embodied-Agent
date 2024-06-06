@@ -34,18 +34,6 @@ def eye_range_diff(
 
     return p2 - p1, get_axis_label(axis_data)
 
-def eye_range_mean(
-    axis_data: AxisData,
-    data: Data,
-    generation_data: Generation,
-    rank_data: Rank,
-    *,
-    pattern: str
-) -> ParsedAxisData:
-    p1, p2 = _eye_range_parse(rank_data, pattern=pattern)
-
-    return (p1 + p2) / 2, get_axis_label(axis_data)
-
 # ==================
 
 def eval_safe(

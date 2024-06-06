@@ -187,11 +187,10 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
 
             # Update the camera distance to match the current maze's extent
             viewer.camera.distance = viewer.config.select("camera.distance", default=1)
-            if self._maze.ratio < 1:
-                factor = renderer.ratio * self._maze.min_dim / self._maze.ratio
+            if self._maze.ratio < 2:
+                viewer.camera.distance *= renderer.ratio * self._maze.min_dim
             else:
-                factor = self._maze.max_dim / renderer.ratio * self._maze.ratio
-            viewer.camera.distance *= factor
+                viewer.camera.distance *= self._maze.max_dim / renderer.ratio
 
         return obs, info
 

@@ -372,11 +372,11 @@ if __name__ == "__main__":
 
         plt.suptitle(filename.replace(".png", ""))
         plt.tight_layout()
-        plt.savefig(config.logdir / filename)
+        plt.savefig(config.expdir / filename)
 
     def main(config: MjCambrianConfig):
         config.set_readonly(False)
-        config.logdir.mkdir(parents=True, exist_ok=True)
+        config.expdir.mkdir(parents=True, exist_ok=True)
 
         run(config)
         run(config, 0.5)

@@ -6,10 +6,9 @@ defaults:
   - override job_logging: basic
 
 run:
-  dir: ${expdir}/hydra/run/${now:%H-%M-%S}/
+  dir: ${path:${expdir},hydra,run,${now:%H-%M-%S}}
 sweep:
-  # This is just the high level directory for the sweep. Each individual run will use
-  # the run directory specified above.
-  dir: ${logdir}/hydra/sweep/${now:%H-%M-%S}/
+  dir: ${logdir}
+  subdir: ${path:${expsubdir},hydra,sweep,${now:%H-%M-%S}}
 job:
-  name: ${hydra_select:runtime.choices.exp}_${now:%H-%M-%S}
+  name: ${expname}

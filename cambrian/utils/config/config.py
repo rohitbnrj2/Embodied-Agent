@@ -19,9 +19,11 @@ class MjCambrianConfig(MjCambrianBaseConfig):
             the highest level directory used for the experiment. `expdir` is the
             subdirectory used for a specific experiment. If overridding, it's
             recommended to just override the logdir and not the expdir.
-        expdir (Path): The subdirectory used for a specific experiment. This is the
-            directory where the experiment's data is stored.
-
+        expdir (Path): The directory used for a specific experiment. This is the
+            directory where the experiment's data is stored. Should evaluate to
+            `logdir / `expsubdir`
+        expsubdir (Path): The subdirectory relative to logdir where the experiment's
+            data is stored. This is the directory where the experiment's data is stored.
         expname (str): The name of the experiment. Used to name the logging
             subdirectory.
 
@@ -36,6 +38,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
 
     logdir: Path
     expdir: Path
+    expsubdir: Path
     expname: str
 
     seed: int

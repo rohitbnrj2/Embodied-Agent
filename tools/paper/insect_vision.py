@@ -48,7 +48,7 @@ def run(config: MjCambrianConfig, output: str):
         mj.mj_step(env.model, env.data)
         env.render()
     env.save(
-        config.logdir / output, save_pkl=False, save_mode=MjCambrianRendererSaveMode.PNG
+        config.expdir / output, save_pkl=False, save_mode=MjCambrianRendererSaveMode.PNG
     )
 
     for _ in range(100):
@@ -56,7 +56,7 @@ def run(config: MjCambrianConfig, output: str):
         env.render()
 
     env.save(
-        config.logdir / output, save_pkl=False, save_mode=MjCambrianRendererSaveMode.MP4
+        config.expdir / output, save_pkl=False, save_mode=MjCambrianRendererSaveMode.MP4
     )
 
 

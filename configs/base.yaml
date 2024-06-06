@@ -23,7 +23,8 @@ defaults:
   - override /hydra/sweeper: evolution_nevergrad
 
 logdir: ${path:logs,${now:%Y-%m-%d},${expname}}
-expdir: ${logdir}
+expdir: ${path:${logdir},${expsubdir}}
+expsubdir: "" # by default, the data will be stored in the logdir
 expname: ${hydra_select:runtime.choices.exp}
 
 seed: 0
