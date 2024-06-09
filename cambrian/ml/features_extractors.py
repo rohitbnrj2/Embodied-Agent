@@ -1,6 +1,5 @@
 from typing import Dict, List
 import torch
-import torch.nn as nn
 
 import gymnasium as gym
 from gymnasium import spaces
@@ -74,7 +73,7 @@ class MjCambrianCombinedExtractor(MjCambrianBaseFeaturesExtractor):
         observation_space: spaces.Dict,
         output_dim: int,
         normalized_image: bool,
-        activation: nn.Module,
+        activation: torch.nn.Module,
         image_extractor: MjCambrianBaseFeaturesExtractor,
     ) -> None:
         # We do not know features-dim here before going over all the items, so put
@@ -121,7 +120,7 @@ class MjCambrianImageFeaturesExtractor(MjCambrianBaseFeaturesExtractor):
         self,
         observation_space: gym.Space,
         features_dim: int,
-        activation: nn.Module,
+        activation: torch.nn.Module,
     ):
         super().__init__(observation_space, features_dim)
 
@@ -147,7 +146,7 @@ class MjCambrianMLPExtractor(MjCambrianImageFeaturesExtractor):
         self,
         observation_space: gym.Space,
         features_dim: int,
-        activation: nn.Module,
+        activation: torch.nn.Module,
         architecture: List[int],
     ) -> None:
         super().__init__(observation_space, features_dim, activation)
@@ -174,23 +173,16 @@ class MjCambrianMLPExtractor(MjCambrianImageFeaturesExtractor):
 
 
 class MjCambrianNatureCNNExtractor(MjCambrianImageFeaturesExtractor):
-    """This class overrides the default CNN feature extractor of Stable Baselines 3.
-
-    The default feature extractor doesn't support images smaller than 36x36 because of
-    the kernel_size, stride, and padding parameters of the convolutional layers. This
-    class just overrides this functionality _only_ when the observation space has an
-    image smaller than 36x36. Otherwise, it just uses the default feature extractor
-    logic.
-    """
+    """Nature CNN feature extractor for images. This is the default feature extractor
+    for stable baseline3 images. The main differences between this and the original
+    is that this supports temporal features (i.e. image stacks) and dynamically
+    calculates the kernel sizes and strides. In sb3, the fixed kernel sizes and strides
+    restricted the image size to be > 36x36, which is a bd assumption here."""
 
     def __init__(
-        self,
-        observation_space: gym.Space,
-        features_dim: int,
-        activation: nn.Module,
+        self, observation_space: gym.Space, features_dim, activation: torch.nn.Module
     ):
         super().__init__(observation_space, features_dim, activation)
-        # We assume CxHxW images (channels first)
 
         n_channels = observation_space.shape[1]
         width, height = observation_space.shape[2], observation_space.shape[3]
@@ -211,7 +203,9 @@ class MjCambrianNatureCNNExtractor(MjCambrianImageFeaturesExtractor):
 
         # Compute shape by doing one forward pass
         with torch.no_grad():
-            n_flatten = self.cnn(torch.as_tensor(observation_space.sample()))
+            sample = torch.as_tensor(observation_space.sample())
+            sample.reshape(-1, *sample.shape[2:])
+            n_flatten = self.cnn(sample)
             n_flatten = n_flatten.shape[0] * n_flatten.shape[1]
 
         self.linear = torch.nn.Sequential(
@@ -219,8 +213,9 @@ class MjCambrianNatureCNNExtractor(MjCambrianImageFeaturesExtractor):
         )
 
     def calculate_dynamic_params(self, width, height):
-        # Define max sizes and strides based on your constraints
-        max_kernel_sizes = [8, 4, 3]
+        # Define max sizes and strides (from sb3, i.e. if width x height > 36x36, it's
+        # the same).
+        max_kernel_sizes = [8, 4, 2]
         max_strides = [4, 2, 1]
 
         # Adjust kernel sizes and strides based on input dimensions
@@ -233,7 +228,6 @@ class MjCambrianNatureCNNExtractor(MjCambrianImageFeaturesExtractor):
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         B = observations.shape[0]
-
         observations = observations.reshape(-1, *observations.shape[2:])
         observations = self.cnn(observations)
         observations = observations.reshape(B, -1)
