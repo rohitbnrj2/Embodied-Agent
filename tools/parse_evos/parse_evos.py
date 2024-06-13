@@ -421,7 +421,7 @@ def parse_axis_data(
 ) -> ParsedAxisData:
     data: Any
     if axis_data.type is AxisDataType.GENERATION:
-        data = generation_data.num
+        data = generation_data.num + 1
     elif axis_data.type is AxisDataType.CONFIG:
         assert rank_data.config is not None, "Config is required for CONFIG."
         data = rank_data.config.glob(axis_data.pattern, flatten=True)
@@ -481,7 +481,7 @@ def parse_color_data(
 
         # NOTE: The cmap is generated later and is normalized to the number of
         # generations.
-        color = generation_data.num
+        color = generation_data.num + 1
     elif color_data.type is ColorType.RANK:
         assert color_data.cmap is not None or (
             color_data.start_color is not None and color_data.end_color is not None
@@ -521,7 +521,7 @@ def parse_size_data(
         # location
         size = 1
     elif size_data.type is SizeType.GENERATION:
-        size = generation_data.num
+        size = generation_data.num + 1
     elif size_data.type is SizeType.MONITOR:
         assert rank_data.train_fitness is not None, "Monitor is required."
         size = rank_data.train_fitness

@@ -97,9 +97,9 @@ bash scripts/local.sh scripts/evo.sh exp=<EXPERIMENT>
 
 ## Running on Supercloud
 
-To run on supercloud, replace `local.sh` with `sc.sh` in the above commands. This will
-set various environment variables that are required to run on supercloud. You can
-still run `local.sh` if you don't plan to use slurm to submit a job.
+To run on supercloud, replace `local.sh` with `supercloud.sh` in the above commands. 
+This will set various environment variables that are required to run on supercloud. You 
+can still run `local.sh` if you don't plan to use slurm to submit a job.
 
 > [!NOTE]
 > See `configs/hydra/launcher/supercloud.yaml` and
@@ -110,7 +110,7 @@ still run `local.sh` if you don't plan to use slurm to submit a job.
 
 ```bash
 # If running headless
-sbatch scripts/sc.sh scripts/train.sh exp=<EXPERIMENT>
+sbatch scripts/supercloud.sh scripts/train.sh exp=<EXPERIMENT>
 # If running in interactive mode
 bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT>
 ```
@@ -119,7 +119,7 @@ bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT>
 
 ```bash
 # If running headless
-sbatch scripts/sc.sh scripts/eval.sh exp=<EXPERIMENT>
+sbatch scripts/supercloud.sh scripts/eval.sh exp=<EXPERIMENT>
 # If running in interactive mode
 bash scripts/local.sh scripts/eval.sh exp=<EXPERIMENT>
 ```
@@ -128,10 +128,49 @@ bash scripts/local.sh scripts/eval.sh exp=<EXPERIMENT>
 
 ```bash
 # If running headless
-sbatch scripts/sc.sh scripts/evo.sh exp=<EXPERIMENT>
+sbatch scripts/supercloud.sh scripts/evo.sh exp=<EXPERIMENT>
 # If running in interactive mode
 bash scripts/local.sh scripts/evo.sh exp=<EXPERIMENT>
 ```
+
+## Running on Openmind
+
+To run on Openmind, the commands are exactly the same as running on supercloud, but
+replace `supercloud.sh` with `openmind.sh`.
+
+## Running a Training Sweep
+
+By default, evolution uses nevergrad for optimization. But it may be useful to run a 
+simple grid search of different parameters. This can be done via Hydra's basic sweeper
+functionality. To run a sweep, which trains each agent with a different set of 
+parameters, you can run the following:
+
+```bash
+# If running on a slurm-enabled cluster
+sbatch scripts/<CLUSTER>.sh scripts/trainer.sh exp=<EXPERIMENT> <SWEEP_PARAMS> --multirun
+# If running locally
+bash scripts/local.sh scripts/trainer.sh exp=<EXPERIMENT> <SWEEP_PARAMS> --multirun
+```
+
+Running on a cluster can aid in parallelizing the training process. And note the 
+`--multirun` flag (can also `-m`) is required to run a sweep. 
+
+The simplest way to specify sweep params is via a comma separated list, e.g. 
+`... param1=1,2,3 param2='[1,2],[3,4]'`. The previous example will run six total runs, 
+iterating through all the permutations of the grid search. Please refer to 
+[Hydra's sweeper documentation](https://hydra.cc/docs/1.0/tutorials/basic/running_your_app/multi-run/#internaldocs-banner)
+for more detailed information and specific override syntax support.
+
+> [!WARNING]
+> By default, sweep's will write to the same `logs` directory since they all share
+> the same experiment name. Ensure you set `expname` to a value which utilizes a sweep
+> parameter to differentiate between runs, e.g. 
+> `expname=<EXPNAME>_\${param1}_\${param2}`.
+
+> [!NOTE]
+> The basic sweeper will sweep through _all_ permutations of the parameters. This can
+> be very slow for large sweeps. For more advanced sweeps, consider using optimization
+> via `scripts/evo.sh` ([see above](#running-evo)).
 
 ## Other things
 

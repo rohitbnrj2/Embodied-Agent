@@ -22,7 +22,6 @@ xml:
                     - material:
                           - name: ${parent:xml}_mat
                           - texture: "${parent:xml}_tex"
-                          - texrepeat: "5 5"
                     - material:
                           - name: ${parent:xml}_top_mat
                           # Grabs the rgba from the custom field of the object
