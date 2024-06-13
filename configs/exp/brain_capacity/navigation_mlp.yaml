@@ -54,7 +54,7 @@ hydra:
   sweeper:
     # Define some sweeper parameters to do a grid search over different brain
     # capacities to gauge the effect on performance.
-    parametrization:
+    params:
       trainer.model.policy_kwargs.features_extractor_kwargs.output_dim:
         - 8
         - 16

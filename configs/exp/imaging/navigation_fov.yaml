@@ -11,7 +11,7 @@
 # fov: [1, 1]
 
 defaults:
-  - /exp/imaging/navigation@_here_
+  - /exp/tasks/navigation@_here_
 
 trainer:
   # decrease the number of timesteps to speed up the sweep
@@ -33,7 +33,7 @@ env:
 
 hydra:
   sweeper:
-    parametrization:
+    params:
       # Add the resolution of the eyes to the sweeper
       env.animals.animal_0.eyes.eye.fov.0:
         init: 1

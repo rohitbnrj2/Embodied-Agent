@@ -5,7 +5,7 @@
 #SBATCH --time=4-00:00:00
 #SBATCH --qos=cbmm
 #SBATCH --partition=cbmm
-#SBATCH --job-name evo
+#SBATCH --job-name cambrian
 #SBATCH --output=out/R-%x.%j_%a.out
 #SBATCH --error=out/R-%x.%j_%a.err
 

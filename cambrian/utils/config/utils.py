@@ -114,6 +114,7 @@ def run_hydra(
 
         if instantiate:
             cfg = MjCambrianBaseConfig.instantiate(cfg, **kwargs)
+
         return main_fn(cfg, **fn_kwargs)
 
     main()
@@ -233,6 +234,37 @@ def build_pattern(patterns: List[str]) -> str:
 
 # ===========
 
+def merge_with_kwargs(config: DictConfig, **kwargs) -> DictConfig:
+    """This method will merge the kwargs into the config. This is useful for merging
+    "late", as in after the config has been resolved (not instantiated). By specifying
+    the merge to happen at instantiation time rather than at resolution time, it gives
+    more freedom in defining overrides within the config. See `base.yaml` for more 
+    info.
+
+    This is intended to be called from a yaml config file like:
+
+    ```yaml
+    config_to_merge_late:
+        _target_: <path_to>.merge_with_kwargs
+        config: ${...} # this is what the kwargs arge merged into
+        kwarg1: value1
+        kwarg2: value2
+        ...
+    ```
+
+    Args:
+        config (DictConfig): The config to merge the kwargs into.
+
+    Keyword Args:
+        kwargs: The kwargs to merge into the config.
+    """
+    for key, value in kwargs.items():
+        OmegaConf.update(config, key, value)
+    
+    return config
+
+# ===========
+
 
 def config_wrapper(cls=None, /, **kwargs):
     """This is a wrapper of the dataclass decorator that adds the class to the hydra
@@ -303,7 +335,7 @@ def instance_wrapper(*, instance: Type[Any], **kwargs):
     method will postpone setting these attributes until after __init__ is called and
     just set the attributes directly with setattr.
 
-    This is intended to be called from a yaml config file like so:
+    This is intended to be called from a yaml config file like:
 
     ```yaml
     obj_to_instantiate:
@@ -400,6 +432,8 @@ def instance_flag_wrapper(
     This is intended to be called from a yaml config file and to be used in conjunction
     with the instance_wrapper method.
 
+    TODO: This is super ugly
+
     ```yaml
     obj_to_instantiate:
         _target_: <path_to>.instance_wrapper
@@ -414,7 +448,7 @@ def instance_flag_wrapper(
             flag_type:
                 _target_: <class>                       # the class of the flag
 
-            # These will be set like so:
+            # These will be set like:
             # obj_to_instantiate.key[flag1] = value1
             # obj_to_instantiate.key[flag2] = value2
             # ...

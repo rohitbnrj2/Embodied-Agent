@@ -12,25 +12,28 @@ This file works as follows:
     available data. This is useful for visualizing the evolution of the population.
 """
 
-from typing import Dict, Union, Optional, Any, List, Tuple, TypeAlias, Callable, Self
+from typing import Dict, Optional, Any, List, Tuple, TypeAlias, Callable, Self
 from pathlib import Path
 import os
 from dataclasses import field
 from enum import Enum
 
 import cloudpickle as pickle
-from omegaconf import OmegaConf
 import tqdm.rich as tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from matplotlib.ticker import MaxNLocator
-from stable_baselines3.common.results_plotter import load_results, ts2xy
-import hydra
-import hydra.conf
+from stable_baselines3.common.results_plotter import ts2xy
+from omegaconf import SI
 
-from cambrian.utils import calculate_fitness, is_integer
+from cambrian.utils import (
+    calculate_fitness_from_evaluations,
+    is_integer,
+    moving_average,
+    calculate_fitness_from_monitor,
+)
 from cambrian.utils.logger import get_logger
 from cambrian.utils.config import (
     MjCambrianBaseConfig,
@@ -42,17 +45,19 @@ from cambrian.utils.config import (
 # =======================================================
 
 Color: TypeAlias = List[Tuple[float, float, float, float]] | List[float]
+Size: TypeAlias = List[float]
 
 ParsedAxisData: TypeAlias = Tuple[np.ndarray | float | int, str]
 ParsedColorData: TypeAlias = Tuple[Color, str]
+ParsedSizeData: TypeAlias = Tuple[Size, str]
 ParsedPlotData: TypeAlias = Tuple[
-    ParsedAxisData, ParsedAxisData, ParsedAxisData | None, Color
+    ParsedAxisData,
+    ParsedAxisData,
+    ParsedAxisData | None,
+    ParsedColorData,
+    ParsedSizeData,
 ]
-ExtractedData: TypeAlias = (
-    np.ndarray | None
-    | Tuple[np.ndarray, np.ndarray, np.ndarray | None]
-    | Tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray | None]
-)
+ExtractedData: TypeAlias = Tuple[np.ndarray | None]
 
 # =======================================================
 # Dataclasses
@@ -71,8 +76,9 @@ class Rank:
 
     config: Optional[MjCambrianConfig] = None
     evaluations: Optional[Dict[str, Any]] = None
-    fitness: Optional[float] = None
+    eval_fitness: Optional[float] = None
     monitor: Optional[Dict[str, Any]] = None
+    train_fitness: Optional[float] = None
 
     # Defauls to True
     ignored: bool = True
@@ -141,12 +147,12 @@ class ColorType(Enum):
 
 @config_wrapper
 class ColorData:
-    type: ColorType
+    type: ColorType = ColorType.SOLID
 
     label: Optional[str] = None
 
     # SOLID
-    color: Optional[Tuple[float, float, float, float]] = None
+    color: Tuple[float, float, float, float] = (0.65490, 0.78039, 0.90588, 0.75)
 
     # GENERATION or RANK
     cmap: Optional[str] = None
@@ -154,14 +160,35 @@ class ColorData:
     end_color: Optional[Tuple[float, float, float, float]] = None
 
 
+class SizeType(Enum):
+    NONE = "none"
+    NUM = "num"
+    GENERATION = "generation"
+    MONITOR = "monitor"
+
+
+@config_wrapper
+class SizeData:
+    type: SizeType = SizeType.NUM
+
+    label: Optional[str] = None
+
+    factor: float = 36  # default size for matplotlib scatter plots
+
+    size_min: float = SI("${eval:'0.25*${.factor}'}")
+    size_max: float = SI("${eval:'5*${.factor}'}")
+    normalize: bool = True
+
+
 @config_wrapper
 class PlotData:
-    xdata: AxisData
-    ydata: AxisData
-    zdata: Optional[AxisData] = None
+    x_data: AxisData
+    y_data: AxisData
+    z_data: Optional[AxisData] = None
+    color_data: ColorData = ColorData()
+    size_data: SizeData = SizeData()
 
     title: Optional[str] = None
-    color_data: Optional[ColorData] = None
     use_average_line: Optional[bool] = None
 
 
@@ -174,8 +201,6 @@ class ParseEvosConfig(MjCambrianBaseConfig):
         output (Path): The output folder.
         plots_folder (Path): The folder to save the plots.
         evals_folder (Path): The folder to save the evaluations.
-        hydra_folder (Optional[Path]): The sweep folder where the hydra config is saved.
-            If specified, additional plots or plot features may be enabled.
 
         force (bool): Force loading of the data. If not passed, this script will try to
             find a parse_evos.pkl file and load that instead.
@@ -191,22 +216,24 @@ class ParseEvosConfig(MjCambrianBaseConfig):
             are used.
 
         plot (bool): Plot the data.
+        plot_nevergrad (bool): During evolution, if nevergrad is used, a `nevergrad.log`
+            file might be saved which contains evolution information. We can load it
+            and plot it if this is true.
         eval (bool): Evaluate the data.
 
         dry_run (bool): Dry run.
 
         plots (Dict[str, PlotData]): The plots to create.
         overrides (List[str]): Overrides for the config.
-        hydra_config (Optional[hydra.conf.HydraConf]): The hydra config.
     """
 
     folder: Path
     output: Path
     plots_folder: Path
     evals_folder: Path
-    hydra_folder: Optional[Path] = None
 
     force: bool
+    force_plot: bool
     no_save: bool
     no_check_finished: bool
     quiet: bool
@@ -216,37 +243,37 @@ class ParseEvosConfig(MjCambrianBaseConfig):
     generations: Optional[List[int]] = None
 
     plot: bool
+    plot_nevergrad: bool
     eval: bool
 
     dry_run: bool
 
     plots: Dict[str, PlotData]
     overrides: List[str]
-    hydra_config: Optional[Dict[str, Any]] = None
 
 
 # =======================================================
 # Data loaders
 
 
-def save_data(config: ParseEvosConfig, generations: Dict[int, Generation]):
+def save_data(config: ParseEvosConfig, data: Any, pickle_file: Path):
     """Save the parsed data to a pickle file."""
-    pickle_file = config.output / "data.pkl"
+    pickle_file = config.output / pickle_file
     pickle_file.parent.mkdir(parents=True, exist_ok=True)
     with open(pickle_file, "wb") as f:
-        pickle.dump(generations, f)
+        pickle.dump(data, f)
     get_logger().info(f"Saved parsed data to {pickle_file}.")
 
 
-def try_load_pickle_data(folder: Path) -> Union[None, Dict]:
+def try_load_pickle(folder: Path, pickle_file: Path) -> Any | None:
     """Try to load the data from the pickle file."""
-    pickle_file = folder / "parse_evos" / "data.pkl"
+    pickle_file = folder / pickle_file
     if pickle_file.exists():
         get_logger().info(f"Loading parsed data from {pickle_file}...")
         with open(pickle_file, "rb") as f:
-            generations = pickle.load(f)
+            data = pickle.load(f)
         get_logger().info(f"Loaded parsed data from {pickle_file}.")
-        return generations
+        return data
 
     get_logger().warning(f"Could not load {pickle_file}.")
     return None
@@ -351,14 +378,20 @@ def load_data(config: ParseEvosConfig) -> Data:
             # Get the evaluations file
             evaluations_file = rank_data.path / "evaluations.npz"
             if evaluations_file.exists():
-                rank_data.fitness = calculate_fitness(evaluations_file)
-                with np.load(evaluations_file) as eval_data:
-                    rank_data.evaluations = {k: eval_data[k] for k in eval_data.files}
+                (
+                    rank_data.eval_fitness,
+                    rank_data.evaluations,
+                ) = calculate_fitness_from_evaluations(
+                    evaluations_file, return_data=True
+                )
 
             # Get the monitor file
             monitor_file = rank_data.path / "monitor.csv"
             if monitor_file.exists():
-                rank_data.monitor = load_results(rank_data.path)
+                (
+                    rank_data.train_fitness,
+                    rank_data.monitor,
+                ) = calculate_fitness_from_monitor(monitor_file, return_data=True)
 
             # Set ignored to False
             rank_data.ignored = False
@@ -398,12 +431,8 @@ def parse_axis_data(
         if isinstance(data, list):
             data = np.average(data)
     elif axis_data.type is AxisDataType.MONITOR:
-        assert rank_data.monitor is not None, "Monitor is required."
-        # Grab the data sorted by timesteps
-        _, y = ts2xy(rank_data.monitor, "timesteps")
-        if axis_data.window is not None:
-            y = moving_average(y, axis_data.window)
-        data = y[-1]
+        assert rank_data.train_fitness is not None, "Monitor is required."
+        data = rank_data.train_fitness
     elif axis_data.type is AxisDataType.WALLTIME:
         assert rank_data.monitor is not None, "Monitor is required."
         t = ts2xy(rank_data.monitor, "walltime_hrs")[0] * 60  # convert to minutes
@@ -412,8 +441,8 @@ def parse_axis_data(
             t = moving_average(t, axis_data.window)
         data = t[-1]
     elif axis_data.type is AxisDataType.EVALUATION:
-        assert rank_data.fitness is not None, "Evaluations is required."
-        data = rank_data.fitness
+        assert rank_data.eval_fitness is not None, "Evaluations is required."
+        data = rank_data.eval_fitness
     elif axis_data.type is AxisDataType.CUSTOM:
         assert axis_data.custom_fn is not None, "Custom function is required."
         return axis_data.custom_fn(axis_data, data, generation_data, rank_data)
@@ -425,7 +454,7 @@ def parse_axis_data(
 
 def get_color_label(color_data: ColorData | None) -> str:
     label: str
-    if color_data is None or color_data.type is ColorType.SOLID:
+    if color_data.type is ColorType.SOLID:
         label = "Color"
     elif color_data.type is ColorType.GENERATION:
         label = "Generation"
@@ -442,12 +471,7 @@ def parse_color_data(
     color_data: ColorData, data: Data, generation_data: Generation, rank_data: Rank
 ) -> ParsedColorData:
     color: Color
-    if color_data is None:
-        # Solid blue
-        color = (0.65490196, 0.78039216, 0.90588235, 0.75)
-        # Early return if no color data is provided
-        return [color], "Color"
-    elif color_data.type is ColorType.SOLID:
+    if color_data.type is ColorType.SOLID:
         assert color_data.color is not None, "Color is required for solid color."
         color = color_data.color
     elif color_data.type is ColorType.GENERATION:
@@ -466,20 +490,45 @@ def parse_color_data(
         # NOTE: The cmap is generated later and is normalized to the number of ranks.
         color = rank_data.num
     elif color_data.type is ColorType.MONITOR:
-        # NOTE: The color is set to the last value of the monitor data and is normalized
-        # later relative to the reward of the other "colors".
-        assert rank_data.monitor is not None, "Monitor is required."
-        _, y = ts2xy(rank_data.monitor, "timesteps")
-        y = moving_average(y, 100)
-        color = y[-1]
+        color = rank_data.train_fitness
     else:
         raise ValueError(f"Unknown color type {color_data.type}.")
 
-    # Convert the color to a list if it's a single value
-    if isinstance(color, (int, float)):
-        color = [color]
+    return [color], get_color_label(color_data)
 
-    return color, get_color_label(color_data)
+
+def get_size_label(size_data: SizeData | None) -> str:
+    label: str
+    if size_data is SizeType.NONE:
+        label = "Size"
+    elif size_data.type is SizeType.NUM:
+        label = "Number"
+    elif size_data.type is SizeType.GENERATION:
+        label = "Generation"
+    elif size_data.type is SizeType.MONITOR:
+        label = "Training Reward"
+    else:
+        raise ValueError(f"Unknown size type {size_data.type}.")
+    return size_data.label or label if size_data is not None else label
+
+
+def parse_size_data(
+    size_data: SizeData, data: Data, generation_data: Generation, rank_data: Rank
+) -> ParsedAxisData:
+    size: float
+    if size_data.type is SizeType.NUM:
+        # Will be updated later to reflect the number of overlapping points at the same
+        # location
+        size = 1
+    elif size_data.type is SizeType.GENERATION:
+        size = generation_data.num
+    elif size_data.type is SizeType.MONITOR:
+        assert rank_data.train_fitness is not None, "Monitor is required."
+        size = rank_data.train_fitness
+    else:
+        raise ValueError(f"Unknown size type {size_data.type}.")
+
+    return size, get_size_label(size_data)
 
 
 def parse_plot_data(
@@ -487,22 +536,30 @@ def parse_plot_data(
 ) -> ParsedPlotData:
     """Parses the plot data object and grabs the relevant x and y data."""
 
-    xdata = parse_axis_data(plot_data.xdata, data, generation_data, rank_data)
-    ydata = parse_axis_data(plot_data.ydata, data, generation_data, rank_data)
-    zdata = (
-        parse_axis_data(plot_data.zdata, data, generation_data, rank_data)
-        if plot_data.zdata
+    x_data = parse_axis_data(plot_data.x_data, data, generation_data, rank_data)
+    y_data = parse_axis_data(plot_data.y_data, data, generation_data, rank_data)
+    z_data = (
+        parse_axis_data(plot_data.z_data, data, generation_data, rank_data)
+        if plot_data.z_data
         else None
     )
     color = parse_color_data(plot_data.color_data, data, generation_data, rank_data)
-    return xdata, ydata, zdata, color
+    size = parse_size_data(plot_data.size_data, data, generation_data, rank_data)
+    return x_data, y_data, z_data, color, size
 
 
 def extract_data(
-    ax: plt.Axes, *, return_data: bool = False, return_color: bool = False
+    ax: plt.Axes,
+    *,
+    return_data: bool = False,
+    return_color: bool = False,
+    return_size: bool = False,
 ) -> ExtractedData:
     """Extracts the data from a figure."""
-    assert return_data or return_color, "Must return either data or color."
+    assert (
+        return_data or return_color or return_size
+    ), "At least one return value is required."
+    return_values = []
 
     if return_data:
         x_data, y_data, z_data = [], [], []
@@ -520,6 +577,8 @@ def extract_data(
         x_data, y_data = np.array(x_data), np.array(y_data)
         z_data = None if not z_data else np.array(z_data)
 
+        return_values.extend([x_data, y_data, z_data])
+
     if return_color:
         c_data = []
         for collection in ax.collections:
@@ -532,12 +591,18 @@ def extract_data(
         if np.all([c is None for c in c_data]):
             c_data = None
 
-    if return_data and return_color:
-        return x_data, y_data, z_data, c_data
-    elif return_data:
-        return x_data, y_data, z_data
-    else:
-        return c_data
+        return_values.append(c_data)
+
+    if return_size:
+        s_data = []
+        for collection in ax.collections:
+            s = collection.get_sizes()
+            s_data.append(s)
+        s_data = np.array(s_data)
+
+        return_values.append(s_data)
+
+    return tuple(return_values) if len(return_values) > 1 else return_values[0]
 
 
 # =======================================================
@@ -545,9 +610,9 @@ def extract_data(
 
 
 def plot_helper(
-    xdata: ParsedAxisData,
-    ydata: ParsedAxisData,
-    zdata: Optional[ParsedAxisData] = None,
+    x_data: ParsedAxisData,
+    y_data: ParsedAxisData,
+    z_data: Optional[ParsedAxisData] = None,
     /,
     *,
     name: str,
@@ -570,13 +635,13 @@ def plot_helper(
         return
 
     fig = plt.figure(name)
-    if zdata:
+    if z_data:
         ax: Axes3D = fig.add_subplot(111, projection="3d")
-        ax.scatter(xdata, ydata, zdata, **kwargs)
+        ax.scatter(x_data, y_data, z_data, **kwargs)
         ax.set_zlabel(zlabel)
     else:
         ax = fig.gca()
-        ax.scatter(xdata, ydata, **kwargs)
+        ax.scatter(x_data, y_data, **kwargs)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     fig.suptitle(title)
@@ -585,39 +650,42 @@ def plot_helper(
 
 
 def adjust_points(
-    ax: plt.Axes, xdata: np.ndarray, ydata: np.ndarray, zdata: np.ndarray | None, cdata: np.ndarray | None,
+    size_data: SizeData,
+    ax: plt.Axes,
+    sizes: np.ndarray,
+    points: np.ndarray,
+    colors: np.ndarray,
 ):
-    """This method will adjust the points depending on different conditions.
+    """This method will adjust the points depending on different conditions."""
 
-    Current conditions:
-        - non-unique x,y,z values: If non-unique points are detected, they are resized
-            proportionally to the number of points at that location.
-    """
+    if size_data.type is SizeType.NUM:
+        # In this case, update the size of the points to reflect the number of points
+        # at the same location and set the color to the average of the colors that are
+        # stacked together
 
-    if zdata is not None:
-        data = np.column_stack((xdata, ydata, zdata))
-    else:
-        data = np.column_stack((xdata, ydata))
+        unique, counts = np.unique(points, axis=0, return_counts=True)
+        for point, count in zip(unique, counts):
+            if count <= 1:
+                continue
 
-    # Check for non-unique points
-    unique, counts = np.unique(data, axis=0, return_counts=True)
-    for point, count in zip(unique, counts):
-        if count > 1:
-            idx = np.where(np.all(data == point, axis=1))[0]
+            idx = np.where(np.all(points == point, axis=1))[0]
 
             for i in idx:
                 ax.collections[i].set_sizes(ax.collections[i].get_sizes() * count)
 
             # Set the color to the average of the colors that are stacked together
-            if cdata is not None:
-                color = np.mean(cdata[idx], axis=0)
-                ax.collections[idx[-1]].set_array(color) # the last point is in front
+            if colors is not None:
+                color = np.mean(colors[idx], axis=0)
+                ax.collections[idx[-1]].set_array(color)  # the last point is in front
 
+    sizes = sizes * size_data.factor
+    if size_data.normalize and sizes.min() != sizes.max():
+        # Normalize the sizes
+        sizes = (sizes - sizes.min()) / (sizes.max() - sizes.min())
+        sizes = size_data.size_min + sizes * (size_data.size_max - size_data.size_min)
 
-def add_legend(ax: plt.Axes):
-    """Add a legend to the plot."""
-    (selected_agent,) = ax.plot([], [], ".", color="k", label="Selected Agent")
-    ax.legend(handles=[selected_agent])
+    for scatter, size in zip(ax.collections, sizes):
+        scatter.set_sizes(size)
 
 
 def add_colorbar(
@@ -638,8 +706,6 @@ def add_colorbar(
     vmin = vmin or np.min(colors)
     vmax = vmax or np.max(colors)
     norm = Normalize(vmin=vmin, vmax=vmax)
-    for scatter in ax.collections:
-        scatter.set_norm(norm)
 
     cmap = ax.collections[0].get_cmap()
     if color_data is not None:
@@ -655,9 +721,55 @@ def add_colorbar(
     label = get_color_label(color_data)
     cbar = plt.colorbar(sm, ax=ax, label=label)
 
+    # Update the colors to the colormap
+    for scatter in ax.collections:
+        scatter.set_cmap(cmap)
+        scatter.set_norm(norm)
+
     # Set the colorbar to int if the colors are integers
     if is_integer(colors):
         cbar.ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+
+def add_legend(
+    ax: plt.Axes,
+    plot_data: PlotData,
+    points: np.ndarray,
+    sizes: np.ndarray,
+    colors: np.ndarray,
+):
+    """Add a legend to the plot. The legend title will say 'Selected Agent' and if the
+    sizes are different between the points, the legend will show 3 examples
+    (min, mean, max)."""
+
+    size_data = plot_data.size_data
+    label = get_size_label(size_data)
+    if plot_data.size_data.normalize and sizes.min() != sizes.max():
+        # The sizes are really values, and they are scaled separately in adjust_points
+        # We'll rescale the sizes again here for the legend, and set the label to
+        # reflect the original value.
+        original_sizes = sizes.copy()
+        sizes = (sizes - sizes.min()) / (sizes.max() - sizes.min())
+        sizes = size_data.size_min + sizes * (size_data.size_max - size_data.size_min)
+        sizes /= size_data.size_min / 2  # TODO: Why do we have to do this line?
+
+        def calc_value(s):
+            """Get's the original value from the size"""
+            s = s * size_data.size_min / 2
+            norm_value = (s - size_data.size_min) / (
+                size_data.size_max - size_data.size_min
+            )
+            unscaled_value = (
+                norm_value * (original_sizes.max() - original_sizes.min())
+                + original_sizes.min()
+            )
+            return unscaled_value
+
+        scatter = ax.scatter(*points.T, s=sizes, c=colors)
+        num = [int(calc_value(s)) for s in [sizes.min(), sizes.mean(), sizes.max()]]
+        legend_items = scatter.legend_elements(prop="sizes", num=num, func=calc_value)
+        ax.legend(*legend_items, title=label)
+        scatter.remove()  # remove the scatter plot so it doesn't show up in the plot
 
 
 def plot_average_line(ax: plt.Axes):
@@ -680,11 +792,8 @@ def plot_average_line(ax: plt.Axes):
     plt.plot(x, y, "C0-", alpha=0.5)
     plt.fill_between(x, y - y_std, y + y_std, alpha=0.2, facecolor="C0")
 
-def plot_constraints(ax: plt.Axes, hydra_config: hydra.conf.HydraConf):
-    print(hydra_config.sweeper.parameterization)
 
-
-def run_plot(config: ParseEvosConfig, data: Data):
+def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
     get_logger().info("Plotting data...")
 
     # Update the rcparams.figure.max_open_warning to suppress the warning
@@ -711,7 +820,7 @@ def run_plot(config: ParseEvosConfig, data: Data):
 
             for plot_name, plot in config.plots.items():
                 try:
-                    xdata, ydata, zdata, cdata = parse_plot_data(
+                    x_data, y_data, z_data, color_data, size_data = parse_plot_data(
                         plot, data, generation_data, rank_data
                     )
                 except AssertionError as e:
@@ -721,10 +830,11 @@ def run_plot(config: ParseEvosConfig, data: Data):
                         continue
                     raise ValueError(f"Error parsing plot {plot_name}: {e}")
 
-                xdata, xlabel = xdata
-                ydata, ylabel = ydata
-                zdata, zlabel = zdata or (None, None)
-                color, _ = cdata
+                x_data, xlabel = x_data
+                y_data, ylabel = y_data
+                z_data, zlabel = z_data or (None, None)
+                color, _ = color_data
+                size, _ = size_data
 
                 default_title = f"{ylabel} vs {xlabel}"
                 if zlabel:
@@ -735,9 +845,9 @@ def run_plot(config: ParseEvosConfig, data: Data):
                 get_logger().debug(f"\t\tPlotting {title}...")
 
                 plot_helper(
-                    xdata,
-                    ydata,
-                    zdata,
+                    x_data,
+                    y_data,
+                    z_data,
                     name=plot_name,
                     title=title,
                     xlabel=xlabel,
@@ -745,90 +855,115 @@ def run_plot(config: ParseEvosConfig, data: Data):
                     zlabel=zlabel,
                     marker=".",
                     c=color,
+                    s=size,
                     dry_run=config.dry_run,
                 )
 
+    return plt.get_fignums()
+
+
+def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | int]):
     # Now save the plots
-    if not config.dry_run:
-        fignums = plt.get_fignums()
-        progress_bar = tqdm.tqdm(
-            zip(config.plots.items(), fignums),
-            total=len(fignums),
-            desc="Saving plots...",
-            disable=config.debug,
-        )
-        for (plot_name, plot_data), fig in progress_bar:
+    assert len(figures) == len(config.plots), "Number of figures does not match plots."
+    progress_bar = tqdm.tqdm(total=len(figures), desc="Saving...", disable=config.debug)
+    for (plot_name, plot_data), fig in zip(config.plots.items(), figures):
+        progress_bar.update(1)
+
+        if isinstance(fig, int):
             fig = plt.figure(fig)
-            ax = fig.gca()
+        ax = fig.gca()
 
-            try:
-                # Extract the data from the plot
-                xdata, ydata, zdata, cdata = extract_data(
-                    ax, return_data=True, return_color=True
-                )
-                is_3d = zdata is not None
+        try:
+            # Extract the data from the plot
+            x_data, y_data, z_data, colors, sizes = extract_data(
+                ax, return_data=True, return_color=True, return_size=True
+            )
+            is_3d = z_data is not None
+            if is_3d:
+                points = np.column_stack((x_data, y_data, z_data))
+            else:
+                points = np.column_stack((x_data, y_data))
 
-                # We'll ignore any plots which don't have unique data along any axis
-                # These plots aren't really useful as there is no independent variable.
-                if np.all(xdata == xdata[0]):
-                    get_logger().debug(f"Skipping plot {plot_name}: no unique xdata.")
-                    continue
-                elif np.all(ydata == ydata[0]):
-                    get_logger().debug(f"Skipping plot {plot_name}: no unique ydata.")
-                    continue
-                elif is_3d and np.all(zdata == zdata[0]):
-                    get_logger().debug(f"Skipping plot {plot_name}: no unique zdata.")
-                    continue
-
-                # Adjust the points, if necessary
-                adjust_points(ax, xdata, ydata, zdata, cdata)
-
-                # Plot the average line
-                if plot_data.use_average_line:
-                    plot_average_line(ax)
-
-                # Add a legend entry for the blue circles
-                # add_legend(ax)
-
-                # Normalize the colorbar
-                add_colorbar(plot_data.color_data, ax, cdata)
-
-                # If all the values of an axis are integers, set the axis to integer
-                if is_integer(xdata):
-                    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-                if is_integer(ydata):
-                    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-                if is_3d and is_integer(zdata):
-                    ax.zaxis.set_major_locator(MaxNLocator(integer=True))
-            except (ValueError, TypeError) as e:
-                # Get the line number of the error
-                if config.debug:
-                    raise e
-                _fn_name = e.__traceback__.tb_frame.f_code.co_name
-                _line_number = e.__traceback__.tb_lineno
-                get_logger().error(
-                    f"{_fn_name}:{_line_number}: "
-                    f"Error extracting data from plot {plot_name}: {e}"
-                )
+            # We'll ignore any plots which don't have unique data along any axis
+            # These plots aren't really useful as there is no independent variable.
+            if np.all(x_data == x_data[0]):
+                get_logger().debug(f"Skipping plot {plot_name}: no unique x_data.")
+                continue
+            elif np.all(y_data == y_data[0]):
+                get_logger().debug(f"Skipping plot {plot_name}: no unique y_data.")
+                continue
+            elif is_3d and np.all(z_data == z_data[0]):
+                get_logger().debug(f"Skipping plot {plot_name}: no unique z_data.")
                 continue
 
-            # Set the aspect ratio
-            ax.set_box_aspect(1 if not is_3d else [1, 1, 1])
-            fig.tight_layout()
+            # Adjust the points, if necessary
+            adjust_points(plot_data.size_data, ax, sizes, points, colors)
 
-            # Save the plot
-            filename = f"{plot_name}.png"
-            plt.savefig(
-                config.plots_folder / filename,
-                dpi=500,
-                bbox_inches="tight",
-                transparent=False,
+            # Plot the average line
+            if plot_data.use_average_line:
+                plot_average_line(ax)
+
+            # Add a legend entry for the blue circles
+            add_legend(ax, plot_data, points, sizes, colors)
+
+            # Normalize the colorbar
+            add_colorbar(plot_data.color_data, ax, colors)
+
+            # If all the values of an axis are integers, set the axis to integer
+            if is_integer(x_data):
+                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+            if is_integer(y_data):
+                ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+            if is_3d and is_integer(z_data):
+                ax.zaxis.set_major_locator(MaxNLocator(integer=True))
+        except (ValueError, TypeError) as e:
+            # Get the line number of the error
+            if config.debug:
+                raise e
+            _fn_name = e.__traceback__.tb_frame.f_code.co_name
+            _line_number = e.__traceback__.tb_lineno
+            get_logger().error(
+                f"{_fn_name}:{_line_number}: "
+                f"Error extracting data from plot {plot_name}: {e}"
             )
+            continue
 
-            get_logger().debug(f"Saved plot to {config.plots_folder / filename}.")
+        # Set the aspect ratio
+        ax.set_box_aspect(1 if not is_3d else [1, 1, 1])
+        fig.tight_layout()
 
-            plt.close(fig)
+        # Save the plot
+        filename = f"{plot_name}.png"
+        plt.savefig(
+            config.plots_folder / filename,
+            dpi=500,
+            bbox_inches="tight",
+            transparent=False,
+        )
 
+        get_logger().debug(f"Saved plot to {config.plots_folder / filename}.")
+
+        plt.close(fig)
+
+
+# =======================================================
+
+def plot_nevergrad(config: ParseEvosConfig, data: Data):
+    import hiplot
+    import nevergrad as ng
+
+    get_logger().info("Plotting nevergrad...")
+
+    # Load the nevergrad log file. We'll load it and convert it to a 
+    # hiplot experiment. HiPlot is a package from Meta which helps 
+    # visualize hyperparameter optimization experiments.
+    if not (nevergrad_log := config.folder / "nevergrad.log").exists():
+        get_logger().error(f"Nevergrad log file {nevergrad_log} not found.")
+        return
+
+    parameters_logger = ng.callbacks.ParametersLogger(nevergrad_log)
+    exp: hiplot.Experiment = parameters_logger.to_hiplot_experiment()
+    exp.to_html(config.plots_folder / "nevergrad.html")
 
 # =======================================================
 
@@ -863,16 +998,7 @@ def run_eval(config: ParseEvosConfig, data: Data):
                 trainer = MjCambrianTrainer(rank_data.config)
                 trainer.eval()
 
-            get_logger().info(f"\t\tDone evaluating.")
-
-
-# =======================================================
-# Random helpers
-
-
-def moving_average(values, window, mode="valid"):
-    weights = np.repeat(1.0, window) / window
-    return np.convolve(values, weights, mode=mode)
+            get_logger().info("\t\tDone evaluating.")
 
 
 # =======================================================
@@ -889,23 +1015,21 @@ def main(config: ParseEvosConfig):
     config.plots_folder.mkdir(parents=True, exist_ok=True)
     config.evals_folder.mkdir(parents=True, exist_ok=True)
 
-    if (hydra_folder := config.hydra_folder) is not None:
-        assert hydra_folder.exists(), f"Folder {hydra_folder} does not exist."
-        hydra_config = OmegaConf.load(hydra_folder / ".hydra" / "hydra.yaml")
-        with config.set_readonly_temporarily(False):
-            config.hydra_config = hydra_config
-
-        print(config.hydra_config.sweeper.parameterization)
-        exit()
-
-    if config.force or (data := try_load_pickle_data(config.folder)) is None:
+    if config.force or (data := try_load_pickle(config.output, "data.pkl")) is None:
         data = load_data(config)
 
         if not config.no_save:
-            save_data(config, data)
+            save_data(config, data, "data.pkl")
 
     if config.plot:
-        run_plot(config, data)
+        if (
+            config.force_plot
+            or (figs := try_load_pickle(config.output, "plot_data.pkl")) is None
+        ):
+            figs = run_plot(config, data)
+        update_plots_and_save(config, figs)
+    if config.plot_nevergrad:
+        plot_nevergrad(config, data)
     if config.eval:
         run_eval(config, data)
 

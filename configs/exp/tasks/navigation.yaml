@@ -1,8 +1,12 @@
 # @package _global_
 
+# This task is for navigation. It defines a set of mazes which the agent must navigate.
+# The agent is rewarded based on it's movement from its initial position. The agent
+# is penalized if it makes contact with the walls of the maze.
+
 defaults:
-  - /env/mazes/Y_STATIC@env.mazes.Y_STATIC
-  - /env/mazes/X_COMPLEX_STATIC@env.mazes.X_COMPLEX_STATIC
+  - /env/mazes/Y@env.mazes.Y
+  - /env/mazes/X_COMPLEX@env.mazes.X_COMPLEX
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
@@ -11,10 +15,6 @@ defaults:
   - /env/animals@env.animals.animal_0: ${env/animals}
   - /env/animals/eyes@env.animals.animal_0.eyes.eye: ${env/animals/eyes}
   - override /env/animals: point
-
-trainer:
-  # decrease the number of timesteps to speed up the sweep
-  total_timesteps: 300_000
 
 env:
   reward_fn:

@@ -59,9 +59,29 @@ optim:
   # NOTE #2: Some algorithms use the budget and num_workers as part of the optimization
   # to know how exploratory to be. So be careful setting this number very large with
   # the intention of stopping early.
-  budget: ${eval:'int(${evo.num_generations} * ${.num_workers})'}
+  budget: ${eval:'int(${oc.select:evo.num_generations, 1} * ${.num_workers})'}
 
   # Set the max failures to be equivalent to one node's worth of workers. This is
   # because if one node fails, we want to be able to restart the job with the same
   # parameters on a different node.
   max_failure_rate: ${eval:'1 / ${oc.select:hydra.launcher.tasks_per_node, 1}'}
+
+  callbacks:
+    # Add a parameters logger callback. We can use this to get lineage info and use 
+    # hiplot to make tree-like plots.
+    - name: tell
+      callback:
+        _target_: nevergrad.callbacks.ParametersLogger
+
+        # The output is saved to the log directory which is the base of the evolution
+        # And note, logs will always overwrite the previous logs.
+        filepath: ${path:${logdir},nevergrad.log}
+        append: False
+    # Add a progress bar callback
+    - name: tell
+      callback:
+        _target_: nevergrad.callbacks.ProgressBar
+    # This will print out the best agent after each generation
+    - name: tell
+      callback:
+        _target_: nevergrad.callbacks.OptimizationLogger

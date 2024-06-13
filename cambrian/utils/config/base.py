@@ -17,6 +17,7 @@ from contextlib import contextmanager
 
 import hydra_zen as zen
 from hydra.core.utils import setup_globals
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import (
     OmegaConf,
     DictConfig,
@@ -312,12 +313,18 @@ class MjCambrianContainerConfig:
         header: str = None,
         use_instantiated: bool = False,
         resolve: bool = True,
+        hydra_config: bool = False,
     ):
         """Saves the config to a yaml file."""
+        if hydra_config:
+            config = OmegaConf.to_yaml(HydraConfig.get(), resolve=True)
+        else:
+            config = self.to_yaml(use_instantiated=use_instantiated, resolve=resolve)
+
         with open(path, "w") as f:
             if header:
                 f.write(f"{header}\n")
-            f.write(self.to_yaml(use_instantiated=use_instantiated, resolve=resolve))
+            f.write(config)
 
     def pickle(self, path: Path | str):
         """Pickle the config to a file."""

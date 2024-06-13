@@ -1,7 +1,7 @@
 nn_output_layer_size_vs_generation:
-  xdata:
+  x_data:
     type: GENERATION
-  ydata:
+  y_data:
     type: CONFIG
     pattern: trainer.model.policy_kwargs.features_extractor_kwargs.output_dim
     label: NN Output Layer Size

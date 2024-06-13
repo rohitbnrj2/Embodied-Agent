@@ -48,35 +48,77 @@ def euclidean_delta_from_init(
     info: Dict[str, Any],
     *,
     factor: float = 1.0,
+    only_best: bool = False,
 ) -> float:
     """
     Rewards the change in distance over the previous step scaled by the timestep.
+
+    `only_best` will only reward the animal has moved further from the initial position
+    than any previous position. This requires us to keep around a state of the best
+    position.
     """
+    if only_best:
+        # Only reward if the current position is further from the initial position than
+        # any previous position. This requires us to keep around a state of the best
+        # position. If the current position is closer, we'll skip this object.
+        closest_pos = info.setdefault("best_pos", animal.init_pos.copy())
+        if check_if_larger(animal.pos, closest_pos, animal.init_pos):
+            info["best_pos"] = animal.pos.copy()
+        else:
+            return 0.0 
+
     return calc_delta(animal, info, animal.init_pos) * factor
 
 
-def euclidean_delta_to_objects(
+def reward_euclidean_delta_to_objects(
     env: MjCambrianMazeEnv,
     animal: MjCambrianAnimal,
     terminated: bool,
     truncated: bool,
     info: Dict[str, Any],
     *,
+    factor: float,
     objects: Optional[List[str]] = None,
-    factor: float = 1.0,
+    only_best: bool = False,
+    min_delta_threshold: Optional[float] = None,
+    max_delta_threshold: Optional[float] = None,
 ):
     """
     Rewards the change in distance to any enabled object over the previous step.
+    Convention is that a positive reward indicates getting closer to the object.
+
+    `only_best` will only reward the animal if it is closer to the object than any
+    previous position. This requires us to keep around a state of the best position.
     """
+    enabled_objects = env.maze.config.enabled_objects
+
     accumulated_reward = 0.0
     for obj in env.objects.values():
         if objects is not None and obj.name not in objects:
             continue
-        elif obj.name not in env.maze.config.enabled_objects:
+        elif enabled_objects is not None and obj.name not in enabled_objects:
             continue
 
-        # Multiply by -1 to reward getting closer to the object
-        accumulated_reward = -1 * calc_delta(animal, info, obj.pos) * factor
+        if only_best:
+            # Only reward if the current position is closer to the object than any
+            # previous position. This requires us to keep around a state of the best 
+            # position. If the current position is further, we'll skip this object.
+            closest_pos = info.setdefault(f"best_pos_{obj.name}", animal.pos.copy()) 
+            if check_if_larger(obj.pos, closest_pos, animal.pos):
+                info[f"best_pos_{obj.name}"] = animal.pos.copy()
+            else:
+                continue
+
+        # NOTE: calc_delta returns a positive value if the animal moves away from the 
+        # object. We'll multiple by -1 to flip the convention.
+        delta = -factor * calc_delta(animal, info, obj.pos)
+        if min_delta_threshold is not None and delta < min_delta_threshold:
+            continue
+        elif max_delta_threshold is not None and delta > max_delta_threshold:
+            continue
+
+        accumulated_reward = delta
+
     return accumulated_reward
 
 
@@ -106,7 +148,6 @@ def reward_if_close_to_object(
         if np.linalg.norm(obj.pos - animal.pos) < distance_threshold:
             accumulated_reward += reward
     return accumulated_reward
-
 
 def penalize_if_has_contacts(
     env: MjCambrianEnv,
@@ -256,6 +297,18 @@ def reward_if_objects_in_view(
 
     return accumulated_reward
 
+def constant_reward(
+    env: MjCambrianEnv,
+    animal: MjCambrianAnimal,
+    terminated: bool,
+    truncated: bool,
+    info: Dict[str, Any],
+    *,
+    reward: float,
+) -> float:
+    """Returns a constant reward."""
+    return reward
+
 
 def combined_reward(
     env: MjCambrianEnv,
@@ -263,13 +316,24 @@ def combined_reward(
     terminated: bool,
     truncated: bool,
     info: Dict[str, Any],
+    *,
+    exclusive_fn: Optional[str] = None,
     **reward_fns,
 ) -> float:
-    """Combines multiple reward functions into one."""
-    reward = 0
-    for fn in reward_fns.values():
-        reward += fn(env, animal, terminated, truncated, info)
-    return reward
+    """Combines multiple reward functions into one.
+    
+    Keyword Args:
+        exclusive_fn (Optional[str]): If provided, only the reward function with this
+            name will be used if it's non-zero. Defaults to None.
+    """
+    accumulated_reward = 0
+    for name, fn in reward_fns.items():
+        reward = fn(env, animal, terminated, truncated, info)
+
+        if exclusive_fn is not None and name == exclusive_fn and reward != 0:
+            return reward
+        accumulated_reward += reward
+    return accumulated_reward
 
 
 # =====================
@@ -288,6 +352,11 @@ def calc_delta(
     current_distance = np.linalg.norm(animal.pos - point)
     prev_distance = np.linalg.norm(info["prev_pos"] - point)
     return current_distance - prev_distance
+
+def check_if_larger(p1: np.ndarray, p2: np.ndarray, point: np.ndarray = np.array([0, 0])) -> bool:
+    """Checks if the distance from point to p1 is larger than the distance from point 
+    to p2."""
+    return np.linalg.norm(p1 - point) > np.linalg.norm(p2 - point)
 
 
 def check_in_view(

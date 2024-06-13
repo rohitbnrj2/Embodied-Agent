@@ -57,7 +57,7 @@ env:
 
 hydra:
   sweeper:
-    parametrization:
+    params:
       env.animals.animal_0.eyes.eye.height_map:
         init: ${env.animals.animal_0.eyes.eye.height_map}
         lower: 0.001

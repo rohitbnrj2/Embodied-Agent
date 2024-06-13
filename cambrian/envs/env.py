@@ -152,12 +152,23 @@ class MjCambrianEnv(ParallelEnv):
         self._episode_step = 0
         self._max_episode_steps = self._config.max_episode_steps
         self._num_resets = 0
+        self._num_timesteps = 0
         self._stashed_cumulative_reward = 0
         self._cumulative_reward = 0
 
         self._record: bool = False
         self._rollout: Dict[str, Any] = {}
         self._overlays: Dict[str, Any] = {}
+
+        # We'll store the info dict as a state within this class so that the truncation,
+        # termination, and reward functions can use it for keeping a state. Like passing
+        # the info dict to these functions allows them to edit them and keep around
+        # information that is helpful for subsequent calls. It will always be reset
+        # during the reset method and will only be maintained during an episode length.
+        # Because the info dict is treated as stateful, take care in not adding new keys
+        # on each step, as this will cause the info dict to grow until the end of the
+        # episode.
+        self._info: Dict[str, Dict[str, Any]]
 
     def _create_animals(self):
         """Helper method to create the animals."""
@@ -194,8 +205,11 @@ class MjCambrianEnv(ParallelEnv):
         # First, reset the mujoco simulation
         mj.mj_resetData(self._model, self._data)
 
+        # Reset the info dict. We'll update the stateful info dict here, as well.
+        info: Dict[str, Dict[str, Any]] = {a: {} for a in self._animals}
+        self._info = info
+
         # Then, reset the animals
-        info: Dict[str, Any] = {a: {} for a in self._animals}
         obs: Dict[str, Dict[str, Any]] = {}
         for name, animal in self._animals.items():
             obs[name] = animal.reset(self._model, self._data)
@@ -231,9 +245,7 @@ class MjCambrianEnv(ParallelEnv):
 
         return self._update_obs(obs), self._update_info(info)
 
-    def step(
-        self, action: Dict[str, Any]
-    ) -> Tuple[
+    def step(self, action: Dict[str, Any]) -> Tuple[
         Dict[str, Any],
         Dict[str, float],
         Dict[str, bool],
@@ -256,12 +268,15 @@ class MjCambrianEnv(ParallelEnv):
             Dict[str, bool]: Whether each animal has truncated.
             Dict[str, Dict[str, Any]]: The info dict for each animal.
         """
-        info: Dict[str, Any] = {a: {} for a in self._animals}
+        info = self._info
 
         # First, apply the actions to the animals and step the simulation
         for name, animal in self._animals.items():
-            if not animal.config.trainable:
-                assert name not in action, f"Action for {name} found in action dict."
+            if not animal.config.trainable or animal.config.use_privileged_action:
+                assert (
+                    animal.config.trainable or name not in action
+                ), f"Action for {name} found in action dict. "
+                "This isn't allowed for non-trainable animals."
                 action[name] = animal.get_action_privileged(self)
 
             assert name in action, f"Action for {name} not found in action dict."
@@ -285,6 +300,7 @@ class MjCambrianEnv(ParallelEnv):
         reward = self._compute_reward(terminated, truncated, info)
 
         self._episode_step += 1
+        self._num_timesteps += 1
         self._cumulative_reward += sum(reward.values())
         self._stashed_cumulative_reward = self._cumulative_reward
 
@@ -305,7 +321,7 @@ class MjCambrianEnv(ParallelEnv):
         time checking if the animal has contacts."""
         # Initially set has_contacts to False for all animals
         for name in self._animals:
-            info[name].setdefault("has_contacts", False)
+            info[name]["has_contacts"] = False
 
         # Check contacts at _every_ step.
         # NOTE: Doesn't process whether hits are terminal or not
@@ -558,7 +574,7 @@ class MjCambrianEnv(ParallelEnv):
     @property
     def num_timesteps(self) -> int:
         """Returns the number of timesteps."""
-        return self.max_episode_steps * self.num_resets + self.episode_step
+        return self._num_timesteps
 
     @property
     def max_episode_steps(self) -> int:

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any
 from pathlib import Path
 
 from cambrian.ml.trainer import MjCambrianTrainerConfig
@@ -46,7 +46,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
     trainer: MjCambrianTrainerConfig
     evo: Optional[MjCambrianEvoConfig] = None
     env: MjCambrianEnvConfig
-    eval_env: MjCambrianEnvConfig
+    eval_env: MjCambrianEnvConfig | Any
 
 
 # =============

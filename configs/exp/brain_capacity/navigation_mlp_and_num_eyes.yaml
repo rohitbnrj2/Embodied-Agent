@@ -6,7 +6,7 @@ defaults:
 
 hydra:
   sweeper:
-    parametrization:
+    params:
       # Just evolve the longitudinal number of eyes for now, i.e. flatland
       env.animals.animal_0.num_eyes_to_generate.1:
         init: 1

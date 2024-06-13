@@ -169,7 +169,7 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
                 if init_pos := obj.config.pos:
                     # If the initial pos is set in the config, we'll interpret it as
                     # a position in the maze and convert it to global coordinates
-                    obj.pos[:2] = self._maze.cell_rowcol_to_xy(list(init_pos)[:2])
+                    obj.pos[:2] = self._maze.rowcol_to_xy(list(init_pos)[:2])
                     obj.pos[2] = init_pos[2]
                 else:
                     # If the initial object pos is not set, generate a new one
@@ -186,7 +186,7 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
                 viewer.camera.lookat = self._maze.lookat
 
             # Update the camera distance to match the current maze's extent
-            viewer.camera.distance = viewer.config.select("camera.distance", default=1)
+            viewer.camera.distance = viewer.config.select("camera.distance", default=1.25)
             if self._maze.ratio < 2:
                 viewer.camera.distance *= renderer.ratio * self._maze.min_dim
             else:
@@ -368,13 +368,13 @@ class MjCambrianMaze:
 
     # ==================
 
-    def cell_rowcol_to_xy(self, rowcol_pos: np.ndarray) -> np.ndarray:
+    def rowcol_to_xy(self, rowcol_pos: np.ndarray) -> np.ndarray:
         x = (rowcol_pos[1] + 0.5) * self._config.scale - self.x_map_center
         y = self.y_map_center - (rowcol_pos[0] + 0.5) * self._config.scale
 
         return np.array([x, y])
 
-    def cell_xy_to_rowcol(self, xy_pos: np.ndarray) -> np.ndarray:
+    def xy_to_rowcol(self, xy_pos: np.ndarray) -> np.ndarray:
         i = np.floor((self.y_map_center - xy_pos[1]) / self._config.scale)
         j = np.floor((xy_pos[0] + self.x_map_center) / self._config.scale)
         return np.array([i, j], dtype=int)
@@ -386,8 +386,8 @@ class MjCambrianMaze:
         """
         from typing import Deque
 
-        start = self.cell_xy_to_rowcol(start)
-        target = self.cell_xy_to_rowcol(target)
+        start = self.xy_to_rowcol(start)
+        target = self.xy_to_rowcol(target)
 
         rows = self._map.shape[0]
         cols = self._map.shape[1]
@@ -402,8 +402,8 @@ class MjCambrianMaze:
             current = path[-1]
             if np.all(current == target):
                 # Convert path from indices to positions
-                path = [self.cell_rowcol_to_xy(pos) for pos in path]
-                path.append(self.cell_rowcol_to_xy(target))
+                path = [self.rowcol_to_xy(pos) for pos in path]
+                path.append(self.rowcol_to_xy(target))
                 return np.array(path)
 
             # Check all moves (left, right, up, down, and all diagonals)
@@ -555,6 +555,11 @@ class MjCambrianMaze:
         """Returns the object locations."""
         return self._object_locations
 
+    @property
+    def reset_locations(self) -> List[np.ndarray]:
+        """Returns the reset locations."""
+        return self._reset_locations
+
 
 # ================================
 
@@ -683,8 +688,25 @@ class MjCambrianMazeStore:
         idx = safe_index(self.maze_list, self._current_maze, default=-1)
         return self.maze_list[(idx + 1) % len(self.maze_list)]
 
+    def select_maze_cycle_permutations(self, env: MjCambrianMazeEnv, *, max_permutations: Optional[int] = None) -> MjCambrianMaze:
+        """This selection function will cycle through all permutations of object and
+        reset placement for each maze.
+        
+        Basically, it will cycle through each maze. And for each maze, it will set the
+        initial position of the agent and objects such that all permutations of the
+        placement of the agent and objects are covered.
+        """
+        # Current maze index
+        maze_idx: int = safe_index(self.maze_list, self._current_maze, default=0)
+        maze = self.maze_list[maze_idx]
+
+        # Get all the enabled objects and position locations
+        for obj in env.objects.values():
+            pass
+            
+
     def select_maze_cycle_objects(
-        self, env: MjCambrianMazeEnv, *, max_permutations_per_maze: Optional[int] = None
+        self, env: MjCambrianMazeEnv, *, max_permutations_per_maze: Optional[int] = None, _return_permutations: bool = False
     ) -> MjCambrianMaze:
         """This selection function will cycle through all combinations of enabled
         objects in each maze.
@@ -710,6 +732,7 @@ class MjCambrianMazeStore:
             # have None values.
             pos = None
             if obj.config.pos is not None and any(p for p in obj.config.pos[:2]):
+                # TODO: Does this support pos with some, but not all, Nones?
                 pos = obj.config.pos[:2]
 
             objects.append(obj)
@@ -717,9 +740,11 @@ class MjCambrianMazeStore:
 
         # Calculate all permutations
         object_locations = [
-            maze.cell_xy_to_rowcol(p).tolist() for p in maze.object_locations
+            maze.xy_to_rowcol(p).tolist() for p in maze.object_locations
         ]
         permutations = list(itertools.permutations(object_locations, len(positions)))
+        if _return_permutations:
+            return permutations
 
         # Get the current permutation
         idx = safe_index(permutations, tuple(positions), default=-1) + 1
@@ -747,3 +772,73 @@ class MjCambrianMazeStore:
                     obj.config.pos = [*pos, z]
 
         return maze
+
+    def select_maze_cycle_resets(self, env: MjCambrianMazeEnv, *, max_permutations_per_maze: Optional[int] = None, _return_permutations: bool = False) -> MjCambrianMaze:
+        """This selection function will cycle through all combinations of reset
+        positions in each maze.
+
+        Basically, it will cycle through each maze. And for each maze, it will set the
+        initial position of the agent such that all permutations of the placement of the
+        agent are covered.
+        """
+        # Current maze index
+        maze_idx: int = safe_index(self.maze_list, self._current_maze, default=0)
+        maze = self.maze_list[maze_idx]
+
+        # Get the current reset positions
+        animals: List[MjCambrianAnimal] = []
+        resets: List[np.ndarray] = []
+        for animal in env.animals.values():
+            pos = None
+            if animal.init_pos is not None and any(p for p in animal.init_pos[:2]):
+                # TODO: Does this support pos with some, but not all, Nones?
+                pos = maze.xy_to_rowcol(animal.init_pos[:2]).tolist()
+
+            animals.append(animal)
+            resets.append(pos)
+
+        # Calculate all permutations
+        reset_locations = [maze.xy_to_rowcol(p).tolist() for p in maze.reset_locations]
+        permutations = list(itertools.permutations(reset_locations, len(resets)))
+        if _return_permutations:
+            return permutations
+
+        # Get the current permutation
+        idx = safe_index(permutations, tuple(resets), default=-1) + 1
+        max_num_permutations = max_permutations_per_maze or len(resets)
+        if idx >= max_num_permutations:
+            # Reset the agent positions
+            for animal in animals:
+                animal.init_pos = None
+
+            # If we've reached the end of the permutations, move to the next maze
+            self._current_maze = self.maze_list[(maze_idx + 1) % len(self.maze_list)]
+            return self.select_maze_cycle_resets(
+                env, max_permutations_per_maze=max_permutations_per_maze
+            )
+
+        # Otherwise, update the agent position
+        permutation = permutations[idx]
+        for animal, pos in zip(animals, permutation):
+            if animal.init_pos is not None:
+                animal.init_pos[:2] = pos
+            else:
+                x, y = maze.rowcol_to_xy(pos)
+                animal.init_pos = [x, y]
+
+        return maze
+
+    def select_maze_cycle_objects_resets(self, env: MjCambrianMazeEnv, *, max_permutations_per_maze: Optional[int] = None) -> MjCambrianMaze:
+        """This selection function will cycle through all combinations of reset
+        positions and object positions in each maze.
+
+        Basically, it will cycle through each maze. And for each maze, it will set the
+        initial position of the agent and objects such that all permutations of the
+        placement of the agent and objects are covered.
+        """
+        reset_permutations = self.select_maze_cycle_resets(
+            env, max_permutations_per_maze=max_permutations_per_maze, _return_permutations=True
+        )
+        object_permutations = self.select_maze_cycle_objects(
+            env, max_permutations_per_maze=max_permutations_per_maze, _return_permutations=True
+        )

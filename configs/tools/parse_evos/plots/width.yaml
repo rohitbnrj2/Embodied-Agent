@@ -1,21 +1,21 @@
 width_vs_generation:
-  xdata:
+  x_data:
     type: GENERATION
-  ydata:
+  y_data:
     type: CONFIG
     pattern: env.animals.*.eyes.*.resolution[0]
     label: Width
 training_reward_vs_width:
-  xdata:
+  x_data:
     type: CONFIG
     pattern: env.animals.*.eyes.*.resolution[0]
     label: Width
-  ydata:
+  y_data:
     type: MONITOR
 fitness_vs_width:
-  xdata:
+  x_data:
     type: CONFIG
     pattern: env.animals.*.eyes.*.resolution[0]
     label: Width
-  ydata:
+  y_data:
     type: EVALUATION

@@ -35,6 +35,12 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
             of the environment and the model's output actions will be applied to the
             agent. If the animal is not trainable, the agent's policy can be defined
             by overriding the `get_action_privileged` method.
+        use_privileged_action (bool): This is similar to `trainable`, but the animal's
+            action and observation spaces is included in the environment's action
+            and observation spaces, respectively. This is useful for animals that
+            are trainable, but have some special logic that needs to be implemented
+            in the `get_action_privileged` method. `trainable` takes precedence over
+            this attribute, as in if `trainable` is False, this attribute is ignored.
 
         xml (MjCambrianXMLConfig): The xml for the animal. This is the xml that will be
             used to create the animal. You should use ${parent:xml} to generate
@@ -83,6 +89,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     instance: Callable[[Self, str, int], "MjCambrianAnimal"]
 
     trainable: bool
+    use_privileged_action: bool
 
     xml: MjCambrianXMLConfig
 
@@ -527,8 +534,12 @@ class MjCambrianAnimal:
         return self._init_pos
 
     @init_pos.setter
-    def init_pos(self, value: Tuple[float | None, float | None, float | None]):
+    def init_pos(self, value: Tuple[float | None, float | None, float | None] | None):
         """Sets the initial position of the animal."""
+        if value is None:
+            self._init_pos = [None] * 3
+            return
+
         for idx, val in enumerate(value):
             if val is not None:
                 self._init_pos[idx] = val
@@ -540,9 +551,14 @@ class MjCambrianAnimal:
 
     @init_quat.setter
     def init_quat(
-        self, value: Tuple[float | None, float | None, float | None, float | None]
+        self,
+        value: Tuple[float | None, float | None, float | None, float | None] | None,
     ):
         """Sets the initial quaternion of the animal."""
+        if value is None:
+            self._init_quat = [None] * 4
+            return
+
         for idx, val in enumerate(value):
             if val is not None:
                 self._init_quat[idx] = val

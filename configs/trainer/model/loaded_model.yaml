@@ -1,3 +1,5 @@
 _target_: cambrian.ml.model.MjCambrianModel.load
 _partial_: true
-path: '???' # Path to the model to load; set via command line
+
+# path to the model to load without .zip. this can be overridden by the command line.
+path: ${path:${expdir}, best_model}

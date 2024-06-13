@@ -1,7 +1,7 @@
 seed_vs_generation:
-  xdata:
+  x_data:
     type: GENERATION
-  ydata:
+  y_data:
     type: CONFIG
     pattern: seed
     label: Seed

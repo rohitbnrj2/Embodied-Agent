@@ -11,7 +11,7 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 
 from cambrian.envs import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.ml.model import MjCambrianModel
-from cambrian.utils import evaluate_policy, calculate_fitness
+from cambrian.utils import evaluate_policy, calculate_fitness_from_monitor
 from cambrian.utils.config import MjCambrianConfig, config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.wrappers import make_wrapped_env
 from cambrian.utils.logger import get_logger
@@ -68,11 +68,13 @@ class MjCambrianTrainer:
 
     def train(self) -> float:
         """Train the animal."""
+
         # Set to warn so we have something output to the error log
         self._logger.warning(f"Training the animal in {self._config.expdir}...")
 
         self._config.save(self._config.expdir / "config.yaml")
         self._config.pickle(self._config.expdir / "config.pkl")
+        self._config.save(self._config.expdir / "hydra_config.yaml", hydra_config=True)
 
         # Prune the experiment, if necessary
         if (prune_fn := self._config.trainer.prune_fn) and prune_fn(self._config):
@@ -105,12 +107,12 @@ class MjCambrianTrainer:
         Path(self._config.expdir / "finished").touch()
 
         # Calculate fitness
-        fitness = calculate_fitness(self._config.expdir / "evaluations.npz")
+        fitness = calculate_fitness_from_monitor(self._config.expdir / "monitor.csv")
         self._logger.info(f"Final Fitness: {fitness}")
 
         return fitness
 
-    def eval(self):
+    def eval(self) -> float:
         self._config.save(self._config.expdir / "eval_config.yaml")
 
         eval_env = self._make_env(self._config.eval_env, 1, monitor="eval_monitor.csv")
@@ -128,6 +130,12 @@ class MjCambrianTrainer:
             path=filename, save_mode=self._config.eval_env.renderer.save_mode
         )
         evaluate_policy(eval_env, model, n_runs, record_kwargs=record_kwargs)
+
+        # Calculate fitness
+        fitness = calculate_fitness_from_monitor(self._config.expdir / "eval_monitor.csv")
+        self._logger.info(f"Final Fitness: {fitness}")
+
+        return fitness
 
     # ========
 
@@ -201,6 +209,6 @@ if __name__ == "__main__":
         if train:
             return runner.train()
         elif eval:
-            runner.eval()
+            return runner.eval()
 
     run_hydra(main, parser=parser)

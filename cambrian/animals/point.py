@@ -9,6 +9,7 @@ from cambrian.animals import MjCambrianAnimal, MjCambrianAnimalConfig
 if TYPE_CHECKING:
     from cambrian.envs import MjCambrianEnv
     from cambrian.envs.maze_env import MjCambrianMazeEnv
+    from cambrian.envs.object_env import MjCambrianObjectEnv
 
 
 class MjCambrianPointAnimal(MjCambrianAnimal):
@@ -262,3 +263,39 @@ class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):
         # angle to make the movement.
         delta = np.interp(delta, [-np.pi, np.pi], [-1, 1])
         return [self._speed, np.clip(delta, -1, 1)]
+
+class MjCambrianPointAnimalGoalOptimal(MjCambrianPointAnimal):
+    """This is an animal which is non-trainable and defines a custom policy which
+    acts as an optimal agent in an environment with a goal. Given a goal position, it
+    will take the action that minimizes the distance to the goal."""
+
+    def __init__(
+        self,
+        config: MjCambrianAnimalConfig,
+        name: str,
+        idx: int,
+        *,
+        goal: str = "goal",
+        speed: float = 1.0,
+    ):
+        super().__init__(config, name, idx)
+
+        self._goal = goal
+        self._speed = speed
+
+    def get_action_privileged(self, env: "MjCambrianObjectEnv") -> List[float]:
+        goal_pos = env.objects[self._goal].pos[:2]
+
+        # Calculate the vector that minimizes the distance between the agent and the goal
+        goal_vector = goal_pos - self.pos[:2]
+
+        # Calculate the delta from the current angle to the angle that minimizes the
+        # distance
+        goal_theta = np.arctan2(goal_vector[1], goal_vector[0])
+        last_theta = self._calc_v_theta(self.last_action)[1]
+        delta = goal_theta - last_theta
+
+        # Set the action based on the vector calculated above. Add some noise to the
+        # angle to make the movement.
+        delta = np.interp(delta, [-np.pi, np.pi], [-1, 1])
+        return [self._speed, delta]

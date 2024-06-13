@@ -21,6 +21,7 @@ plots_folder: ${path:${output},plots}
 evals_folder: ${path:${output},evals}
 
 force: False
+force_plot: True
 no_save: False
 no_check_finished: False
 quiet: False

@@ -37,10 +37,10 @@ trainer:
 
 env:
   reward_fn:
-    euclidean_delta_to_objects:
+    reward_euclidean_delta_to_objects:
       _target_: cambrian.envs.reward_fns.euclidean_delta_to_objects
       _partial_: true
-      factor: 0.25
+      reward: 0.25
       objects: [goal_f2, goal_f4, goal_f8, goal_f20, goal_f40, goal_f60]
 
   objects:
@@ -126,7 +126,7 @@ eval_env:
 
 hydra:
   sweeper:
-    parametrization:
+    params:
       # Add the resolution of the eyes to the sweeper. This will optimize just the
       # width.
       env.animals.animal_0.eyes.eye.resolution.0:
@@ -138,10 +138,11 @@ hydra:
 
     # Add a cheap constraint to restrict the number of eyes generated to be
     # "anatomically feasible"
-    cheap_constraints:
-      - _target_: cambrian.ml.constraint_fns.nevergrad_constraint_fn
-        _partial_: true
-        fn: cambrian.ml.constraint_fns.constrain_anatomically_feasible_eyes
-        num_lon_eyes_to_generate: env.animals.animal_0.num_eyes_to_generate.1
-        width: env.animals.animal_0.eyes.eye.resolution.0
-        lon_range: ${env.animals.animal_0.eyes_lon_range}
+    optim:
+      cheap_constraints:
+          - _target_: cambrian.ml.constraint_fns.nevergrad_constraint_fn
+            _partial_: true
+            fn: cambrian.ml.constraint_fns.constrain_anatomically_feasible_eyes
+            num_lon_eyes_to_generate: env.animals.animal_0.num_eyes_to_generate.1
+            width: env.animals.animal_0.eyes.eye.resolution.0
+            lon_range: ${env.animals.animal_0.eyes_lon_range}

@@ -33,7 +33,7 @@ env:
 
 hydra:
   sweeper:
-    parametrization:
+    params:
       env.animals.animal_0.eyes.eye_0.aperture:
         init: 1.0
         lower: 0.001

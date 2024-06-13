@@ -6,7 +6,7 @@ defaults:
 
 hydra:
   sweeper:
-    parametrization:
+    params:
       # Add the resolution of the eyes to the sweeper
       env.animals.animal_0.eyes.eye.resolution.0:
         init: 1

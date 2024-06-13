@@ -6,6 +6,7 @@ import contextlib
 import ast
 import re
 import torch
+import csv
 
 import mujoco as mj
 import numpy as np
@@ -57,7 +58,7 @@ def evaluate_policy(
 
         if done:
             get_logger().info(
-                f"Run {run} done. Cumulative reward: {cambrian_env.cumulative_reward}"
+                f"Run {run} done. Cumulative reward: {cambrian_env.stashed_cumulative_reward}"
             )
 
             if not done_callback(run):
@@ -75,7 +76,9 @@ def evaluate_policy(
         cambrian_env.record = False
 
 
-def calculate_fitness(evaluations_npz: Path) -> float:
+def calculate_fitness_from_evaluations(
+    evaluations_npz: Path, *, return_data: bool = False
+) -> float | Tuple[float, np.ndarray]:
     """Calculate the fitness of the animal. This is done by taking the 3rd quartile of
     the evaluation rewards."""
     # Return negative infinity if the evaluations file doesn't exist
@@ -92,10 +95,58 @@ def calculate_fitness(evaluations_npz: Path) -> float:
     # evaluation run and each column represents the rewards for each evaluation step.
     # We may run multiple steps of the same or slightly different environment to reduce
     # variance. We will average the rewards across each row to get the final rewards.
-    rewards = np.load(evaluations_npz)["results"]
+    evaluations = parse_evaluations_npz(evaluations_npz)
+    rewards = evaluations["results"]
     rewards = np.mean(rewards, axis=1)
 
+    if return_data:
+        return top_25_excluding_outliers(rewards), evaluations
     return top_25_excluding_outliers(rewards)
+
+
+def calculate_fitness_from_monitor(
+    monitor_csv: Path, *, return_data: bool = False
+) -> float | Tuple[float, Tuple[np.ndarray, np.ndarray]]:
+    """Calculate the fitness of the animal. Uses the 3rd quartile of the cumulative
+    monitor rewards."""
+    timesteps, rewards = parse_monitor_csv(monitor_csv)
+
+    if len(rewards) == 0:
+        return -float("inf")
+
+    if return_data:
+        return np.percentile(rewards, 75), (timesteps, rewards)
+    return np.percentile(rewards, 75)
+
+
+def moving_average(values, window, mode="valid"):
+    weights = np.repeat(1.0, window) / window
+    return np.convolve(values, weights, mode=mode)
+
+
+def parse_evaluations_npz(evaluations_npz: Path) -> Dict[str, np.ndarray]:
+    """Parse the evaluations npz file and return the rewards."""
+    assert (
+        evaluations_npz.exists()
+    ), f"Evaluations file {evaluations_npz} does not exist."
+    data = np.load(evaluations_npz)
+    return {k: data[k] for k in data}
+
+
+def parse_monitor_csv(monitor_csv: Path) -> Tuple[np.ndarray, np.ndarray]:
+    """Parse the monitor csv file and return the timesteps and rewards."""
+    assert monitor_csv.exists(), f"Monitor file {monitor_csv} does not exist."
+    timesteps, rewards = [], []
+    with open(monitor_csv, "r") as f:
+        # Skip the comment line
+        f.readline()
+
+        csv_reader = csv.DictReader(f)
+        for row in csv_reader:
+            timesteps.append(float(row["t"]))
+            rewards.append(float(row["r"]))
+
+    return np.array(timesteps), np.array(rewards)
 
 
 # =============
@@ -150,6 +201,7 @@ def is_number(maybe_num: Any) -> bool:
     from numbers import Number
 
     return isinstance(maybe_num, Number)
+
 
 def is_integer(maybe_int: Any):
     return isinstance(maybe_int, int) or np.all(np.mod(maybe_int, 1) == 0)

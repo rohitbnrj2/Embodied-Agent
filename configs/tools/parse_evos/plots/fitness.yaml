@@ -1,10 +1,10 @@
 fitness_vs_generation:
-  xdata:
+  x_data:
     type: GENERATION
-  ydata:
+  y_data:
     type: EVALUATION
 fitness_vs_training_reward:
-  xdata:
+  x_data:
     type: MONITOR
-  ydata:
+  y_data:
     type: EVALUATION
