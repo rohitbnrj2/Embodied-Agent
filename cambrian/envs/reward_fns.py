@@ -242,8 +242,8 @@ def reward_if_objects_in_view(
     from_animals: Optional[List[str]] = None,
     to_objects: Optional[List[str]] = None,
     for_animals: Optional[List[str]] = None,
-    hfov: float = 45,
     scale_by_distance: bool = False,
+    hfov: Optional[float] = None,
 ) -> float:
     """This reward function rewards the animal if it is in the view of other animals.
 
@@ -261,10 +261,11 @@ def reward_if_objects_in_view(
         for_animals (Optional[List[str]]): The names of the animals that the reward
             should be calculated for. If None, the reward will be calculated for all
             animals.
-        hfov (float): The horizontal fov to check whether the to object is within view
-            of the from animal. Default is 45. This is in degrees.
         scale_by_distance (bool): Whether to scale the reward by the distance between
             the animals. Default is False.
+        hfov (float): The horizontal fov to check whether the to object is within view
+            of the from animal. This is in degrees. If unset, will check the horizontal
+            fov for all eyes of the animal.
     """
     # Early exit if the animal is not in the from_animals list
     if for_animals is not None and animal.name not in for_animals:
@@ -276,14 +277,35 @@ def reward_if_objects_in_view(
     for from_animal in [env.animals[name] for name in from_animals]:
         for to_object in [env.objects[name] for name in to_objects]:
             # Check if the to_object is in view of the from_animal
-            in_view = check_in_view(
-                env.model,
-                env.data,
-                from_animal,
-                to_object.pos,
-                to_object.geomid,
-                hfov=hfov,
-            )
+            in_view = False
+            if hfov is None:
+                for eye in from_animal.eyes.values():
+                    hfov, _ = eye.config.fov
+                    yaw = np.arctan2(eye.mat[1, 0], eye.mat[0, 0])
+                    if check_in_view(
+                        env.model,
+                        env.data,
+                        eye.pos,
+                        yaw,
+                        to_object.pos,
+                        to_object.geomid,
+                        hfov=hfov,
+                        geomgroup_mask=animal.geomgroup_mask,
+                    ):
+                        in_view = True
+                        break
+            else:
+                yaw = np.arctan2(animal.mat[1, 0], animal.mat[0, 0])
+                in_view = check_in_view(
+                    env.model,
+                    env.data,
+                    animal.pos,
+                    yaw,
+                    to_object.pos,
+                    to_object.geomid,
+                    hfov=hfov,
+                    geomgroup_mask=animal.geomgroup_mask,
+                )
 
             # Add the reward to the accumulated reward. It may be scaled by the distance
             # if scale_by_distance is True, but only if the object is in view.
@@ -317,20 +339,21 @@ def combined_reward(
     truncated: bool,
     info: Dict[str, Any],
     *,
-    exclusive_fn: Optional[str] = None,
+    exclusive_fns: List[str] = [],
     **reward_fns,
 ) -> float:
     """Combines multiple reward functions into one.
     
     Keyword Args:
-        exclusive_fn (Optional[str]): If provided, only the reward function with this
-            name will be used if it's non-zero. Defaults to None.
+        exclusive_fns (Optional[List[str]]): If provided, only the reward functions
+            with this name will be used if it's non-zero. As in, in order, the first
+            function to return a non-zero reward will be returned.
     """
     accumulated_reward = 0
     for name, fn in reward_fns.items():
         reward = fn(env, animal, terminated, truncated, info)
 
-        if exclusive_fn is not None and name == exclusive_fn and reward != 0:
+        if name in exclusive_fns and reward != 0:
             return reward
         accumulated_reward += reward
     return accumulated_reward
@@ -362,15 +385,17 @@ def check_if_larger(p1: np.ndarray, p2: np.ndarray, point: np.ndarray = np.array
 def check_in_view(
     model: mj.MjModel,
     data: mj.MjData,
-    animal: MjCambrianAnimal,
+    from_pos: np.ndarray,
+    from_yaw: float,
     to_pos: np.ndarray,
     to_geomid: int,
     hfov: float = 45,
+    geomgroup_mask: int = 0,
 ) -> bool:
     """Checks if the to_pos is in the field of view of the animal."""
-    vec = to_pos - animal.pos
-    yaw = np.arctan2(animal.mat[1, 0], animal.mat[0, 0])
-    relative_yaw = np.arctan2(vec[1], vec[0]) - yaw
+    vec = to_pos - from_pos
+    relative_yaw = np.arctan2(vec[1], vec[0]) - from_yaw - np.pi / 2
+    relative_yaw = (relative_yaw + np.pi) % (2 * np.pi) - np.pi
 
     # Early exit if the to_pos isn't within view of the from_pos
     if np.abs(relative_yaw) > np.deg2rad(hfov) / 2:
@@ -381,9 +406,9 @@ def check_in_view(
     mj.mj_ray(
         model,
         data,
-        animal.pos,
+        from_pos,
         vec,
-        animal.geomgroup_mask,  # mask out this animal to avoid self-collision
+        geomgroup_mask,  # can use to mask out animals to avoid self-collision
         1,  # include static geometries
         -1,  # include all bodies
         geomid,

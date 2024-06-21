@@ -15,6 +15,8 @@ from stable_baselines3.common.callbacks import (
     ProgressBarCallback,
 )
 from stable_baselines3.common.results_plotter import load_results, ts2xy
+from hydra.experimental.callbacks import Callback as HydraCallback
+from omegaconf import DictConfig
 
 from cambrian.envs import MjCambrianEnv
 from cambrian.ml.model import MjCambrianModel
@@ -311,3 +313,17 @@ class MjCambrianCallbackListWithSharedParent(CallbackList):
     def parent(self, parent):
         for cb in self.callbacks:
             cb.parent = parent
+
+# ==================
+
+class MjCambrianSaveConfigCallback(HydraCallback):
+    """This callback will save the resolved hydra config to the logdir."""
+
+    def on_run_start(self, config: DictConfig):
+        self._save_config(config)
+
+    def on_multirun_start(self, config: DictConfig):
+        self._save_config(config)
+
+    def _save_config(self, config: DictConfig):
+        pass

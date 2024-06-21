@@ -1,8 +1,11 @@
 # @package _global_
 
+# This task includes a goal and adversary. The goal and adversary are solid colors
+# (green and red, respectively).
+
 defaults:
   # Use one maze for the time being
-  - /env/mazes/SQUARE_OPEN@env.mazes.SQUARE_OPEN
+  - /env/mazes/OPEN@env.mazes.OPEN
 
   # Adds two objects to the environment: a goal and an adversarial object
   - /env/objects@env.objects.goal: goal
@@ -18,64 +21,28 @@ defaults:
 
 env:
   reward_fn:
-    exclusive_fn: reward_if_close_to_goal
-
     constant_penalty:
       _target_: cambrian.envs.reward_fns.constant_reward
       _partial_: true
       reward: -0.1
 
-    # The agent is rewarded if it is close to the goal
     reward_euclidean_delta_to_goal:
       _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_objects
       _partial_: true
-      factor: 1.0
+      factor: 0.25
       objects: [goal]
-      only_best: true
-      min_delta_threshold: 0.0 # don't give negative reward if the agent is moving away
-
-    reward_if_close_to_goal:
-      _target_: cambrian.envs.reward_fns.reward_if_close_to_object
-      _partial_: true
-      reward: 1.0
-      objects: [goal]
-
-    penalize_if_close_to_adversary:
-      _target_: cambrian.envs.reward_fns.reward_if_close_to_object
-      _partial_: true
-      reward: -1.0
-      objects: [adversary]
-
-    # The agent is penalized if it is close to the adversary
-    penalize_euclidean_delta_to_adversary:
-      _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_objects
-      _partial_: true
-      factor: -1.0
-      objects: [adversary]
-      max_delta_threshold: 0.0 # don't give positive reward if the agent is moving away
-
-    penalize_if_has_contacts:
-      _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
-      _partial_: true
-      penalty: -1.0
 
   truncation_fn:
-    truncate_if_low_reward:
-      _target_: cambrian.envs.truncation_fns.truncate_if_low_reward
-      _partial_: true
-      threshold: -50.0
-
-    # Truncate (i.e. fail) if the agent is too close to the adversary
     truncate_if_close_to_adversary:
       _target_: cambrian.envs.truncation_fns.truncate_if_close_to_object
       _partial_: true
       objects: [adversary]
       distance_threshold: 2.0
     
-  # termination_fn:
-  #   # Terminate (i.e. succeed) if the agent is close to the goal
-  #   terminate_if_close_to_goal:
-  #     _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
-  #     _partial_: true
-  #     objects: [goal]
-  #     distance_threshold: 1.0
+  termination_fn:
+    # Terminate (i.e. succeed) if the agent is close to the goal
+    terminate_if_close_to_goal:
+      _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
+      _partial_: true
+      objects: [goal]
+      distance_threshold: 2.0

@@ -162,7 +162,7 @@ iterating through all the permutations of the grid search. Please refer to
 for more detailed information and specific override syntax support.
 
 > [!WARNING]
-> By default, sweep's will write to the same `logs` directory since they all share
+> By default, sweeps will write to the same `logs` directory since they all share
 > the same experiment name. Ensure you set `expname` to a value which utilizes a sweep
 > parameter to differentiate between runs, e.g. 
 > `expname=<EXPNAME>_\${param1}_\${param2}`.

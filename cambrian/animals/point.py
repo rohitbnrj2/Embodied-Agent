@@ -26,8 +26,6 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
 
     TODO: Will create an issue on mujoco and see if it's possible to implement this
     in xml.
-
-    NOTE: The action obs is still the global velocities and rotational position.
     """
 
     def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
@@ -85,6 +83,53 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
             2 * (value[0] * value[3] + value[1] * value[2]),
             1 - 2 * (value[2] ** 2 + value[3] ** 2),
         )
+
+class MjCambrianPointVelocityAnimal(MjCambrianAnimal):
+    """
+    This is a hardcoded class which implements the animal as actuated by a forward
+    velocity and a rotational velocity. This is similar to MjCambrianPointAnimal, 
+    but uses a rotational velocity rather than rotational position."""
+
+    def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
+        """Creates the entire obs dict."""
+        obs = super()._update_obs(obs)
+
+        # Update the action obs
+        # Calculate the global velocities
+        if self._config.use_action_obs:
+            vx, vy, omega = self.last_action
+            v = np.hypot(vx, vy)
+            obs["action"] = np.array([v, omega], dtype=np.float32)
+
+        return obs
+
+    def _calc_v_theta(self, action: Tuple[float, float, float]) -> Tuple[float, float]:
+        """Calculates the v and theta from the action."""
+        vx, vy, theta = action
+        v = np.hypot(vx, vy)
+        theta = np.arctan2(vy, vx) - self.qpos[2]
+        return v, theta
+
+    def apply_action(self, action: List[float]):
+        """This differs from the base implementation as action only has two elements,
+        but the model has three actuators. Calculate the global velocities here."""
+        assert len(action) == 2, f"Action must have two elements, got {len(action)}."
+
+        # map the v action to be between 0 and 1
+        v = (action[0] + 1) / 2
+
+        # Calculate the global velocities
+        # NOTE: The third actuator is the hinge joint which defines the theta
+        theta = self._data.qpos[self._actuators[2].trnadr]
+        new_action = [v * np.cos(theta), v * np.sin(theta), action[1]]
+
+        # Call the base implementation with the new action
+        super().apply_action(new_action)
+
+    @property
+    def action_space(self) -> spaces.Space:
+        """Overrides the base implementation to only have two elements."""
+        return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
 
 
 class MjCambrianPointAnimalPredator(MjCambrianPointAnimal):

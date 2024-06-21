@@ -596,7 +596,7 @@ class MjCambrianAnimal:
         NOTE: the returned value, if edited, doesn't not directly impact the simulation.
         To set the position of the animal, use the `pos` setter.
         """
-        return self._data.xpos[self._body_id]
+        return self._data.xpos[self._body_id].copy()
 
     @pos.setter
     def pos(self, value: Tuple[float | None, float | None, float | None]):

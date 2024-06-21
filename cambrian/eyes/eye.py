@@ -74,6 +74,7 @@ class MjCambrianEye(Generic[T]):
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
         self._prev_obs: np.ndarray = None
+        self._fixedcamid = -1
 
         self._renderer = MjCambrianRenderer(self._config.renderer)
 
@@ -163,10 +164,10 @@ class MjCambrianEye(Generic[T]):
 
         self._renderer.reset(model, data, *self._config.resolution)
 
-        fixedcamid = get_camera_id(model, self._name)
-        assert fixedcamid != -1, f"Camera '{self._name}' not found."
+        self._fixedcamid = get_camera_id(model, self._name)
+        assert self._fixedcamid != -1, f"Camera '{self._name}' not found."
         self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
-        self._renderer.viewer.camera.fixedcamid = fixedcamid
+        self._renderer.viewer.camera.fixedcamid = self._fixedcamid
 
         self._prev_obs = np.zeros(self.observation_space.shape, dtype=np.float32)
 
@@ -214,3 +215,11 @@ class MjCambrianEye(Generic[T]):
     def prev_obs(self) -> np.ndarray:
         """The last observation returned by `self.render()`."""
         return self._prev_obs
+
+    @property
+    def pos(self) -> np.ndarray:
+        return self._data.cam_xpos[self._fixedcamid].copy()
+
+    @property
+    def mat(self) -> np.ndarray:
+        return self._data.cam_xmat[self._fixedcamid].reshape(3, 3).copy()

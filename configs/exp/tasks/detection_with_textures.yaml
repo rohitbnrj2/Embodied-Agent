@@ -1,0 +1,28 @@
+# @package _global_
+
+# This task includes a goal and adversary. The goal and adversary are textured. The
+# derived config must sent `custom.frequency` to the frequency of the texture
+# that should be applied to the objects. By default, the textures are synchronized 
+# between the goal and adversary, but this can be overridden by setting 
+# env.objects.<object name>.custom.frequency directly for each object.
+
+defaults:
+  # Adds two objects to the environment: a goal and an adversarial object
+  - /env/objects@env.objects.goal: textured_goal
+  - /env/objects@env.objects.adversary: textured_adversary
+
+  - /exp/tasks/detection@_here_
+
+custom:
+  # The frequency of each textured object is shared for this task. You must set
+  # custom.frequency in the derived config
+  frequency: '???'
+
+env:
+  objects:
+    goal:
+      custom:
+        frequency: ${custom.frequency}
+    adversary:
+      custom:
+        frequency: ${custom.frequency}

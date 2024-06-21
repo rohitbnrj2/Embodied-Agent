@@ -22,6 +22,7 @@ xml:
                     - material:
                           - name: ${parent:xml}_mat
                           - texture: "${parent:xml}_tex"
+                          - emission: 2
                     - material:
                           - name: ${parent:xml}_top_mat
                           # Grabs the rgba from the custom field of the object

@@ -1,0 +1,22 @@
+# @package custom.default.animal
+# We aren't actually going to use this animal, so store it in the special attr `custom` which isn't read
+
+defaults:
+  - animal@_here_
+
+instance:
+  _target_: cambrian.animals.point.MjCambrianPointVelocityAnimal
+  _partial_: true
+
+xml:
+  _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse
+  _convert_: all
+  xml_string: ${read:${path:models,animals,point_velocity.xml}}
+  
+
+body_name: "point_${parent:}"
+joint_name: "ball_x_${parent:}"
+geom_name: "point_geom_${parent:}"
+
+eyes_lat_range: [-5, 5]
+eyes_lon_range: [-60, 60]
