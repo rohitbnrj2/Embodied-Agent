@@ -1,0 +1,13 @@
+# @package _global_
+
+defaults:
+  - /exp/brain_capacity/navigation_brain_capacity_mlp@_here_
+
+trainer:
+  # Set the policy kwargs here to use smaller number of parameters
+  model:
+    policy_kwargs:
+      features_extractor_kwargs:
+        output_dim: 512
+        image_extractor:
+          architecture: [128, 256]

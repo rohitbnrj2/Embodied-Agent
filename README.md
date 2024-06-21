@@ -172,6 +172,28 @@ for more detailed information and specific override syntax support.
 > be very slow for large sweeps. For more advanced sweeps, consider using optimization
 > via `scripts/evo.sh` ([see above](#running-evo)).
 
+### Resuming a Failed Sweep
+
+> [!NOTE]
+> This is only implemented for the nevergrad sweeper.
+
+To resume a failed sweep for the nevergrad sweeper, you simply need to rerun your 
+experiment. The nevergrad resuming logic is handled in hydra and enabled via the
+`optim.load_if_exists` parameter in the config. This will load the optimizer state
+from the last checkpoint and continue the optimization. 
+
+Keep in mind that the default path nevergrad will look for a optimizer pickle to load
+is at `<logdir>/nevergrad.pkl`. If you're resuming an evolutionary run launched on a
+different day, you may need to either:
+
+1. Copy the failed evolutionary logdir to a new log directory matching the logdir
+pattern for that day (recommended).
+2. Change the logdir to the previous day 
+(i.e. `... logdir=logs/<old date>/${expname}`).
+3. Change the optimizer path in the config to point to the correct path. This may cause
+issues down the line with the `parse_evos.py` script since the output log directory is
+in two places.
+
 ## Other things
 
 ### Introspection into the Configs

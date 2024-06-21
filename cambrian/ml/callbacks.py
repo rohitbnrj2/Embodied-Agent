@@ -319,11 +319,13 @@ class MjCambrianCallbackListWithSharedParent(CallbackList):
 class MjCambrianSaveConfigCallback(HydraCallback):
     """This callback will save the resolved hydra config to the logdir."""
 
-    def on_run_start(self, config: DictConfig):
+    def on_run_start(self, config: DictConfig, **kwargs):
         self._save_config(config)
 
-    def on_multirun_start(self, config: DictConfig):
+    def on_multirun_start(self, config: DictConfig, **kwargs):
         self._save_config(config)
 
     def _save_config(self, config: DictConfig):
-        pass
+        from omegaconf import OmegaConf
+        config.logdir.mkdir(parents=True, exist_ok=True)
+        OmegaConf.save(config, config.logdir / "full.yaml")

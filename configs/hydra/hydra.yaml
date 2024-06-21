@@ -3,6 +3,7 @@
 defaults:
   - callbacks:
       - log_job_return_callback
+      - save_config_callback
   - override job_logging: basic
 
 run:

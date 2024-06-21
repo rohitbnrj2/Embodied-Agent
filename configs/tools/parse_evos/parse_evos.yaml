@@ -28,6 +28,8 @@ no_check_finished: False
 quiet: False
 debug: False
 
+plots_to_ignore: []
+
 plot: False
 plot_nevergrad: False
 eval: False

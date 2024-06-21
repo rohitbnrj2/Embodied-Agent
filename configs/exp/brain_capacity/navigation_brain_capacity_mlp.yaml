@@ -1,0 +1,73 @@
+# @package _global_
+
+defaults:
+  - /exp/tasks/navigation_with_goal@_here_
+
+trainer:
+  # low number of timesteps to speed up the sweep
+  total_timesteps: 300_000
+
+  # Must specify these parameters in derived configs
+  model:
+    policy_kwargs:
+      features_extractor_kwargs:
+        output_dim: "???"
+        image_extractor:
+          architecture: "???" 
+
+env:
+  animals:
+    animal_0:
+      # Up the ctrl range to make the environment more difficult
+      xml:
+        overrides:
+          - mujoco:
+              - actuator:
+                  - velocity:
+                      - name: "act_x_${parent:xml}"
+                      - ctrlrange: "-100.0 100.0"
+                  - velocity:
+                      - name: "act_y_${parent:xml}"
+                      - ctrlrange: "-100.0 100.0"
+
+      num_eyes_to_generate: [1, 10]
+
+      # The eyes can be placed anywhere anywhere from -90 to 90 degrees
+      eyes_lon_range: [-90, 90]
+
+      eyes:
+        # Each eye while will have a resolution of 1x1 and a field of view of 10x10
+        eye:
+          resolution: [1, 1]
+          fov: [10, 10]
+
+hydra:
+  sweeper:
+    params:
+      # Just evolve the longitudinal number of eyes for now, i.e. flatland
+      env.animals.animal_0.num_eyes_to_generate.1:
+        init: 1
+        lower: 1
+        upper: 100
+        step: 10
+        integer: true
+      # Add the resolution (width only) of the eyes to the sweeper
+      env.animals.animal_0.eyes.eye.resolution.0:
+        init: 1
+        lower: 1
+        upper: 100
+        step: 10
+        integer: true
+    
+    # Add a cheap constraint to restrict the number of eyes generated to be
+    # "morphologically feasible"
+    optim:
+      cheap_constraints:
+            - _target_: cambrian.ml.constraint_fns.nevergrad_constraint_fn
+              _partial_: true
+              fn: cambrian.ml.constraint_fns.constrain_morphologically_feasible_eyes
+              num_lon_eyes_to_generate: env.animals.animal_0.num_eyes_to_generate.1
+              width: env.animals.animal_0.eyes.eye.resolution.0
+              lon_range: ${env.animals.animal_0.eyes_lon_range}
+
+

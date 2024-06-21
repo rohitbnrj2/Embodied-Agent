@@ -19,3 +19,15 @@ fitness_vs_resolution:
     label: Resolution
   y_data:
     type: EVALUATION
+resolution_vs_generation_vs_training_reward_color:
+  x_data:
+    type: GENERATION
+  y_data:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.resolution[0]
+    label: Resolution
+  color_data:
+    type: MONITOR
+  line_data:
+    - _target_: custom_line_fns.average_line
+      _partial_: True

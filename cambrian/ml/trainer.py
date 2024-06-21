@@ -74,7 +74,6 @@ class MjCambrianTrainer:
 
         self._config.save(self._config.expdir / "config.yaml")
         self._config.pickle(self._config.expdir / "config.pkl")
-        self._config.save(self._config.expdir / "hydra_config.yaml", hydra_config=True)
 
         # Prune the experiment, if necessary
         if (prune_fn := self._config.trainer.prune_fn) and prune_fn(self._config):

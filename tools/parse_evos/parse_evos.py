@@ -203,6 +203,7 @@ class ParseEvosConfig(MjCambrianBaseConfig):
             are used.
         plots_mask (Optional[List[str]]): The plots to create. If not passed, all are
             created.
+        plots_to_ignore (List[str]): Plots to ignore.
 
         plot (bool): Plot the data.
         plot_nevergrad (bool): During evolution, if nevergrad is used, a `nevergrad.log`
@@ -231,6 +232,7 @@ class ParseEvosConfig(MjCambrianBaseConfig):
     ranks: Optional[List[int]] = None
     generations: Optional[List[int]] = None
     plots_mask: Optional[List[str]] = None
+    plots_to_ignore: List[str]
 
     plot: bool
     plot_nevergrad: bool
@@ -743,6 +745,9 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                 if config.plots_mask is not None and plot_name not in config.plots_mask:
                     get_logger().debug(f"Skipping plot {plot_name}.")
                     continue
+                elif plot_name in config.plots_to_ignore:
+                    get_logger().debug(f"Skipping plot {plot_name}.")
+                    continue
 
                 try:
                     x_data, y_data, z_data, color_data, size_data = parse_plot_data(
@@ -753,7 +758,14 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                         title = f" {plot.title}" if plot.title else ""
                         get_logger().debug(f"Ignoring plot{title}: {e}")
                         continue
-                    raise ValueError(f"Error parsing plot {plot_name}: {e}")
+                    elif config.debug:
+                        raise ValueError(f"Error parsing plot {plot_name}: {e}")
+                    else:
+                        get_logger().warning(f"Couldn't parse plot {plot_name}: {e}")
+                        get_logger().warning(f"Ignoring this plot in the future.")
+                        with config.set_readonly_temporarily(False):
+                            config.plots_to_ignore = [*config.plots_to_ignore, plot_name]
+                        continue
 
                 x_data, xlabel = x_data
                 y_data, ylabel = y_data
@@ -789,7 +801,7 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
 
 def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | int]):
     # Filter the plots
-    plots = config.plots
+    plots = {n: d for n, d in config.plots.items() if n not in config.plots_to_ignore}
     if config.plots_mask is not None:
         plots = {n: d for n, d in plots.items() if n in config.plots_mask}
 

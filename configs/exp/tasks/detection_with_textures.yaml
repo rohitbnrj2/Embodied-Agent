@@ -7,11 +7,11 @@
 # env.objects.<object name>.custom.frequency directly for each object.
 
 defaults:
-  # Adds two objects to the environment: a goal and an adversarial object
-  - /env/objects@env.objects.goal: textured_goal
-  - /env/objects@env.objects.adversary: textured_adversary
-
   - /exp/tasks/detection@_here_
+
+  # Adds two objects to the environment: a goal and an adversarial object
+  - override /env/objects@env.objects.goal: textured_goal
+  - override /env/objects@env.objects.adversary: textured_adversary
 
 custom:
   # The frequency of each textured object is shared for this task. You must set
