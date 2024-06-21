@@ -76,11 +76,11 @@ hydra:
 
     optim:
       # Add a cheap constraint to restrict the number of eyes generated to be
-      # "anatomically feasible"
+      # "morphologically feasible"
       cheap_constraints:
         - _target_: cambrian.ml.constraint_fns.nevergrad_constraint_fn
           _partial_: true
-          fn: cambrian.ml.constraint_fns.constrain_anatomically_feasible_eyes
+          fn: cambrian.ml.constraint_fns.constrain_morphologically_feasible_eyes
           num_lon_eyes_to_generate: env.animals.animal_0.num_eyes_to_generate.1
           width: env.animals.animal_0.eyes.eye.resolution.0
           lon_range: ${env.animals.animal_0.eyes_lon_range}

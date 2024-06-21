@@ -8,10 +8,11 @@ defaults:
     - fov
     - nn_output_layer_size
     - number_of_eyes
-    - width
+    - resolution
     - placement
     - fitness
     - training_reward
+    - aperture
 
   - _self_
 
@@ -28,6 +29,7 @@ quiet: False
 debug: False
 
 plot: False
+plot_nevergrad: False
 eval: False
 
 dry_run: False

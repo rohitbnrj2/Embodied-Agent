@@ -12,7 +12,7 @@ This file works as follows:
     available data. This is useful for visualizing the evolution of the population.
 """
 
-from typing import Dict, Optional, Any, List, Tuple, TypeAlias, Callable, Self
+from typing import Dict, Optional, Any, List, Tuple, Callable, Self, Concatenate
 from pathlib import Path
 import os
 from dataclasses import field
@@ -42,22 +42,8 @@ from cambrian.utils.config import (
     config_wrapper,
 )
 
-# =======================================================
-
-Color: TypeAlias = List[Tuple[float, float, float, float]] | List[float]
-Size: TypeAlias = List[float]
-
-ParsedAxisData: TypeAlias = Tuple[np.ndarray | float | int, str]
-ParsedColorData: TypeAlias = Tuple[Color, str]
-ParsedSizeData: TypeAlias = Tuple[Size, str]
-ParsedPlotData: TypeAlias = Tuple[
-    ParsedAxisData,
-    ParsedAxisData,
-    ParsedAxisData | None,
-    ParsedColorData,
-    ParsedSizeData,
-]
-ExtractedData: TypeAlias = Tuple[np.ndarray | None]
+from parse_types import ParsedAxisData, ParsedColorData, ParsedPlotData, Color
+from utils import extract_data
 
 # =======================================================
 # Dataclasses
@@ -143,6 +129,7 @@ class ColorType(Enum):
     GENERATION = "generation"
     RANK = "rank"
     MONITOR = "monitor"
+    EVALUATION = "evaluation"
 
 
 @config_wrapper
@@ -187,9 +174,9 @@ class PlotData:
     z_data: Optional[AxisData] = None
     color_data: ColorData = ColorData()
     size_data: SizeData = SizeData()
+    line_data: List[Callable[[Concatenate[plt.Axes, ...]], bool]] = field(default_factory=list)
 
     title: Optional[str] = None
-    use_average_line: Optional[bool] = None
 
 
 @config_wrapper
@@ -214,6 +201,8 @@ class ParseEvosConfig(MjCambrianBaseConfig):
             used.
         generations (Optional[List[int]]): The generation to use. If not passed, all
             are used.
+        plots_mask (Optional[List[str]]): The plots to create. If not passed, all are
+            created.
 
         plot (bool): Plot the data.
         plot_nevergrad (bool): During evolution, if nevergrad is used, a `nevergrad.log`
@@ -241,6 +230,7 @@ class ParseEvosConfig(MjCambrianBaseConfig):
 
     ranks: Optional[List[int]] = None
     generations: Optional[List[int]] = None
+    plots_mask: Optional[List[str]] = None
 
     plot: bool
     plot_nevergrad: bool
@@ -462,6 +452,8 @@ def get_color_label(color_data: ColorData | None) -> str:
         label = "Rank"
     elif color_data.type is ColorType.MONITOR:
         label = "Training Reward"
+    elif color_data.type is ColorType.EVALUATION:
+        label = "Fitness"
     else:
         raise ValueError(f"Unknown color type {color_data.type}.")
     return color_data.label or label if color_data is not None else label
@@ -491,6 +483,8 @@ def parse_color_data(
         color = rank_data.num
     elif color_data.type is ColorType.MONITOR:
         color = rank_data.train_fitness
+    elif color_data.type is ColorType.EVALUATION:
+        color = rank_data.eval_fitness
     else:
         raise ValueError(f"Unknown color type {color_data.type}.")
 
@@ -546,63 +540,6 @@ def parse_plot_data(
     color = parse_color_data(plot_data.color_data, data, generation_data, rank_data)
     size = parse_size_data(plot_data.size_data, data, generation_data, rank_data)
     return x_data, y_data, z_data, color, size
-
-
-def extract_data(
-    ax: plt.Axes,
-    *,
-    return_data: bool = False,
-    return_color: bool = False,
-    return_size: bool = False,
-) -> ExtractedData:
-    """Extracts the data from a figure."""
-    assert (
-        return_data or return_color or return_size
-    ), "At least one return value is required."
-    return_values = []
-
-    if return_data:
-        x_data, y_data, z_data = [], [], []
-        for collection in ax.collections:
-            offset: np.ndarray = collection.get_offsets()
-            if offset.shape[-1] == 2:
-                x, y = offset.T
-                x_data.append(x)
-                y_data.append(y)
-            else:
-                x, y, z = offset.T
-                x_data.append(x)
-                y_data.append(y)
-                z_data.append(z)
-        x_data, y_data = np.array(x_data), np.array(y_data)
-        z_data = None if not z_data else np.array(z_data)
-
-        return_values.extend([x_data, y_data, z_data])
-
-    if return_color:
-        c_data = []
-        for collection in ax.collections:
-            c = collection.get_array()
-            c_data.append(c)
-        c_data = np.array(c_data)
-
-        # All the colors are None if the color is set to a solid color (i.e. SOLID)
-        # We'll return None in that case
-        if np.all([c is None for c in c_data]):
-            c_data = None
-
-        return_values.append(c_data)
-
-    if return_size:
-        s_data = []
-        for collection in ax.collections:
-            s = collection.get_sizes()
-            s_data.append(s)
-        s_data = np.array(s_data)
-
-        return_values.append(s_data)
-
-    return tuple(return_values) if len(return_values) > 1 else return_values[0]
 
 
 # =======================================================
@@ -687,6 +624,52 @@ def adjust_points(
     for scatter, size in zip(ax.collections, sizes):
         scatter.set_sizes(size)
 
+def add_lines(ax: plt.Axes, plot_data: PlotData):
+    for line_fn in plot_data.line_data:
+        line_fn(ax)
+
+def add_legend(
+    ax: plt.Axes,
+    plot_data: PlotData,
+    points: np.ndarray,
+    sizes: np.ndarray,
+    colors: np.ndarray,
+):
+    """Add a legend to the plot. The legend title will say 'Selected Agent' and if the
+    sizes are different between the points, the legend will show 3 examples
+    (min, mean, max)."""
+
+    size_data = plot_data.size_data
+    label = get_size_label(size_data)
+    if plot_data.size_data.normalize and sizes.min() != sizes.max():
+        # The sizes are really values, and they are scaled separately in adjust_points
+        # We'll rescale the sizes again here for the legend, and set the label to
+        # reflect the original value.
+        original_sizes = sizes.copy()
+        sizes = (sizes - sizes.min()) / (sizes.max() - sizes.min())
+        sizes = size_data.size_min + sizes * (size_data.size_max - size_data.size_min)
+        sizes /= size_data.size_min / 2  # TODO: Why do we have to do this line?
+
+        def calc_value(s):
+            """Get's the original value from the size"""
+            s = s * size_data.size_min / 2
+            norm_value = (s - size_data.size_min) / (
+                size_data.size_max - size_data.size_min
+            )
+            unscaled_value = (
+                norm_value * (original_sizes.max() - original_sizes.min())
+                + original_sizes.min()
+            )
+            return unscaled_value
+
+        scatter = ax.scatter(*points.T, s=sizes, c=colors)
+        num = [int(calc_value(s)) for s in [sizes.min(), sizes.mean(), sizes.max()]]
+        legend_items = scatter.legend_elements(prop="sizes", num=num, func=calc_value)
+        ax.legend(*legend_items, title=label)
+        scatter.remove()  # remove the scatter plot so it doesn't show up in the plot
+
+    ax.legend()
+
 
 def add_colorbar(
     color_data: ColorData | None,
@@ -731,68 +714,6 @@ def add_colorbar(
         cbar.ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
 
-def add_legend(
-    ax: plt.Axes,
-    plot_data: PlotData,
-    points: np.ndarray,
-    sizes: np.ndarray,
-    colors: np.ndarray,
-):
-    """Add a legend to the plot. The legend title will say 'Selected Agent' and if the
-    sizes are different between the points, the legend will show 3 examples
-    (min, mean, max)."""
-
-    size_data = plot_data.size_data
-    label = get_size_label(size_data)
-    if plot_data.size_data.normalize and sizes.min() != sizes.max():
-        # The sizes are really values, and they are scaled separately in adjust_points
-        # We'll rescale the sizes again here for the legend, and set the label to
-        # reflect the original value.
-        original_sizes = sizes.copy()
-        sizes = (sizes - sizes.min()) / (sizes.max() - sizes.min())
-        sizes = size_data.size_min + sizes * (size_data.size_max - size_data.size_min)
-        sizes /= size_data.size_min / 2  # TODO: Why do we have to do this line?
-
-        def calc_value(s):
-            """Get's the original value from the size"""
-            s = s * size_data.size_min / 2
-            norm_value = (s - size_data.size_min) / (
-                size_data.size_max - size_data.size_min
-            )
-            unscaled_value = (
-                norm_value * (original_sizes.max() - original_sizes.min())
-                + original_sizes.min()
-            )
-            return unscaled_value
-
-        scatter = ax.scatter(*points.T, s=sizes, c=colors)
-        num = [int(calc_value(s)) for s in [sizes.min(), sizes.mean(), sizes.max()]]
-        legend_items = scatter.legend_elements(prop="sizes", num=num, func=calc_value)
-        ax.legend(*legend_items, title=label)
-        scatter.remove()  # remove the scatter plot so it doesn't show up in the plot
-
-
-def plot_average_line(ax: plt.Axes):
-    """Extracts the data from a figure and plots the average line along with
-    the standard deviation. NOTE: does not support 3d"""
-
-    # Extract the data from the plot
-    x_data, y_data, z_data = extract_data(ax, return_data=True)
-    assert z_data is None, "Average line does not support 3d plots."
-
-    # Calculates the average y value for each unique x value
-    x, y, y_std = [], [], []
-    for unique_x in np.unique(x_data):
-        x.append(unique_x)
-        y.append(np.average(y_data[x_data == unique_x]))
-        y_std.append(np.std(y_data[x_data == unique_x]))
-    x, y, y_std = np.array(x), np.array(y), np.array(y_std)
-
-    # Plot the data
-    plt.plot(x, y, "C0-", alpha=0.5)
-    plt.fill_between(x, y - y_std, y + y_std, alpha=0.2, facecolor="C0")
-
-
 def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
     get_logger().info("Plotting data...")
 
@@ -819,6 +740,10 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
             get_logger().info(f"\tPlotting rank {rank}...")
 
             for plot_name, plot in config.plots.items():
+                if config.plots_mask is not None and plot_name not in config.plots_mask:
+                    get_logger().debug(f"Skipping plot {plot_name}.")
+                    continue
+
                 try:
                     x_data, y_data, z_data, color_data, size_data = parse_plot_data(
                         plot, data, generation_data, rank_data
@@ -826,7 +751,7 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                 except AssertionError as e:
                     if rank_data.ignored:
                         title = f" {plot.title}" if plot.title else ""
-                        get_logger().debug(f"Skipping plot{title}: {e}")
+                        get_logger().debug(f"Ignoring plot{title}: {e}")
                         continue
                     raise ValueError(f"Error parsing plot {plot_name}: {e}")
 
@@ -863,10 +788,15 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
 
 
 def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | int]):
+    # Filter the plots
+    plots = config.plots
+    if config.plots_mask is not None:
+        plots = {n: d for n, d in plots.items() if n in config.plots_mask}
+
     # Now save the plots
-    assert len(figures) == len(config.plots), "Number of figures does not match plots."
+    assert len(figures) == len(plots), "Num of figures does not match num of plots."
     progress_bar = tqdm.tqdm(total=len(figures), desc="Saving...", disable=config.debug)
-    for (plot_name, plot_data), fig in zip(config.plots.items(), figures):
+    for (plot_name, plot_data), fig in zip(plots.items(), figures):
         progress_bar.update(1)
 
         if isinstance(fig, int):
@@ -899,9 +829,8 @@ def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | in
             # Adjust the points, if necessary
             adjust_points(plot_data.size_data, ax, sizes, points, colors)
 
-            # Plot the average line
-            if plot_data.use_average_line:
-                plot_average_line(ax)
+            # Plot the lines
+            add_lines(ax, plot_data)
 
             # Add a legend entry for the blue circles
             add_legend(ax, plot_data, points, sizes, colors)

@@ -1,12 +1,12 @@
 # @package _global_
 
-# The goal of this experiment is to determine the effect of the environment as it 
+# The goal of this experiment is to determine the effect of the environment as it
 # relates to the number of eyes and the resolution of each eye. In this specific exp,
 # the task is navigation. The intuition here is that high acuity vision isn't going to
 # be required since it's just navigation, but the number of eyes is directly related
 # to the agent's ability to detect optic flow and navigate. To implement a trade-off
 # between the number of eyes and the resolution of each eye, we use a cheap constraint
-# which constrains the overall area which the eyes can cover. Adding a pixel will 
+# which constrains the overall area which the eyes can cover. Adding a pixel will
 # increase the size of all eyes and adding an eye will essentially increase the total
 # area of all eyes by the number of pixels.
 
@@ -72,14 +72,14 @@ hydra:
         upper: 100
         step: 10
         integer: true
-    
+
     # Add a cheap constraint to restrict the number of eyes generated to be
-    # "anatomically feasible"
+    # "morphologically feasible"
     optim:
       cheap_constraints:
-            - _target_: cambrian.ml.constraint_fns.nevergrad_constraint_fn
-              _partial_: true
-              fn: cambrian.ml.constraint_fns.constrain_anatomically_feasible_eyes
-              num_lon_eyes_to_generate: env.animals.animal_0.num_eyes_to_generate.1
-              width: env.animals.animal_0.eyes.eye.resolution.0
-              lon_range: ${env.animals.animal_0.eyes_lon_range}
+        - _target_: cambrian.ml.constraint_fns.nevergrad_constraint_fn
+          _partial_: true
+          fn: cambrian.ml.constraint_fns.constrain_morphologically_feasible_eyes
+          num_lon_eyes_to_generate: env.animals.animal_0.num_eyes_to_generate.1
+          width: env.animals.animal_0.eyes.eye.resolution.0
+          lon_range: ${env.animals.animal_0.eyes_lon_range}

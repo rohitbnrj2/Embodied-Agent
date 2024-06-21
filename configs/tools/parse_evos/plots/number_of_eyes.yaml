@@ -22,10 +22,12 @@ number_of_eyes_vs_generation_vs_training_reward_color:
       src: math.prod(num_eyes_to_generate[0])
       patterns:
         num_eyes_to_generate: env.animals.*.num_eyes_to_generate
-  use_average_line: True
   color_data:
     type: MONITOR
-number_of_eyes_vs_geneeration_vs_training_reward_size_vs_generation_color:
+  line_data:
+    - _target_: custom_line_fns.average_line
+      _partial_: True
+number_of_eyes_vs_generation_vs_training_reward_size_vs_generation_color:
   x_data:
     type: GENERATION
   y_data:
@@ -42,7 +44,7 @@ number_of_eyes_vs_geneeration_vs_training_reward_size_vs_generation_color:
   color_data:
     type: GENERATION
     cmap: magma
-width_vs_number_of_eyes:
+resolution_vs_number_of_eyes:
   x_data:
     type: CUSTOM
     label: Number of Eyes
@@ -55,8 +57,8 @@ width_vs_number_of_eyes:
   y_data:
     type: CONFIG
     pattern: env.animals.*.eyes.*.resolution[0]
-    label: Width
-width_vs_number_of_eyes_vs_generation_color:
+    label: Resolution
+resolution_vs_number_of_eyes_vs_generation_color:
   x_data:
     type: CUSTOM
     label: Number of Eyes
@@ -69,11 +71,11 @@ width_vs_number_of_eyes_vs_generation_color:
   y_data:
     type: CONFIG
     pattern: env.animals.*.eyes.*.resolution[0]
-    label: Width
+    label: Resolution
   color_data:
     type: GENERATION
     cmap: viridis
-width_vs_number_of_eyes_vs_training_reward_color_vs_generation_size:
+resolution_vs_number_of_eyes_vs_training_reward_color_vs_generation_size:
   x_data:
     type: CUSTOM
     label: Number of Eyes
@@ -86,13 +88,13 @@ width_vs_number_of_eyes_vs_training_reward_color_vs_generation_size:
   y_data:
     type: CONFIG
     pattern: env.animals.*.eyes.*.resolution[0]
-    label: Width
+    label: Resolution
   color_data:
     type: MONITOR
     cmap: magma
   size_data:
     type: GENERATION
-width_vs_number_of_eyes_vs_training_reward_color:
+resolution_vs_number_of_eyes_vs_training_reward_color:
   x_data:
     type: CUSTOM
     label: Number of Eyes
@@ -105,9 +107,35 @@ width_vs_number_of_eyes_vs_training_reward_color:
   y_data:
     type: CONFIG
     pattern: env.animals.*.eyes.*.resolution[0]
-    label: Width
+    label: Resolution
   color_data:
     type: MONITOR
+    cmap: RdYlGn
+  line_data:
+    - _target_: custom_line_fns.num_eyes_and_resolution_constraint
+      _partial_: True
+      lon_range: [-90, 90]
+resolution_vs_number_of_eyes_vs_fitness_color:
+  x_data:
+    type: CUSTOM
+    label: Number of Eyes
+    custom_fn:
+      _target_: custom_axis_fns.eval_safe
+      _partial_: True
+      src: math.prod(num_eyes_to_generate[0])
+      patterns:
+        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+  y_data:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.resolution[0]
+    label: Resolution
+  color_data:
+    type: EVALUATION
+    cmap: RdYlGn
+  line_data:
+    - _target_: custom_line_fns.num_eyes_and_resolution_constraint
+      _partial_: True
+      lon_range: [-90, 90]
 training_reward_vs_number_of_eyes:
   x_data:
     type: CUSTOM
@@ -147,3 +175,20 @@ fitness_vs_number_of_eyes:
         num_eyes_to_generate: env.animals.*.num_eyes_to_generate
   y_data:
     type: EVALUATION
+number_of_eyes_vs_fov0_vs_training_reward_color:
+  x_data:
+    type: CUSTOM
+    label: Number of Eyes
+    custom_fn:
+      _target_: custom_axis_fns.eval_safe
+      _partial_: True
+      src: math.prod(num_eyes_to_generate[0])
+      patterns:
+        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+  y_data:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.fov[0]
+    label: FOV
+  color_data:
+    type: MONITOR
+    cmap: RdYlGn
