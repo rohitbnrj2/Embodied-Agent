@@ -116,7 +116,9 @@ class MjCambrianTrainer:
 
         eval_env = self._make_env(self._config.eval_env, 1, monitor="eval_monitor.csv")
         model = self._make_model(eval_env)
-        # model = model.load(self._config.expdir / "best_model")
+        if (self._config.expdir / "best_model.zip").exists():
+            self._logger.info("Loading best model...")
+            model = model.load(self._config.expdir / "best_model")
 
         # Save the eval environments xml
         xml_path = self._config.expdir / "eval_env.xml"

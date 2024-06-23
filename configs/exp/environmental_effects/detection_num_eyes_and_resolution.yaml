@@ -52,8 +52,12 @@ env:
 
       eyes:
         # Each eye while will have a resolution of 1x1 and a field of view of 10x10
+        # Set the vertical resolution to equal the horizontal resolution for debugging
+        # purposes.
         eye:
-          resolution: [1, 1]
+          resolution: 
+            - 1
+            - ${.0}
           fov: [40, 40]
 
 hydra:
