@@ -13,6 +13,7 @@ defaults:
     - fitness
     - training_reward
     - aperture
+    - tree
 
   - _self_
 
@@ -30,8 +31,11 @@ debug: False
 
 plots_to_ignore: []
 
+load_nevergrad: ${.plot_nevergrad}
+
 plot: False
 plot_nevergrad: False
+plot_phylogenetic_tree: False
 eval: False
 
 dry_run: False

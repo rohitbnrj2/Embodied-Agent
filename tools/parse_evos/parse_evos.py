@@ -17,6 +17,7 @@ from pathlib import Path
 import os
 from dataclasses import field
 from enum import Enum
+from functools import partial
 
 import cloudpickle as pickle
 import tqdm.rich as tqdm
@@ -34,6 +35,7 @@ from cambrian.utils import (
     moving_average,
     calculate_fitness_from_monitor,
 )
+from cambrian.utils.config.utils import clean_key
 from cambrian.utils.logger import get_logger
 from cambrian.utils.config import (
     MjCambrianBaseConfig,
@@ -65,6 +67,9 @@ class Rank:
     eval_fitness: Optional[float] = None
     monitor: Optional[Dict[str, Any]] = None
     train_fitness: Optional[float] = None
+
+    parent_rank: Optional[int] = None
+    parent_generation: Optional[int] = None
 
     # Defauls to True
     ignored: bool = True
@@ -174,7 +179,9 @@ class PlotData:
     z_data: Optional[AxisData] = None
     color_data: ColorData = ColorData()
     size_data: SizeData = SizeData()
-    line_data: List[Callable[[Concatenate[plt.Axes, ...]], bool]] = field(default_factory=list)
+    line_data: List[Callable[[Concatenate[plt.Axes, ...]], bool]] = field(
+        default_factory=list
+    )
 
     title: Optional[str] = None
 
@@ -202,19 +209,23 @@ class ParseEvosConfig(MjCambrianBaseConfig):
         generations (Optional[List[int]]): The generation to use. If not passed, all
             are used.
         plots_mask (Optional[List[str]]): The plots to create. If not passed, all are
-            created.
-        plots_to_ignore (List[str]): Plots to ignore.
+            created. This is the name of the plot to mask (i.e. use).
+        plots_to_ignore (List[str]): Plots to ignore. This is the name of the plot to
+            ignore.
+
+        load_nevergrad (bool): Load nevergrad data.
 
         plot (bool): Plot the data.
         plot_nevergrad (bool): During evolution, if nevergrad is used, a `nevergrad.log`
             file might be saved which contains evolution information. We can load it
-            and plot it if this is true.
+            and plot it if this is true. Sets `load_nevergrad` to True.
+        plot_phylogenetic_tree (bool): Plot the phylogenetic tree.
         eval (bool): Evaluate the data.
-
-        dry_run (bool): Dry run.
 
         plots (Dict[str, PlotData]): The plots to create.
         overrides (List[str]): Overrides for the config.
+
+        dry_run (bool): Dry run.
     """
 
     folder: Path
@@ -234,14 +245,17 @@ class ParseEvosConfig(MjCambrianBaseConfig):
     plots_mask: Optional[List[str]] = None
     plots_to_ignore: List[str]
 
+    load_nevergrad: bool
+
     plot: bool
     plot_nevergrad: bool
+    plot_phylogenetic_tree: bool
     eval: bool
-
-    dry_run: bool
 
     plots: Dict[str, PlotData]
     overrides: List[str]
+
+    dry_run: bool
 
 
 # =======================================================
@@ -333,6 +347,44 @@ def load_data(config: ParseEvosConfig) -> Data:
     # Convert the overrides to a list
     overrides = config.overrides.to_container()
 
+    # If we're loading nevergrad data, we do that here to store the parent rank and
+    # generation
+    if config.load_nevergrad:
+        import nevergrad as ng
+
+        if not (nevergrad_log := config.folder / "nevergrad.log").exists():
+            raise FileNotFoundError(f"Nevergrad log file {nevergrad_log} not found.")
+
+        parameters_logger = ng.callbacks.ParametersLogger(nevergrad_log)
+        loaded_parameters = parameters_logger.load()
+
+        # By default, the nevergrad loader loads the data in a way that best works for
+        # hiplot, restructure the data so it's easier for us to use.
+        uid_to_rank_and_generation: Dict[str, Tuple[int, int]] = {}
+        rank_and_generation_to_uid: Dict[Tuple[int, int], str] = {}
+        uid_to_parent_uid: Dict[str, str] = {}
+        for param in loaded_parameters:
+            if len(param["#parents_uids"]) != 1:
+                continue
+
+            uid = param["#uid"]
+            parent_uid = param["#parents_uids"][0]
+            generation = param["#generation"]
+            rank = param["#num-tell"] % int(param["#num-ask"] // generation)
+
+            uid_to_rank_and_generation[uid] = (rank, generation)
+            rank_and_generation_to_uid[(rank, generation)] = uid
+            uid_to_parent_uid[uid] = parent_uid
+
+        def get_parent_rank_and_generation(
+            rank: int, generation: int
+        ) -> Tuple[int, int]:
+            if (rank, generation) not in rank_and_generation_to_uid:
+                return (-1, -1)
+            uid = rank_and_generation_to_uid[(rank, generation)]
+            parent_uid = uid_to_parent_uid[uid]
+            return uid_to_rank_and_generation.get(parent_uid, (-1, -1))
+
     # Walk through each generation/rank and parse the config, evaluations and monitor
     # data
     for generation, generation_data in data.generations.items():
@@ -384,6 +436,13 @@ def load_data(config: ParseEvosConfig) -> Data:
                     rank_data.train_fitness,
                     rank_data.monitor,
                 ) = calculate_fitness_from_monitor(monitor_file, return_data=True)
+
+            # If we're loading nevergrad data, we do that here to store the parent rank
+            # and generation
+            if config.load_nevergrad:
+                rank_data.parent_rank, rank_data.parent_generation = (
+                    get_parent_rank_and_generation(rank, generation)
+                )
 
             # Set ignored to False
             rank_data.ignored = False
@@ -626,9 +685,11 @@ def adjust_points(
     for scatter, size in zip(ax.collections, sizes):
         scatter.set_sizes(size)
 
+
 def add_lines(ax: plt.Axes, plot_data: PlotData):
     for line_fn in plot_data.line_data:
         line_fn(ax)
+
 
 def add_legend(
     ax: plt.Axes,
@@ -764,7 +825,10 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                         get_logger().warning(f"Couldn't parse plot {plot_name}: {e}")
                         get_logger().warning(f"Ignoring this plot in the future.")
                         with config.set_readonly_temporarily(False):
-                            config.plots_to_ignore = [*config.plots_to_ignore, plot_name]
+                            config.plots_to_ignore = [
+                                *config.plots_to_ignore,
+                                plot_name,
+                            ]
                         continue
 
                 x_data, xlabel = x_data
@@ -890,21 +954,279 @@ def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | in
 # =======================================================
 
 def plot_nevergrad(config: ParseEvosConfig, data: Data):
-    import hiplot
-    import nevergrad as ng
+    try:
+        import hiplot
+        import nevergrad as ng
+    except ImportError:
+        get_logger().error(
+            "Could not import hiplot or nevergrad. Please run "
+            "`pip install hiplot nevergrad`."
+        )
+        return
 
     get_logger().info("Plotting nevergrad...")
 
-    # Load the nevergrad log file. We'll load it and convert it to a 
-    # hiplot experiment. HiPlot is a package from Meta which helps 
+    # Load the nevergrad log file. We'll load it and convert it to a
+    # hiplot experiment. HiPlot is a package from Meta which helps
     # visualize hyperparameter optimization experiments.
     if not (nevergrad_log := config.folder / "nevergrad.log").exists():
         get_logger().error(f"Nevergrad log file {nevergrad_log} not found.")
         return
 
+    # Generate the nevergrad html file for offline viewing.
     parameters_logger = ng.callbacks.ParametersLogger(nevergrad_log)
     exp: hiplot.Experiment = parameters_logger.to_hiplot_experiment()
-    exp.to_html(config.plots_folder / "nevergrad.html")
+    try:
+        exp.to_html(config.plots_folder / "nevergrad.html")
+    except hiplot.ExperimentValidationMissingParent as e:
+        get_logger().warning(f"Error generating nevergrad html: {e}")
+
+# =======================================================
+
+def plot_phylogenetic_tree(config: ParseEvosConfig, data: Data):
+    try:
+        import ete3 as ete
+    except ImportError:
+        get_logger().error(
+            "Could not import ete3. Please run `pip install ete3 pyqt5`."
+        )
+        return
+    import os
+
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
+
+    get_logger().info("Plotting phylogenetic tree...")
+
+    def add_node(
+        nodes: Dict[str, ete.Tree],
+        *,
+        rank_data: Rank,
+        generation_data: Generation,
+        pattern: str,
+    ):
+        rank = rank_data.num
+        generation = generation_data.num
+
+        if generation_data.ignored:
+            return
+
+        # Define a unique identifier for each rank
+        rank_id = f"G{generation}_R{rank}"
+        if rank_id in nodes:
+            return
+
+        # Get the parent identifier
+        if not (config := rank_data.config):
+            get_logger().debug(f"Skipping rank {rank_id} because it has no config.")
+            return
+        if not (evaluations := rank_data.evaluations):
+            get_logger().debug(
+                f"Skipping rank {rank_id} because it has no evaluations."
+            )
+            return
+
+        # If this is the first generation, the parent is set to the root
+        if generation == 0 or rank_data.parent_rank == -1:
+            parent_id = "root"
+        else:
+            parent_id = f"G{rank_data.parent_generation}_R{rank_data.parent_rank}"
+
+            if parent_id not in nodes:
+                parent_generation_data = data.generations[rank_data.parent_generation]
+                parent_rank_data = parent_generation_data.ranks[rank_data.parent_rank]
+                add_node(
+                    nodes,
+                    rank_data=parent_rank_data,
+                    generation_data=parent_generation_data,
+                    pattern=pattern,
+                )
+
+        # Create the rank node under the parent node
+        parent = nodes[parent_id]
+        node = parent.add_child(name=rank_id)
+        nodes[rank_id] = node
+
+        # Add features for the ranks and generations
+        node.add_feature("rank", rank)
+        node.add_feature("generation", generation)
+        if generation != 0:
+            node.add_feature("parent_rank", rank_data.parent_rank)
+            node.add_feature("parent_generation", rank_data.parent_generation)
+        else:
+            node.add_feature("parent_rank", -1)
+            node.add_feature("parent_generation", -1)
+
+        # Add evaluations to the node
+        key = "mean_results" if "mean_results" in evaluations else "results"
+        node.add_feature("fitness", np.max(evaluations[key]))
+
+        # Add a text label and feature for the pattern
+        globbed_data = config.glob(pattern, flatten=True)
+        for key, value in globbed_data.items():
+            if isinstance(value, list):
+                value = np.average(value).astype(type(value[0]))
+
+            node.add_feature(key, value)
+
+    def build_tree(pattern: Optional[str] = None) -> ete.Tree:
+        tree = ete.Tree()
+        tree.name = "root"
+
+        # Dictionary to keep track of created nodes
+        nodes = {"root": tree}
+
+        # Iterate through the generations and ranks
+        for generation_data in data.generations.values():
+            if generation_data.num < 2:
+                # Generations < 2 don't have any parents in nevergrad
+                continue
+            elif generation_data.ignored:
+                continue
+            elif (
+                config.generations is not None
+                and generation_data.num not in config.generations
+            ):
+                continue
+
+            for rank_data in generation_data.ranks.values():
+                if rank_data.ignored:
+                    continue
+                elif config.ranks is not None and rank_data.num not in config.ranks:
+                    continue
+
+                add_node(
+                    nodes,
+                    rank_data=rank_data,
+                    generation_data=generation_data,
+                    pattern=pattern,
+                )
+
+        return tree
+
+    def style_node(
+        node: ete.Tree,
+        *,
+        style_feature_key: str,
+        value_threshold: Optional[float] = None,
+        value_range: Optional[Tuple[float, float]] = None,
+        color: Optional[str] = None,
+        color_range: Optional[Tuple[str, str]] = None,
+    ):
+        # We'll color the node and the recursive ancestors to highlight good values
+        # The horizontal lines which directly lead to the best value are bolded and
+        # highlighted red. Horizontal lines which are children of the optimal path but
+        # not the best value are highlighted red. The vertical lines are just
+        # highlighted red.
+        feature_value = getattr(node, style_feature_key)
+        assert value_threshold is None or value_range is None
+
+        # If the feature value is less than the threshold, don't style the node
+        if value_threshold and feature_value < value_threshold:
+            return
+
+        assert color is None or color_range is None
+        if color_range:
+            assert value_range is not None
+            assert value_range[0] <= feature_value <= value_range[1]
+
+            # Interpolate the color between the color range
+            # The color range is defined as hex strings
+            def hex_to_rgb(hex_str: str):
+                return tuple(int(hex_str[i : i + 2], 16) for i in (0, 2, 4))
+
+            def rgb_to_hex(rgb: Tuple[int, int, int]):
+                return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+
+            color_range = [hex_to_rgb(color) for color in color_range]
+            t = np.interp(feature_value, value_range, [0, 1])
+            color = tuple(int(c0 + (c1 - c0) * t) for c0, c1 in zip(*color_range))
+            color = rgb_to_hex(color)
+
+        # Create the node style
+        path_style = ete.NodeStyle()
+        path_style["fgcolor"] = color
+        path_style["hz_line_color"] = color
+        path_style["hz_line_width"] = 4
+
+        # Set the node style
+        current_node = node
+        while current_node.up:
+            current_node.set_style(path_style)
+            current_node = current_node.up
+
+    def layout(
+        node: ete.Tree,
+        feature_key: str,
+        *,
+        style_kwargs: Optional[Dict[str, Any]] = None,
+    ):
+        if node.name == "root":
+            return
+
+        # Add a text annotation to each node
+        feature_value = getattr(node, feature_key)
+        text_face = ete.TextFace(feature_value, bold=True)
+        node.add_face(text_face, column=0, position="branch-right")
+
+        # Set the node distance. Each node distance is set such that each generation
+        # is at the same distance from the root
+        node.dist = getattr(node, "generation") - getattr(node, "parent_generation")
+        node.dist -= text_face.get_bounding_rect().width() / 25
+        node.dist = max(node.dist, 0)
+
+        # Update the node style, if desired
+        if style_kwargs is not None:
+            style_node(node, **style_kwargs)
+
+    # Get the parameterization properties from the first parameter
+    patterns: Dict[str, str] = {"generation": "evo.generation.num"}
+    for maybe_param in next(iter(loaded_parameters)).keys():
+        if "#" not in maybe_param:
+            cleaned_key = clean_key(maybe_param)
+            patterns[cleaned_key] = maybe_param
+
+    # Loop through the patterns and create a tree for each
+    for feature_key, pattern in patterns.items():
+        # Build the tree
+        # We'll add features/data to be used in the visualization later
+        get_logger().info(f"Creating phylogenetic tree for feature {feature_key}...")
+        tree = build_tree(pattern).copy("deepcopy")
+
+        # Sort the descendants of the tree by the feature key
+        tree.sort_descendants(feature_key)
+        tree.ladderize()
+
+        # Get the max value for the feature key
+        style_feature_key = "fitness"
+        values = [getattr(node, style_feature_key) for node in tree.iter_leaves()]
+        threshold = np.max(values)
+        style_kwargs = dict(
+            style_feature_key=style_feature_key,
+            value_threshold=threshold,
+            color="#ff0000",
+        )
+        layout_fn = partial(
+            layout,
+            feature_key=feature_key,
+            style_kwargs=style_kwargs,
+        )
+
+        # Create the visualization
+        tree_style = ete.treeview.TreeStyle()
+        tree_style.show_leaf_name = False
+        tree_style.layout_fn = layout_fn
+        # tree_style.mode = "c"
+        tree_style.arc_start = -180
+        tree_style.arc_span = 180
+        tree_style.title.add_face(
+            ete.TextFace(f"Phylogenetic Tree for {feature_key}", fsize=20), column=0
+        )
+        tree.render(
+            str(config.folder / f"phylogenetic_tree_{feature_key}.png"),
+            dpi=500,
+            tree_style=tree_style,
+        )
+
 
 # =======================================================
 
@@ -971,6 +1293,8 @@ def main(config: ParseEvosConfig):
         update_plots_and_save(config, figs)
     if config.plot_nevergrad:
         plot_nevergrad(config, data)
+    if config.plot_phylogenetic_tree:
+        plot_phylogenetic_tree(config, data)
     if config.eval:
         run_eval(config, data)
 

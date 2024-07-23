@@ -122,6 +122,10 @@ def run_hydra(
 
 # ===========
 
+def clean_key(key: str):
+    pattern = re.compile(r'(\w+)(?:\[\d+\]|\.\d+)?$')
+    match = pattern.search(key)
+    return match.group(1) if match else None
 
 def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
     """This resolver will glob a key in the config. This is useful for finding all keys
@@ -168,14 +172,14 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
         # and see if the key exists in the config as is.
         # NOTE: this is done after the recursive globbing in case the the key is found
         # earlier
-        for clean_key in re.sub(r"^\((.*)\)$", r"\1", current_key).split("|"):
-            if clean_key in result:
+        for cleaned_key in re.sub(r"^\((.*)\)$", r"\1", current_key).split("|"):
+            if cleaned_key in result:
                 continue
 
-            if sub_value := OmegaConf.select(config, clean_key):
+            if sub_value := OmegaConf.select(config, cleaned_key):
                 # remove the brackets from the key
-                clean_key = re.sub(r"^\((.*)\)$", r"\1", clean_key)
-                result[clean_key] = recursive_glob(sub_value, keys[1:])
+                cleaned_key = re.sub(r"^\((.*)\)$", r"\1", cleaned_key)
+                result[cleaned_key] = recursive_glob(sub_value, keys[1:])
 
         return result
 

@@ -1,0 +1,14 @@
+# @package _global_
+
+# NOTE: This assumes the exp only has one animal
+
+defaults:
+  - /AnimalShowcaseConfig
+
+  - _self_
+
+exp: "???"
+
+overrides:
+  - "env.add_overlays=False"
+  - "env/renderer=tracking"
