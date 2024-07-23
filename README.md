@@ -147,9 +147,9 @@ parameters, you can run the following:
 
 ```bash
 # If running on a slurm-enabled cluster
-sbatch scripts/<CLUSTER>.sh scripts/trainer.sh exp=<EXPERIMENT> <SWEEP_PARAMS> --multirun
+sbatch scripts/<CLUSTER>.sh scripts/train.sh exp=<EXPERIMENT> <SWEEP_PARAMS> --multirun
 # If running locally
-bash scripts/local.sh scripts/trainer.sh exp=<EXPERIMENT> <SWEEP_PARAMS> --multirun
+bash scripts/local.sh scripts/train.sh exp=<EXPERIMENT> <SWEEP_PARAMS> --multirun
 ```
 
 Running on a cluster can aid in parallelizing the training process. And note the 
@@ -159,7 +159,9 @@ The simplest way to specify sweep params is via a comma separated list, e.g.
 `... param1=1,2,3 param2='[1,2],[3,4]'`. The previous example will run six total runs, 
 iterating through all the permutations of the grid search. Please refer to 
 [Hydra's sweeper documentation](https://hydra.cc/docs/1.0/tutorials/basic/running_your_app/multi-run/#internaldocs-banner)
-for more detailed information and specific override syntax support.
+for more detailed information and specific override syntax support. To use 
+interpolations within the sweep, you must specify each interpolation prefixed with `\$`,
+as in `expname=<EXPNAME>_\${param1}_\${param2}`.
 
 > [!WARNING]
 > By default, sweeps will write to the same `logs` directory since they all share
