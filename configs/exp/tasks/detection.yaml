@@ -28,10 +28,10 @@ trainer:
 
 env:
   reward_fn:
-    constant_penalty:
-      _target_: cambrian.envs.reward_fns.constant_reward
-      _partial_: true
-      reward: -0.1
+    # constant_penalty:
+    #   _target_: cambrian.envs.reward_fns.constant_reward
+    #   _partial_: true
+    #   reward: -0.1
 
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
@@ -41,8 +41,18 @@ env:
     reward_euclidean_delta_to_goal:
       _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_objects
       _partial_: true
-      factor: 0.25
+      factor: 1.0
       objects: [goal]
+
+    reward_for_termination:
+      _target_: cambrian.envs.reward_fns.reward_for_termination
+      _partial_: true
+      reward: 2.0
+
+    reward_for_truncation:
+      _target_: cambrian.envs.reward_fns.reward_for_truncation
+      _partial_: true
+      reward: -2.0
 
   truncation_fn:
     truncate_if_close_to_adversary:

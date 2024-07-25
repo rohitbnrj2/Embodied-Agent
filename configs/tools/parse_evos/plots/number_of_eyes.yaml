@@ -280,6 +280,33 @@ resolution_vs_number_of_eyes_vs_fitness_color:
         _target_: custom_plot_fns.num_eyes_and_resolution_constraint
         _partial_: True
         lon_range: [-90, 90]
+resolution_vs_number_of_eyes_vs_fitness_color_vs_fitness_size:
+  x_data:
+    type: CUSTOM
+    label: Number of Eyes
+    custom_fn:
+      _target_: custom_axis_fns.eval_safe
+      _partial_: True
+      src: math.prod(num_eyes_to_generate[0])
+      patterns:
+        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+  y_data:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.resolution[0]
+    label: Resolution
+  color_data:
+    type: EVALUATION
+    cmap: RdYlGn
+  custom_fns:
+    - type: GLOBAL
+      fn:
+        _target_: custom_plot_fns.num_eyes_and_resolution_constraint
+        _partial_: True
+        lon_range: [-90, 90]
+  size_data:
+    type: EVALUATION
+    label: Fitness
+  add_legend: True
 training_reward_vs_number_of_eyes:
   x_data:
     type: CUSTOM

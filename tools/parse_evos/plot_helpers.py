@@ -8,8 +8,16 @@ from matplotlib.ticker import MaxNLocator
 
 from cambrian.utils import is_integer
 
-from parse_types import ParsedAxisData, PlotData, SizeData, ColorData, CustomPlotFnType, SizeType
+from parse_types import (
+    ParsedAxisData,
+    PlotData,
+    SizeData,
+    ColorData,
+    CustomPlotFnType,
+    SizeType,
+)
 from parse_helpers import get_size_label, get_color_label
+
 
 def plot_helper(
     x_data: ParsedAxisData,
@@ -141,7 +149,10 @@ def add_legend(
         if len(np.unique(sizes)) < 3:
             num = [int(calc_value(s)) for s in [sizes.min(), sizes.max()]]
         else:
-            num = [int(calc_value(s)) for s in [sizes.min(), sizes.mean(), sizes.max()]]
+            num = [
+                int(calc_value(s))
+                for s in [sizes.min(), (sizes.max() - sizes.min()) / 2, sizes.max()]
+            ]
 
         scatter = ax.scatter(*points.T, s=sizes, c=colors)
         legend_items = scatter.legend_elements(prop="sizes", num=num, func=calc_value)

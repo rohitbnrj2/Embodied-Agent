@@ -338,6 +338,8 @@ def get_size_label(size_data: SizeData | None) -> str:
         label = "Generation"
     elif size_data.type is SizeType.MONITOR:
         label = "Training Reward"
+    elif size_data.type is SizeType.EVALUATION:
+        label = "Fitness"
     return size_data.label or label if size_data is not None else label
 
 
@@ -354,6 +356,9 @@ def parse_size_data(
     elif size_data.type is SizeType.MONITOR:
         assert rank_data.train_fitness is not None, "Monitor is required."
         size = rank_data.train_fitness
+    elif size_data.type is SizeType.EVALUATION:
+        assert rank_data.eval_fitness is not None, "Evaluations is required."
+        size = rank_data.eval_fitness
     elif size_data.type is SizeType.CUSTOM:
         assert size_data.custom_fn is not None, "Custom function is required."
         return size_data.custom_fn(size_data, rank_data)

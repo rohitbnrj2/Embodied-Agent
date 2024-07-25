@@ -1,19 +1,6 @@
-"""This script will a saved evolution folder.
-
-This file works as follows:
-1. Parse the evolution folder. The evolution folder consists of many generations, each
-    with many ranks. Parsing involves walking through the folder hierarchy and loading
-    each config, evaluations, monitor and/or other available data.
-2. Save the parsed data to a pickle file for easy loading. Walking through the folder
-    hierarchy can be slow, so this is useful for quick loading. NOTE: If a pickle file
-    already exists, it will be loaded instead of parsing the data again (unless
-    `--force` is passed).
-3. Plot the parsed data. This involves plotting the evaluations, monitor and/or other
-    available data. This is useful for visualizing the evolution of the population.
-"""
-
 from typing import Dict, Optional, Any, List, Tuple
 from functools import partial
+import sys
 
 import tqdm.rich as tqdm
 import numpy as np
@@ -43,6 +30,13 @@ from plot_helpers import (
     add_colorbar,
 )
 from utils import extract_data
+
+# =======================================================
+
+# Parsing the yaml files sometimes causes a RecursionError
+# Default is 1000, but we'll set it to 10000 to be safe
+sys.setrecursionlimit(10000)
+
 
 # =======================================================
 

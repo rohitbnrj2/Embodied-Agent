@@ -136,6 +136,7 @@ class SizeType(Enum):
     NUM = "num"
     GENERATION = "generation"
     MONITOR = "monitor"
+    EVALUATION = "evaluation"
     CUSTOM = "custom"
 
 
