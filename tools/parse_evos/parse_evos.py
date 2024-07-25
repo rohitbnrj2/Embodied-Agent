@@ -12,769 +12,39 @@ This file works as follows:
     available data. This is useful for visualizing the evolution of the population.
 """
 
-from typing import Dict, Optional, Any, List, Tuple, Callable, Self, Concatenate
-from pathlib import Path
-import os
-from dataclasses import field
-from enum import Enum
+from typing import Dict, Optional, Any, List, Tuple
 from functools import partial
 
-import cloudpickle as pickle
 import tqdm.rich as tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.colors import Normalize, LinearSegmentedColormap
 from matplotlib.ticker import MaxNLocator
-from stable_baselines3.common.results_plotter import ts2xy
-from omegaconf import SI
 
-from cambrian.utils import (
-    calculate_fitness_from_evaluations,
-    is_integer,
-    moving_average,
-    calculate_fitness_from_monitor,
-)
+from cambrian.utils import is_integer
 from cambrian.utils.config.utils import clean_key
 from cambrian.utils.logger import get_logger
 from cambrian.utils.config import (
-    MjCambrianBaseConfig,
     MjCambrianConfig,
     run_hydra,
-    config_wrapper,
 )
 
-from parse_types import ParsedAxisData, ParsedColorData, ParsedPlotData, Color
+from parse_types import Rank, Generation, ParseEvosConfig, Data, CustomPlotFnType
+from parse_helpers import (
+    parse_plot_data,
+    try_load_pickle,
+    save_data,
+    load_data,
+)
+from plot_helpers import (
+    plot_helper,
+    adjust_points,
+    run_custom_fns,
+    add_legend,
+    add_colorbar,
+)
 from utils import extract_data
 
 # =======================================================
-# Dataclasses
-
-
-@config_wrapper
-class Rank:
-    """A rank is a single run of an inner training loop. Like in a generation, you have
-    many ranks which in themselves have many parallel environments to speed up training.
-    The terminology comes from MPI.
-    """
-
-    path: Path
-
-    num: int
-
-    config: Optional[MjCambrianConfig] = None
-    evaluations: Optional[Dict[str, Any]] = None
-    eval_fitness: Optional[float] = None
-    monitor: Optional[Dict[str, Any]] = None
-    train_fitness: Optional[float] = None
-
-    parent_rank: Optional[int] = None
-    parent_generation: Optional[int] = None
-
-    # Defauls to True
-    ignored: bool = True
-
-
-@config_wrapper
-class Generation:
-    """A generation is a collection of ranks. Throughout evolution (outer loop), you
-    have many generations where each generation consists of many ranks which
-    train (inner loop) in parallel.
-    """
-
-    path: Path
-
-    num: int
-    ranks: Dict[int, Rank] = field(default_factory=dict)
-
-    # Defaults to True
-    ignored: bool = True
-
-
-@config_wrapper
-class Data:
-    """This is the primary data storage class. It contains all the generations and ranks
-    and is used to store the parsed data. It also can accumulated arbitrary data
-    which is used for plotting."""
-
-    path: Path
-
-    generations: Dict[int, Generation]
-
-    accumulated_data: Dict[str, Any] = field(default_factory=dict)
-
-
-class AxisDataType(Enum):
-    GENERATION = "generation"
-    CONFIG = "config"
-    MONITOR = "monitor"
-    WALLTIME = "walltime"
-    EVALUATION = "evaluation"
-    CUSTOM = "custom"
-
-
-@config_wrapper
-class AxisData:
-    type: AxisDataType
-
-    label: Optional[str] = None
-
-    # CONFIG
-    pattern: Optional[str] = None
-
-    # MONITOR and WALLTIME
-    window: Optional[int] = None
-
-    # CUSTOM
-    custom_fn: Optional[Callable[[Self, Data, Generation, Rank], ParsedAxisData]] = None
-
-
-class ColorType(Enum):
-    SOLID = "solid"
-    GENERATION = "generation"
-    RANK = "rank"
-    MONITOR = "monitor"
-    EVALUATION = "evaluation"
-
-
-@config_wrapper
-class ColorData:
-    type: ColorType = ColorType.SOLID
-
-    label: Optional[str] = None
-
-    # SOLID
-    color: Tuple[float, float, float, float] = (0.65490, 0.78039, 0.90588, 0.75)
-
-    # GENERATION or RANK
-    cmap: Optional[str] = None
-    start_color: Optional[Tuple[float, float, float, float]] = None
-    end_color: Optional[Tuple[float, float, float, float]] = None
-
-
-class SizeType(Enum):
-    NONE = "none"
-    NUM = "num"
-    GENERATION = "generation"
-    MONITOR = "monitor"
-
-
-@config_wrapper
-class SizeData:
-    type: SizeType = SizeType.NUM
-
-    label: Optional[str] = None
-
-    factor: float = 36  # default size for matplotlib scatter plots
-
-    size_min: float = SI("${eval:'0.25*${.factor}'}")
-    size_max: float = SI("${eval:'5*${.factor}'}")
-    normalize: bool = True
-
-
-@config_wrapper
-class PlotData:
-    x_data: AxisData
-    y_data: AxisData
-    z_data: Optional[AxisData] = None
-    color_data: ColorData = ColorData()
-    size_data: SizeData = SizeData()
-    line_data: List[Callable[[Concatenate[plt.Axes, ...]], bool]] = field(
-        default_factory=list
-    )
-
-    title: Optional[str] = None
-
-
-@config_wrapper
-class ParseEvosConfig(MjCambrianBaseConfig):
-    """Config for the parse_evos script.
-
-    Attributes:
-        folder (Path): The folder to parse.
-        output (Path): The output folder.
-        plots_folder (Path): The folder to save the plots.
-        evals_folder (Path): The folder to save the evaluations.
-
-        force (bool): Force loading of the data. If not passed, this script will try to
-            find a parse_evos.pkl file and load that instead.
-        no_save (bool): Do not save the parsed data.
-        no_check_finished (bool): Don't check if a file called `finished` has been
-            written.
-        quiet (bool): Quiet mode. Set's the logger to warning.
-        debug (bool): Debug mode. Set's the logger to debug and disables tqdm.
-
-        ranks (Optional[List[int]]): The rank to use. If not passed, all ranks are
-            used.
-        generations (Optional[List[int]]): The generation to use. If not passed, all
-            are used.
-        plots_mask (Optional[List[str]]): The plots to create. If not passed, all are
-            created. This is the name of the plot to mask (i.e. use).
-        plots_to_ignore (List[str]): Plots to ignore. This is the name of the plot to
-            ignore.
-
-        load_nevergrad (bool): Load nevergrad data.
-
-        plot (bool): Plot the data.
-        plot_nevergrad (bool): During evolution, if nevergrad is used, a `nevergrad.log`
-            file might be saved which contains evolution information. We can load it
-            and plot it if this is true. Sets `load_nevergrad` to True.
-        plot_phylogenetic_tree (bool): Plot the phylogenetic tree.
-        eval (bool): Evaluate the data.
-
-        plots (Dict[str, PlotData]): The plots to create.
-        overrides (List[str]): Overrides for the config.
-
-        dry_run (bool): Dry run.
-    """
-
-    folder: Path
-    output: Path
-    plots_folder: Path
-    evals_folder: Path
-
-    force: bool
-    force_plot: bool
-    no_save: bool
-    no_check_finished: bool
-    quiet: bool
-    debug: bool
-
-    ranks: Optional[List[int]] = None
-    generations: Optional[List[int]] = None
-    plots_mask: Optional[List[str]] = None
-    plots_to_ignore: List[str]
-
-    load_nevergrad: bool
-
-    plot: bool
-    plot_nevergrad: bool
-    plot_phylogenetic_tree: bool
-    eval: bool
-
-    plots: Dict[str, PlotData]
-    overrides: List[str]
-
-    dry_run: bool
-
-
-# =======================================================
-# Data loaders
-
-
-def save_data(config: ParseEvosConfig, data: Any, pickle_file: Path):
-    """Save the parsed data to a pickle file."""
-    pickle_file = config.output / pickle_file
-    pickle_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(pickle_file, "wb") as f:
-        pickle.dump(data, f)
-    get_logger().info(f"Saved parsed data to {pickle_file}.")
-
-
-def try_load_pickle(folder: Path, pickle_file: Path) -> Any | None:
-    """Try to load the data from the pickle file."""
-    pickle_file = folder / pickle_file
-    if pickle_file.exists():
-        get_logger().info(f"Loading parsed data from {pickle_file}...")
-        with open(pickle_file, "rb") as f:
-            data = pickle.load(f)
-        get_logger().info(f"Loaded parsed data from {pickle_file}.")
-        return data
-
-    get_logger().warning(f"Could not load {pickle_file}.")
-    return None
-
-
-def get_generation_file_paths(folder: Path) -> Data:
-    """Create the initial storage dict for parsing and get the paths to all the
-    generation/rank folders.
-
-    The generation data is stored as follows:
-    - <exp_name>
-        - generation_0
-            - rank_0
-            - rank_1
-            - ...
-        - generation_1
-            - rank_0
-            - rank_1
-            - ...
-        - ...
-
-    This function will parse the folder heirarchy as a preprocessing step and returns
-    the file paths to all the generation/rank folders.
-    """
-
-    generations = dict()
-    for root, dirs, files in os.walk(folder):
-        root = Path(root)
-        # Only parse the generation folders
-        if not root.stem.startswith("generation_"):
-            continue
-
-        # Grab the generation number
-        generation = int(root.stem.split("generation_", 1)[1])
-
-        ranks = dict()
-        for dir in dirs:
-            dir = Path(dir)
-            # Only parse the rank folders
-            if not dir.stem.startswith("rank_"):
-                continue
-
-            # Grab the rank number
-            rank = int(dir.stem.split("rank_", 1)[1])
-            ranks[rank] = Rank(path=root / dir, num=rank)
-
-        # Sort the ranks by rank number
-        ranks = dict(sorted(ranks.items()))
-        generations[generation] = Generation(path=root, num=generation, ranks=ranks)
-
-    # Sort the generations by generation number
-    generations = dict(sorted(generations.items()))
-    return Data(path=folder, generations=generations)
-
-
-def load_data(config: ParseEvosConfig) -> Data:
-    """Load the data from the generation/rank folders. This function will walk through
-    the folder heirarchy and load the config, evaluations and monitor data for each
-    rank."""
-    get_logger().info(f"Loading data from {config.folder}...")
-
-    # Get the file paths to all the generation/rank folders
-    data = get_generation_file_paths(config.folder)
-
-    # Convert the overrides to a list
-    overrides = config.overrides.to_container()
-
-    # If we're loading nevergrad data, we do that here to store the parent rank and
-    # generation
-    if config.load_nevergrad:
-        import nevergrad as ng
-
-        if not (nevergrad_log := config.folder / "nevergrad.log").exists():
-            raise FileNotFoundError(f"Nevergrad log file {nevergrad_log} not found.")
-
-        parameters_logger = ng.callbacks.ParametersLogger(nevergrad_log)
-        loaded_parameters = parameters_logger.load()
-
-        # By default, the nevergrad loader loads the data in a way that best works for
-        # hiplot, restructure the data so it's easier for us to use.
-        uid_to_rank_and_generation: Dict[str, Tuple[int, int]] = {}
-        rank_and_generation_to_uid: Dict[Tuple[int, int], str] = {}
-        uid_to_parent_uid: Dict[str, str] = {}
-        for param in loaded_parameters:
-            if len(param["#parents_uids"]) != 1:
-                continue
-
-            uid = param["#uid"]
-            parent_uid = param["#parents_uids"][0]
-            generation = param["#generation"]
-            rank = param["#num-tell"] % int(param["#num-ask"] // generation)
-
-            uid_to_rank_and_generation[uid] = (rank, generation)
-            rank_and_generation_to_uid[(rank, generation)] = uid
-            uid_to_parent_uid[uid] = parent_uid
-
-        def get_parent_rank_and_generation(
-            rank: int, generation: int
-        ) -> Tuple[int, int]:
-            if (rank, generation) not in rank_and_generation_to_uid:
-                return (-1, -1)
-            uid = rank_and_generation_to_uid[(rank, generation)]
-            parent_uid = uid_to_parent_uid[uid]
-            return uid_to_rank_and_generation.get(parent_uid, (-1, -1))
-
-    # Walk through each generation/rank and parse the config, evaluations and monitor
-    # data
-    for generation, generation_data in data.generations.items():
-        # Only load the generation we want, if specified
-        if config.generations is not None and generation not in config.generations:
-            continue
-
-        get_logger().info(f"Loading generation {generation}...")
-
-        for rank, rank_data in generation_data.ranks.items():
-            # Only load the rank we want, if specified
-            if config.ranks is not None and rank not in config.ranks:
-                continue
-
-            get_logger().info(f"\tLoading rank {rank}...")
-
-            # Check if the `finished` file exists.
-            # If not, don't load the data. Sorry for the double negative.
-            if (
-                not (rank_data.path / "finished").exists()
-                and not config.no_check_finished
-            ):
-                get_logger().warning(
-                    f"\t\tSkipping rank {rank} because it is not finished."
-                )
-                continue
-
-            # Get the config file
-            if (config_file := rank_data.path / "config.yaml").exists():
-                get_logger().debug(f"\tLoading config from {config_file}...")
-                rank_data.config = MjCambrianConfig.load(config_file, instantiate=False)
-                rank_data.config.merge_with_dotlist(overrides)
-                rank_data.config.resolve()
-
-            # Get the evaluations file
-            evaluations_file = rank_data.path / "evaluations.npz"
-            if evaluations_file.exists():
-                (
-                    rank_data.eval_fitness,
-                    rank_data.evaluations,
-                ) = calculate_fitness_from_evaluations(
-                    evaluations_file, return_data=True
-                )
-
-            # Get the monitor file
-            monitor_file = rank_data.path / "monitor.csv"
-            if monitor_file.exists():
-                (
-                    rank_data.train_fitness,
-                    rank_data.monitor,
-                ) = calculate_fitness_from_monitor(monitor_file, return_data=True)
-
-            # If we're loading nevergrad data, we do that here to store the parent rank
-            # and generation
-            if config.load_nevergrad:
-                rank_data.parent_rank, rank_data.parent_generation = (
-                    get_parent_rank_and_generation(rank, generation)
-                )
-
-            # Set ignored to False
-            rank_data.ignored = False
-
-        # Set ignored to False
-        generation_data.ignored = False
-
-    return data
-
-
-def get_axis_label(axis_data: AxisData, label: str = "") -> str:
-    if axis_data.type is AxisDataType.GENERATION:
-        label = "Generation"
-    elif axis_data.type is AxisDataType.CONFIG:
-        label = axis_data.label or axis_data.pattern
-    elif axis_data.type is AxisDataType.MONITOR:
-        label = "Training Reward"
-    elif axis_data.type is AxisDataType.WALLTIME:
-        label = "Walltime (minutes)"
-    elif axis_data.type is AxisDataType.EVALUATION:
-        label = "Fitness"
-    return axis_data.label or label
-
-
-def parse_axis_data(
-    axis_data: AxisData, data: Data, generation_data: Generation, rank_data: Rank
-) -> ParsedAxisData:
-    data: Any
-    if axis_data.type is AxisDataType.GENERATION:
-        data = generation_data.num + 1
-    elif axis_data.type is AxisDataType.CONFIG:
-        assert rank_data.config is not None, "Config is required for CONFIG."
-        data = rank_data.config.glob(axis_data.pattern, flatten=True)
-        pattern = axis_data.pattern.split(".")[-1]
-        assert pattern in data, f"Pattern {axis_data.pattern} not found."
-        data = data[pattern]
-        if isinstance(data, list):
-            data = np.average(data)
-    elif axis_data.type is AxisDataType.MONITOR:
-        assert rank_data.train_fitness is not None, "Monitor is required."
-        data = rank_data.train_fitness
-    elif axis_data.type is AxisDataType.WALLTIME:
-        assert rank_data.monitor is not None, "Monitor is required."
-        t = ts2xy(rank_data.monitor, "walltime_hrs")[0] * 60  # convert to minutes
-        window = axis_data.window or 100
-        if len(t) < window:
-            t = moving_average(t, axis_data.window)
-        data = t[-1]
-    elif axis_data.type is AxisDataType.EVALUATION:
-        assert rank_data.eval_fitness is not None, "Evaluations is required."
-        data = rank_data.eval_fitness
-    elif axis_data.type is AxisDataType.CUSTOM:
-        assert axis_data.custom_fn is not None, "Custom function is required."
-        return axis_data.custom_fn(axis_data, data, generation_data, rank_data)
-    else:
-        raise ValueError(f"Unknown data type {axis_data.type}.")
-
-    return data, get_axis_label(axis_data)
-
-
-def get_color_label(color_data: ColorData | None) -> str:
-    label: str
-    if color_data.type is ColorType.SOLID:
-        label = "Color"
-    elif color_data.type is ColorType.GENERATION:
-        label = "Generation"
-    elif color_data.type is ColorType.RANK:
-        label = "Rank"
-    elif color_data.type is ColorType.MONITOR:
-        label = "Training Reward"
-    elif color_data.type is ColorType.EVALUATION:
-        label = "Fitness"
-    else:
-        raise ValueError(f"Unknown color type {color_data.type}.")
-    return color_data.label or label if color_data is not None else label
-
-
-def parse_color_data(
-    color_data: ColorData, data: Data, generation_data: Generation, rank_data: Rank
-) -> ParsedColorData:
-    color: Color
-    if color_data.type is ColorType.SOLID:
-        assert color_data.color is not None, "Color is required for solid color."
-        color = color_data.color
-    elif color_data.type is ColorType.GENERATION:
-        assert color_data.cmap is not None or (
-            color_data.start_color is not None and color_data.end_color is not None
-        ), "Cmap or start_color and end_color is required."
-
-        # NOTE: The cmap is generated later and is normalized to the number of
-        # generations.
-        color = generation_data.num + 1
-    elif color_data.type is ColorType.RANK:
-        assert color_data.cmap is not None or (
-            color_data.start_color is not None and color_data.end_color is not None
-        ), "Cmap or start_color and end_color is required."
-
-        # NOTE: The cmap is generated later and is normalized to the number of ranks.
-        color = rank_data.num
-    elif color_data.type is ColorType.MONITOR:
-        color = rank_data.train_fitness
-    elif color_data.type is ColorType.EVALUATION:
-        color = rank_data.eval_fitness
-    else:
-        raise ValueError(f"Unknown color type {color_data.type}.")
-
-    return [color], get_color_label(color_data)
-
-
-def get_size_label(size_data: SizeData | None) -> str:
-    label: str
-    if size_data is SizeType.NONE:
-        label = "Size"
-    elif size_data.type is SizeType.NUM:
-        label = "Number"
-    elif size_data.type is SizeType.GENERATION:
-        label = "Generation"
-    elif size_data.type is SizeType.MONITOR:
-        label = "Training Reward"
-    else:
-        raise ValueError(f"Unknown size type {size_data.type}.")
-    return size_data.label or label if size_data is not None else label
-
-
-def parse_size_data(
-    size_data: SizeData, data: Data, generation_data: Generation, rank_data: Rank
-) -> ParsedAxisData:
-    size: float
-    if size_data.type is SizeType.NUM:
-        # Will be updated later to reflect the number of overlapping points at the same
-        # location
-        size = 1
-    elif size_data.type is SizeType.GENERATION:
-        size = generation_data.num + 1
-    elif size_data.type is SizeType.MONITOR:
-        assert rank_data.train_fitness is not None, "Monitor is required."
-        size = rank_data.train_fitness
-    else:
-        raise ValueError(f"Unknown size type {size_data.type}.")
-
-    return size, get_size_label(size_data)
-
-
-def parse_plot_data(
-    plot_data: PlotData, data: Data, generation_data: Generation, rank_data: Rank
-) -> ParsedPlotData:
-    """Parses the plot data object and grabs the relevant x and y data."""
-
-    x_data = parse_axis_data(plot_data.x_data, data, generation_data, rank_data)
-    y_data = parse_axis_data(plot_data.y_data, data, generation_data, rank_data)
-    z_data = (
-        parse_axis_data(plot_data.z_data, data, generation_data, rank_data)
-        if plot_data.z_data
-        else None
-    )
-    color = parse_color_data(plot_data.color_data, data, generation_data, rank_data)
-    size = parse_size_data(plot_data.size_data, data, generation_data, rank_data)
-    return x_data, y_data, z_data, color, size
-
-
-# =======================================================
-# Plotters
-
-
-def plot_helper(
-    x_data: ParsedAxisData,
-    y_data: ParsedAxisData,
-    z_data: Optional[ParsedAxisData] = None,
-    /,
-    *,
-    name: str,
-    title: str,
-    xlabel: str,
-    ylabel: str,
-    zlabel: str,
-    dry_run: bool = False,
-    **kwargs,
-) -> plt.Figure | None:
-    """This is a helper method that will be used to plot the data.
-
-    NOTE: Saving the plots at the end depends on each plt figure having a unique name,
-    which this method sets to the passed `title`.
-
-    Keyword arguments:
-        **kwargs -- Additional keyword arguments to pass to plt.plot.
-    """
-    if dry_run:
-        return
-
-    fig = plt.figure(name)
-    if z_data:
-        ax: Axes3D = fig.add_subplot(111, projection="3d")
-        ax.scatter(x_data, y_data, z_data, **kwargs)
-        ax.set_zlabel(zlabel)
-    else:
-        ax = fig.gca()
-        ax.scatter(x_data, y_data, **kwargs)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    fig.suptitle(title)
-
-    return fig
-
-
-def adjust_points(
-    size_data: SizeData,
-    ax: plt.Axes,
-    sizes: np.ndarray,
-    points: np.ndarray,
-    colors: np.ndarray,
-):
-    """This method will adjust the points depending on different conditions."""
-
-    if size_data.type is SizeType.NUM:
-        # In this case, update the size of the points to reflect the number of points
-        # at the same location and set the color to the average of the colors that are
-        # stacked together
-
-        unique, counts = np.unique(points, axis=0, return_counts=True)
-        for point, count in zip(unique, counts):
-            if count <= 1:
-                continue
-
-            idx = np.where(np.all(points == point, axis=1))[0]
-
-            for i in idx:
-                ax.collections[i].set_sizes(ax.collections[i].get_sizes() * count)
-
-            # Set the color to the average of the colors that are stacked together
-            if colors is not None:
-                color = np.mean(colors[idx], axis=0)
-                ax.collections[idx[-1]].set_array(color)  # the last point is in front
-
-    sizes = sizes * size_data.factor
-    if size_data.normalize and sizes.min() != sizes.max():
-        # Normalize the sizes
-        sizes = (sizes - sizes.min()) / (sizes.max() - sizes.min())
-        sizes = size_data.size_min + sizes * (size_data.size_max - size_data.size_min)
-
-    for scatter, size in zip(ax.collections, sizes):
-        scatter.set_sizes(size)
-
-
-def add_lines(ax: plt.Axes, plot_data: PlotData):
-    for line_fn in plot_data.line_data:
-        line_fn(ax)
-
-
-def add_legend(
-    ax: plt.Axes,
-    plot_data: PlotData,
-    points: np.ndarray,
-    sizes: np.ndarray,
-    colors: np.ndarray,
-):
-    """Add a legend to the plot. The legend title will say 'Selected Agent' and if the
-    sizes are different between the points, the legend will show 3 examples
-    (min, mean, max)."""
-
-    size_data = plot_data.size_data
-    label = get_size_label(size_data)
-    if plot_data.size_data.normalize and sizes.min() != sizes.max():
-        # The sizes are really values, and they are scaled separately in adjust_points
-        # We'll rescale the sizes again here for the legend, and set the label to
-        # reflect the original value.
-        original_sizes = sizes.copy()
-        sizes = (sizes - sizes.min()) / (sizes.max() - sizes.min())
-        sizes = size_data.size_min + sizes * (size_data.size_max - size_data.size_min)
-        sizes /= size_data.size_min / 2  # TODO: Why do we have to do this line?
-
-        def calc_value(s):
-            """Get's the original value from the size"""
-            s = s * size_data.size_min / 2
-            norm_value = (s - size_data.size_min) / (
-                size_data.size_max - size_data.size_min
-            )
-            unscaled_value = (
-                norm_value * (original_sizes.max() - original_sizes.min())
-                + original_sizes.min()
-            )
-            return unscaled_value
-
-        scatter = ax.scatter(*points.T, s=sizes, c=colors)
-        num = [int(calc_value(s)) for s in [sizes.min(), sizes.mean(), sizes.max()]]
-        legend_items = scatter.legend_elements(prop="sizes", num=num, func=calc_value)
-        ax.legend(*legend_items, title=label)
-        scatter.remove()  # remove the scatter plot so it doesn't show up in the plot
-
-    ax.legend()
-
-
-def add_colorbar(
-    color_data: ColorData | None,
-    ax: plt.Axes,
-    colors: np.ndarray | None,
-    *,
-    vmin: Optional[float] = None,
-    vmax: Optional[float] = None,
-    only_unique: bool = True,
-):
-    """Normalize the colors and add a colorbar to the plot."""
-    # Don't add a colorbar if there is only one color
-    if colors is None or (len(np.unique(colors)) == 1 and only_unique):
-        return
-
-    # Normalize the colorbar first
-    vmin = vmin or np.min(colors)
-    vmax = vmax or np.max(colors)
-    norm = Normalize(vmin=vmin, vmax=vmax)
-
-    cmap = ax.collections[0].get_cmap()
-    if color_data is not None:
-        if color_data.cmap is not None:
-            cmap = color_data.cmap
-        if color_data.start_color is not None and color_data.end_color is not None:
-            cmap = LinearSegmentedColormap.from_list(
-                "custom", [color_data.start_color, color_data.end_color]
-            )
-    sm = plt.cm.ScalarMappable(cmap=cmap)
-    sm.set_array([vmin, vmax])
-
-    label = get_color_label(color_data)
-    cbar = plt.colorbar(sm, ax=ax, label=label)
-
-    # Update the colors to the colormap
-    for scatter in ax.collections:
-        scatter.set_cmap(cmap)
-        scatter.set_norm(norm)
-
-    # Set the colorbar to int if the colors are integers
-    if is_integer(colors):
-        cbar.ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
 
 def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
@@ -788,16 +58,12 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
         # Only plot the generation we want, if specified
         if generation_data.ignored:
             continue
-        elif config.generations is not None and generation not in config.generations:
-            continue
 
         get_logger().info(f"Plotting generation {generation}...")
 
         for rank, rank_data in generation_data.ranks.items():
             # Only plot the rank we want, if specified
             if rank_data.ignored:
-                continue
-            elif config.ranks is not None and rank not in config.ranks:
                 continue
 
             get_logger().info(f"\tPlotting rank {rank}...")
@@ -835,7 +101,7 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                 y_data, ylabel = y_data
                 z_data, zlabel = z_data or (None, None)
                 color, _ = color_data
-                size, _ = size_data
+                size, size_label = size_data
 
                 default_title = f"{ylabel} vs {xlabel}"
                 if zlabel:
@@ -844,6 +110,14 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
 
                 # Plot the data
                 get_logger().debug(f"\t\tPlotting {title}...")
+
+                # Run custom functions
+                if plot.custom_fns:
+                    fig = plt.figure(plot_name)
+                    ax = fig.gca()
+                    for custom_fn in plot.custom_fns:
+                        if custom_fn.type is CustomPlotFnType.LOCAL:
+                            custom_fn.fn(ax, plot, rank_data)
 
                 plot_helper(
                     x_data,
@@ -857,6 +131,7 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                     marker=".",
                     c=color,
                     s=size,
+                    label=size_label,
                     dry_run=config.dry_run,
                 )
 
@@ -905,11 +180,12 @@ def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | in
             # Adjust the points, if necessary
             adjust_points(plot_data.size_data, ax, sizes, points, colors)
 
-            # Plot the lines
-            add_lines(ax, plot_data)
+            # Run any custom functions
+            run_custom_fns(ax, plot_data)
 
             # Add a legend entry for the blue circles
-            add_legend(ax, plot_data, points, sizes, colors)
+            if plot_data.add_legend:
+                add_legend(ax, plot_data, points, sizes, colors, loc="upper right")
 
             # Normalize the colorbar
             add_colorbar(plot_data.color_data, ax, colors)
@@ -953,6 +229,7 @@ def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | in
 
 # =======================================================
 
+
 def plot_nevergrad(config: ParseEvosConfig, data: Data):
     try:
         import hiplot
@@ -981,7 +258,9 @@ def plot_nevergrad(config: ParseEvosConfig, data: Data):
     except hiplot.ExperimentValidationMissingParent as e:
         get_logger().warning(f"Error generating nevergrad html: {e}")
 
+
 # =======================================================
+
 
 def plot_phylogenetic_tree(config: ParseEvosConfig, data: Data):
     try:
@@ -1026,14 +305,14 @@ def plot_phylogenetic_tree(config: ParseEvosConfig, data: Data):
             return
 
         # If this is the first generation, the parent is set to the root
-        if generation == 0 or rank_data.parent_rank == -1:
+        if generation == 0 or rank_data.parent.num == -1:
             parent_id = "root"
         else:
-            parent_id = f"G{rank_data.parent_generation}_R{rank_data.parent_rank}"
+            parent_id = f"G{rank_data.parent.generation.num}_R{rank_data.parent.num}"
 
             if parent_id not in nodes:
-                parent_generation_data = data.generations[rank_data.parent_generation]
-                parent_rank_data = parent_generation_data.ranks[rank_data.parent_rank]
+                parent_generation_data = data.generations[rank_data.parent.generation.num]
+                parent_rank_data = parent_generation_data.ranks[rank_data.parent.num]
                 add_node(
                     nodes,
                     rank_data=parent_rank_data,
@@ -1050,8 +329,8 @@ def plot_phylogenetic_tree(config: ParseEvosConfig, data: Data):
         node.add_feature("rank", rank)
         node.add_feature("generation", generation)
         if generation != 0:
-            node.add_feature("parent_rank", rank_data.parent_rank)
-            node.add_feature("parent_generation", rank_data.parent_generation)
+            node.add_feature("parent_rank", rank_data.parent.num)
+            node.add_feature("parent_generation", rank_data.parent.generation.num)
         else:
             node.add_feature("parent_rank", -1)
             node.add_feature("parent_generation", -1)
@@ -1082,16 +361,9 @@ def plot_phylogenetic_tree(config: ParseEvosConfig, data: Data):
                 continue
             elif generation_data.ignored:
                 continue
-            elif (
-                config.generations is not None
-                and generation_data.num not in config.generations
-            ):
-                continue
 
             for rank_data in generation_data.ranks.values():
                 if rank_data.ignored:
-                    continue
-                elif config.ranks is not None and rank_data.num not in config.ranks:
                     continue
 
                 add_node(
@@ -1179,6 +451,7 @@ def plot_phylogenetic_tree(config: ParseEvosConfig, data: Data):
             style_node(node, **style_kwargs)
 
     # Get the parameterization properties from the first parameter
+    raise NotImplementedError("Bug below, this is not working.")
     patterns: Dict[str, str] = {"generation": "evo.generation.num"}
     for maybe_param in next(iter(loaded_parameters)).keys():
         if "#" not in maybe_param:
@@ -1226,6 +499,56 @@ def plot_phylogenetic_tree(config: ParseEvosConfig, data: Data):
             dpi=500,
             tree_style=tree_style,
         )
+
+
+# =======================================================
+
+
+def run_render(config: ParseEvosConfig, data: Data):
+    import mujoco as mj
+    from cambrian.renderer import MjCambrianRendererSaveMode
+    from cambrian.envs import MjCambrianEnv
+
+    get_logger().info("Rendering data...")
+
+    for generation, generation_data in data.generations.items():
+        if generation_data.ignored:
+            continue
+
+        get_logger().debug(f"\tRendering generation {generation}...")
+
+        for rank, rank_data in generation_data.ranks.items():
+            if rank_data.ignored:
+                continue
+
+            get_logger().debug(f"\tRendering rank {rank}...")
+            (rank_data.path / "renders").mkdir(parents=True, exist_ok=True)
+
+            for fname, exp_overrides in config.renders.items():
+                exp_config = MjCambrianConfig.compose(
+                    rank_data.path.absolute(),
+                    "config.yaml",
+                    overrides=[
+                        *config.overrides,
+                        *exp_overrides,
+                        "hydra.searchpath=['configs']",
+                    ],
+                )
+
+                # Run the experiment
+                # Involves first creating the environment and then rendering it
+                env = exp_config.env.instance(exp_config.env)
+
+                env.record = True
+                env.reset(seed=exp_config.seed)
+                for _ in range(30):
+                    mj.mj_step(env.model, env.data)
+                    env.render()
+                env.save(
+                    rank_data.path / "renders" / fname,
+                    save_pkl=False,
+                    save_mode=MjCambrianRendererSaveMode.PNG,
+                )
 
 
 # =======================================================
@@ -1295,6 +618,10 @@ def main(config: ParseEvosConfig):
         plot_nevergrad(config, data)
     if config.plot_phylogenetic_tree:
         plot_phylogenetic_tree(config, data)
+    if config.plot_muller:
+        plot_muller(config, data)
+    if config.render:
+        run_render(config, data)
     if config.eval:
         run_eval(config, data)
 

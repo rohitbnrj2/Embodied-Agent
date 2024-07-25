@@ -5,7 +5,9 @@ from typing import Dict, Tuple
 
 from cambrian.utils import safe_eval
 from cambrian.utils.config.utils import glob
-from parse_evos import AxisData, ParsedAxisData, Data, Generation, Rank, get_axis_label
+from parse_evos import Data, Generation, Rank
+from parse_types import AxisData, ParsedAxisData
+from parse_helpers import get_axis_label
 
 
 # ==================

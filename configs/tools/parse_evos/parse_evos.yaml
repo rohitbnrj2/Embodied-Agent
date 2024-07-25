@@ -14,6 +14,12 @@ defaults:
     - training_reward
     - aperture
     - tree
+  - renders:
+    - default
+    - first_person
+    - third_person
+    - birds_eye
+    - birds_eye_no_overlays
 
   - _self_
 
@@ -31,11 +37,11 @@ debug: False
 
 plots_to_ignore: []
 
-load_nevergrad: ${.plot_nevergrad}
-
 plot: False
 plot_nevergrad: False
 plot_phylogenetic_tree: False
+plot_muller: False
+render: False
 eval: False
 
 dry_run: False

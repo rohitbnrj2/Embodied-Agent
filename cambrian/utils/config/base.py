@@ -87,6 +87,11 @@ class MjCambrianContainerConfig:
         self.__dict__["_config_is_content"] = config is None
         self.__dict__["_instantiated"] = instantiated
 
+    @property
+    def content(self) -> DictConfig | ListConfig:
+        """The instantiated config."""
+        return self._content
+
     @classmethod
     def instantiate(
         cls,

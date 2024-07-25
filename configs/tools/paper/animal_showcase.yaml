@@ -25,6 +25,9 @@ overrides:
   birds_eye_no_overlays:
     - "env/renderer=bev"
     - "env.add_overlays=False"
+  first_person:
+    - "env.render_animal_composite_only=True"
+    - "env.add_overlays=False"
 
 hydra:
   run:

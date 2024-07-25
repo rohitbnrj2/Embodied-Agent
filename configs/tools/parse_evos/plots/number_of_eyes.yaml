@@ -24,9 +24,116 @@ number_of_eyes_vs_generation_vs_training_reward_color:
         num_eyes_to_generate: env.animals.*.num_eyes_to_generate
   color_data:
     type: MONITOR
-  line_data:
-    - _target_: custom_line_fns.average_line
+  custom_fns:
+    - type: GLOBAL
+      fn:
+        _target_: custom_plot_fns.average_line
+        _partial_: True
+resolution_vs_number_of_eyes_vs_best_n_size:
+  x_data:
+    type: CUSTOM
+    label: Number of Eyes
+    custom_fn:
+      _target_: custom_axis_fns.eval_safe
       _partial_: True
+      src: math.prod(num_eyes_to_generate[0])
+      patterns:
+        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+  y_data:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.resolution[0]
+    label: Resolution
+  size_data:
+    type: CUSTOM
+    label: Best N
+    normalize: False
+    size_min: 10
+    size_max: 30
+    custom_fn:
+      _target_: custom_size_fns.best_n
+      _partial_: True
+      n: 3
+number_of_eyes_vs_generation_connected:
+  x_data:
+    type: GENERATION
+  y_data:
+    type: CUSTOM
+    label: Number of Eyes
+    custom_fn:
+      _target_: custom_axis_fns.eval_safe
+      _partial_: True
+      src: math.prod(num_eyes_to_generate[0])
+      patterns:
+        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+  custom_fns:
+    - type: LOCAL
+      fn:
+        _target_: custom_plot_fns.connect_with_parent
+        _partial_: True
+number_of_eyes_vs_generation_vs_num_children_size:
+  x_data:
+    type: GENERATION
+  y_data:
+    type: CUSTOM
+    label: Number of Eyes
+    custom_fn:
+      _target_: custom_axis_fns.eval_safe
+      _partial_: True
+      src: math.prod(num_eyes_to_generate[0])
+      patterns:
+        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+  size_data:
+    type: CUSTOM
+    label: Number of Children
+    custom_fn:
+      _target_: custom_size_fns.num_children
+      _partial_: True
+number_of_eyes_vs_generation_vs_num_children_size_connected:
+  x_data:
+    type: GENERATION
+  y_data:
+    type: CUSTOM
+    label: Number of Eyes
+    custom_fn:
+      _target_: custom_axis_fns.eval_safe
+      _partial_: True
+      src: math.prod(num_eyes_to_generate[0])
+      patterns:
+        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+  size_data:
+    type: CUSTOM
+    label: Number of Children
+    custom_fn:
+      _target_: custom_size_fns.num_children
+      _partial_: True
+  custom_fns:
+    - type: LOCAL
+      fn:
+        _target_: custom_plot_fns.connect_with_parent
+        _partial_: True
+number_of_eyes_vs_generation_vs_num_descendents_size_connected:
+  x_data:
+    type: GENERATION
+  y_data:
+    type: CUSTOM
+    label: Number of Eyes
+    custom_fn:
+      _target_: custom_axis_fns.eval_safe
+      _partial_: True
+      src: math.prod(num_eyes_to_generate[0])
+      patterns:
+        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+  size_data:
+    type: CUSTOM
+    label: Number of Descendents
+    custom_fn:
+      _target_: custom_size_fns.num_descendents
+      _partial_: True
+  custom_fns:
+    - type: LOCAL
+      fn:
+        _target_: custom_plot_fns.connect_with_parent
+        _partial_: True
 number_of_eyes_vs_generation_vs_training_reward_size_vs_generation_color:
   x_data:
     type: GENERATION
@@ -111,10 +218,45 @@ resolution_vs_number_of_eyes_vs_training_reward_color:
   color_data:
     type: MONITOR
     cmap: RdYlGn
-  line_data:
-    - _target_: custom_line_fns.num_eyes_and_resolution_constraint
+  custom_fns:
+    - type: GLOBAL
+      fn:
+        _target_: custom_plot_fns.num_eyes_and_resolution_constraint
+        _partial_: True
+        lon_range: [-90, 90]
+resolution_vs_number_of_eyes_vs_training_reward_color_vs_best_n_size:
+  x_data:
+    type: CUSTOM
+    label: Number of Eyes
+    custom_fn:
+      _target_: custom_axis_fns.eval_safe
       _partial_: True
-      lon_range: [-90, 90]
+      src: math.prod(num_eyes_to_generate[0])
+      patterns:
+        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+  y_data:
+    type: CONFIG
+    pattern: env.animals.*.eyes.*.resolution[0]
+    label: Resolution
+  color_data:
+    type: MONITOR
+    cmap: RdYlGn
+  custom_fns:
+    - type: GLOBAL
+      fn:
+        _target_: custom_plot_fns.num_eyes_and_resolution_constraint
+        _partial_: True
+        lon_range: [-90, 90]
+  size_data:
+    type: CUSTOM
+    label: Best N
+    normalize: False
+    size_min: 10
+    size_max: 30
+    custom_fn:
+      _target_: custom_size_fns.best_n
+      _partial_: True
+      n: 3
 resolution_vs_number_of_eyes_vs_fitness_color:
   x_data:
     type: CUSTOM
@@ -132,10 +274,12 @@ resolution_vs_number_of_eyes_vs_fitness_color:
   color_data:
     type: EVALUATION
     cmap: RdYlGn
-  line_data:
-    - _target_: custom_line_fns.num_eyes_and_resolution_constraint
-      _partial_: True
-      lon_range: [-90, 90]
+  custom_fns:
+    - type: GLOBAL
+      fn:
+        _target_: custom_plot_fns.num_eyes_and_resolution_constraint
+        _partial_: True
+        lon_range: [-90, 90]
 training_reward_vs_number_of_eyes:
   x_data:
     type: CUSTOM

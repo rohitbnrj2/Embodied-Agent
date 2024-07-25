@@ -81,6 +81,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             is True and mazes change between evaluations, the sites will be drawn on top
             of each other which may not be desired. When record is False, the overlays
             are always cleared.
+        render_animal_composite_only (Optional[bool]): If set, will only render the 
+            composite image all animals.
         renderer (Optional[MjCambrianViewerConfig]): The default viewer config to
             use for the mujoco viewer. If unset, no renderer will be used. Should
             set to None if `render` will never be called. This may be useful to
@@ -105,7 +107,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
     add_overlays: bool
     clear_overlays_on_reset: bool
-    render_animal_composite_only: Optional[str] = None
+    render_animal_composite_only: Optional[bool] = None
     renderer: Optional[MjCambrianRendererConfig] = None
 
     animals: Dict[str, MjCambrianAnimalConfig]
@@ -432,9 +434,9 @@ class MjCambrianEnv(ParallelEnv):
         renderer_width = renderer.width
         renderer_height = renderer.height
 
-        if animal_name := self._config.render_animal_composite_only:
-            assert animal_name in self._animals, f"Animal {animal_name} not found"
-            animal = self._animals[animal_name]
+        if self._config.render_animal_composite_only:
+            # NOTE: Uses the first animal
+            animal = next(iter(self._animals.values()))
             if (composite := animal.create_composite_image()) is None:
                 composite = np.zeros((1, 1, 3), dtype=np.float32)
 

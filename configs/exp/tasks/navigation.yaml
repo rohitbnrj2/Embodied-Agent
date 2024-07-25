@@ -16,6 +16,9 @@ defaults:
   - /env/animals/eyes@env.animals.animal_0.eyes.eye: ${env/animals/eyes}
   - override /env/animals: point
 
+trainer:
+  total_timesteps: 300_000
+
 env:
   reward_fn:
     euclidean_delta_from_init:

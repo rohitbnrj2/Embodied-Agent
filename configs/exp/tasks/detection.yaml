@@ -9,7 +9,10 @@ defaults:
 
   # Adds two objects to the environment: a goal and an adversarial object
   - /env/objects@env.objects.goal: goal
-  - /env/objects@env.objects.adversary: adversary
+  - /env/objects@env.objects.adversary0: adversary
+  - /env/objects@env.objects.adversary1: adversary
+  - /env/objects@env.objects.adversary2: adversary
+  - /env/objects@env.objects.adversary3: adversary
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
@@ -19,12 +22,21 @@ defaults:
   - /env/animals/eyes@env.animals.animal_0.eyes.eye: ${env/animals/eyes}
   - override /env/animals: point
 
+trainer:
+  total_timesteps: 500_000
+  max_episode_steps: 128 # shorten the episode length
+
 env:
   reward_fn:
     constant_penalty:
       _target_: cambrian.envs.reward_fns.constant_reward
       _partial_: true
       reward: -0.1
+
+    penalize_if_has_contacts:
+      _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
+      _partial_: true
+      penalty: -1.0
 
     reward_euclidean_delta_to_goal:
       _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_objects
@@ -36,8 +48,8 @@ env:
     truncate_if_close_to_adversary:
       _target_: cambrian.envs.truncation_fns.truncate_if_close_to_object
       _partial_: true
-      objects: [adversary]
-      distance_threshold: 2.0
+      objects: [adversary0, adversary1, adversary2, adversary3]
+      distance_threshold: 1.0
     
   termination_fn:
     # Terminate (i.e. succeed) if the agent is close to the goal
@@ -45,4 +57,4 @@ env:
       _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
       _partial_: true
       objects: [goal]
-      distance_threshold: 2.0
+      distance_threshold: 1.0

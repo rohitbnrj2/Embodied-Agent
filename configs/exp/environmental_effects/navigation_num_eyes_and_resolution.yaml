@@ -25,10 +25,6 @@
 defaults:
   - /exp/tasks/navigation_with_goal@_here_
 
-trainer:
-  # low number of timesteps to speed up the sweep
-  total_timesteps: 300_000
-
 env:
   animals:
     animal_0:

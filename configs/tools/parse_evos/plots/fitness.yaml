@@ -8,3 +8,13 @@ fitness_vs_training_reward:
     type: MONITOR
   y_data:
     type: EVALUATION
+fitness_vs_generation_connected:
+  x_data:
+    type: GENERATION
+  y_data:
+    type: EVALUATION
+  custom_fns:
+    - type: LOCAL
+      fn:
+        _target_: custom_plot_fns.connect_with_parent
+        _partial_: True

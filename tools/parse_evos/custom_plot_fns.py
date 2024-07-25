@@ -3,7 +3,12 @@ from typing import Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 
+from cambrian.utils.logger import get_logger
+
 from utils import extract_data
+from parse_types import Rank, PlotData
+from parse_helpers import parse_plot_data
+
 
 def average_line(ax: plt.Axes):
     """Extracts the data from a figure and plots the average line along with
@@ -24,6 +29,7 @@ def average_line(ax: plt.Axes):
     # Plot the data
     ax.plot(x, y, "C0-", alpha=0.5)
     ax.fill_between(x, y - y_std, y + y_std, alpha=0.2, facecolor="C0")
+
 
 def num_eyes_and_resolution_constraint(
     ax: plt.Axes,
@@ -50,3 +56,40 @@ def num_eyes_and_resolution_constraint(
 
     # Plot the constraint as a red curve
     ax.plot(num_eyes, max_feasible_resolution, "r-", label="Morophological Constraint")
+
+
+def connect_with_parent(ax: plt.Axes, plot_data: PlotData, rank_data: Rank, **kwargs):
+    """This custom plot fn is called for each rank and plots a line between itself and
+    it's parent. No line is plotted if the rank doesn't have a parent."""
+
+    if (parent := rank_data.parent) is None:
+        return
+
+    try:
+        x_data, y_data, z_data, _, _ = parse_plot_data(
+            plot_data, rank_data.generation.data, rank_data.generation, rank_data
+        )
+        x_data_parent, y_data_parent, z_data_parent, _, _ = parse_plot_data(
+            plot_data, parent.generation.data, parent.generation, parent
+        )
+    except AssertionError:
+        get_logger().warning(f"Failed to load data for rank {rank_data.num}")
+
+    # We'll plot a line between the current agent's fitness and the parent's
+    if z_data is None:
+        ax.plot(
+            [x_data[0], x_data_parent[0]],
+            [y_data[0], y_data_parent[0]],
+            "k-",
+            alpha=0.5,
+            zorder=0,
+        )
+    else:
+        ax.plot(
+            [x_data[0], x_data_parent[0]],
+            [y_data[0], y_data_parent[0]],
+            [z_data[0], z_data_parent[0]],
+            "k-",
+            alpha=0.5,
+            zorder=0,
+        )

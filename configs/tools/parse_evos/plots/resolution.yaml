@@ -28,6 +28,8 @@ resolution_vs_generation_vs_training_reward_color:
     label: Resolution
   color_data:
     type: MONITOR
-  line_data:
-    - _target_: custom_line_fns.average_line
-      _partial_: True
+  custom_fns:
+    - type: GLOBAL
+      fn:
+        _target_: custom_plot_fns.average_line
+        _partial_: True
