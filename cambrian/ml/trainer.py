@@ -111,7 +111,7 @@ class MjCambrianTrainer:
 
         return fitness
 
-    def eval(self) -> float:
+    def eval(self, *, filename: Optional[Path | str] = None) -> float:
         self._config.save(self._config.expdir / "eval_config.yaml")
 
         eval_env = self._make_env(self._config.eval_env, 1, monitor="eval_monitor.csv")
@@ -126,7 +126,8 @@ class MjCambrianTrainer:
         cambrian_env.xml.write(xml_path)
 
         n_runs = self._config.eval_env.n_eval_episodes
-        filename = self._config.expdir / "eval"
+        filename = self._config.expdir / self._config.eval_env.save_filename
+        filename.mkdir(parents=True, exist_ok=True)
         record_kwargs = dict(
             path=filename, save_mode=self._config.eval_env.renderer.save_mode
         )

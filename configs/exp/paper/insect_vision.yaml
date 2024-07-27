@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - /exp/demos/maze_demo@_here_
+  - /exp/paper/navigation@_here_
 
 env:
   animals:
@@ -9,6 +9,6 @@ env:
       eyes_lon_range: [-90, 90]
       num_eyes_to_generate: [10, 10]
       eyes:
-        animal_0_eye_0:
+        eye:
           resolution: [1, 1]
           fov: [1, 1]

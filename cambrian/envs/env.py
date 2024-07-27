@@ -88,6 +88,9 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             set to None if `render` will never be called. This may be useful to
             reduce the amount of vram consumed by non-rendering environments.
 
+        save_filename (Optional[str]): The filename to save recordings to. This is more
+            of a placeholder for external scripts to use, if desired.
+
         animals (List[MjCambrianAnimalConfig]): The configs for the animals.
             The key will be used as the default name for the animal, unless explicitly
             set in the animal config.
@@ -109,6 +112,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     clear_overlays_on_reset: bool
     render_animal_composite_only: Optional[bool] = None
     renderer: Optional[MjCambrianRendererConfig] = None
+
+    save_filename: Optional[str] = None
 
     animals: Dict[str, MjCambrianAnimalConfig]
 

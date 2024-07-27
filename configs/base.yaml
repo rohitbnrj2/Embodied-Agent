@@ -51,3 +51,5 @@ eval_env:
   # otherwise you'll get an interpolation error since eval_env isn't evaluated until
   # instantiation.
   n_eval_episodes: ${env.n_eval_episodes}
+
+  save_filename: "eval"
