@@ -17,9 +17,9 @@
         <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
         <body name="body" pos="0 0 0.1">
             <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
-            <geom name="box1" type="box" size="0.1 0.1 0.1" pos="-1 0 0.5" condim="1" rgba="0 0 1 1" quat="1 0 0 0"/>
-            <geom name="box2" type="box" size="0.1 0.1 0.1" pos="-1 0.25 0.5" condim="1" rgba="0 1 0 1" quat="1 0 0 0"/>
-            <geom name="box3" type="box" size="0.1 0.1 0.1" pos="-1 -0.25 0.5" rgba="1 0 0 1" condim="1" quat="1 0 0 0"/>
+            <geom name="box1" type="box" size=" 0.25 0.25 0.25" pos="-1 0 0.5" condim="1" rgba="0 0 1 1" quat="1 0 0 0"/>
+            <geom name="box2" type="box" size=" 0.25 0.25 0.25" pos="-1 0.75 0.5" condim="1" rgba="0 1 0 1" quat="1 0 0 0"/>
+            <geom name="box3" type="box" size=" 0.25 0.25 0.25" pos="-1 -0.75 0.5" rgba="1 0 0 1" condim="1" quat="1 0 0 0"/>
         </body>
         <camera pos="0 0 0.5" quat="0.5 0.5 0.5 0.5" resolution="10 10" mode="fixed"/>
     </worldbody>

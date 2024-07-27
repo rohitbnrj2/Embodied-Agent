@@ -320,11 +320,13 @@ class MjCambrianMaze:
             )
 
         # Update floor size based on the map extent
+        # Only done if the size is explicitly set to 0 0 0
         floor_name = f"floor_{self._name}"
         floor = xml.find(f".//geom[@name='{floor_name}']")
         assert floor is not None, f"`{floor_name}` not found"
-        size = f"{self.map_width_scaled // 2} {self.map_length_scaled // 2} 0.1"
-        floor.attrib["size"] = size
+        if floor.attrib.get("size", "0 0 0"):
+            size = f"{self.map_width_scaled // 2} {self.map_length_scaled // 2} 0.1"
+            floor.attrib["size"] = size
         floor.attrib["pos"] = " ".join(map(str, [-self._starting_x, 0, -0.05]))
 
         return xml

@@ -47,12 +47,14 @@ class AnimalShowcaseConfig(MjCambrianBaseConfig):
 
 
 def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
+    overrides = [*overrides, f"exp={config.exp}", "hydra/sweeper=basic"]
     for fname, exp_overrides in config.overrides.items():
         get_logger().info(f"Composing animal showcase {fname}...")
+        print(overrides)
         exp_config = MjCambrianConfig.compose(
             Path.cwd() / "configs",
             "base",
-            overrides=[*exp_overrides, *overrides, f"exp={config.exp}"],
+            overrides=[*exp_overrides, *overrides],
         )
 
         # Run the experiment
@@ -65,6 +67,7 @@ def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
         for _ in range(30):
             mj.mj_step(env.model, env.data)
             env.render()
+        config.outdir.mkdir(parents=True, exist_ok=True)
         env.save(
             config.outdir / fname,
             save_pkl=False,

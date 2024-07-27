@@ -1,0 +1,11 @@
+# @package _global_
+
+defaults:
+  - /exp/showcase: showcase
+
+env:
+  animals:
+    animal_0:
+      eyes_lon_range: [-30, 30]
+
+      num_eyes_to_generate: [1, 2]

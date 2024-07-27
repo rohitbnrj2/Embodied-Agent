@@ -145,7 +145,11 @@ class MjCambrianEnv(ParallelEnv):
 
         self._xml = self.generate_xml()
 
-        self._model = mj.MjModel.from_xml_string(self._xml.to_string())
+        try:
+            self._model = mj.MjModel.from_xml_string(self._xml.to_string())
+        except:
+            self._logger.error(f"Error creating model from xml\n{self._xml.to_string()}")
+            raise
 
         self._data = mj.MjData(self._model)
 

@@ -65,6 +65,9 @@ class MjCambrianXML:
             for more information.
     """
 
+    WHITELIST_ATTRIBUTES = ["name"]
+    WHITELIST_TAGS = ["global"]
+
     def __init__(
         self,
         base_xml_path: Path | str,
@@ -284,8 +287,12 @@ class MjCambrianXML:
                 return hash(tuple(sorted(self.items())))
 
         def create_key(el: ET.Element):
-            if "name" in el.attrib:
-                return (el.tag, el.attrib["name"])
+            for attribute in self.WHITELIST_ATTRIBUTES:
+                if attribute in el.attrib:
+                    return (el.tag, el.attrib[attribute])
+            for tag in self.WHITELIST_TAGS:
+                if el.tag == tag:
+                    return (el.tag, "")
             return (el.tag, hashabledict(el.attrib))
 
         # Create a mapping from tag name to element, as that's what we are filtering with

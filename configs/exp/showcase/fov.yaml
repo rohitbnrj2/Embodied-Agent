@@ -1,0 +1,11 @@
+# @package _global_
+
+defaults:
+  - /exp/showcase: showcase
+
+env:
+  animals:
+    animal_0:
+      eyes:
+        eye:
+          fov: [10, 10]

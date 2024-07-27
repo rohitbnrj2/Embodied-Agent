@@ -5,6 +5,7 @@ import mujoco as mj
 from gymnasium import spaces
 
 from cambrian.eyes import MjCambrianEye, MjCambrianEyeConfig
+from cambrian.renderer.render_utils import add_white_border
 from cambrian.utils import (
     get_body_id,
     get_geom_id,
@@ -421,6 +422,8 @@ class MjCambrianAnimal:
             TL T TR
             ML M MR
             BL B BR
+
+        Each eye has a white border around it.
         """
         if self.num_eyes == 0:
             return
@@ -439,7 +442,10 @@ class MjCambrianAnimal:
             if lat not in images:
                 images[lat] = {}
             assert lon not in images[lat], f"Duplicate eye at {lat}, {lon}."
-            images[lat][lon] = eye.prev_obs[:, :, :3]  # only use rgb
+
+            # Add the image to the dictionary
+            min_dim = min(eye.prev_obs.shape[:2])
+            images[lat][lon] = add_white_border(eye.prev_obs[:, :, :3], max(min_dim // 10, 1))
 
         # Construct the composite image
         # Loop through the sorted list of images based on lat/lon

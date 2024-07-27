@@ -1,0 +1,46 @@
+# @package _global_
+
+defaults:
+  - /env/animals@env.animals.animal_0: ${env/animals}
+  - /env/animals/eyes@env.animals.animal_0.eyes.eye: ${env/animals/eyes}
+
+  # Use the maze_exp config as the base
+  - /exp/exp
+
+  - override /env/animals: point
+  - override /env/renderer: bev
+
+env:
+  animals:
+    animal_0:
+      init_quat:
+        [
+          "${eval:'math.cos(-math.pi/2)'}",
+          0,
+          0,
+          "${eval:'math.sin(-math.pi/2)'}",
+        ]
+
+      eyes:
+        eye:
+          resolution: [10, 10]
+          fov: [45, 20]
+
+  # Add a nice skybox to the scene; normally the skybox is just black
+  xml:
+    xml_string: ${read:${path:models,test.xml}}
+    overrides:
+      - mujoco:
+          - visual:
+            - global:
+              - orthographic: "true"
+              - fovy: 2
+          - worldbody:
+              - body:
+                  - name: "point_animal_0"
+                  - pos: "1.25 0 0.6"
+
+  add_overlays: False
+  renderer:
+    camera:
+      lookat: [1.0, 0.0, 0.0]

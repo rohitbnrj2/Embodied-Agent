@@ -4,7 +4,14 @@ import numpy as np
 import mujoco as mj
 
 
-def resize_with_aspect_fill(image: np.ndarray, width: int, height: int):
+def resize_with_aspect_fill(
+    image: np.ndarray,
+    width: int,
+    height: int,
+    *,
+    border_type: int = cv2.BORDER_CONSTANT,
+    interp: int = cv2.INTER_NEAREST
+) -> np.ndarray:
     # TODO: why is it height, width and not width, height?
     # original_width, original_height = image.shape[:2]
     original_height, original_width = image.shape[:2]
@@ -12,18 +19,17 @@ def resize_with_aspect_fill(image: np.ndarray, width: int, height: int):
     ratio_new = width / height
 
     # Resize the image while maintaining the aspect ratio
-    border_type = cv2.BORDER_CONSTANT
     if ratio_original > ratio_new:
         # Original is wider relative to the new size
         resize_height = max(1, round(width / ratio_original))
-        resized_image = cv2.resize(image, (width, resize_height))
+        resized_image = cv2.resize(image, (width, resize_height), interpolation=interp)
         top = (height - resize_height) // 2
         bottom = height - resize_height - top
         result = cv2.copyMakeBorder(resized_image, top, bottom, 0, 0, border_type)
     else:
         # Original is taller relative to the new size
         resize_width = max(1, round(height * ratio_original))
-        resized_image = cv2.resize(image, (resize_width, height))
+        resized_image = cv2.resize(image, (resize_width, height), interpolation=interp)
         left = (width - resize_width) // 2
         right = width - resize_width - left
         result = cv2.copyMakeBorder(resized_image, 0, 0, left, right, border_type)
@@ -65,3 +71,17 @@ def convert_depth_distances(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
     depth[:] = out_64.astype(np.float32)
 
     return depth
+
+
+def add_white_border(image: np.ndarray, border_size: int) -> np.ndarray:
+    """Add a white border around the image."""
+    image = cv2.copyMakeBorder(
+        image,
+        border_size,
+        border_size,
+        border_size,
+        border_size,
+        cv2.BORDER_CONSTANT,
+        value=(0, 0, 0),
+    )
+    return image
