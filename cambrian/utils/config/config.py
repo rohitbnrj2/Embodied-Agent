@@ -17,7 +17,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
     Attributes:
         logdir (Path): The primary directory which simulation data is stored in. This is
             the highest level directory used for the experiment. `expdir` is the
-            subdirectory used for a specific experiment. 
+            subdirectory used for a specific experiment.
         expdir (Path): The directory used for a specific experiment. This is the
             directory where the experiment's data is stored. Should evaluate to
             `logdir / `expsubdir`

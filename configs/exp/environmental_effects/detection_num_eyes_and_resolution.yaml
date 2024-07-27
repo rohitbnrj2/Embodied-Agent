@@ -55,7 +55,7 @@ env:
         # Set the vertical resolution to equal the horizontal resolution for debugging
         # purposes.
         eye:
-          resolution: 
+          resolution:
             - 1
             - ${.0}
           fov: [45, 45]

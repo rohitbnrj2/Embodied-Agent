@@ -11,8 +11,11 @@ from parse_helpers import get_axis_label
 # ==================
 # Eye range parsing
 
+
 def _eye_range_parse(rank_data: Rank, *, pattern: str) -> Tuple[float, float]:
-    assert rank_data.config is not None, "Rank data config is required to plot eye placement."
+    assert (
+        rank_data.config is not None
+    ), "Rank data config is required to plot eye placement."
 
     # Get the eye placement range from the globbed data
     key = pattern.split(".")[-1]
@@ -21,6 +24,7 @@ def _eye_range_parse(rank_data: Rank, *, pattern: str) -> Tuple[float, float]:
     eye_range = eye_range[0]
     assert len(eye_range) == 2, "Eye range must have 2 values."
     return eye_range
+
 
 def eye_range_diff(
     axis_data: AxisData,
@@ -38,7 +42,9 @@ def eye_range_diff(
         p2 = np.deg2rad(p2)
     return p2 - p1, get_axis_label(axis_data)
 
+
 # ==================
+
 
 def eval_safe(
     axis_data: AxisData,
@@ -47,9 +53,9 @@ def eval_safe(
     rank_data: Rank,
     *,
     src: str,
-    patterns: Dict[str, str]
+    patterns: Dict[str, str],
 ) -> ParsedAxisData:
-    """This custom axis fn will pass a pattern directly to `safe_eval` using the 
+    """This custom axis fn will pass a pattern directly to `safe_eval` using the
     `rank_data.config`."""
 
     variables = {}

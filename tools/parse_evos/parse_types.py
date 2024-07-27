@@ -27,6 +27,7 @@ ExtractedData: TypeAlias = Tuple[np.ndarray | None]
 # =======================================================
 # Dataclasses
 
+
 @config_wrapper
 class Rank:
     """A rank is a single run of an inner training loop. Like in a generation, you have
@@ -202,6 +203,7 @@ class PlotData:
     add_title: bool = True
 
     name: str = SI("${parent:}")
+
 
 @config_wrapper
 class ParseEvosConfig(MjCambrianBaseConfig):

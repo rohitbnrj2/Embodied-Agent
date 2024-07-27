@@ -12,7 +12,7 @@ xml:
   _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse
   _convert_: all
   xml_string: ${read:${path:models,animals,point_velocity.xml}}
-  
+
 
 body_name: "point_${parent:}"
 joint_name: "ball_x_${parent:}"

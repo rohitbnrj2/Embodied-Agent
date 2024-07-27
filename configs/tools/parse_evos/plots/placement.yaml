@@ -4,7 +4,7 @@ placement_vs_generation_vs_fitness_color:
   y_data:
     type: CUSTOM
     label: Eye Separation (degrees)
-    custom_fn: 
+    custom_fn:
       _target_: custom_axis_fns.eye_range_diff
       _partial_: True
       pattern: env.animals.*.eyes_lon_range
@@ -18,7 +18,7 @@ lon_diff_vs_generation:
   y_data:
     type: CUSTOM
     label: Longitudinal Difference
-    custom_fn: 
+    custom_fn:
       _target_: custom_axis_fns.eye_range_diff
       _partial_: True
       pattern: env.animals.*.eyes_lon_range
@@ -54,7 +54,7 @@ fitness_vs_lon_diff:
   x_data:
     type: CUSTOM
     label: Longitudinal Range
-    custom_fn: 
+    custom_fn:
       _target_: custom_axis_fns.eye_range_diff
       _partial_: True
       pattern: env.animals.*.eyes_lon_range
@@ -64,7 +64,7 @@ training_reward_vs_lon_diff:
   x_data:
     type: CUSTOM
     label: Longitudinal Range
-    custom_fn: 
+    custom_fn:
       _target_: custom_axis_fns.eye_range_diff
       _partial_: True
       pattern: env.animals.*.eyes_lon_range

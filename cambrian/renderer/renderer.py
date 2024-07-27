@@ -82,10 +82,9 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
 
 # TODO: Remove the free method of GLContext. An annoying c-level error occurs. We don't
 # free the context unless at the end, so this shouldn't be needed, not sure...
-mj.gl_context.GLContext.free  = lambda self: None
+mj.gl_context.GLContext.free = lambda self: None
 GL_CONTEXT: mj.gl_context.GLContext = None
 MJR_CONTEXT: mj.MjrContext = None
-
 
 
 class MjCambrianViewer(ABC):
@@ -612,6 +611,7 @@ class MjCambrianRenderer:
     @property
     def ratio(self) -> float:
         return self.width / self.height
+
 
 if __name__ == "__main__":
     from cambrian.utils.cambrian_xml import MjCambrianXML

@@ -445,7 +445,9 @@ class MjCambrianAnimal:
 
             # Add the image to the dictionary
             min_dim = min(eye.prev_obs.shape[:2])
-            images[lat][lon] = add_white_border(eye.prev_obs[:, :, :3], max(min_dim // 10, 1))
+            images[lat][lon] = add_white_border(
+                eye.prev_obs[:, :, :3], max(min_dim // 10, 1)
+            )
 
         # Construct the composite image
         # Loop through the sorted list of images based on lat/lon

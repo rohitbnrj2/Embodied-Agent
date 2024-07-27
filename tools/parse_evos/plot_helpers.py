@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, List
+from typing import Optional
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -107,6 +107,7 @@ def adjust_points(
     for scatter, size in zip(ax.collections, sizes):
         scatter.set_sizes(size)
 
+
 def adjust_axes(ax: plt.Axes, plot_data: PlotData):
     if plot_data.x_data.lim is not None:
         ax.set_xlim(plot_data.x_data.lim)
@@ -129,7 +130,6 @@ def adjust_axes(ax: plt.Axes, plot_data: PlotData):
             ax.set_zticks(plot_data.z_data.ticks)
         if plot_data.z_data.tick_labels is not None:
             ax.set_zticklabels(plot_data.z_data.tick_labels)
-
 
 
 def run_custom_fns(ax: plt.Axes, plot_data: PlotData):
@@ -197,6 +197,7 @@ def add_legend(
             # Explicitly add the legend to the axis to ensure it stays on the plot
             ax.add_artist(legend)
 
+
 def add_colorbar(
     color_data: ColorData | None,
     ax: plt.Axes,
@@ -210,7 +211,11 @@ def add_colorbar(
         return
 
     # Normalize the colorbar first
-    vmin, vmax = color_data.clim if color_data.clim is not None else (np.min(colors), np.max(colors))
+    vmin, vmax = (
+        color_data.clim
+        if color_data.clim is not None
+        else (np.min(colors), np.max(colors))
+    )
     norm = Normalize(vmin=vmin, vmax=vmax)
 
     cmap = ax.collections[0].get_cmap()

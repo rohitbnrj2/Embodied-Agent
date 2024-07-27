@@ -50,7 +50,9 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
 
     renderer: MjCambrianRendererConfig
 
+
 T = TypeVar("T", bound=MjCambrianEyeConfig)
+
 
 class MjCambrianEye(Generic[T]):
     """Defines an eye for the cambrian environment. It essentially wraps a mujoco Camera

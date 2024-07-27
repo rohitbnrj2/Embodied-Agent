@@ -1,7 +1,7 @@
 # @package _global_
 
 # This task is for navigation. It's essentially identical to /exp/tasks/navigation.yaml,
-# except this task adds a goal to allow for a termination condition to be added. A 
+# except this task adds a goal to allow for a termination condition to be added. A
 # termination condition indicates success, and in this case, the agent is successful if
 # it reaches the goal (within a certain distance threshold).
 
@@ -9,7 +9,7 @@ defaults:
   # Adds a single goal to the environment
   # NOTE: ensure the mazes used have a reset location available for the goal to be
   # placed at.
-  # NOTE #2: This has to be defined before the task below since otherwise default 
+  # NOTE #2: This has to be defined before the task below since otherwise default
   # variables (i.e. ${env/object}) won't be able to be resolved.
   - /env/objects@env.objects.goal: goal
 

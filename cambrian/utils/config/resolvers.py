@@ -4,6 +4,7 @@ from pathlib import Path
 from omegaconf import OmegaConf, DictConfig, Node
 from omegaconf.errors import ConfigKeyError
 
+
 def register_new_resolver(name: str, replace: bool = True, **kwargs):
     def decorator(fn):
         OmegaConf.register_new_resolver(name, fn, replace=replace, **kwargs)
@@ -163,6 +164,7 @@ def path_resolver(*parts: str) -> Path:
 def read_resolver(path: str) -> str:
     with open(path, "r") as f:
         return f.read()
+
 
 @register_new_resolver("load")
 def load_resolver(path: str) -> Any:

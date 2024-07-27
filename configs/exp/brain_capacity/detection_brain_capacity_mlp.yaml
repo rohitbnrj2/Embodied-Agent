@@ -18,7 +18,7 @@ trainer:
       features_extractor_kwargs:
         output_dim: "???"
         image_extractor:
-          architecture: "???" 
+          architecture: "???"
 
 env:
   animals:

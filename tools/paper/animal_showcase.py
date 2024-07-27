@@ -74,6 +74,7 @@ def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
             save_mode=MjCambrianRendererSaveMode.PNG,
         )
 
+
 if __name__ == "__main__":
     import argparse
 

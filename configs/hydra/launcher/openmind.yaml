@@ -7,11 +7,11 @@ defaults:
 # compute node. This way, you can limit the total job length to some maximum value.
 timeout_min: ${eval:'60*24'} # 1 day (in min)
 
-# For each job, we'll allocate 1 node and a single GPU (since stable baselines3 
+# For each job, we'll allocate 1 node and a single GPU (since stable baselines3
 # doesn't support multi-gpu. We'll then enable multiple trainers on each node relative
-# to the number of CPUs given. We'll then launch many of these jobs in parallel to 
+# to the number of CPUs given. We'll then launch many of these jobs in parallel to
 # facilitate parallel config trainers (i.e. manage a population).
-# NOTE: I'm unsure the best way to allocate gpus/cpus (like how many of each we want 
+# NOTE: I'm unsure the best way to allocate gpus/cpus (like how many of each we want
 # to use). We'll start with the same as supercloud.
 nodes: 1
 tasks_per_node: ${eval:'int(40 // ${.cpus_per_task})'}
@@ -29,4 +29,3 @@ setup:
   - export TF_CPP_MIN_LOG_LEVEL=2
   - export OPENBLAS_NUM_THREADS=1
   - export PMIX_MCA_gds=hash
-

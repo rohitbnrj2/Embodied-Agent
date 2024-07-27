@@ -5,7 +5,7 @@ defaults:
 
   - _self_
 
-folder: '???'
+folder: "???"
 output: ${path:${folder},env_vs_hw}
 plots_folder: ${path:${output},plots}
 evals_folder: ${path:${output},evals}
@@ -44,7 +44,7 @@ plots:
     y_data:
       type: CUSTOM
       label: Eye Separation (degrees)
-      custom_fn: 
+      custom_fn:
         _target_: custom_axis_fns.eye_range_diff
         _partial_: True
         pattern: env.animals.*.eyes_lon_range
@@ -133,7 +133,7 @@ hydra:
     version: 1
     formatters:
       simple:
-        format: '%(levelname)-8s | %(module)s.%(funcName)s :: %(message)s'
+        format: "%(levelname)-8s | %(module)s.%(funcName)s :: %(message)s"
     loggers:
       cambrian:
         level: INFO
@@ -149,7 +149,7 @@ hydra:
         stream: ext://sys.stdout
         level: DEBUG
         filters:
-        - max_level
+          - max_level
       stderr:
         class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
         formatter: simple

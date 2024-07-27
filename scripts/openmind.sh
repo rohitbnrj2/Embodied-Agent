@@ -18,4 +18,3 @@ shift
 cmd="MUJOCO_GL=egl bash $SCRIPT hydra/launcher=openmind $@"
 echo "Running command: $cmd" | tee /dev/stderr
 eval $cmd
-

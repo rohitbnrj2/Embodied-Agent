@@ -95,7 +95,7 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                         raise ValueError(f"Error parsing plot {plot.name}: {e}")
                     else:
                         get_logger().warning(f"Couldn't parse plot {plot.name}: {e}")
-                        get_logger().warning(f"Ignoring this plot in the future.")
+                        get_logger().warning("Ignoring this plot in the future.")
                         with config.set_readonly_temporarily(False):
                             config.plots_to_ignore = [
                                 *config.plots_to_ignore,
@@ -490,6 +490,7 @@ def plot_phylogenetic_tree(config: ParseEvosConfig, data: Data):
 
     # Get the parameterization properties from the first parameter
     raise NotImplementedError("Bug below, this is not working.")
+    loaded_parameters = None
     patterns: Dict[str, str] = {"generation": "evo.generation.num"}
     for maybe_param in next(iter(loaded_parameters)).keys():
         if "#" not in maybe_param:
@@ -545,7 +546,6 @@ def plot_phylogenetic_tree(config: ParseEvosConfig, data: Data):
 def run_render(config: ParseEvosConfig, data: Data):
     import mujoco as mj
     from cambrian.renderer import MjCambrianRendererSaveMode
-    from cambrian.envs import MjCambrianEnv
 
     get_logger().info("Rendering data...")
 

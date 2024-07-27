@@ -7,6 +7,7 @@ from cambrian.ml.trainer import MjCambrianTrainer
 
 warnings.filterwarnings("ignore")
 
+
 def run_eval(folder: Path, overrides: List[str]):
     assert (folder / "config.pkl").exists()
 
@@ -18,12 +19,15 @@ def run_eval(folder: Path, overrides: List[str]):
     print(f"Fitness: {fitness}")
     print()
 
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("folder", type=Path, help="The folder containing the config.yaml file")
+    parser.add_argument(
+        "folder", type=Path, help="The folder containing the config.yaml file"
+    )
     parser.add_argument(
         "-o",
         "--override",

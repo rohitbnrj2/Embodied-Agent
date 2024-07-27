@@ -21,4 +21,3 @@ xml:
                 - name: point_${parent:xml}_mat
                 - rgba: "0.1 0.8 0.1 1"
                 - emission: 2
-

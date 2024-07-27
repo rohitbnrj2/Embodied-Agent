@@ -3,6 +3,7 @@ import numpy as np
 
 from parse_types import ExtractedData
 
+
 def extract_data(
     ax: plt.Axes,
     *,

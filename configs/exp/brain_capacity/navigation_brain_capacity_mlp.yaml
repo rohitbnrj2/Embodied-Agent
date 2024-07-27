@@ -13,7 +13,7 @@ trainer:
       features_extractor_kwargs:
         output_dim: "???"
         image_extractor:
-          architecture: "???" 
+          architecture: "???"
 
 env:
   animals:
@@ -58,16 +58,14 @@ hydra:
         upper: 100
         step: 10
         integer: true
-    
+
     # Add a cheap constraint to restrict the number of eyes generated to be
     # "morphologically feasible"
     optim:
       cheap_constraints:
-            - _target_: cambrian.ml.constraint_fns.nevergrad_constraint_fn
-              _partial_: true
-              fn: cambrian.ml.constraint_fns.constrain_morphologically_feasible_eyes
-              num_lon_eyes_to_generate: env.animals.animal_0.num_eyes_to_generate.1
-              width: env.animals.animal_0.eyes.eye.resolution.0
-              lon_range: ${env.animals.animal_0.eyes_lon_range}
-
-
+        - _target_: cambrian.ml.constraint_fns.nevergrad_constraint_fn
+          _partial_: true
+          fn: cambrian.ml.constraint_fns.constrain_morphologically_feasible_eyes
+          num_lon_eyes_to_generate: env.animals.animal_0.num_eyes_to_generate.1
+          width: env.animals.animal_0.eyes.eye.resolution.0
+          lon_range: ${env.animals.animal_0.eyes_lon_range}

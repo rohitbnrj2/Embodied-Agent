@@ -81,7 +81,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             is True and mazes change between evaluations, the sites will be drawn on top
             of each other which may not be desired. When record is False, the overlays
             are always cleared.
-        render_animal_composite_only (Optional[bool]): If set, will only render the 
+        render_animal_composite_only (Optional[bool]): If set, will only render the
             composite image all animals.
         renderer (Optional[MjCambrianViewerConfig]): The default viewer config to
             use for the mujoco viewer. If unset, no renderer will be used. Should
@@ -148,7 +148,9 @@ class MjCambrianEnv(ParallelEnv):
         try:
             self._model = mj.MjModel.from_xml_string(self._xml.to_string())
         except:
-            self._logger.error(f"Error creating model from xml\n{self._xml.to_string()}")
+            self._logger.error(
+                f"Error creating model from xml\n{self._xml.to_string()}"
+            )
             raise
 
         self._data = mj.MjData(self._model)
@@ -256,7 +258,9 @@ class MjCambrianEnv(ParallelEnv):
 
         return self._update_obs(obs), self._update_info(info)
 
-    def step(self, action: Dict[str, Any]) -> Tuple[
+    def step(
+        self, action: Dict[str, Any]
+    ) -> Tuple[
         Dict[str, Any],
         Dict[str, float],
         Dict[str, bool],

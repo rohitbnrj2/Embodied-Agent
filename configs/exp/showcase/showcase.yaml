@@ -32,9 +32,9 @@ env:
     overrides:
       - mujoco:
           - visual:
-            - global:
-              - orthographic: "true"
-              - fovy: 2
+              - global:
+                  - orthographic: "true"
+                  - fovy: 2
           - worldbody:
               - body:
                   - name: "point_animal_0"

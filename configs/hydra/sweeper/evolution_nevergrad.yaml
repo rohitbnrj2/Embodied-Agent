@@ -70,7 +70,7 @@ optim:
   load_if_exists: ${path:${logdir},nevergrad.pkl}
 
   callbacks:
-    # Add a parameters logger callback. We can use this to get lineage info and use 
+    # Add a parameters logger callback. We can use this to get lineage info and use
     # hiplot to make tree-like plots.
     - name: tell
       callback:

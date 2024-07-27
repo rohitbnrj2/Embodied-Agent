@@ -36,18 +36,18 @@ seed: 0
 # when just loading the default env config. We use a utility function merge the config
 # from downstream eval_env's into ${env} at instantiate rather than resolution. If we
 # just set eval_env: ${env}, ${env} would resolve when these overrides are applied and
-# any overrides of env in that config or downstream configs wouldn't be present in 
+# any overrides of env in that config or downstream configs wouldn't be present in
 # eval_env.
 # NOTE: any overrides are independent of ${env}, like if there is a partial target in
 # env, you also have to specify the _partial_ keyword in the eval_env config (if not,
 # hydra will complain since it'll try instantiating the target fully). This is also the
-# case with any targets, like you will need to specify the target in full if you 
+# case with any targets, like you will need to specify the target in full if you
 # override one here.
-eval_env: 
+eval_env:
   _target_: cambrian.utils.config.utils.merge_with_kwargs
   config: ${env}
 
-  # Define any ${env} interpolations used in subsequent configs expicitly here, 
+  # Define any ${env} interpolations used in subsequent configs expicitly here,
   # otherwise you'll get an interpolation error since eval_env isn't evaluated until
   # instantiation.
   n_eval_episodes: ${env.n_eval_episodes}

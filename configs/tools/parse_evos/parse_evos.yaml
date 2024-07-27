@@ -3,27 +3,27 @@
 defaults:
   - /ParseEvosConfig
 
-  - plots: 
-    - average_hidden_layer_size
-    - fov
-    - nn_output_layer_size
-    - number_of_eyes
-    - resolution
-    - placement
-    - fitness
-    - training_reward
-    # - aperture
-    - tree
+  - plots:
+      - average_hidden_layer_size
+      - fov
+      - nn_output_layer_size
+      - number_of_eyes
+      - resolution
+      - placement
+      - fitness
+      - training_reward
+      # - aperture
+      - tree
   - renders:
-    - default
-    - first_person
-    - third_person
-    - birds_eye
-    - birds_eye_no_overlays
+      - default
+      - first_person
+      - third_person
+      - birds_eye
+      - birds_eye_no_overlays
 
   - _self_
 
-folder: '???'
+folder: "???"
 output: ${path:${folder},parse_evos}
 plots_folder: ${path:${output},plots}
 evals_folder: ${path:${output},evals}
@@ -58,7 +58,7 @@ hydra:
     version: 1
     formatters:
       simple:
-        format: '%(levelname)-8s | %(module)s.%(funcName)s :: %(message)s'
+        format: "%(levelname)-8s | %(module)s.%(funcName)s :: %(message)s"
     loggers:
       cambrian:
         level: INFO
@@ -74,7 +74,7 @@ hydra:
         stream: ext://sys.stdout
         level: DEBUG
         filters:
-        - max_level
+          - max_level
       stderr:
         class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
         formatter: simple

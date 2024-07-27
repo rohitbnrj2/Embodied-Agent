@@ -122,10 +122,12 @@ def run_hydra(
 
 # ===========
 
+
 def clean_key(key: str):
-    pattern = re.compile(r'(\w+)(?:\[\d+\]|\.\d+)?$')
+    pattern = re.compile(r"(\w+)(?:\[\d+\]|\.\d+)?$")
     match = pattern.search(key)
     return match.group(1) if match else None
+
 
 def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
     """This resolver will glob a key in the config. This is useful for finding all keys
@@ -151,6 +153,7 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
             output will be a nested dict. Defaults to False.
         _root_ (DictConfig): The root config.
     """
+
     def recursive_glob(config: DictConfig | Any, keys: List[str]) -> Dict:
         if not keys or not isinstance(config, DictConfig):
             return config
@@ -238,11 +241,12 @@ def build_pattern(patterns: List[str]) -> str:
 
 # ===========
 
+
 def merge_with_kwargs(config: DictConfig, **kwargs) -> DictConfig:
     """This method will merge the kwargs into the config. This is useful for merging
     "late", as in after the config has been resolved (not instantiated). By specifying
     the merge to happen at instantiation time rather than at resolution time, it gives
-    more freedom in defining overrides within the config. See `base.yaml` for more 
+    more freedom in defining overrides within the config. See `base.yaml` for more
     info.
 
     This is intended to be called from a yaml config file like:
@@ -264,8 +268,9 @@ def merge_with_kwargs(config: DictConfig, **kwargs) -> DictConfig:
     """
     for key, value in kwargs.items():
         OmegaConf.update(config, key, value)
-    
+
     return config
+
 
 # ===========
 

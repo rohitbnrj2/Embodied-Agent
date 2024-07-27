@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 from pathlib import Path
 import os
 import pickle
@@ -138,7 +138,7 @@ def load_data(config: ParseEvosConfig) -> Data:
         uid_to_parent_uid: Dict[str, str] = {}
         for param in loaded_parameters:
             uid = param["#uid"]
-            generation = param["#generation"] - 1 # 1-indexed, convert to 0 indexed
+            generation = param["#generation"] - 1  # 1-indexed, convert to 0 indexed
             rank = param["#num-tell"] % int(param["#num-ask"] // (generation + 1))
 
             uid_to_rank_and_generation[uid] = (rank, generation)

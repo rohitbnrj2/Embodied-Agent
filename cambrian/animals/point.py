@@ -84,10 +84,11 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
             1 - 2 * (value[2] ** 2 + value[3] ** 2),
         )
 
+
 class MjCambrianPointVelocityAnimal(MjCambrianAnimal):
     """
     This is a hardcoded class which implements the animal as actuated by a forward
-    velocity and a rotational velocity. This is similar to MjCambrianPointAnimal, 
+    velocity and a rotational velocity. This is similar to MjCambrianPointAnimal,
     but uses a rotational velocity rather than rotational position."""
 
     def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
@@ -309,6 +310,7 @@ class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):
         delta = np.interp(delta, [-np.pi, np.pi], [-1, 1])
         return [self._speed, np.clip(delta, -1, 1)]
 
+
 class MjCambrianPointAnimalGoalOptimal(MjCambrianPointAnimal):
     """This is an animal which is non-trainable and defines a custom policy which
     acts as an optimal agent in an environment with a goal. Given a goal position, it
@@ -344,6 +346,7 @@ class MjCambrianPointAnimalGoalOptimal(MjCambrianPointAnimal):
         # angle to make the movement.
         delta = np.interp(delta, [-np.pi, np.pi], [-1, 1])
         return [self._speed, delta]
+
 
 class MjCambrianPointAnimalBounce(MjCambrianPointAnimal):
     """This animal will go in a constant direction and bounce off the walls of the

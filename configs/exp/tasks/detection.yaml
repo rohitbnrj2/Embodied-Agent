@@ -52,7 +52,7 @@ env:
       _partial_: true
       objects: [adversary]
       distance_threshold: 1.0
-    
+
   termination_fn:
     # Terminate (i.e. succeed) if the agent is close to the goal
     terminate_if_close_to_goal:

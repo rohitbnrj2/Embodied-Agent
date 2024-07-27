@@ -134,7 +134,9 @@ class MjCambrianTrainer:
         evaluate_policy(eval_env, model, n_runs, record_kwargs=record_kwargs)
 
         # Calculate fitness
-        fitness = calculate_fitness_from_monitor(self._config.expdir / "eval_monitor.csv")
+        fitness = calculate_fitness_from_monitor(
+            self._config.expdir / "eval_monitor.csv"
+        )
         self._logger.info(f"Final Fitness: {fitness}")
 
         return fitness
