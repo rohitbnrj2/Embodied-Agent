@@ -37,6 +37,7 @@ def num_eyes_and_resolution_constraint(
     lon_range: Tuple[float, float],
     radius: float = 0.1,
     pixel_size: float = 5e-3,
+    clip_line: bool = True,
 ):
     # Extract the data from the plot
     # Assumes num_eyes is the x axis and resolution is the y axis
@@ -47,12 +48,14 @@ def num_eyes_and_resolution_constraint(
     circumference = (lon_range[1] - lon_range[0]) * np.pi / 180 * radius
     max_feasible_resolution = circumference / (num_eyes * pixel_size)
 
-    # Clip the max feasible resolution to the maximum resolution
-    # Delete all the resolutions/num eyes at that max value so we don't have a flat
-    # line at the top
-    mask = max_feasible_resolution <= np.max(resolution)
-    num_eyes = num_eyes[mask]
-    max_feasible_resolution = max_feasible_resolution[mask]
+    if clip_line:
+        exit()
+        # Clip the max feasible resolution to the maximum resolution
+        # Delete all the resolutions/num eyes at that max value so we don't have a flat
+        # line at the top
+        mask = max_feasible_resolution <= np.max(resolution)
+        num_eyes = num_eyes[mask]
+        max_feasible_resolution = max_feasible_resolution[mask]
 
     # Plot the constraint as a red curve
     ax.plot(num_eyes, max_feasible_resolution, "r-", label="Morophological Constraint")

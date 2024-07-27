@@ -1,3 +1,17 @@
+placement_vs_generation_vs_fitness_color:
+  x_data:
+    type: GENERATION
+  y_data:
+    type: CUSTOM
+    label: Eye Separation (degrees)
+    custom_fn: 
+      _target_: custom_axis_fns.eye_range_diff
+      _partial_: True
+      pattern: env.animals.*.eyes_lon_range
+  color_data:
+    type: EVALUATION
+    cmap: RdYlGn
+  add_legend: False
 lon_diff_vs_generation:
   x_data:
     type: GENERATION

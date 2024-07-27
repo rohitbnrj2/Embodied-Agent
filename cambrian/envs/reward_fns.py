@@ -65,7 +65,7 @@ def euclidean_delta_from_init(
         if check_if_larger(animal.pos, closest_pos, animal.init_pos):
             info["best_pos"] = animal.pos.copy()
         else:
-            return 0.0 
+            return 0.0
 
     return calc_delta(animal, info, animal.init_pos) * factor
 
@@ -101,17 +101,67 @@ def reward_euclidean_delta_to_objects(
 
         if only_best:
             # Only reward if the current position is closer to the object than any
-            # previous position. This requires us to keep around a state of the best 
+            # previous position. This requires us to keep around a state of the best
             # position. If the current position is further, we'll skip this object.
-            closest_pos = info.setdefault(f"best_pos_{obj.name}", animal.pos.copy()) 
+            closest_pos = info.setdefault(f"best_pos_{obj.name}", animal.pos.copy())
             if check_if_larger(obj.pos, closest_pos, animal.pos):
                 info[f"best_pos_{obj.name}"] = animal.pos.copy()
             else:
                 continue
 
-        # NOTE: calc_delta returns a positive value if the animal moves away from the 
+        # NOTE: calc_delta returns a positive value if the animal moves away from the
         # object. We'll multiple by -1 to flip the convention.
         delta = -factor * calc_delta(animal, info, obj.pos)
+        if min_delta_threshold is not None and delta < min_delta_threshold:
+            continue
+        elif max_delta_threshold is not None and delta > max_delta_threshold:
+            continue
+
+        accumulated_reward = delta
+
+    return accumulated_reward
+
+
+def reward_euclidean_delta_to_animals(
+    env: MjCambrianEnv,
+    animal: MjCambrianAnimal,
+    terminated: bool,
+    truncated: bool,
+    info: Dict[str, Any],
+    *,
+    factor: float,
+    animals: Optional[List[str]] = None,
+    only_best: bool = False,
+    min_delta_threshold: Optional[float] = None,
+    max_delta_threshold: Optional[float] = None,
+):
+    """
+    Rewards the change in distance to any enabled animal over the previous step.
+    Convention is that a positive reward indicates getting closer to the animal.
+
+    `only_best` will only reward the animal if it is closer to the animal than any
+    previous position. This requires us to keep around a state of the best position.
+    """
+    accumulated_reward = 0.0
+    for other_animal in env.animals.values():
+        if animals is not None and other_animal.name not in animals:
+            continue
+
+        if only_best:
+            # Only reward if the current position is closer to the animal than any
+            # previous position. This requires us to keep around a state of the best
+            # position. If the current position is further, we'll skip this object.
+            closest_pos = info.setdefault(
+                f"best_pos_{other_animal.name}", animal.pos.copy()
+            )
+            if check_if_larger(other_animal.pos, closest_pos, animal.pos):
+                info[f"best_pos_{other_animal.name}"] = animal.pos.copy()
+            else:
+                continue
+
+        # NOTE: calc_delta returns a positive value if the animal moves away from the
+        # object. We'll multiple by -1 to flip the convention.
+        delta = -factor * calc_delta(animal, info, other_animal.pos)
         if min_delta_threshold is not None and delta < min_delta_threshold:
             continue
         elif max_delta_threshold is not None and delta > max_delta_threshold:
@@ -148,6 +198,7 @@ def reward_if_close_to_object(
         if np.linalg.norm(obj.pos - animal.pos) < distance_threshold:
             accumulated_reward += reward
     return accumulated_reward
+
 
 def penalize_if_has_contacts(
     env: MjCambrianEnv,
@@ -319,6 +370,7 @@ def reward_if_objects_in_view(
 
     return accumulated_reward
 
+
 def constant_reward(
     env: MjCambrianEnv,
     animal: MjCambrianAnimal,
@@ -343,7 +395,7 @@ def combined_reward(
     **reward_fns,
 ) -> float:
     """Combines multiple reward functions into one.
-    
+
     Keyword Args:
         exclusive_fns (Optional[List[str]]): If provided, only the reward functions
             with this name will be used if it's non-zero. As in, in order, the first
@@ -376,8 +428,11 @@ def calc_delta(
     prev_distance = np.linalg.norm(info["prev_pos"] - point)
     return current_distance - prev_distance
 
-def check_if_larger(p1: np.ndarray, p2: np.ndarray, point: np.ndarray = np.array([0, 0])) -> bool:
-    """Checks if the distance from point to p1 is larger than the distance from point 
+
+def check_if_larger(
+    p1: np.ndarray, p2: np.ndarray, point: np.ndarray = np.array([0, 0])
+) -> bool:
+    """Checks if the distance from point to p1 is larger than the distance from point
     to p2."""
     return np.linalg.norm(p1 - point) > np.linalg.norm(p2 - point)
 

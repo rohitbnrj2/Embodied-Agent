@@ -12,7 +12,7 @@ defaults:
     - placement
     - fitness
     - training_reward
-    - aperture
+    # - aperture
     - tree
   - renders:
     - default
@@ -40,7 +40,6 @@ plots_to_ignore: []
 plot: False
 plot_nevergrad: False
 plot_phylogenetic_tree: False
-plot_muller: False
 render: False
 eval: False
 

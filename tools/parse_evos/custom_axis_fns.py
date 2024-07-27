@@ -1,10 +1,8 @@
-# custom_fn: Callable[[AxisData, Data, Generation, Rank], ParsedAxisData]
-# ParsedAxisData: Tuple[np.ndarray | float | int, str]
-
 from typing import Dict, Tuple
 
+import numpy as np
+
 from cambrian.utils import safe_eval
-from cambrian.utils.config.utils import glob
 from parse_evos import Data, Generation, Rank
 from parse_types import AxisData, ParsedAxisData
 from parse_helpers import get_axis_label
@@ -30,10 +28,14 @@ def eye_range_diff(
     generation_data: Generation,
     rank_data: Rank,
     *,
-    pattern: str
+    pattern: str,
+    convert_to_radians: bool = False,
 ) -> ParsedAxisData:
     p1, p2 = _eye_range_parse(rank_data, pattern=pattern)
 
+    if convert_to_radians:
+        p1 = np.deg2rad(p1)
+        p2 = np.deg2rad(p2)
     return p2 - p1, get_axis_label(axis_data)
 
 # ==================

@@ -24,6 +24,7 @@ env:
     euclidean_delta_from_init:
       _target_: cambrian.envs.reward_fns.euclidean_delta_from_init
       _partial_: true
+
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
       _partial_: true

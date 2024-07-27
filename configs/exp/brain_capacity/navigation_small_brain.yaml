@@ -4,10 +4,11 @@ defaults:
   - /exp/brain_capacity/navigation_brain_capacity_mlp@_here_
 
 trainer:
-  # Set the policy kwargs here to use smaller number of parameters
+  # Each eye will have exactly 1 neuron and 1 output. This is the minimum allowed for
+  # our feature extractor.
   model:
     policy_kwargs:
       features_extractor_kwargs:
-        output_dim: 8
+        output_dim: 1
         image_extractor:
-          architecture: [2, 4]
+          architecture: [1]

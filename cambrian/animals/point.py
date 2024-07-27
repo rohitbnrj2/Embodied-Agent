@@ -344,3 +344,23 @@ class MjCambrianPointAnimalGoalOptimal(MjCambrianPointAnimal):
         # angle to make the movement.
         delta = np.interp(delta, [-np.pi, np.pi], [-1, 1])
         return [self._speed, delta]
+
+class MjCambrianPointAnimalBounce(MjCambrianPointAnimal):
+    """This animal will go in a constant direction and bounce off the walls of the
+    environment. When it hits a wall, it will bounce off in a random direction."""
+
+    def __init__(
+        self,
+        config: MjCambrianAnimalConfig,
+        name: str,
+        idx: int,
+        *,
+        speed: float = 1.0,
+    ):
+        super().__init__(config, name, idx)
+
+        self._speed = speed
+
+    def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
+        if self.has_contacts:
+            pass

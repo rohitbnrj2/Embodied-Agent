@@ -258,6 +258,7 @@ resolution_vs_number_of_eyes_vs_training_reward_color_vs_best_n_size:
       _partial_: True
       n: 3
 resolution_vs_number_of_eyes_vs_fitness_color:
+  add_legend: True
   x_data:
     type: CUSTOM
     label: Number of Eyes
@@ -274,6 +275,8 @@ resolution_vs_number_of_eyes_vs_fitness_color:
   color_data:
     type: EVALUATION
     cmap: RdYlGn
+  size_data:
+    type: NONE
   custom_fns:
     - type: GLOBAL
       fn:
@@ -305,7 +308,7 @@ resolution_vs_number_of_eyes_vs_fitness_color_vs_fitness_size:
         lon_range: [-90, 90]
   size_data:
     type: EVALUATION
-    label: Fitness
+    label: null
   add_legend: True
 training_reward_vs_number_of_eyes:
   x_data:

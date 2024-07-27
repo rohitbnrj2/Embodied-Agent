@@ -240,6 +240,8 @@ def get_axis_label(axis_data: AxisData, label: str = "") -> str:
         label = "Walltime (minutes)"
     elif axis_data.type is AxisDataType.EVALUATION:
         label = "Fitness"
+    elif axis_data.type is AxisDataType.CONSTANT:
+        label = ""
     return axis_data.label or label
 
 
@@ -273,6 +275,9 @@ def parse_axis_data(
     elif axis_data.type is AxisDataType.CUSTOM:
         assert axis_data.custom_fn is not None, "Custom function is required."
         return axis_data.custom_fn(axis_data, data, generation_data, rank_data)
+    elif axis_data.type is AxisDataType.CONSTANT:
+        assert axis_data.value is not None, "Value is required for CONSTANT."
+        data = axis_data.value
     else:
         raise ValueError(f"Unknown data type {axis_data.type}.")
 
@@ -330,8 +335,8 @@ def parse_color_data(
 
 def get_size_label(size_data: SizeData | None) -> str:
     label: str
-    if size_data is SizeType.NONE:
-        label = "Size"
+    if size_data.type is SizeType.NONE:
+        label = None
     elif size_data.type is SizeType.NUM:
         label = "Number"
     elif size_data.type is SizeType.GENERATION:
@@ -347,7 +352,9 @@ def parse_size_data(
     size_data: SizeData, data: Data, generation_data: Generation, rank_data: Rank
 ) -> ParsedAxisData:
     size: float
-    if size_data.type is SizeType.NUM:
+    if size_data.type is SizeType.NONE:
+        size = 1
+    elif size_data.type is SizeType.NUM:
         # Will be updated later to reflect the number of overlapping points at the same
         # location
         size = 1

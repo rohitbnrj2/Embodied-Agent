@@ -11,10 +11,7 @@ defaults:
 
   # Adds two objects to the environment: a goal and an adversarial object
   - override /env/objects@env.objects.goal: textured_goal
-  - override /env/objects@env.objects.adversary0: textured_adversary
-  - override /env/objects@env.objects.adversary1: textured_adversary
-  - override /env/objects@env.objects.adversary2: textured_adversary
-  - override /env/objects@env.objects.adversary3: textured_adversary
+  - override /env/objects@env.objects.adversary: textured_adversary
 
 custom:
   # The frequency of each textured object is shared for this task. You must set
@@ -26,15 +23,6 @@ env:
     goal:
       custom:
         frequency: ${custom.frequency}
-    adversary0:
-      custom:
-        frequency: ${custom.frequency}
-    adversary1:
-      custom:
-        frequency: ${custom.frequency}
-    adversary2:
-      custom:
-        frequency: ${custom.frequency}
-    adversary3:
+    adversary:
       custom:
         frequency: ${custom.frequency}

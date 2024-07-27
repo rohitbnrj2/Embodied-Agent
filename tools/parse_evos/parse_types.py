@@ -89,6 +89,7 @@ class AxisDataType(Enum):
     MONITOR = "monitor"
     WALLTIME = "walltime"
     EVALUATION = "evaluation"
+    CONSTANT = "constant"
     CUSTOM = "custom"
 
 
@@ -97,6 +98,9 @@ class AxisData:
     type: AxisDataType
 
     label: Optional[str] = None
+    lim: Optional[Tuple[float, float]] = None
+    ticks: Optional[List[float]] = None
+    tick_labels: Optional[List[str]] = None
 
     # CONFIG
     pattern: Optional[str] = None
@@ -106,6 +110,9 @@ class AxisData:
 
     # CUSTOM
     custom_fn: Optional[Callable[[Self, Data, Generation, Rank], ParsedAxisData]] = None
+
+    # CONSTANT
+    value: Optional[float] = None
 
 
 class ColorType(Enum):
@@ -121,6 +128,8 @@ class ColorData:
     type: ColorType = ColorType.SOLID
 
     label: Optional[str] = None
+    clim: Optional[Tuple[float, float]] = None
+    kwargs: Dict[str, Any] = field(default_factory=dict)
 
     # SOLID
     color: Tuple[float, float, float, float] = (0.65490, 0.78039, 0.90588, 0.75)
@@ -185,9 +194,14 @@ class PlotData:
     size_data: SizeData = SizeData()
     custom_fns: List[CustomPlotFn] = field(default_factory=list)
 
-    add_legend: bool = False
+    projection: Optional[str] = None
+
+    add_legend: bool = True
 
     title: Optional[str] = None
+    add_title: bool = True
+
+    name: str = SI("${parent:}")
 
 @config_wrapper
 class ParseEvosConfig(MjCambrianBaseConfig):
@@ -221,7 +235,6 @@ class ParseEvosConfig(MjCambrianBaseConfig):
             file might be saved which contains evolution information. We can load it
             and plot it if this is true.
         plot_phylogenetic_tree (bool): Plot the phylogenetic tree.
-        plot_muller (bool): Plot the muller plot.
         render (bool): Run renderings for each processed rank. This will create a bunch
             of renders depending on the render dictionary.
         eval (bool): Evaluate the data.
@@ -257,12 +270,11 @@ class ParseEvosConfig(MjCambrianBaseConfig):
     plot: bool
     plot_nevergrad: bool
     plot_phylogenetic_tree: bool
-    plot_muller: bool
     render: bool
     eval: bool
 
-    plots: Dict[str, PlotData]
-    renders: Dict[str, List[str]]
-    overrides: List[str]
+    plots: Dict[str, PlotData] = field(default_factory=dict)
+    renders: Dict[str, List[str]] = field(default_factory=dict)
+    overrides: List[str] = field(default_factory=list)
 
     dry_run: bool

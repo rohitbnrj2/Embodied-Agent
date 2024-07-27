@@ -8,6 +8,6 @@ trainer:
   model:
     policy_kwargs:
       features_extractor_kwargs:
-        output_dim: 512
+        output_dim: 2048
         image_extractor:
-          architecture: [128, 256]
+          architecture: [256, 512, 1024]

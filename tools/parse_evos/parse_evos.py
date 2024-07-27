@@ -6,6 +6,7 @@ import tqdm.rich as tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+import seaborn as sns
 
 from cambrian.utils import is_integer
 from cambrian.utils.config.utils import clean_key
@@ -15,7 +16,15 @@ from cambrian.utils.config import (
     run_hydra,
 )
 
-from parse_types import Rank, Generation, ParseEvosConfig, Data, CustomPlotFnType
+from parse_types import (
+    Rank,
+    Generation,
+    ParseEvosConfig,
+    Data,
+    CustomPlotFnType,
+    AxisDataType,
+    PlotData,
+)
 from parse_helpers import (
     parse_plot_data,
     try_load_pickle,
@@ -25,6 +34,7 @@ from parse_helpers import (
 from plot_helpers import (
     plot_helper,
     adjust_points,
+    adjust_axes,
     run_custom_fns,
     add_legend,
     add_colorbar,
@@ -37,6 +47,8 @@ from utils import extract_data
 # Default is 1000, but we'll set it to 10000 to be safe
 sys.setrecursionlimit(10000)
 
+sns.set_theme("paper", font_scale=1.5)
+sns.set_style("ticks")
 
 # =======================================================
 
@@ -62,12 +74,12 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
 
             get_logger().info(f"\tPlotting rank {rank}...")
 
-            for plot_name, plot in config.plots.items():
-                if config.plots_mask is not None and plot_name not in config.plots_mask:
-                    get_logger().debug(f"Skipping plot {plot_name}.")
+            for plot in config.plots.values():
+                if config.plots_mask is not None and plot.name not in config.plots_mask:
+                    get_logger().debug(f"Skipping plot {plot.name}.")
                     continue
-                elif plot_name in config.plots_to_ignore:
-                    get_logger().debug(f"Skipping plot {plot_name}.")
+                elif plot.name in config.plots_to_ignore:
+                    get_logger().debug(f"Skipping plot {plot.name}.")
                     continue
 
                 try:
@@ -80,14 +92,14 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                         get_logger().debug(f"Ignoring plot{title}: {e}")
                         continue
                     elif config.debug:
-                        raise ValueError(f"Error parsing plot {plot_name}: {e}")
+                        raise ValueError(f"Error parsing plot {plot.name}: {e}")
                     else:
-                        get_logger().warning(f"Couldn't parse plot {plot_name}: {e}")
+                        get_logger().warning(f"Couldn't parse plot {plot.name}: {e}")
                         get_logger().warning(f"Ignoring this plot in the future.")
                         with config.set_readonly_temporarily(False):
                             config.plots_to_ignore = [
                                 *config.plots_to_ignore,
-                                plot_name,
+                                plot.name,
                             ]
                         continue
 
@@ -102,12 +114,14 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                     default_title = f"{zlabel} vs {default_title}"
                 title = plot.title or default_title
 
+                projection = plot.projection or ("3d" if z_data else "rectilinear")
+
                 # Plot the data
                 get_logger().debug(f"\t\tPlotting {title}...")
 
                 # Run custom functions
                 if plot.custom_fns:
-                    fig = plt.figure(plot_name)
+                    fig = plt.figure(plot.name)
                     ax = fig.gca()
                     for custom_fn in plot.custom_fns:
                         if custom_fn.type is CustomPlotFnType.LOCAL:
@@ -117,11 +131,12 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                     x_data,
                     y_data,
                     z_data,
-                    name=plot_name,
+                    name=plot.name,
                     title=title,
                     xlabel=xlabel,
                     ylabel=ylabel,
                     zlabel=zlabel,
+                    projection=projection,
                     marker=".",
                     c=color,
                     s=size,
@@ -134,14 +149,21 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
 
 def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | int]):
     # Filter the plots
-    plots = {n: d for n, d in config.plots.items() if n not in config.plots_to_ignore}
-    if config.plots_mask is not None:
-        plots = {n: d for n, d in plots.items() if n in config.plots_mask}
+    plots: Dict[str, PlotData] = {}
+    for plot in config.plots.values():
+        if config.plots_mask is not None and plot.name not in config.plots_mask:
+            continue
+        elif plot.name in config.plots_to_ignore:
+            continue
+        plots[plot.name] = plot
 
     # Now save the plots
-    assert len(figures) == len(plots), "Num of figures does not match num of plots."
+    assert len(figures) == len(plots), (
+        f"Num of figures ({len(figures)}) does "
+        f"not match num of plots ({len(plots)})."
+    )
     progress_bar = tqdm.tqdm(total=len(figures), desc="Saving...", disable=config.debug)
-    for (plot_name, plot_data), fig in zip(plots.items(), figures):
+    for plot_data, fig in zip(plots.values(), figures):
         progress_bar.update(1)
 
         if isinstance(fig, int):
@@ -161,18 +183,29 @@ def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | in
 
             # We'll ignore any plots which don't have unique data along any axis
             # These plots aren't really useful as there is no independent variable.
-            if np.all(x_data == x_data[0]):
-                get_logger().debug(f"Skipping plot {plot_name}: no unique x_data.")
+            if plot_data.x_data.type is not AxisDataType.CONSTANT and np.all(
+                x_data == x_data[0]
+            ):
+                get_logger().debug(f"Skipping plot {plot_data.name}: no unique x_data.")
                 continue
-            elif np.all(y_data == y_data[0]):
-                get_logger().debug(f"Skipping plot {plot_name}: no unique y_data.")
+            elif plot_data.y_data.type is not AxisDataType.CONSTANT and np.all(
+                y_data == y_data[0]
+            ):
+                get_logger().debug(f"Skipping plot {plot_data.name}: no unique y_data.")
                 continue
-            elif is_3d and np.all(z_data == z_data[0]):
-                get_logger().debug(f"Skipping plot {plot_name}: no unique z_data.")
+            elif (
+                is_3d
+                and plot_data.z_data.type is not AxisDataType.CONSTANT
+                and np.all(z_data == z_data[0])
+            ):
+                get_logger().debug(f"Skipping plot {plot_data.name}: no unique z_data.")
                 continue
 
             # Adjust the points, if necessary
             adjust_points(plot_data.size_data, ax, sizes, points, colors)
+
+            # Adjust the axes
+            adjust_axes(ax, plot_data)
 
             # Run any custom functions
             run_custom_fns(ax, plot_data)
@@ -199,16 +232,25 @@ def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | in
             _line_number = e.__traceback__.tb_lineno
             get_logger().error(
                 f"{_fn_name}:{_line_number}: "
-                f"Error extracting data from plot {plot_name}: {e}"
+                f"Error extracting data from plot {plot_data.name}: {e}"
             )
             continue
 
+        # Remove the title if desired
+        if not plot_data.add_title:
+            fig.suptitle("")
+
         # Set the aspect ratio
-        ax.set_box_aspect(1 if not is_3d else [1, 1, 1])
+        if is_3d:
+            ax.set_box_aspect([1, 1, 1])
+        elif ax.name == "rectilinear":
+            ax.set_box_aspect(1)
+        elif ax.name == "polar":
+            ax.set_theta_zero_location("N")
         fig.tight_layout()
 
         # Save the plot
-        filename = f"{plot_name}.png"
+        filename = f"{plot_data.name}.png"
         plt.savefig(
             config.plots_folder / filename,
             dpi=500,
@@ -305,7 +347,9 @@ def plot_phylogenetic_tree(config: ParseEvosConfig, data: Data):
             parent_id = f"G{rank_data.parent.generation.num}_R{rank_data.parent.num}"
 
             if parent_id not in nodes:
-                parent_generation_data = data.generations[rank_data.parent.generation.num]
+                parent_generation_data = data.generations[
+                    rank_data.parent.generation.num
+                ]
                 parent_rank_data = parent_generation_data.ranks[rank_data.parent.num]
                 add_node(
                     nodes,
@@ -593,7 +637,6 @@ def main(config: ParseEvosConfig):
 
     assert config.folder.exists(), f"Folder {config.folder} does not exist."
     config.plots_folder.mkdir(parents=True, exist_ok=True)
-    config.evals_folder.mkdir(parents=True, exist_ok=True)
 
     if config.force or (data := try_load_pickle(config.output, "data.pkl")) is None:
         data = load_data(config)
@@ -612,11 +655,10 @@ def main(config: ParseEvosConfig):
         plot_nevergrad(config, data)
     if config.plot_phylogenetic_tree:
         plot_phylogenetic_tree(config, data)
-    if config.plot_muller:
-        plot_muller(config, data)
     if config.render:
         run_render(config, data)
     if config.eval:
+        config.evals_folder.mkdir(parents=True, exist_ok=True)
         run_eval(config, data)
 
 

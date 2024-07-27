@@ -1,15 +1,13 @@
-from typing import Optional
+from typing import Optional, Tuple, List
 
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from matplotlib.ticker import MaxNLocator
 
 from cambrian.utils import is_integer
 
 from parse_types import (
-    ParsedAxisData,
     PlotData,
     SizeData,
     ColorData,
@@ -20,9 +18,9 @@ from parse_helpers import get_size_label, get_color_label
 
 
 def plot_helper(
-    x_data: ParsedAxisData,
-    y_data: ParsedAxisData,
-    z_data: Optional[ParsedAxisData] = None,
+    x_data: np.ndarray,
+    y_data: np.ndarray,
+    z_data: Optional[np.ndarray] = None,
     /,
     *,
     name: str,
@@ -30,6 +28,7 @@ def plot_helper(
     xlabel: str,
     ylabel: str,
     zlabel: str,
+    projection: str,
     dry_run: bool = False,
     **kwargs,
 ) -> plt.Figure | None:
@@ -45,13 +44,16 @@ def plot_helper(
         return
 
     fig = plt.figure(name)
+    if len(fig.get_axes()) == 0:
+        fig.add_subplot(111, projection=projection)
+    assert len(fig.get_axes()) == 1
+    ax = fig.gca()
     if z_data:
-        ax: Axes3D = fig.add_subplot(111, projection="3d")
         ax.scatter(x_data, y_data, z_data, **kwargs)
         ax.set_zlabel(zlabel)
     else:
-        ax = fig.gca()
         ax.scatter(x_data, y_data, **kwargs)
+
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     fig.suptitle(title)
@@ -90,8 +92,11 @@ def adjust_points(
                 ax.collections[sizes[idx].argmax()].set_array(color)
 
     # Reorder the points such that the largest points are in the front
-    for i in range(len(ax.collections)):
-        ax.collections[i].set_zorder(sizes[i])
+    # Use sizes for the zorder unless the are all the same, then use color
+    zorder_data = sizes if len(np.unique(sizes)) > 1 else colors
+    if zorder_data is not None:
+        for i in range(len(ax.collections)):
+            ax.collections[i].set_zorder(zorder_data[i])
 
     sizes = sizes * size_data.factor
     if size_data.normalize and sizes.min() != sizes.max():
@@ -101,6 +106,30 @@ def adjust_points(
 
     for scatter, size in zip(ax.collections, sizes):
         scatter.set_sizes(size)
+
+def adjust_axes(ax: plt.Axes, plot_data: PlotData):
+    if plot_data.x_data.lim is not None:
+        ax.set_xlim(plot_data.x_data.lim)
+    if plot_data.x_data.ticks is not None:
+        ax.set_xticks(plot_data.x_data.ticks)
+    if plot_data.x_data.tick_labels is not None:
+        ax.set_xticklabels(plot_data.x_data.tick_labels)
+
+    if plot_data.y_data.lim is not None:
+        ax.set_ylim(plot_data.y_data.lim)
+    if plot_data.y_data.ticks is not None:
+        ax.set_yticks(plot_data.y_data.ticks)
+    if plot_data.y_data.tick_labels is not None:
+        ax.set_yticklabels(plot_data.y_data.tick_labels)
+
+    if plot_data.z_data is not None:
+        if plot_data.z_data.lim is not None:
+            ax.set_zlim(plot_data.z_data.lim)
+        if plot_data.z_data.ticks is not None:
+            ax.set_zticks(plot_data.z_data.ticks)
+        if plot_data.z_data.tick_labels is not None:
+            ax.set_zticklabels(plot_data.z_data.tick_labels)
+
 
 
 def run_custom_fns(ax: plt.Axes, plot_data: PlotData):
@@ -147,31 +176,32 @@ def add_legend(
         # If the number of unique pts is less than 3, we'll only show the min and max
         # values. Otherwise we'll show the min, mean, and max values.
         if len(np.unique(sizes)) < 3:
-            num = [int(calc_value(s)) for s in [sizes.min(), sizes.max()]]
+            num = [int(calc_value(s)) for s in [sizes.max(), sizes.min()]]
         else:
             num = [
                 int(calc_value(s))
-                for s in [sizes.min(), (sizes.max() - sizes.min()) / 2, sizes.max()]
+                for s in [sizes.max(), (sizes.max() - sizes.min()) / 2, sizes.min()]
             ]
 
         scatter = ax.scatter(*points.T, s=sizes, c=colors)
         legend_items = scatter.legend_elements(prop="sizes", num=num, func=calc_value)
         ax.legend(*legend_items, title=label, **kwargs)
+
         scatter.remove()  # remove the scatter plot so it doesn't show up in the plot
     else:
         # Ensure all lagend items are unique
         handles, labels = ax.get_legend_handles_labels()
         unique_labels = dict(zip(labels, handles))
-        ax.legend(unique_labels.values(), unique_labels.keys(), **kwargs)
-
+        if unique_labels:
+            legend = ax.legend(unique_labels.values(), unique_labels.keys(), **kwargs)
+            # Explicitly add the legend to the axis to ensure it stays on the plot
+            ax.add_artist(legend)
 
 def add_colorbar(
     color_data: ColorData | None,
     ax: plt.Axes,
     colors: np.ndarray | None,
     *,
-    vmin: Optional[float] = None,
-    vmax: Optional[float] = None,
     only_unique: bool = True,
 ):
     """Normalize the colors and add a colorbar to the plot."""
@@ -180,8 +210,7 @@ def add_colorbar(
         return
 
     # Normalize the colorbar first
-    vmin = vmin or np.min(colors)
-    vmax = vmax or np.max(colors)
+    vmin, vmax = color_data.clim if color_data.clim is not None else (np.min(colors), np.max(colors))
     norm = Normalize(vmin=vmin, vmax=vmax)
 
     cmap = ax.collections[0].get_cmap()
@@ -196,7 +225,7 @@ def add_colorbar(
     sm.set_array([vmin, vmax])
 
     label = get_color_label(color_data)
-    cbar = plt.colorbar(sm, ax=ax, label=label)
+    cbar = plt.colorbar(sm, ax=ax, label=label, **color_data.kwargs)
 
     # Update the colors to the colormap
     for scatter in ax.collections:
