@@ -87,6 +87,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
             The keyword "default" is required for walls denoted simply as 1 or W.
             Other walls are specified as 1/W:<texture id>.
 
+        enabled (bool): Whether the maze is enabled or not.
         enabled_objects (Optional[List[str]]): The objects that are enabled in the
             maze. If None, all objects are enabled.
     """
@@ -100,6 +101,7 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
 
     wall_texture_map: Dict[str, List[str]]
 
+    enabled: bool
     enabled_objects: Optional[List[str]] = None
 
 
@@ -587,6 +589,9 @@ class MjCambrianMazeStore:
         for name, config in maze_configs.items():
             if name in self._mazes:
                 # If the maze already exists, skip it
+                continue
+            elif not config.enabled:
+                # If the maze is not enabled, skip it
                 continue
 
             # First create the maze

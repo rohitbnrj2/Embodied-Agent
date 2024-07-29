@@ -431,8 +431,8 @@ class MjCambrianAnimal:
         from cambrian.renderer import resize_with_aspect_fill
 
         max_res = (
-            max([eye.config.resolution[0] for eye in self.eyes.values()]),
             max([eye.config.resolution[1] for eye in self.eyes.values()]),
+            max([eye.config.resolution[0] for eye in self.eyes.values()]),
         )
 
         # Sort the eyes based on their lat/lon
@@ -445,9 +445,10 @@ class MjCambrianAnimal:
 
             # Add the image to the dictionary
             min_dim = min(eye.prev_obs.shape[:2])
-            images[lat][lon] = add_white_border(
-                eye.prev_obs[:, :, :3], max(min_dim // 10, 1)
-            )
+            obs = eye.prev_obs[:, :, :3]
+            if min_dim > 10:
+               obs = add_white_border(obs, min_dim // 10) 
+            images[lat][lon] = obs
 
         # Construct the composite image
         # Loop through the sorted list of images based on lat/lon

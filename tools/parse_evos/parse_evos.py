@@ -560,7 +560,7 @@ def run_render(config: ParseEvosConfig, data: Data):
                 continue
 
             get_logger().debug(f"\tRendering rank {rank}...")
-            (rank_data.path / "renders").mkdir(parents=True, exist_ok=True)
+            config.renders_folder.mkdir(parents=True, exist_ok=True)
 
             for fname, exp_overrides in config.renders.items():
                 exp_config = MjCambrianConfig.compose(
@@ -583,7 +583,7 @@ def run_render(config: ParseEvosConfig, data: Data):
                     mj.mj_step(env.model, env.data)
                     env.render()
                 env.save(
-                    rank_data.path / "renders" / fname,
+                    config.renders_folder / f"G{generation}_R{rank}_{fname}",
                     save_pkl=False,
                     save_mode=MjCambrianRendererSaveMode.PNG,
                 )
@@ -644,6 +644,11 @@ def main(config: ParseEvosConfig):
         if not config.no_save:
             save_data(config, data, "data.pkl")
 
+    # Update the generations and ranks list, if desired
+    if config.filter_fn is not None:
+        with config.set_readonly_temporarily(False):
+            data.generations = config.filter_fn(data)
+
     if config.plot:
         if (
             config.force_plot
@@ -663,4 +668,7 @@ def main(config: ParseEvosConfig):
 
 
 if __name__ == "__main__":
-    run_hydra(main, config_name="tools/parse_evos/parse_evos")
+    run_hydra(
+        main,
+        config_name="tools/parse_evos/parse_evos",
+    )

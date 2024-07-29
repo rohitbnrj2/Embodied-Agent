@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 from pathlib import Path
 
 import mujoco as mj
@@ -31,6 +31,12 @@ class AnimalShowcaseConfig(MjCambrianBaseConfig):
             as if you are you running the experiment from the root of the project
             (i.e. relative to the exp/ directory).
 
+        mask (Optional[List[str]]): The masks to apply to overrides dict. If a mask is
+            provided, only the overrides that match the mask will be used. If None,
+            all overrides will be used.
+        ignore (Optional[List[str]]): The overrides to ignore. If an override is in 
+            this list, it will not be used.
+
         overrides (Dict[str, List[str]]): The overrides to apply to the loaded
             configuration. This is a number of overrides that are used to generate
             images. The image is saved using the key as the filename and the value as
@@ -43,12 +49,20 @@ class AnimalShowcaseConfig(MjCambrianBaseConfig):
 
     exp: str
 
+    mask: Optional[List[str]] = None
+    ignore: Optional[List[str]] = None
+
     overrides: Dict[str, List[str]]
 
 
 def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
     overrides = [*overrides, f"exp={config.exp}", "hydra/sweeper=basic"]
     for fname, exp_overrides in config.overrides.items():
+        if config.ignore is not None and fname in config.ignore:
+            continue
+        if config.mask is not None and fname not in config.mask:
+            continue
+
         get_logger().info(f"Composing animal showcase {fname}...")
         print(overrides)
         exp_config = MjCambrianConfig.compose(
@@ -73,6 +87,9 @@ def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
             save_pkl=False,
             save_mode=MjCambrianRendererSaveMode.PNG,
         )
+
+        # Save config for debugging
+        exp_config.save(config.outdir / f"{fname}.yaml")
 
 
 if __name__ == "__main__":

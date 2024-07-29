@@ -338,7 +338,7 @@ class MjCambrianContainerConfig:
         with open(path, "wb") as f:
             cloudpickle.dump(self, f)
 
-    def glob(self, key: str, *, flatten: bool = False) -> Dict[str, Any]:
+    def glob(self, key: str, *, flatten: bool = False, assume_one: bool = False) -> Dict[str, Any] | Any:
         """This is effectively select, but allows `*` to be used as a wildcard.
 
         This method works by finding all `*` in the key and then iterating over all
@@ -356,8 +356,14 @@ class MjCambrianContainerConfig:
             flatten (bool): If true, the output will be a dict of the leaf keys and
                 the accumulated values if there are like leaf keys. If False, the
                 output will be a nested dict. Defaults to False.
+            assume_one (bool): If True, will assume that there is only one match for
+                each glob. If True, will return just the value of the match.
         """
-        return glob(key, flatten, self._config)
+        result = glob(key, flatten, self._config)
+        if assume_one:
+            assert len(result) == 1, f"Expected one match, got {len(result)}"
+            return next(iter(result.values()))
+        return result
 
     def globbed_eval(
         self, src: str, *, key: Optional[str] = None, **patterns: str

@@ -25,6 +25,7 @@ def reward_for_termination(
     Returns termination_reward if terminated, else reward."""
     return reward if terminated else 0.0
 
+reward_for_quick_termination = reward_for_termination
 
 def reward_for_truncation(
     env: MjCambrianEnv,
@@ -39,6 +40,7 @@ def reward_for_truncation(
     Returns truncation_reward if truncated, else reward."""
     return reward if truncated else 0.0
 
+reward_for_quick_truncation = reward_for_truncation
 
 def euclidean_delta_from_init(
     env: MjCambrianEnv,

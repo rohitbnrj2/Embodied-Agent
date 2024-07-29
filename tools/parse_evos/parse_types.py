@@ -103,6 +103,11 @@ class AxisData:
     ticks: Optional[List[float]] = None
     tick_labels: Optional[List[str]] = None
 
+    thetamin: Optional[float] = None
+    thetamax: Optional[float] = None
+    rmin: Optional[float] = None
+    rmax: Optional[float] = None
+
     # CONFIG
     pattern: Optional[str] = None
 
@@ -213,6 +218,7 @@ class ParseEvosConfig(MjCambrianBaseConfig):
         folder (Path): The folder to parse.
         output (Path): The output folder.
         plots_folder (Path): The folder to save the plots.
+        renders_folder (Path): The folder to save the renders.
         evals_folder (Path): The folder to save the evaluations.
 
         force (bool): Force loading of the data. If not passed, this script will try to
@@ -227,6 +233,10 @@ class ParseEvosConfig(MjCambrianBaseConfig):
             used.
         generations (Optional[List[int]]): The generation to use. If not passed, all
             are used.
+        filter_fn (Optional[Callable[[Data], Dict[int, Generation]]]): A filter
+            function to use. This function should take the data and return a dictionary
+            of ranks and generations to use.
+
         plots_mask (Optional[List[str]]): The plots to create. If not passed, all are
             created. This is the name of the plot to mask (i.e. use).
         plots_to_ignore (List[str]): Plots to ignore. This is the name of the plot to
@@ -255,6 +265,7 @@ class ParseEvosConfig(MjCambrianBaseConfig):
     folder: Path
     output: Path
     plots_folder: Path
+    renders_folder: Path
     evals_folder: Path
 
     force: bool
@@ -266,6 +277,8 @@ class ParseEvosConfig(MjCambrianBaseConfig):
 
     ranks: Optional[List[int]] = None
     generations: Optional[List[int]] = None
+    filter_fn: Optional[Callable[[Data], Dict[int, Generation]]] = None
+
     plots_mask: Optional[List[str]] = None
     plots_to_ignore: List[str]
 

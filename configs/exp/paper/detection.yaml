@@ -1,0 +1,8 @@
+# @package _global_
+
+defaults:
+  - /exp/environmental_effects/detection_num_eyes_and_resolution@_here_
+  - /exp/paper/mazes/FIXED_OPEN@env.mazes.OPEN
+
+custom:
+  frequency: 8

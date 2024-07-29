@@ -1,0 +1,6 @@
+third_person_bev:
+  - "env.add_overlays=False"
+  - "+env/renderer=tracking"
+  - "env.renderer.camera.azimuth=0.0"
+  - "env.renderer.camera.elevation=-90.0"
+  - "env.renderer.camera.distance=0.25"

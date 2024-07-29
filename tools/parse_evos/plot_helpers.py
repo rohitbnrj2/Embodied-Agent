@@ -116,12 +116,30 @@ def adjust_axes(ax: plt.Axes, plot_data: PlotData):
     if plot_data.x_data.tick_labels is not None:
         ax.set_xticklabels(plot_data.x_data.tick_labels)
 
+    if plot_data.x_data.thetamin is not None:
+        ax.set_thetamin(plot_data.x_data.thetamin)
+    if plot_data.x_data.thetamax is not None:
+        ax.set_thetamax(plot_data.x_data.thetamax)
+    if plot_data.x_data.rmin is not None:
+        ax.set_rmin(plot_data.x_data.rmin)
+    if plot_data.x_data.rmax is not None:
+        ax.set_rmax(plot_data.x_data.rmax)
+
     if plot_data.y_data.lim is not None:
         ax.set_ylim(plot_data.y_data.lim)
     if plot_data.y_data.ticks is not None:
         ax.set_yticks(plot_data.y_data.ticks)
     if plot_data.y_data.tick_labels is not None:
         ax.set_yticklabels(plot_data.y_data.tick_labels)
+    
+    if plot_data.y_data.thetamin is not None:
+        ax.set_thetamin(plot_data.y_data.thetamin)
+    if plot_data.y_data.thetamax is not None:
+        ax.set_thetamax(plot_data.y_data.thetamax)
+    if plot_data.y_data.rmin is not None:
+        ax.set_rmin(plot_data.y_data.rmin)
+    if plot_data.y_data.rmax is not None:
+        ax.set_rmax(plot_data.y_data.rmax)
 
     if plot_data.z_data is not None:
         if plot_data.z_data.lim is not None:

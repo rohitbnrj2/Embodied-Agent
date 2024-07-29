@@ -26,6 +26,7 @@ defaults:
 folder: "???"
 output: ${path:${folder},parse_evos}
 plots_folder: ${path:${output},plots}
+renders_folder: ${path:${output},renders}
 evals_folder: ${path:${output},evals}
 
 force: False
@@ -44,6 +45,10 @@ render: False
 eval: False
 
 dry_run: False
+
+filter_fn:
+  _target_: custom_filter_fns.filter_noop
+  _partial_: true
 
 overrides: []
 

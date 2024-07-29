@@ -1,0 +1,289 @@
+# NOTE: This assumes the exp only has one animal
+
+defaults:
+  - /AnimalShowcaseConfig
+
+  - _self_
+
+logdir: ${path:logs,${now:%Y-%m-%d},${exp}}
+outdir: ${path:${logdir},${outsubdir}}
+outsubdir: "animal_showcase" # by default, the data will be stored in the logdir
+
+exp: "???"
+
+overrides:
+  bev:
+    - "env/renderer=bev"
+    - "env.animals.animal_0.num_eyes_to_generate.1=0"
+    - "env.add_overlays=False"
+  bev_1eye_1x1res_45lon:
+    - "env.add_overlays=False"
+    - "env/renderer=tracking"
+    - "env.renderer.camera.azimuth=0.0"
+    - "env.renderer.camera.elevation=-90.0"
+    - "env.renderer.camera.distance=0.25"
+    - "env.animals.animal_0.num_eyes_to_generate.1=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  bev_2eye_1x1res_45lon:
+    - "env.add_overlays=False"
+    - "env/renderer=tracking"
+    - "env.renderer.camera.azimuth=0.0"
+    - "env.renderer.camera.elevation=-90.0"
+    - "env.renderer.camera.distance=0.25"
+    - "env.animals.animal_0.num_eyes_to_generate.1=2"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  bev_3eye_1x1res_45lon:
+    - "env.add_overlays=False"
+    - "env/renderer=tracking"
+    - "env.renderer.camera.azimuth=0.0"
+    - "env.renderer.camera.elevation=-90.0"
+    - "env.renderer.camera.distance=0.25"
+    - "env.animals.animal_0.num_eyes_to_generate.1=3"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  bev_3eye_1x1res_90lon:
+    - "env.add_overlays=False"
+    - "env/renderer=tracking"
+    - "env.renderer.camera.azimuth=0.0"
+    - "env.renderer.camera.elevation=-90.0"
+    - "env.renderer.camera.distance=0.25"
+    - "env.animals.animal_0.num_eyes_to_generate.1=3"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  bev_10eye_1x1res_90lon:
+    - "env.add_overlays=False"
+    - "env/renderer=tracking"
+    - "env.renderer.camera.azimuth=0.0"
+    - "env.renderer.camera.elevation=-90.0"
+    - "env.renderer.camera.distance=0.25"
+    - "env.animals.animal_0.num_eyes_to_generate.1=9"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  bev_20eye_1x1res_90lon:
+    - "env.add_overlays=False"
+    - "env/renderer=tracking"
+    - "env.renderer.camera.azimuth=0.0"
+    - "env.renderer.camera.elevation=-90.0"
+    - "env.renderer.camera.distance=0.25"
+    - "env.animals.animal_0.num_eyes_to_generate.1=20"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  bev_50eye_1x1res_90lon:
+    - "env.add_overlays=False"
+    - "env/renderer=tracking"
+    - "env.renderer.camera.azimuth=0.0"
+    - "env.renderer.camera.elevation=-90.0"
+    - "env.renderer.camera.distance=0.25"
+    - "env.animals.animal_0.num_eyes_to_generate.1=50"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  pov_1eye_1x1res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  pov_1eye_2x2res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[2,2]"
+  pov_1eye_5x5res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[5,5]"
+  pov_1eye_10x10res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[10,10]"
+  pov_1eye_20x20res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[20,20]"
+  pov_1eye_30x30res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[30,30]"
+  pov_1eye_40x40res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[40,40]"
+  pov_1eye_50x50res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[50,50]"
+  pov_1eye_100x100res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[100,100]"
+  pov_1eye_200x200res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[200,200]"
+  pov_3eye_1x1res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=3"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  pov_3eye_1x1res_90lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=3"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  pov_3eye_5x5res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=3"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[5,5]"
+  pov_3eye_5x5res_90lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=3"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[5,5]"
+  pov_10eye_1x1res_90lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=10"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  pov_10eye_5x5res_90lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=10"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[5,5]"
+  pov_20eye_1x1res_90lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=20"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  pov_20eye_5x5res_90lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=20"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[5,5]"
+  pov_50eye_1x1res_90lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=50"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,1]"
+  pov_50eye_5x5res_90lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=50"
+    - "env.animals.animal_0.eyes_lon_range=[-90,90]"
+    - "env.animals.animal_0.eyes.eye.resolution=[5,5]"
+  pov_2eye_separated_1x1res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=2"
+    - "env.animals.animal_0.num_eyes_to_generate.0=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,2]"
+    - "env.animals.animal_0.eyes.eye.fov.1=10"
+  pov_5eye_separated_1x1res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=5"
+    - "env.animals.animal_0.num_eyes_to_generate.0=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,5]"
+    - "env.animals.animal_0.eyes.eye.fov.1=10"
+  pov_10eye_separated_1x1res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=10"
+    - "env.animals.animal_0.num_eyes_to_generate.0=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,10]"
+    - "env.animals.animal_0.eyes.eye.fov.1=10"
+  pov_20eye_separated_1x1res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=20"
+    - "env.animals.animal_0.num_eyes_to_generate.0=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,10]"
+    - "env.animals.animal_0.eyes.eye.fov.1=10"
+  pov_50eye_separated_1x1res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=50"
+    - "env.animals.animal_0.num_eyes_to_generate.0=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,10]"
+    - "env.animals.animal_0.eyes.eye.fov.1=10"
+  pov_100eye_separated_1x1res_45lon:
+    - "env.add_overlays=False"
+    - "env.render_animal_composite_only=True"
+    - "env.animals.animal_0.num_eyes_to_generate.1=100"
+    - "env.animals.animal_0.num_eyes_to_generate.0=1"
+    - "env.animals.animal_0.eyes_lon_range=[-45,45]"
+    - "env.animals.animal_0.eyes.eye.resolution=[1,10]"
+    - "env.animals.animal_0.eyes.eye.fov.1=10"
+
+hydra:
+  run:
+    dir: ${outdir}
+  sweep:
+    dir: ${path:logs,${now:%Y-%m-%d},${hydra_select:job.name}}
+  job:
+    name: parse_evos
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        format: "%(levelname)-8s | %(module)s.%(funcName)s :: %(message)s"
+    loggers:
+      cambrian:
+        level: INFO
+        handlers: [stdout, stderr]
+        propagate: false
+    root:
+      level: INFO
+      handlers: [stdout, stderr]
+    handlers:
+      stdout:
+        class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+        level: DEBUG
+        filters:
+          - max_level
+      stderr:
+        class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
+        formatter: simple
+        stream: ext://sys.stderr
+        level: WARNING
+    filters:
+      max_level:
+        (): cambrian.utils.logger.MjCambrianLoggerMaxLevelFilter
+        max_level: INFO
+    disable_existing_loggers: false
+
