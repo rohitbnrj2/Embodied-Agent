@@ -103,11 +103,6 @@ class AxisData:
     ticks: Optional[List[float]] = None
     tick_labels: Optional[List[str]] = None
 
-    thetamin: Optional[float] = None
-    thetamax: Optional[float] = None
-    rmin: Optional[float] = None
-    rmax: Optional[float] = None
-
     # CONFIG
     pattern: Optional[str] = None
 
@@ -200,7 +195,16 @@ class PlotData:
     size_data: SizeData = SizeData()
     custom_fns: List[CustomPlotFn] = field(default_factory=list)
 
+    label_params: Optional[Dict[str, Any]] = None
+
     projection: Optional[str] = None
+    thetamin: Optional[float] = None
+    thetamax: Optional[float] = None
+    rmin: Optional[float] = None
+    rmax: Optional[float] = None
+    rorigin: Optional[float] = None
+    rlabel: Optional[str] = None
+    thetalabel: Optional[str] = None
 
     add_legend: bool = True
 

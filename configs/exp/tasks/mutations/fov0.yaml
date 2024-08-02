@@ -1,0 +1,10 @@
+# @package _global_
+
+hydra:
+  sweeper:
+    params:
+      env.animals.animal.eyes.eye.fov.0:
+        init: ${env.animals.animal.eyes.eye.fov.0}
+        lower: 1
+        upper: 100
+

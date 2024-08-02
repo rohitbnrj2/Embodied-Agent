@@ -76,7 +76,7 @@ def get_max_height(wavelengths, refractive_index):
     return hmap_max_height
 
 
-class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
+class MjCambrianOpticsEye(MjCambrianEye):
     """This class applies the depth invariant PSF to the image.
 
     Args:
@@ -85,6 +85,7 @@ class MjCambrianOpticsEye(MjCambrianEye[MjCambrianOpticsEyeConfig]):
 
     def __init__(self, config: MjCambrianOpticsEyeConfig, name: str):
         super().__init__(config, name)
+        self._config: MjCambrianOpticsEyeConfig
 
         self._renders_depth = "depth_array" in self._config.renderer.render_modes
         assert self._renders_depth, "Eye: 'depth_array' must be a render mode."
@@ -314,7 +315,7 @@ if __name__ == "__main__":
 
         # NOTE: Only uses the first animal
         animal_config = next(iter(config.env.animals.values()))
-        animal = animal_config.instance(animal_config, "animal_0", 0)
+        animal = animal_config.instance(animal_config, "animal", 0)
         xml += animal.generate_xml()
 
         # Load the model and data

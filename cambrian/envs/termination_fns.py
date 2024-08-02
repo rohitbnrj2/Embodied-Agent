@@ -34,11 +34,10 @@ def terminate_if_close_to_object(
             If None, all objects are checked. Defaults to None.
         distance_threshold (float): Distance threshold for closeness. Defaults to 2.0.
     """
-    for obj in env.objects.values():
-        if objects is not None and obj.name not in objects:
-            continue
-
-        if np.linalg.norm(obj.pos - animal.pos) < distance_threshold:
+    pos = animal.pos
+    for obj_name in objects if objects is not None else env.objects.keys():
+        obj = env.objects[obj_name]
+        if np.linalg.norm(obj.pos - pos) < distance_threshold:
             return True
     return False
 
@@ -48,13 +47,15 @@ def terminate_if_close_to_animal(
     animal: MjCambrianAnimal,
     info: Dict[str, Any],
     *,
-    animal_name: str,
+    animals: Optional[List[str]] = None,
     distance_threshold: float
 ) -> bool:
     """Terminates the episode if the animal is close to another animal."""
     pos = animal.pos
-    other_pos = env.animals[animal_name].pos
-    return True if np.linalg.norm(pos - other_pos) < distance_threshold else False
+    for animal_name in animals if animals is not None else env.animals.keys():
+        if np.linalg.norm(env.animals[animal_name].pos - pos) < distance_threshold:
+            return True
+    return False
 
 
 def combined_termination(

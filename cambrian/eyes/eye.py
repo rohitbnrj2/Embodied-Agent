@@ -51,10 +51,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     renderer: MjCambrianRendererConfig
 
 
-T = TypeVar("T", bound=MjCambrianEyeConfig)
-
-
-class MjCambrianEye(Generic[T]):
+class MjCambrianEye:
     """Defines an eye for the cambrian environment. It essentially wraps a mujoco Camera
     object and provides some helper methods for rendering and generating the XML. The
     eye is attached to the parent body such that movement of the parent body will move
@@ -65,7 +62,7 @@ class MjCambrianEye(Generic[T]):
         name (str): The name of the eye.
     """
 
-    def __init__(self, config: T, name: str):
+    def __init__(self, config: MjCambrianEyeConfig, name: str):
         self._config = config
         self._name = name
 
@@ -191,7 +188,7 @@ class MjCambrianEye(Generic[T]):
         return obs
 
     @property
-    def config(self) -> T:
+    def config(self) -> MjCambrianEyeConfig:
         """The config for the eye."""
         return self._config
 

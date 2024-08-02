@@ -4,6 +4,7 @@ from cambrian.animals.point import (
     MjCambrianPointAnimalPrey,
     MjCambrianPointAnimalPredator,
     MjCambrianPointAnimalMazeOptimal,
+    MjCambrianPointAnimalObjectOptimal,
 )
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "MjCambrianPointAnimalPrey",
     "MjCambrianPointAnimalPredator",
     "MjCambrianPointAnimalMazeOptimal",
+    "MjCambrianPointAnimalObjectOptimal",
 ]

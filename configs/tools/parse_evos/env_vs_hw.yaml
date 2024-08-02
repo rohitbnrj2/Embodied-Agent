@@ -5,6 +5,7 @@ defaults:
 
   - renders:
     - third_person_bev
+    - third_person
     - first_person
 
   - _self_
@@ -35,12 +36,13 @@ dry_run: False
 renders: {}
 
 filter_fn:
-  _target_: custom_filter_fns.filter_uniformly
+  # _target_: custom_filter_fns.filter_uniformly
+  _target_: custom_filter_fns.filter_noop
   _partial_: true
-  patterns:
-    env.animals.*.eyes.*.resolution[0]: [0, 20]
-    env.animals.*.num_eyes_to_generate[1]: [15, 2]
-    env.animals.*.eyes_lon_range[1]: [45, 10]
+  # patterns:
+  #   env.animals.*.eyes.*.resolution[0]: [0, 20]
+  #   env.animals.*.num_eyes_to_generate[1]: [15, 2]
+    # env.animals.*.eyes_lon_range[1]: [45, 10]
 
 overrides: []
 
@@ -170,17 +172,17 @@ plots:
     add_legend: False
     add_title: False
     projection: "polar"
+    thetamin: -90
+    thetamax: 90
     x_data:
       type: CUSTOM
-      thetamin: 0
-      thetamax: 180
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
         src: eyes_lon_left[0] * math.pi / 180.0
         patterns:
           eyes_lon_left: env.animals.*.eyes_lon_range[0]
-      label: Eye Placement Angle (deg)
+      # label: Eye Placement Angle (deg)
     y_data:
       type: CONSTANT
       value: 1
@@ -193,14 +195,52 @@ plots:
       clim: ${custom.clim}
       kwargs:
         pad: 0.1
-  right_placement_heatmap:
+  right_placement_heatmap: &right_placement_heatmap
     <<: *left_placement_heatmap
     name: placement_heatmap
     x_data:
+      type: CUSTOM
       custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
         src: eyes_lon_right[0] * math.pi / 180.0
         patterns:
           eyes_lon_right: env.animals.*.eyes_lon_range[1]
+      # label: Eye Placement Angle (deg)
+  left_placement_heatmap_vs_generation:
+    <<: *left_placement_heatmap
+    name: placement_heatmap_vs_generation
+    label_params:
+      labelleft: True
+      labelright: False
+      labeltop: False
+      labelbottom: True
+    rmin: 0
+    rmax: 50
+    rorigin: -20
+    # thetalabel: "Eye Placement Angle"
+    y_data:
+      type: GENERATION
+      ticks: [0, 10, 20, 30, 40, 50]
+      tick_labels: ['0', '10', '20', '30', '40', '50']
+      label: ""
+  right_placement_heapmap_vs_generation:
+    <<: *right_placement_heatmap
+    name: placement_heatmap_vs_generation
+    label_params:
+      labelleft: True
+      labelright: False
+      labeltop: False
+      labelbottom: True
+    rmin: 0
+    rmax: 50
+    rorigin: -20
+    # thetalabel: "Eye Placement Angle"
+    y_data:
+      type: GENERATION
+      ticks: [0, 10, 20, 30, 40, 50]
+      tick_labels: ['0', '10', '20', '30', '40', '50']
+      label: ""
 hydra:
   run:
     dir: ${output}

@@ -56,6 +56,9 @@ class AnimalShowcaseConfig(MjCambrianBaseConfig):
 
 
 def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
+    for m in config.mask:
+        assert m in config.overrides, f"Mask {m} not in overrides"
+
     overrides = [*overrides, f"exp={config.exp}", "hydra/sweeper=basic"]
     for fname, exp_overrides in config.overrides.items():
         if config.ignore is not None and fname in config.ignore:

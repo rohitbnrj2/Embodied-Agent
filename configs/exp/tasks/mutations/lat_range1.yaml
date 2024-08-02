@@ -1,0 +1,11 @@
+# @package _global_
+
+# NOTE: Remember to set eyes_lat_range.0 equal to eyes_lat_range.1 in the config
+
+hydra:
+  sweeper:
+    params:
+      env.animals.animal.eyes_lat_range.1:
+        init: ${env.animals.animal.eyes_lat_range.1}
+        lower: 0
+        upper: 90

@@ -12,7 +12,7 @@ env:
       objects: [goal]
 
   animals:
-    animal_0:
+    animal:
       # Set the initial yaw to -pi / 4.
       init_quat: ["${eval:'math.cos(-math.pi/4)'}", 0, 0, "${eval:'math.sin(-math.pi/4)'}"]
 

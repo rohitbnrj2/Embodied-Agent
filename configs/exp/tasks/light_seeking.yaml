@@ -1,28 +1,29 @@
 # @package _global_
 
-# This task is for tracking of an object. It's similar to detection, but the object(s)
-# are treated as 'animals' which move.
+# This task includes a goal and adversary. The goal and adversary are textured. The
+# derived config must send `custom.frequency` to the frequency of the texture
+# that should be applied to the objects. By default, the textures are synchronized
+# between the goal and adversary, but this can be overridden by setting
+# env.objects.<object name>.custom.frequency directly for each object.
 
 defaults:
   # Use one maze for the time being
-  - /env/mazes/OPEN@env.mazes.OPEN
+  - /env/mazes@env.mazes.maze: OPEN
+
+  # Adds two objects to the environment: a goal and an adversarial object
+  - /env/objects@env.objects.goal: light_goal
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
 
-  # Define one animal which will be trainable
+  # Define one animal
   - /env/animals@env.animals.animal: ${env/animals}
   - /env/animals/eyes@env.animals.animal.eyes.eye: ${env/animals/eyes}
-
-  # Then define a second "animal" which is really the object to track
-  # It has no eyes
-  - /env/animals@env.animals.goal: point_random
-
   - override /env/animals: point
 
 trainer:
-  total_timesteps: 500_000
-  max_episode_steps: 128 # shorten the episode length
+  total_timesteps: 300_000
+  max_episode_steps: 128 # relatively short the episode length
 
 env:
   reward_fn:
@@ -30,13 +31,12 @@ env:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
       _partial_: true
       penalty: -1.0
-      animals: [animal]
 
-    reward_euclidean_delta_to_object:
-      _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_animals
+    reward_euclidean_delta_to_goal:
+      _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_objects
       _partial_: true
       factor: 0.25
-      animals: [goal]
+      objects: [goal]
 
     reward_for_termination:
       _target_: cambrian.envs.reward_fns.reward_for_termination
@@ -51,7 +51,7 @@ env:
   termination_fn:
     # Terminate (i.e. succeed) if the agent is close to the goal
     terminate_if_close_to_goal:
-      _target_: cambrian.envs.termination_fns.terminate_if_close_to_animal
+      _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
       _partial_: true
-      animals: [goal]
+      objects: [goal]
       distance_threshold: 1.0

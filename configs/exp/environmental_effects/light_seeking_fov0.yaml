@@ -1,0 +1,8 @@
+# @package _global_
+
+defaults:
+  - /exp/tasks/light_seeking
+
+  - /exp/tasks/mutations/fov0
+
+  - /exp/environmental_effects/environmental_effects

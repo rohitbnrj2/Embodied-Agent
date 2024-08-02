@@ -78,8 +78,12 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
         scale (float): The maze scaling for the continuous coordinates in the
             MuJoCo simulation.
         height (float): The height of the walls in the MuJoCo simulation.
-        flip (bool): Whether to flip the maze or not. If True, the maze will be
+        hflip (bool): Whether to flip the maze or not. If True, the maze will be
             flipped along the x-axis.
+        vflip (bool): Whether to flip the maze or not. If True, the maze will be
+            flipped along the y-axis.
+        rotation (float): The rotation of the maze in degrees. The rotation is
+            applied after the flip.
 
         wall_texture_map (Dict[str, List[str]]): The mapping from texture id to
             texture names. Textures in the list are chosen at random. If the list is of
@@ -97,7 +101,9 @@ class MjCambrianMazeConfig(MjCambrianBaseConfig):
 
     scale: float
     height: float
-    flip: bool
+    hflip: bool
+    vflip: bool
+    rotation: float
 
     wall_texture_map: Dict[str, List[str]]
 
@@ -191,10 +197,9 @@ class MjCambrianMazeEnv(MjCambrianObjectEnv):
             viewer.camera.distance = viewer.config.select(
                 "camera.distance", default=1.25
             )
-            if self._maze.ratio < 2:
-                viewer.camera.distance *= renderer.ratio * self._maze.min_dim
-            else:
-                viewer.camera.distance *= self._maze.max_dim / renderer.ratio
+            viewer.camera.distance *= self._maze.max_dim / renderer.ratio
+            if self._maze.ratio < 2.0:
+                viewer.camera.distance *= 2
 
         return obs, info
 
@@ -247,8 +252,11 @@ class MjCambrianMaze:
         import yaml
 
         self._map = np.array(yaml.safe_load(self._config.map), dtype=str)
-        if self._config.flip:
-            self._map = np.flip(self._map)
+        if self._config.hflip:
+            self._map = np.flip(self._map, axis=0)
+        if self._config.vflip:
+            self._map = np.flip(self._map, axis=1)
+        self._map = np.rot90(self._map, k=int(self._config.rotation / 90))
 
     def _update_locations(self):
         """This helper method will update the initially place the wall and reset
@@ -385,10 +393,15 @@ class MjCambrianMaze:
         j = np.floor((xy_pos[0] + self.x_map_center) / self._config.scale)
         return np.array([i, j], dtype=int)
 
-    def compute_optimal_path(self, start: np.ndarray, target: np.ndarray) -> np.ndarray:
+    def compute_optimal_path(self, start: np.ndarray, target: np.ndarray, *, obstacles: List[Tuple[int, int]] = []) -> np.ndarray:
         """Computes the optimal path from the start position to the target.
 
         Uses a BFS to find the shortest path.
+
+        Keyword Args:
+            obstacles (List[Tuple[int, int]]): The obstacles in the maze. Each
+                obstacle is a tuple of (row, col). Defaults to []. Avoids these
+                positions when computing the path.
         """
         from typing import Deque
 
@@ -433,6 +446,10 @@ class MjCambrianMaze:
                             or pr_map_entity == MjCambrianMapEntity.WALL
                         ):
                             continue
+
+                    # Check if the cell is an obstacle
+                    if (r, c) in obstacles:
+                        continue
 
                     visited[r][c] = True
                     queue.append((path + [(r, c)], dist + 1))
@@ -554,7 +571,7 @@ class MjCambrianMaze:
         """Returns a point which aids in placement of a camera to visualize this maze."""
         # NOTE: Negative because of convention based on BEV camera
         assert self._starting_x is not None, "Maze has not been initialized"
-        return np.array([-self._starting_x + len(self._map[0]) / 2, 0, 0])
+        return np.array([-self._starting_x + len(self._map[0]) / 4, 0, 0])
 
     @property
     def object_locations(self) -> List[np.ndarray]:

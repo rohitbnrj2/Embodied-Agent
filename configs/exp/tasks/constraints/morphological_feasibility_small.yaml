@@ -1,0 +1,17 @@
+# @package _global_
+
+# NOTE: Uses a subset of the full serach space, like assumes that the optimization is 
+# only performed for the longtidunal axis.
+
+hydra:
+  sweeper:
+    optim:
+      # Add a cheap constraint to restrict the number of eyes generated to be
+      # "morphologically feasible"
+      cheap_constraints:
+        - _target_: cambrian.ml.constraint_fns.nevergrad_constraint_fn
+          _partial_: true
+          fn: cambrian.ml.constraint_fns.constrain_morphologically_feasible_eyes
+          num_eyes_to_generate: env.animals.animal.num_eyes_to_generate.1
+          resolution: env.animals.animal.eyes.eye.resolution.0
+          lon_range: env.animals.animal.eyes_lon_range.1

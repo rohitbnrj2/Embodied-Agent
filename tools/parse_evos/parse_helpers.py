@@ -233,7 +233,7 @@ def get_axis_label(axis_data: AxisData, label: str = "") -> str:
     if axis_data.type is AxisDataType.GENERATION:
         label = "Generation"
     elif axis_data.type is AxisDataType.CONFIG:
-        label = axis_data.label or axis_data.pattern
+        label = axis_data.label if axis_data.label is not None else axis_data.pattern
     elif axis_data.type is AxisDataType.MONITOR:
         label = "Training Reward"
     elif axis_data.type is AxisDataType.WALLTIME:
@@ -242,7 +242,7 @@ def get_axis_label(axis_data: AxisData, label: str = "") -> str:
         label = "Fitness"
     elif axis_data.type is AxisDataType.CONSTANT:
         label = ""
-    return axis_data.label or label
+    return axis_data.label if axis_data.label is not None else label
 
 
 def parse_axis_data(
@@ -286,7 +286,9 @@ def parse_axis_data(
 
 def get_color_label(color_data: ColorData | None) -> str:
     label: str
-    if color_data.type is ColorType.SOLID:
+    if color_data is None:
+        return ""
+    elif color_data.type is ColorType.SOLID:
         label = "Color"
     elif color_data.type is ColorType.GENERATION:
         label = "Generation"
@@ -298,7 +300,7 @@ def get_color_label(color_data: ColorData | None) -> str:
         label = "Fitness"
     else:
         raise ValueError(f"Unknown color type {color_data.type}.")
-    return color_data.label or label if color_data is not None else label
+    return color_data.label if color_data.label is not None else label
 
 
 def parse_color_data(
@@ -335,7 +337,9 @@ def parse_color_data(
 
 def get_size_label(size_data: SizeData | None) -> str:
     label: str
-    if size_data.type is SizeType.NONE:
+    if size_data is None:
+        return ""
+    elif size_data.type is SizeType.NONE:
         label = None
     elif size_data.type is SizeType.NUM:
         label = "Number"
@@ -345,7 +349,7 @@ def get_size_label(size_data: SizeData | None) -> str:
         label = "Training Reward"
     elif size_data.type is SizeType.EVALUATION:
         label = "Fitness"
-    return size_data.label or label if size_data is not None else label
+    return size_data.label if size_data.label is not None else label
 
 
 def parse_size_data(

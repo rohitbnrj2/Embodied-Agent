@@ -1,0 +1,13 @@
+# @package _global_
+
+env:
+  animals:
+    animal:
+      eyes_lon_range: [-90, 90]
+      eyes_lat_range: [-15, 15]
+      num_eyes_to_generate: [1, 1]
+
+      eyes:
+        eye:
+          resolution: [1, 1]
+          fov: [45, 45]

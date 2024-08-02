@@ -1,0 +1,9 @@
+# @package _global_
+
+hydra:
+  sweeper:
+    params:
+      env.animals.animal.eyes_lon_range:
+        init: ${env.animals.animal.eyes_lon_range}
+        lower: -180
+        upper: 180

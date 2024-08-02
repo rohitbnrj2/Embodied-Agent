@@ -1,0 +1,25 @@
+# @package _global_
+
+# Same as simple.yaml, but we assume flatland, as in we decrease the fov significantly
+# and set the lon/lat to be symmetric. Additionally, we set the resolution to be square,
+# i.e. the same in both dimensions.
+
+defaults:
+  - simple
+
+env:
+  animals:
+    animal:
+      eyes_lon_range:
+        - -90
+        - ${eval:'-1 * ${.0}'}
+      eyes_lat_range:
+        - -15
+        - ${eval:'-1 * ${.0}'}
+
+      eyes:
+        eye:
+          resolution: 
+            - 1
+            - ${eval:'${.0}'}
+          fov: [45, 10]

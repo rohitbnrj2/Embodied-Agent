@@ -85,54 +85,6 @@ class MjCambrianPointAnimal(MjCambrianAnimal):
         )
 
 
-class MjCambrianPointVelocityAnimal(MjCambrianAnimal):
-    """
-    This is a hardcoded class which implements the animal as actuated by a forward
-    velocity and a rotational velocity. This is similar to MjCambrianPointAnimal,
-    but uses a rotational velocity rather than rotational position."""
-
-    def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
-        """Creates the entire obs dict."""
-        obs = super()._update_obs(obs)
-
-        # Update the action obs
-        # Calculate the global velocities
-        if self._config.use_action_obs:
-            vx, vy, omega = self.last_action
-            v = np.hypot(vx, vy)
-            obs["action"] = np.array([v, omega], dtype=np.float32)
-
-        return obs
-
-    def _calc_v_theta(self, action: Tuple[float, float, float]) -> Tuple[float, float]:
-        """Calculates the v and theta from the action."""
-        vx, vy, theta = action
-        v = np.hypot(vx, vy)
-        theta = np.arctan2(vy, vx) - self.qpos[2]
-        return v, theta
-
-    def apply_action(self, action: List[float]):
-        """This differs from the base implementation as action only has two elements,
-        but the model has three actuators. Calculate the global velocities here."""
-        assert len(action) == 2, f"Action must have two elements, got {len(action)}."
-
-        # map the v action to be between 0 and 1
-        v = (action[0] + 1) / 2
-
-        # Calculate the global velocities
-        # NOTE: The third actuator is the hinge joint which defines the theta
-        theta = self._data.qpos[self._actuators[2].trnadr]
-        new_action = [v * np.cos(theta), v * np.sin(theta), action[1]]
-
-        # Call the base implementation with the new action
-        super().apply_action(new_action)
-
-    @property
-    def action_space(self) -> spaces.Space:
-        """Overrides the base implementation to only have two elements."""
-        return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
-
-
 class MjCambrianPointAnimalPredator(MjCambrianPointAnimal):
     """This is an animal which is non-trainable and defines a custom policy which
     acts as a "predator" in the environment. This animal will attempt to catch the prey
@@ -254,8 +206,8 @@ class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):
         idx: int,
         *,
         target_object: str,
-        speed: float = -0.5,
-        distance_threshold: float = 3.0,
+        speed: float = -0.75,
+        distance_threshold: float = 2.0,
     ):
         super().__init__(config, name, idx)
 
@@ -271,24 +223,28 @@ class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):
         return super().reset(model, data)
 
     def get_action_privileged(self, env: "MjCambrianMazeEnv") -> List[float]:
+        if self._target_object in env.objects:
+            obj_pos = env.objects[self._target_object].pos
+        elif self._target_object in env.animals:
+            obj_pos = env.animals[self._target_object].pos
+            self._optimal_trajectory = np.array([obj_pos[:2]])
+        else:
+            raise ValueError(f"Target object {self._target_object} not found in env")
+
         # Calculate the optimal trajectory if the current trajectory is None
         if self._optimal_trajectory is None:
-            from cambrian.envs.maze_env import MjCambrianMazeEnv
-
-            assert isinstance(env, MjCambrianMazeEnv), "env must be a MjCambrianMazeEnv"
-            assert self._target_object in env.objects, (
-                f"Target object {self._target_object} not an available object. "
-                f"Options are {list(env.objects.keys())}"
-            )
-
+            obstacles = []
+            for obj_name, obj in env.objects.items():
+                if obj_name != self._target_object:
+                    obstacles.append(tuple(env.maze.xy_to_rowcol(obj.pos)))
             self._optimal_trajectory = env.maze.compute_optimal_path(
-                self.pos, env.objects[self._target_object].pos
+                self.pos, obj_pos, obstacles=obstacles
             )
 
         # If the optimal_trajectory is empty, return no action. We've probably reached
         # the end
         if len(self._optimal_trajectory) == 0:
-            return [-1, self.last_action[1]]
+            self._optimal_trajectory = np.array([obj_pos[:2]])
 
         # Get the current target. If the distance between the current position and the
         # target is less than the threshold, then remove the target from the optimal
@@ -297,7 +253,6 @@ class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):
         target_vector = target - self.pos[:2]
         if np.linalg.norm(target_vector) < self._distance_threshold:
             self._optimal_trajectory = self._optimal_trajectory[1:]
-            return self.get_action_privileged(env)
 
         # Calculate the delta from the current angle to the angle that minimizes the
         # distance
@@ -311,10 +266,10 @@ class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):
         return [self._speed, np.clip(delta, -1, 1)]
 
 
-class MjCambrianPointAnimalGoalOptimal(MjCambrianPointAnimal):
+class MjCambrianPointAnimalObjectOptimal(MjCambrianPointAnimal):
     """This is an animal which is non-trainable and defines a custom policy which
-    acts as an optimal agent in an environment with a goal. Given a goal position, it
-    will take the action that minimizes the distance to the goal."""
+    acts as an optimal agent in an environment with an object. Given a obj position, it
+    will take the action that minimizes the distance to the obj."""
 
     def __init__(
         self,
@@ -322,48 +277,32 @@ class MjCambrianPointAnimalGoalOptimal(MjCambrianPointAnimal):
         name: str,
         idx: int,
         *,
-        goal: str = "goal",
-        speed: float = 1.0,
+        target_object: str,
+        speed: float = 1,
     ):
         super().__init__(config, name, idx)
 
-        self._goal = goal
+        self._target_object = target_object
         self._speed = speed
 
     def get_action_privileged(self, env: "MjCambrianObjectEnv") -> List[float]:
-        goal_pos = env.objects[self._goal].pos[:2]
+        obj_pos = env.objects[self._target_object].pos[:2]
 
         # Calculate the vector that minimizes the distance between the agent and the goal
-        goal_vector = goal_pos - self.pos[:2]
+        obj_vector = obj_pos - self.pos[:2]
 
         # Calculate the delta from the current angle to the angle that minimizes the
         # distance
-        goal_theta = np.arctan2(goal_vector[1], goal_vector[0])
+        obj_theta = np.arctan2(obj_vector[1], obj_vector[0])
         last_theta = self._calc_v_theta(self.last_action)[1]
-        delta = goal_theta - last_theta
+        delta = obj_theta - last_theta
+
+        # Decrease speed if we need to do a sharp turn
+        speed = self._speed
+        if abs(delta) > np.pi / 4:
+            speed = -0.25 if self._speed > 0 else 0
 
         # Set the action based on the vector calculated above. Add some noise to the
         # angle to make the movement.
         delta = np.interp(delta, [-np.pi, np.pi], [-1, 1])
-        return [self._speed, delta]
-
-
-class MjCambrianPointAnimalBounce(MjCambrianPointAnimal):
-    """This animal will go in a constant direction and bounce off the walls of the
-    environment. When it hits a wall, it will bounce off in a random direction."""
-
-    def __init__(
-        self,
-        config: MjCambrianAnimalConfig,
-        name: str,
-        idx: int,
-        *,
-        speed: float = 1.0,
-    ):
-        super().__init__(config, name, idx)
-
-        self._speed = speed
-
-    def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
-        if self.has_contacts:
-            pass
+        return [speed, delta]

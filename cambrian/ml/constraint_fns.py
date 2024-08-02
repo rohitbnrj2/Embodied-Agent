@@ -2,9 +2,11 @@ from typing import Tuple, Dict, Any
 
 import numpy as np
 
+from cambrian.utils import is_number
+
 
 def nevergrad_constraint_fn(
-    parameterization: Dict[str, Any], /, *, fn: str, **parameters: Any
+    parameterization: Dict[str, Any], /, *, fn: str, **parameters
 ) -> bool:
     """This function is used to prune experiments for nevergrad sweepers. It will
     return False if the experiment should be pruned."""
@@ -18,45 +20,81 @@ def nevergrad_constraint_fn(
             arguments[argument_key] = key_or_value
     return get_method(fn)(**arguments)
 
-
 def constrain_morphologically_feasible_eyes(
     *,
-    num_lon_eyes_to_generate: int,
-    width: int,
-    lon_range: Tuple[float, float],
+    num_eyes_to_generate: int,
+    resolution: Tuple[int, int] | int,
+    lon_range: Tuple[int, int] | int,
     radius: float = 0.1,
     pixel_size: float = 5e-3,
-) -> bool:
-    """This method will check whether the eye config, if placed num_lon_eyes along
-    the longitude of the animal, would be morphologically feasible. Morphologically
-    feasible in this approximated case is basically whether all the eyes would fit.
-    There are two primary factors here: sensorsize and number of eyes. We want to make
-    sure, along the horizontal axis, that the eyes don't overlap.
-
+    **_,
+):
+    """This constraint method will check whether the eye config, if placed 
+    num_eyes_to_generate along the longitude of the animal, would be
+    morphologically feasible. Morphologically feasible in this approximated case is
+    basically whether all the eyes would fit. There are two primary factors here:
+    
+    1. sensorsize and number of eyes. We want to make sure, along the horizontal axis,
+    that the eyes don't overlap.
+    
+    2. The total number of pixels. We want to make sure that the total number of pixels
+    generated is less than a certain threshold.
+    
     Going to approximate the animal as a circle and the eyes as a line with a length
     equal to the sensorsize width. Then we'll check whether the eyes fit in the allowed
     longitude range.
-
-    NOTE: there isn't a specific unit, but the units should be consistent.
+    
 
     Args:
-        num_lon_eyes_to_generate (int): The number of eyes to generate along the longitude.
-        width (int): The width of the eye. This is used to calculate the total width of
-            the eyes. In pixels.
-        lon_range (Tuple[float, float]): The longitude range to generate the eyes in.
-            In degrees.
+        num_eyes_to_generate (int): The number of eyes to generate along
+            the longitude of the animal.
+        resolution (Tuple[int, int] | int): The resolution of the eye.
+        lon_range (Tuple[int, int] | int): The range of longitudes in which to generate
+            the eyes. This is in degrees.
 
     Keyword Args:
         radius (float): The radius of the animal. Default is 0.2.
         pixel_size (float): The pixel size of the eye. This is used to calculate the
             total width of the eyes. Default is 0.01.
     """
+    if is_number(resolution):
+        resolution = (resolution, resolution)
+    if is_number(lon_range):
+        lon_range = (-abs(lon_range), abs(lon_range))
 
-    # Calculate the total width of the eyes
-    sensor_width = width * pixel_size
-    total_width = sensor_width * num_lon_eyes_to_generate
+    # Total width of each eye
+    sensor_width = resolution[0] * pixel_size
+    total_width = sensor_width * num_eyes_to_generate
 
     # Check whether the total width is less than the circumference of the animal
     # Only checked in the lon range
-    circumference = (lon_range[1] - lon_range[0]) * np.pi / 180 * radius
-    return total_width < circumference
+    lon_circumference = (lon_range[1] - lon_range[0]) * np.pi / 180 * radius
+    lon_feasibility = total_width < lon_circumference
+
+    return lon_feasibility
+
+def constrain_total_num_eyes(
+    *,
+    num_eyes_to_generate: Tuple[int, int],
+    max_num_eyes: int,
+):
+    """This constraint method will check whether the total number of eyes generated
+    is less than a certain threshold."""
+    return num_eyes_to_generate[0] * num_eyes_to_generate[1] <= max_num_eyes
+
+
+def constrain_total_pixels(
+    *,
+    num_eyes_to_generate: Tuple[int, int],
+    resolution: Tuple[int, int],
+    max_num_pixels: int,
+):
+    """This constraint method will check whether the total number of pixels generated
+    is less than a certain threshold."""
+    return (
+        num_eyes_to_generate[0]
+        * resolution[0]
+        * num_eyes_to_generate[1]
+        * resolution[1]
+        <= max_num_pixels
+    )

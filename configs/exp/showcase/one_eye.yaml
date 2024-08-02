@@ -1,9 +1,0 @@
-# @package _global_
-
-defaults:
-  - /exp/showcase: showcase
-
-env:
-  animals:
-    animal_0:
-      num_eyes_to_generate: [1, 1]

@@ -8,9 +8,11 @@ xml:
 
 enabled: True
 
-scale: 4.0
+scale: 2.0
 height: 0.5
-flip: False
+hflip: False
+vflip: False
+rotation: 0
 
 wall_texture_map:
   default: [vertical_10]

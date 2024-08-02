@@ -2,24 +2,37 @@
 
 # This task is for navigation. It defines a set of mazes which the agent must navigate.
 # The agent is rewarded based on it's movement from its initial position. The agent
-# is penalized if it makes contact with the walls of the maze.
+# is penalized if it makes contact with the walls of the maze. A
+# termination condition indicates success, and in this case, the agent is successful if
+# it reaches the goal (within a certain distance threshold).
 
 defaults:
-  - /env/mazes/Y@env.mazes.Y
-  - /env/mazes/X_COMPLEX@env.mazes.X_COMPLEX
+  - /env/mazes@env.mazes.maze_1: X_COMPLEX
+  - /env/mazes@env.mazes.maze_2: X_COMPLEX
+
+  # Adds a single goal to the environment
+  - /env/objects@env.objects.goal: goal
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
 
   # Define one animal
-  - /env/animals@env.animals.animal_0: ${env/animals}
-  - /env/animals/eyes@env.animals.animal_0.eyes.eye: ${env/animals/eyes}
+  - /env/animals@env.animals.animal: ${env/animals}
+  - /env/animals/eyes@env.animals.animal.eyes.eye: ${env/animals/eyes}
   - override /env/animals: point
 
 trainer:
   total_timesteps: 300_000
 
 env:
+  # Update the scale of the maze so that it's more difficult
+  mazes:
+    maze_1: &maze
+      scale: 1.0
+    maze_2:
+      <<: *maze
+      hflip: true
+
   reward_fn:
     euclidean_delta_from_init:
       _target_: cambrian.envs.reward_fns.euclidean_delta_from_init
@@ -35,3 +48,14 @@ env:
       _target_: cambrian.envs.truncation_fns.truncate_if_low_reward
       _partial_: true
       threshold: -50.0
+  
+  termination_fn:
+    terminate_if_close_to_goal:
+      _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
+      _partial_: true
+      objects: [goal]
+      distance_threshold: 1.0
+
+eval_env:
+  # Run 4 evaluation episodes
+  n_eval_episodes: 4

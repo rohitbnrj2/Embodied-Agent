@@ -73,6 +73,9 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
         use_action_obs (bool): Whether to use the action observation or not. NOTE: If
             the MjCambrianConstantActionWrapper is used, this is not reflected in the
             observation, as in the actions will vary in the observation.
+        use_contact_obs (bool): Whether to use the contact observation or not. If this
+            is True, then the contacts will be included in the observation space of the
+            animal.
 
         num_eyes_to_generate (Optional[Tuple[int, int]]): The num of eyes to generate.
             If this is specified, then the eyes will be generated on a spherical
@@ -105,6 +108,7 @@ class MjCambrianAnimalConfig(MjCambrianBaseConfig):
     init_quat: Tuple[float | None]
 
     use_action_obs: bool
+    use_contact_obs: bool
 
     num_eyes_to_generate: Optional[Tuple[int, int]] = None
     eyes: Dict[str, MjCambrianEyeConfig]
@@ -411,6 +415,8 @@ class MjCambrianAnimal:
         """Add additional attributes to the observation."""
         if self._config.use_action_obs:
             obs["action"] = self.last_action
+        if self._config.use_contact_obs:
+            obs["contacts"] = self.has_contacts
 
         return obs
 
@@ -513,6 +519,8 @@ class MjCambrianAnimal:
 
         if self._config.use_action_obs:
             observation_space["action"] = self.action_space
+        if self._config.use_contact_obs:
+            observation_space["contacts"] = spaces.Discrete(2)
 
         return spaces.Dict(observation_space)
 

@@ -210,8 +210,11 @@ def penalize_if_has_contacts(
     info: Dict[str, Any],
     *,
     penalty: float,
+    animals: Optional[List[str]] = None,
 ) -> float:
     """Penalizes the animal if it has contacts with the ground."""
+    if animals is not None and animal.name not in animals:
+        return 0.0
     return penalty if info.get("has_contacts", False) else 0.0
 
 
