@@ -1,7 +1,5 @@
 from typing import Dict, List, Tuple, Any
 
-import numpy as np
-
 from parse_types import Data, Generation, Rank
 
 
@@ -99,7 +97,10 @@ def filter_uniformly(
         best_distance = float("inf")
         for rank in generation.ranks.values():
             distance = sum(
-                abs(agent[pattern] - rank.config.glob(pattern, flatten=True, assume_one=True)[0])
+                abs(
+                    agent[pattern]
+                    - rank.config.glob(pattern, flatten=True, assume_one=True)[0]
+                )
                 for pattern in patterns.keys()
                 if rank.config is not None
             )

@@ -338,7 +338,9 @@ class MjCambrianContainerConfig:
         with open(path, "wb") as f:
             cloudpickle.dump(self, f)
 
-    def glob(self, key: str, *, flatten: bool = False, assume_one: bool = False) -> Dict[str, Any] | Any:
+    def glob(
+        self, key: str, *, flatten: bool = False, assume_one: bool = False
+    ) -> Dict[str, Any] | Any:
         """This is effectively select, but allows `*` to be used as a wildcard.
 
         This method works by finding all `*` in the key and then iterating over all

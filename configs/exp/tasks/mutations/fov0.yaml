@@ -7,4 +7,3 @@ hydra:
         init: ${env.animals.animal.eyes.eye.fov.0}
         lower: 1
         upper: 100
-

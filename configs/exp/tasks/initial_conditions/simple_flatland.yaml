@@ -19,7 +19,7 @@ env:
 
       eyes:
         eye:
-          resolution: 
+          resolution:
             - 1
             - ${eval:'${.0}'}
           fov: [45, 10]

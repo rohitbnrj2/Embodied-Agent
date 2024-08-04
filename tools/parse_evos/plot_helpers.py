@@ -124,7 +124,15 @@ def adjust_axes(ax: plt.Axes, plot_data: PlotData):
         ax.set_rorigin(plot_data.rorigin)
     if plot_data.thetalabel is not None:
         trans, _, _ = ax.get_xaxis_text1_transform(0)
-        ax.text(0, -0.18, plot_data.thetalabel, transform=trans, rotation=0, ha="center", va="center")
+        ax.text(
+            0,
+            -0.18,
+            plot_data.thetalabel,
+            transform=trans,
+            rotation=0,
+            ha="center",
+            va="center",
+        )
 
     if plot_data.x_data.lim is not None:
         ax.set_xlim(plot_data.x_data.lim)

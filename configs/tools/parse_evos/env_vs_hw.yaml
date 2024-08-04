@@ -4,9 +4,9 @@ defaults:
   - /ParseEvosConfig
 
   - renders:
-    - third_person_bev
-    - third_person
-    - first_person
+      - third_person_bev
+      - third_person
+      - first_person
 
   - _self_
 
@@ -42,7 +42,7 @@ filter_fn:
   # patterns:
   #   env.animals.*.eyes.*.resolution[0]: [0, 20]
   #   env.animals.*.num_eyes_to_generate[1]: [15, 2]
-    # env.animals.*.eyes_lon_range[1]: [45, 10]
+  # env.animals.*.eyes_lon_range[1]: [45, 10]
 
 overrides: []
 
@@ -222,7 +222,7 @@ plots:
     y_data:
       type: GENERATION
       ticks: [0, 10, 20, 30, 40, 50]
-      tick_labels: ['0', '10', '20', '30', '40', '50']
+      tick_labels: ["0", "10", "20", "30", "40", "50"]
       label: ""
   right_placement_heapmap_vs_generation:
     <<: *right_placement_heatmap
@@ -239,7 +239,7 @@ plots:
     y_data:
       type: GENERATION
       ticks: [0, 10, 20, 30, 40, 50]
-      tick_labels: ['0', '10', '20', '30', '40', '50']
+      tick_labels: ["0", "10", "20", "30", "40", "50"]
       label: ""
 hydra:
   run:

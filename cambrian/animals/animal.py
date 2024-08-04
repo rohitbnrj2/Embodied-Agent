@@ -453,7 +453,7 @@ class MjCambrianAnimal:
             min_dim = min(eye.prev_obs.shape[:2])
             obs = eye.prev_obs[:, :, :3]
             if min_dim > 10:
-               obs = add_white_border(obs, min_dim // 10) 
+                obs = add_white_border(obs, min_dim // 10)
             images[lat][lon] = obs
 
         # Construct the composite image

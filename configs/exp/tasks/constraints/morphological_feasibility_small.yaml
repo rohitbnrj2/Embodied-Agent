@@ -1,6 +1,6 @@
 # @package _global_
 
-# NOTE: Uses a subset of the full serach space, like assumes that the optimization is 
+# NOTE: Uses a subset of the full serach space, like assumes that the optimization is
 # only performed for the longtidunal axis.
 
 hydra:

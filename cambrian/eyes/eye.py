@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Self, TypeVar, Generic
+from typing import Tuple, Callable, Self
 import numpy as np
 
 import mujoco as mj

@@ -20,6 +20,7 @@ def nevergrad_constraint_fn(
             arguments[argument_key] = key_or_value
     return get_method(fn)(**arguments)
 
+
 def constrain_morphologically_feasible_eyes(
     *,
     num_eyes_to_generate: int,
@@ -29,21 +30,21 @@ def constrain_morphologically_feasible_eyes(
     pixel_size: float = 5e-3,
     **_,
 ):
-    """This constraint method will check whether the eye config, if placed 
+    """This constraint method will check whether the eye config, if placed
     num_eyes_to_generate along the longitude of the animal, would be
     morphologically feasible. Morphologically feasible in this approximated case is
     basically whether all the eyes would fit. There are two primary factors here:
-    
+
     1. sensorsize and number of eyes. We want to make sure, along the horizontal axis,
     that the eyes don't overlap.
-    
+
     2. The total number of pixels. We want to make sure that the total number of pixels
     generated is less than a certain threshold.
-    
+
     Going to approximate the animal as a circle and the eyes as a line with a length
     equal to the sensorsize width. Then we'll check whether the eyes fit in the allowed
     longitude range.
-    
+
 
     Args:
         num_eyes_to_generate (int): The number of eyes to generate along
@@ -72,6 +73,7 @@ def constrain_morphologically_feasible_eyes(
     lon_feasibility = total_width < lon_circumference
 
     return lon_feasibility
+
 
 def constrain_total_num_eyes(
     *,

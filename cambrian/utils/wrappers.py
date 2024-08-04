@@ -265,6 +265,7 @@ def _create_box_zero_array(space: gym.spaces.Box):
     zero_array = np.where(space.high < 0, space.high, zero_array)
     return zero_array
 
+
 @create_zero_array.register(gym.spaces.Discrete)
 def _create_discrete_zero_array(space: gym.spaces.Discrete):
     return 0

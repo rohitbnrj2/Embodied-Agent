@@ -393,7 +393,13 @@ class MjCambrianMaze:
         j = np.floor((xy_pos[0] + self.x_map_center) / self._config.scale)
         return np.array([i, j], dtype=int)
 
-    def compute_optimal_path(self, start: np.ndarray, target: np.ndarray, *, obstacles: List[Tuple[int, int]] = []) -> np.ndarray:
+    def compute_optimal_path(
+        self,
+        start: np.ndarray,
+        target: np.ndarray,
+        *,
+        obstacles: List[Tuple[int, int]] = [],
+    ) -> np.ndarray:
         """Computes the optimal path from the start position to the target.
 
         Uses a BFS to find the shortest path.
