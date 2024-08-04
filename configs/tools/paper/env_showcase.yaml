@@ -332,3 +332,6 @@ hydra:
         max_level: INFO
     disable_existing_loggers: false
 
+  sweeper:
+    optim:
+      max_batch_size: 1

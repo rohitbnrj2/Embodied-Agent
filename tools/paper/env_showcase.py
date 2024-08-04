@@ -4,7 +4,7 @@ from cambrian.utils.config import MjCambrianConfig, run_hydra
 
 def main(config: MjCambrianConfig):
     trainer = MjCambrianTrainer(config)
-    trainer.eval()
+    return trainer.eval()
 
 
 if __name__ == "__main__":

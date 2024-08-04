@@ -5,4 +5,9 @@ defaults:
   - /exp/paper/mazes/FIXED_OPEN@env.mazes.OPEN
 
 custom:
-  frequency: 4
+  frequency: 8
+
+env:
+  termination_fn:
+    terminate_if_close_to_goal:
+      distance_threshold: 1.0

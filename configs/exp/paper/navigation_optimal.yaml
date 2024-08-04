@@ -1,0 +1,17 @@
+# @package _global_
+
+defaults:
+  - /exp/paper/navigation
+
+env:
+  animals:
+    animal_0:
+      # Set the initial yaw to -pi / 4.
+      init_quat: ["${eval:'math.cos(-math.pi/4)'}", 0, 0, "${eval:'math.sin(-math.pi/4)'}"]
+
+      # Set the animal to be the optimal policy for the maze
+      use_privileged_action: true
+      instance:
+        _target_: cambrian.animals.MjCambrianPointAnimalMazeOptimal
+        _partial_: true
+        target_object: goal

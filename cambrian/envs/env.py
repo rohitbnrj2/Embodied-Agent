@@ -462,12 +462,9 @@ class MjCambrianEnv(ParallelEnv):
                 renderer._rgb_buffer.append(composite)
             return composite
 
-        if not self._config.add_overlays:
-            return renderer.render()
-
         # Add site overlays for each animal
         i = self._num_resets * self._max_episode_steps + self._episode_step
-        size = self._model.stat.extent * 3e-3
+        size = self._model.stat.extent * 1e-2
         for animal in self._animals.values():
             # Define a unique id for the site
             key = f"{animal.name}_pos_{i}"
@@ -486,9 +483,12 @@ class MjCambrianEnv(ParallelEnv):
         for key, value in self._overlays.items():
             if issubclass(type(value), MjCambrianViewerOverlay):
                 overlays.append(value)
-            else:
-                cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
-                overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
+            # else:
+            #     cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
+            #     overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
+
+        if not self._config.add_overlays:
+            return renderer.render(overlays=overlays)
 
         # Set the overlay size to be a fraction of the renderer size relative to
         # the animal count. The overlay height will be set to 35% of the renderer from
@@ -826,7 +826,8 @@ if __name__ == "__main__":
                 config.expdir / "eval",
                 save_pkl=False,
                 save_mode=MjCambrianRendererSaveMode.MP4
-                | MjCambrianRendererSaveMode.GIF,
+                | MjCambrianRendererSaveMode.GIF
+                | MjCambrianRendererSaveMode.PNG,
             )
 
             # Save composites

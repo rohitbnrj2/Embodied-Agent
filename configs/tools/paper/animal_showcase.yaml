@@ -12,18 +12,18 @@ outsubdir: "animal_showcase" # by default, the data will be stored in the logdir
 exp: "???"
 
 overrides:
-  default: []
+  # default: []
   third_person:
     - "env.add_overlays=False"
     - "env/renderer=tracking"
-    - "env.renderer.camera.azimuth=110.0"
+    - "env.renderer.camera.azimuth=200.0"
     - "env.renderer.camera.elevation=-15.0"
-    - "env.renderer.camera.distance=0.25"
-  birds_eye:
-    - "env/renderer=bev"
-  birds_eye_no_overlays:
-    - "env/renderer=bev"
-    - "env.add_overlays=False"
+    - "env.renderer.camera.distance=5"
+  # birds_eye:
+  #   - "env/renderer=bev"
+  # birds_eye_no_overlays:
+  #   - "env/renderer=bev"
+  #   - "env.add_overlays=False"
   first_person:
     - "env.render_animal_composite_only=True"
     - "env.add_overlays=False"

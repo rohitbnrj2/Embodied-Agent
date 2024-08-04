@@ -100,8 +100,8 @@ def calculate_fitness_from_evaluations(
     rewards = np.mean(rewards, axis=1)
 
     if return_data:
-        return top_25_excluding_outliers(rewards), evaluations
-    return top_25_excluding_outliers(rewards)
+        return float(top_25_excluding_outliers(rewards)), evaluations
+    return float(top_25_excluding_outliers(rewards))
 
 
 def calculate_fitness_from_monitor(
@@ -115,8 +115,8 @@ def calculate_fitness_from_monitor(
         return -float("inf")
 
     if return_data:
-        return np.percentile(rewards, 75), (timesteps, rewards)
-    return np.percentile(rewards, 75)
+        return float(np.percentile(rewards, 75)), (timesteps, rewards)
+    return float(np.percentile(rewards, 75))
 
 
 def moving_average(values, window, mode="valid"):

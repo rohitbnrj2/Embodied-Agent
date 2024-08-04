@@ -5,6 +5,7 @@
         <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
         <rgba haze="0.15 0.25 0.35 1"/>
         <global azimuth="-20" elevation="-20" ellipsoidinertia="true"/>
+        <map znear="0.01" zfar="100"/>
     </visual>
 
     <asset>
@@ -21,6 +22,5 @@
             <geom name="box2" type="box" size=" 0.25 0.25 0.25" pos="-1 0.75 0.5" condim="1" rgba="0 1 0 1" quat="1 0 0 0"/>
             <geom name="box3" type="box" size=" 0.25 0.25 0.25" pos="-1 -0.75 0.5" rgba="1 0 0 1" condim="1" quat="1 0 0 0"/>
         </body>
-        <camera pos="0 0 0.5" quat="0.5 0.5 0.5 0.5" resolution="10 10" mode="fixed"/>
     </worldbody>
 </mujoco>

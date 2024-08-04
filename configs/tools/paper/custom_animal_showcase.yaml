@@ -1,0 +1,39 @@
+defaults:
+  - env_showcase
+  - _self_
+
+custom:
+  num_eyes_to_generate: [1, 1]
+  num_eyes_to_generate_str: ${eval:"str(${.num_eyes_to_generate})"}
+  resolution: [1, 1]
+  resolution_str: ${eval:"str(${.resolution})"}
+  fov: [1, 1]
+  fov_str: ${eval:"str(${.fov})"}
+  eyes_lon_range: [-45, 45]
+  eyes_lon_range_str: ${eval:"str(${.eyes_lon_range})"}
+
+outsubdir: |
+  "animal_showcase_num${custom.num_eyes_to_generate.0}p${custom.num_eyes_to_generate.1}_res${custom.resolution.0}p${custom.resolution.1}_fov${custom.fov.0}p${custom.fov.1}_lon${custom.eyes_lon_range.0}p${custom.eyes_lon_range.1}"
+
+mask:
+  - third_person
+  - first_person
+
+overrides:
+  third_person:
+    - "env.add_overlays=False"
+    - "env/renderer=tracking"
+    - "env.renderer.camera.azimuth=200.0"
+    - "env.renderer.camera.elevation=-15.0"
+    - "env.renderer.camera.distance=5"
+    - "env.animals.animal_0.num_eyes_to_generate=${custom.num_eyes_to_generate_str}"
+    - "env.animals.animal_0.eyes.eye.resolution=${custom.resolution_str}"
+    - "env.animals.animal_0.eyes.eye.fov=${custom.fov_str}"
+    - "env.animals.animal_0.eyes_lon_range=${custom.eyes_lon_range_str}"
+  first_person:
+    - "env.render_animal_composite_only=True"
+    - "env.add_overlays=False"
+    - "env.animals.animal_0.num_eyes_to_generate=${custom.num_eyes_to_generate_str}"
+    - "env.animals.animal_0.eyes.eye.resolution=${custom.resolution_str}"
+    - "env.animals.animal_0.eyes.eye.fov=${custom.fov_str}"
+    - "env.animals.animal_0.eyes_lon_range=${custom.eyes_lon_range_str}"

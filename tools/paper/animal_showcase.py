@@ -34,7 +34,7 @@ class AnimalShowcaseConfig(MjCambrianBaseConfig):
         mask (Optional[List[str]]): The masks to apply to overrides dict. If a mask is
             provided, only the overrides that match the mask will be used. If None,
             all overrides will be used.
-        ignore (Optional[List[str]]): The overrides to ignore. If an override is in 
+        ignore (Optional[List[str]]): The overrides to ignore. If an override is in
             this list, it will not be used.
 
         overrides (Dict[str, List[str]]): The overrides to apply to the loaded
@@ -67,7 +67,6 @@ def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
             continue
 
         get_logger().info(f"Composing animal showcase {fname}...")
-        print(overrides)
         exp_config = MjCambrianConfig.compose(
             Path.cwd() / "configs",
             "base",
@@ -91,8 +90,9 @@ def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
             save_mode=MjCambrianRendererSaveMode.PNG,
         )
 
-        # Save config for debugging
+        # Save config and xml for debugging
         exp_config.save(config.outdir / f"{fname}.yaml")
+        env.xml.write(config.outdir / f"{fname}.xml")
 
 
 if __name__ == "__main__":

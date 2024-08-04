@@ -49,7 +49,6 @@ def num_eyes_and_resolution_constraint(
     max_feasible_resolution = circumference / (num_eyes * pixel_size)
 
     if clip_line:
-        exit()
         # Clip the max feasible resolution to the maximum resolution
         # Delete all the resolutions/num eyes at that max value so we don't have a flat
         # line at the top

@@ -12,3 +12,16 @@ env:
     animal_0:
       # Set the initial yaw to -pi / 3.
       init_quat: ["${eval:'math.cos(-math.pi/3)'}", 0, 0, "${eval:'math.sin(-math.pi/3)'}"]
+
+      xml:
+        overrides: []
+
+      eyes:
+        eye:
+          # Enable the skybox
+          renderer:
+            scene:
+              mjRND_SKYBOX: 1
+
+  renderer:
+    save_mode: GIF | MP4 | PNG
