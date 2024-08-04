@@ -483,9 +483,9 @@ class MjCambrianEnv(ParallelEnv):
         for key, value in self._overlays.items():
             if issubclass(type(value), MjCambrianViewerOverlay):
                 overlays.append(value)
-            # else:
-            #     cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
-            #     overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
+            else:
+                cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
+                overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
 
         if not self._config.add_overlays:
             return renderer.render(overlays=overlays)
