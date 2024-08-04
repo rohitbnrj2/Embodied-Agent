@@ -1,0 +1,336 @@
+# @package _global_
+
+defaults:
+  - /ParseEvosConfig
+
+  - renders:
+      - third_person_bev
+      - third_person
+      - first_person
+
+  - _self_
+
+folder: "???"
+output: ${path:${folder},brain_capacity}
+plots_folder: ${path:${output},plots}
+renders_folder: ${path:${output},renders}
+evals_folder: ${path:${output},evals}
+
+force: False
+force_plot: True
+no_save: False
+no_check_finished: False
+quiet: False
+debug: False
+
+plots_to_ignore: []
+
+plot: False
+plot_nevergrad: False
+plot_phylogenetic_tree: False
+render: False
+eval: False
+
+dry_run: False
+
+renders: {}
+
+filter_fn:
+  # _target_: custom_filter_fns.filter_uniformly
+  _target_: custom_filter_fns.filter_noop
+  _partial_: true
+  # patterns:
+  #   env.animals.*.eyes.*.resolution[0]: [0, 20]
+  #   env.animals.*.num_eyes_to_generate[1]: [15, 2]
+  # env.animals.*.eyes_lon_range[1]: [45, 10]
+
+overrides: []
+
+custom:
+  clim: null
+
+plots:
+  number_of_eyes_vs_fov_vs_fitness_color:
+    x_data:
+      type: CUSTOM
+      label: Number of Eyes
+      custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
+        src: math.prod(num_eyes_to_generate[0])
+        patterns:
+          num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+    y_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.fov[0]
+      label: Field of View
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  resolution_vs_fov_vs_fitness_color:
+    x_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.resolution[0]
+      label: Resolution
+    y_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.fov[0]
+      label: Field of View
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  number_of_eyes_vs_generation_vs_fitness_color:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: CUSTOM
+      label: Number of Eyes
+      custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
+        src: math.prod(num_eyes_to_generate[0])
+        patterns:
+          num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  fov_vs_generation_vs_fitness_color:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.fov[0]
+      label: Field of View
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  placement_vs_fov_vs_fitness_color:
+    x_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.lon[0]
+      label: Eye Placement
+    y_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.fov[0]
+      label: Field of View
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  resolution_vs_generation_vs_fitness_color:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.resolution[0]
+      label: Resolution
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  number_of_eyes_vs_generation_vs_num_descendents_size_connected:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: CUSTOM
+      label: Number of Eyes
+      custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
+        src: math.prod(num_eyes_to_generate[0])
+        patterns:
+          num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+    size_data:
+      type: CUSTOM
+      label: Number of Descendents
+      custom_fn:
+        _target_: custom_size_fns.num_descendents
+        _partial_: True
+    custom_fns:
+      - type: LOCAL
+        fn:
+          _target_: custom_plot_fns.connect_with_parent
+          _partial_: True
+  resolution_vs_generation_vs_num_descendents_size_connected:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.resolution[0]
+      label: Resolution
+    size_data:
+      type: CUSTOM
+      label: Number of Descendents
+      custom_fn:
+        _target_: custom_size_fns.num_descendents
+        _partial_: True
+    custom_fns:
+      - type: LOCAL
+        fn:
+          _target_: custom_plot_fns.connect_with_parent
+          _partial_: True
+  placement_vs_generation_vs_fitness_color:
+    add_legend: False
+    add_title: False
+    x_data:
+      type: GENERATION
+      lim: [0, 50]
+    y_data:
+      type: CUSTOM
+      label: Eye Separation (degrees)
+      custom_fn:
+        _target_: custom_axis_fns.eye_range_diff
+        _partial_: True
+        pattern: env.animals.*.eyes_lon_range
+      lim: [0, 180]
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  resolution_vs_number_of_eyes_vs_fitness_color:
+    add_legend: True
+    add_title: False
+    x_data:
+      type: CUSTOM
+      label: Number of Eyes
+      lim: [0, 30]
+      custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
+        src: math.prod(num_eyes_to_generate[0])
+        patterns:
+          num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+    y_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.resolution[0]
+      label: Resolution
+      lim: [0, 36]
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+    size_data:
+      type: NONE
+    custom_fns:
+      - type: GLOBAL
+        fn:
+          _target_: custom_plot_fns.num_eyes_and_resolution_constraint
+          _partial_: True
+          lon_range: [-90, 90]
+          clip_line: False
+  left_placement_heatmap: &left_placement_heatmap
+    name: placement_heatmap
+    add_legend: False
+    add_title: False
+    projection: "polar"
+    thetamin: -90
+    thetamax: 90
+    x_data:
+      type: CUSTOM
+      custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
+        src: eyes_lon_left[0] * math.pi / 180.0
+        patterns:
+          eyes_lon_left: env.animals.*.eyes_lon_range[0]
+      # label: Eye Placement Angle (deg)
+    y_data:
+      type: CONSTANT
+      value: 1
+      tick_labels: []
+    size_data:
+      factor: 100
+    color_data:
+      type: EVALUATION
+      cmap: "RdYlGn"
+      clim: ${custom.clim}
+      kwargs:
+        pad: 0.1
+  right_placement_heatmap: &right_placement_heatmap
+    <<: *left_placement_heatmap
+    name: placement_heatmap
+    x_data:
+      type: CUSTOM
+      custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
+        src: eyes_lon_right[0] * math.pi / 180.0
+        patterns:
+          eyes_lon_right: env.animals.*.eyes_lon_range[1]
+      # label: Eye Placement Angle (deg)
+  left_placement_heatmap_vs_generation:
+    <<: *left_placement_heatmap
+    name: placement_heatmap_vs_generation
+    label_params:
+      labelleft: True
+      labelright: False
+      labeltop: False
+      labelbottom: True
+    rmin: 0
+    rmax: 50
+    rorigin: -20
+    # thetalabel: "Eye Placement Angle"
+    y_data:
+      type: GENERATION
+      ticks: [0, 10, 20, 30, 40, 50]
+      tick_labels: ["0", "10", "20", "30", "40", "50"]
+      label: ""
+  right_placement_heapmap_vs_generation:
+    <<: *right_placement_heatmap
+    name: placement_heatmap_vs_generation
+    label_params:
+      labelleft: True
+      labelright: False
+      labeltop: False
+      labelbottom: True
+    rmin: 0
+    rmax: 50
+    rorigin: -20
+    # thetalabel: "Eye Placement Angle"
+    y_data:
+      type: GENERATION
+      ticks: [0, 10, 20, 30, 40, 50]
+      tick_labels: ["0", "10", "20", "30", "40", "50"]
+      label: ""
+hydra:
+  run:
+    dir: ${output}
+  sweep:
+    dir: ${path:logs,${now:%Y-%m-%d},${hydra_select:job.name}}
+  job:
+    name: parse_evos
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        format: "%(levelname)-8s | %(module)s.%(funcName)s :: %(message)s"
+    loggers:
+      cambrian:
+        level: INFO
+        handlers: [stdout, stderr]
+        propagate: false
+    root:
+      level: INFO
+      handlers: [stdout, stderr]
+    handlers:
+      stdout:
+        class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+        level: DEBUG
+        filters:
+          - max_level
+      stderr:
+        class: cambrian.utils.logger.MjCambrianTqdmStreamHandler
+        formatter: simple
+        stream: ext://sys.stderr
+        level: WARNING
+    filters:
+      max_level:
+        (): cambrian.utils.logger.MjCambrianLoggerMaxLevelFilter
+        max_level: INFO
+    disable_existing_loggers: false
