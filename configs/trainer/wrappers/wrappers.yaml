@@ -7,3 +7,8 @@ frame_stack_wrapper:
   _partial_: true
   stack_size: 10
   padding_type: "zero"
+constant_action_wrapper:
+  _target_: cambrian.utils.wrappers.MjCambrianConstantActionWrapper
+  _partial_: true
+  # Defaults to having no constant actions
+  constant_actions: {}

@@ -25,10 +25,8 @@ tasks_per_node: ${eval:'int(20 // ${.cpus_per_task})'}
 cpus_per_task: ${trainer.n_envs}
 gres: gpu:volta:1
 partition: xeon-g6-volta
+constraint: xeon-g6
 array_parallelism: 8 # number of parallel array jobs launched; sc only allows 8 gpus
-
-# This will increase the likelyhood of a job being selected during peak hours.
-# qos: high
 
 # these are run prior to calling sbatch before running the job
 setup:

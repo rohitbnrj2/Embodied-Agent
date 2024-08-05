@@ -127,7 +127,6 @@ class MjCambrianTrainer:
 
         n_runs = self._config.eval_env.n_eval_episodes
         filename = self._config.expdir / self._config.eval_env.save_filename
-        filename.mkdir(parents=True, exist_ok=True)
         record_kwargs = dict(
             path=filename, save_mode=self._config.eval_env.renderer.save_mode
         )

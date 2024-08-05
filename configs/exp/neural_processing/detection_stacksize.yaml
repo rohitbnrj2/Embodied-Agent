@@ -1,0 +1,11 @@
+# @package _global_
+
+defaults:
+  - /exp/tasks/detection
+  - /exp/tasks/mutations/groupings/numeyes1_res0_lon1_fov0
+  - /exp/tasks/initial_conditions/detection_base
+
+trainer:
+  wrappers:
+    frame_stack_wrapper:
+      stack_size: 1

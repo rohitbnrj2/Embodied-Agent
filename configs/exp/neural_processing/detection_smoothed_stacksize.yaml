@@ -1,0 +1,15 @@
+# @package _global_
+
+defaults:
+  - /exp/neural_processing/detection_stacksize
+
+env:
+  animals:
+    animal:
+      xml:
+        overrides:
+          - mujoco:
+              - actuator:
+                  - position:
+                      - name: "act_yaw_${parent:xml}"
+                      - gear: "0.1"
