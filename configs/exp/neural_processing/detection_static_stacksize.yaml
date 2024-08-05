@@ -10,4 +10,9 @@ env:
       _partial_: true
       reward_in_view: 0.25
       to_objects: [goal]
-      hfov: ${env.animals.animal.eyes.eye.fov.0}
+
+trainer:
+  wrappers:
+    constant_action_wrapper:
+      constant_actions:
+        0: -1
