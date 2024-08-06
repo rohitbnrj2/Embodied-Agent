@@ -3,6 +3,8 @@
 defaults:
   - /exp/neural_processing/detection_stacksize
 
+  - override /env/mazes@env.mazes.maze: CHOICE
+
 env:
   reward_fn:
     reward_if_goal_in_view:
@@ -10,6 +12,12 @@ env:
       _partial_: true
       reward_in_view: 0.25
       to_objects: [goal]
+
+    penalize_if_adversary_in_view:
+      _target_: cambrian.envs.reward_fns.reward_if_objects_in_view
+      _partial_: true
+      reward_in_view: -0.25
+      to_objects: [adversary]
 
 trainer:
   wrappers:

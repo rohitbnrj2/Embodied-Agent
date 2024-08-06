@@ -4,12 +4,8 @@ defaults:
   - /exp/environmental_effects/navigation_num_eyes_and_resolution
 
 env:
-  mazes:
-    Y:
-      enabled: False
-
   animals:
-    animal_0:
+    animal:
       # Set the initial yaw to -pi / 3.
       init_quat: ["${eval:'math.cos(-math.pi/3)'}", 0, 0, "${eval:'math.sin(-math.pi/3)'}"]
 

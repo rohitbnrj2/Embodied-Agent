@@ -355,7 +355,7 @@ def reward_if_objects_in_view(
                         in_view = True
                         break
             else:
-                yaw = np.arctan2(animal.mat[1, 0], animal.mat[0, 0])
+                yaw = np.arctan2(animal.mat[1, 0], animal.mat[0, 0]) + np.pi / 2
                 in_view = check_in_view(
                     env.model,
                     env.data,
@@ -369,12 +369,12 @@ def reward_if_objects_in_view(
 
             # Add the reward to the accumulated reward. It may be scaled by the distance
             # if scale_by_distance is True, but only if the object is in view.
+            dist = np.linalg.norm(to_object.pos - from_animal.pos)
+            scale = 1 / max(dist, 1) if scale_by_distance else 1
             if in_view:
-                dist = np.linalg.norm(to_object.pos - from_animal.pos)
-                scale = 1 / max(dist, 1) if scale_by_distance else 1
                 reward = reward_in_view * scale
             else:
-                reward = reward_not_in_view
+                reward = reward_not_in_view * scale
             accumulated_reward += reward
 
     return accumulated_reward

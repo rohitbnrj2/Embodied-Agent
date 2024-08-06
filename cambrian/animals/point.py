@@ -208,6 +208,7 @@ class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):
         target_object: str,
         speed: float = -0.75,
         distance_threshold: float = 2.0,
+        use_optimal_trajectory: bool = True,
     ):
         super().__init__(config, name, idx)
 
@@ -216,6 +217,7 @@ class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):
         self._distance_threshold = distance_threshold
 
         self._optimal_trajectory: np.ndarray = None
+        self._use_optimal_trajectory = use_optimal_trajectory
 
     def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, Any]:
         """Resets the optimal_trajectory."""
@@ -233,13 +235,16 @@ class MjCambrianPointAnimalMazeOptimal(MjCambrianPointAnimal):
 
         # Calculate the optimal trajectory if the current trajectory is None
         if self._optimal_trajectory is None:
-            obstacles = []
-            for obj_name, obj in env.objects.items():
-                if obj_name != self._target_object:
-                    obstacles.append(tuple(env.maze.xy_to_rowcol(obj.pos)))
-            self._optimal_trajectory = env.maze.compute_optimal_path(
-                self.pos, obj_pos, obstacles=obstacles
-            )
+            if self._use_optimal_trajectory:
+                obstacles = []
+                for obj_name, obj in env.objects.items():
+                    if obj_name != self._target_object:
+                        obstacles.append(tuple(env.maze.xy_to_rowcol(obj.pos)))
+                self._optimal_trajectory = env.maze.compute_optimal_path(
+                    self.pos, obj_pos, obstacles=obstacles
+                )
+            else:
+                self._optimal_trajectory = np.array([obj_pos[:2]])
 
         # If the optimal_trajectory is empty, return no action. We've probably reached
         # the end
