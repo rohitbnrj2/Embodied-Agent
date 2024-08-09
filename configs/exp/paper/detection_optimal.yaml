@@ -14,5 +14,5 @@ env:
       instance:
         _target_: cambrian.agents.MjCambrianAgentPointMazeOptimal
         _partial_: true
-        target_object: goal
+        target: goal
         distance_threshold: 3.0

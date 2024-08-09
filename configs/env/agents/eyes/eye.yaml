@@ -33,8 +33,8 @@ renderer:
     flags:
       mjVIS_CAMERA: 0
 
-    # We'll hide all the geomgroups and sitegroups after 2
-    # We can then put stuff at groups > 2 and it will be hidden to the agent
+    # We'll hide all the geomgroups and sitegroups at 2
+    # We can then put stuff at groups = 2 and it will be hidden to the agent
     # Overwrites the default value in the renderer config
     geomgroup:
-      slice(2, None): False
+      "2": False

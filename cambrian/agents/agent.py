@@ -215,10 +215,10 @@ class MjCambrianAgent:
         geom_rbound = model.geom_rbound[geom_id]
         geom_pos = model.geom_pos[geom_id]
         # Set each geom in this agent to be a certain group for rendering utils
-        # The group number is the index the agent was created + 2
-        # + 2 because the default group used in mujoco is 0 and our agent indexes start
-        # at 0 and we'll put our scene stuff on group 1
-        geom_group = self._idx + 2
+        # The group number is the index the agent was created + 3
+        # + 3 because the default group used in mujoco is 0 and our agent indexes start
+        # at 0 and we'll put our scene stuff on group 1 and hidden stuff on 2.
+        geom_group = self._idx + 3
         self._geom = MjCambrianGeometry(geom_id, geom_rbound, geom_pos, geom_group)
 
     def _parse_actuators(self, model: mj.MjModel):

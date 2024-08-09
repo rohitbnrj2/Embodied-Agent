@@ -11,7 +11,7 @@
         <body name="${parent:xml}_body" childclass="object" pos="0 0 0.5">
             <geom name="${parent:xml}_geom" type="sphere" material="${parent:xml}_mat" size="0.5" contype="0" conaffinity="0" />
             <site name="${parent:xml}_top_site" material="${parent:xml}_top_mat" pos="0 0 0.5"
-                size="0.2" group="3" />
+                size="0.2" group="2" />
         </body>
     </worldbody>
 </mujoco>

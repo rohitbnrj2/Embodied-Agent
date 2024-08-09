@@ -1,17 +1,6 @@
 # @package _global_
 
 defaults:
-  # Below is how you specify the default agent configurations. These are not actually
-  # used in the experiment, but define the default configurations for different aspects
-  # of the agents. When loading an agent and/or writing a config, you can refer to
-  # these defaults using the following:
-  # - /env/agents/${env/agents}@_here_
-  # This will set all defaults in the current config to the ones specified in
-  # ${env/agents}. You can then overwrite these defaults to implement the desired
-  # agent configuration. The same idea applies with eyes and optics.
-  - /env/agents: agent
-  - /env/agents/eyes: eye
-
   # NOTE: there is a bug in OmegaConf that doesn't allow optional dataclass objects
   # that are inherited to be specified via the defaults list. For instance,
   # if you have the following structured configs:
