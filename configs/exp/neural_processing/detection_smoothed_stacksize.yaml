@@ -12,4 +12,7 @@ env:
               - actuator:
                   - position:
                       - name: "act_yaw_${parent:xml}"
-                      - gear: "0.1"
+                      - gear: "${custom.gear}"
+
+custom:
+  gear: "???"

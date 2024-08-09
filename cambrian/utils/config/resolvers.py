@@ -207,3 +207,8 @@ def pattern_resolver(*pattern: str) -> str:
 @register_new_resolver("custom")
 def custom_resolver(target: str, default: Optional[Any] = None, /):
     return f"${{oc.select:${{search:custom,'path'}}.{target}, {default}}}"
+
+
+@register_new_resolver("float_to_str")
+def float_to_str_resolver(value: float) -> str:
+    return str(value).replace(".", "p").replace("-", "n")
