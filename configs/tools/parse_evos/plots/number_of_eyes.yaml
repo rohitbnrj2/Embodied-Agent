@@ -9,7 +9,7 @@ number_of_eyes_vs_generation:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
 number_of_eyes_vs_generation_vs_training_reward_color:
   x_data:
     type: GENERATION
@@ -21,7 +21,7 @@ number_of_eyes_vs_generation_vs_training_reward_color:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   color_data:
     type: MONITOR
   custom_fns:
@@ -38,10 +38,10 @@ resolution_vs_number_of_eyes_vs_best_n_size:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
   size_data:
     type: CUSTOM
@@ -64,7 +64,7 @@ number_of_eyes_vs_generation_connected:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   custom_fns:
     - type: LOCAL
       fn:
@@ -81,7 +81,7 @@ number_of_eyes_vs_generation_vs_num_children_size:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   size_data:
     type: CUSTOM
     label: Number of Children
@@ -99,7 +99,7 @@ number_of_eyes_vs_generation_vs_num_children_size_connected:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   size_data:
     type: CUSTOM
     label: Number of Children
@@ -122,7 +122,7 @@ number_of_eyes_vs_generation_vs_num_descendents_size_connected:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   size_data:
     type: CUSTOM
     label: Number of Descendents
@@ -145,7 +145,7 @@ number_of_eyes_vs_generation_vs_training_reward_size_vs_generation_color:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   size_data:
     type: MONITOR
   color_data:
@@ -160,10 +160,10 @@ resolution_vs_number_of_eyes:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
 resolution_vs_number_of_eyes_vs_generation_color:
   x_data:
@@ -174,10 +174,10 @@ resolution_vs_number_of_eyes_vs_generation_color:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
   color_data:
     type: GENERATION
@@ -191,10 +191,10 @@ resolution_vs_number_of_eyes_vs_training_reward_color_vs_generation_size:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
   color_data:
     type: MONITOR
@@ -210,10 +210,10 @@ resolution_vs_number_of_eyes_vs_training_reward_color:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
   color_data:
     type: MONITOR
@@ -233,10 +233,10 @@ resolution_vs_number_of_eyes_vs_training_reward_color_vs_best_n_size:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
   color_data:
     type: MONITOR
@@ -267,10 +267,10 @@ resolution_vs_number_of_eyes_vs_fitness_color:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
   color_data:
     type: EVALUATION
@@ -292,10 +292,10 @@ resolution_vs_number_of_eyes_vs_fitness_color_vs_fitness_size:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
   color_data:
     type: EVALUATION
@@ -319,7 +319,7 @@ training_reward_vs_number_of_eyes:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: MONITOR
 training_reward_vs_number_of_eyes_vs_generation_color:
@@ -331,7 +331,7 @@ training_reward_vs_number_of_eyes_vs_generation_color:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: MONITOR
   color_data:
@@ -346,7 +346,7 @@ fitness_vs_number_of_eyes:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: EVALUATION
 number_of_eyes_vs_fov0_vs_training_reward_color:
@@ -358,10 +358,10 @@ number_of_eyes_vs_fov0_vs_training_reward_color:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.fov[0]
+    pattern: env.agents.*.eyes.*.fov[0]
     label: FOV
   color_data:
     type: MONITOR

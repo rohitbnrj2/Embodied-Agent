@@ -4,6 +4,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 from cambrian.utils.config import MjCambrianContainerConfig
+from cambrian.utils.logger import get_logger
 
 MjCambrianXMLConfig: TypeAlias = MjCambrianContainerConfig | List[Dict[str, Self]]
 """
@@ -66,7 +67,7 @@ class MjCambrianXML:
     """
 
     WHITELIST_ATTRIBUTES = ["name"]
-    WHITELIST_TAGS = ["global"]
+    WHITELIST_TAGS = ["global", "include"]
 
     def __init__(
         self,
@@ -402,11 +403,11 @@ if __name__ == "__main__":
         with open(args.convert_yaml, "r") as f:
             config = yaml.safe_load(f)
         xml = MjCambrianXML.from_config(config)
-        print(xml)
+        get_logger().info(xml)
         exit()
     if args.load_xml is not None:
         xml = load_xml(args.load_xml)
-        print(xml)
+        get_logger().info(xml)
         exit()
 
     xml = MjCambrianXML.make_empty()
@@ -418,7 +419,7 @@ if __name__ == "__main__":
 
     config = [{"mujoco": [{"compiler": [{"coordinate": "local"}]}]}]
     xml += MjCambrianXML.from_config(config)
-    print(xml)
+    get_logger().info(xml)
 
     config = """
     - mujoco:
@@ -467,4 +468,4 @@ if __name__ == "__main__":
     config = yaml.load(config, Loader=yaml.FullLoader)
     xml += MjCambrianXML.from_config(config)
 
-    print(xml)
+    get_logger().info(xml)

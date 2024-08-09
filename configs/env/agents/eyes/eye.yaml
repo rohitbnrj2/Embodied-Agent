@@ -1,0 +1,40 @@
+# @package custom.default.eye
+# Store this eye in the custom attribute in case we don't actually use this eye
+
+defaults:
+  - /MjCambrianEyeConfig
+  - /env/renderer/renderer@renderer
+
+instance:
+  _target_: cambrian.eyes.eye.MjCambrianEye
+  _partial_: true
+
+fov: [45, 45]
+focal: [0.01, 0.01]
+sensorsize:
+  - ${eval:'2 * ${..focal.0} * math.tan(math.radians(${..fov.0}) / 2)'}
+  - ${eval:'2 * ${..focal.1} * math.tan(math.radians(${..fov.1}) / 2)'}
+resolution: [1, 1]
+coord: [0, 0] # placeholder
+
+renderer:
+  render_modes: [rgb_array]
+
+  width: ${..resolution.0}
+  height: ${..resolution.1}
+
+  scene_options:
+    _target_: cambrian.utils.config.instance_wrapper
+    instance:
+      _target_: mujoco.MjvOption
+
+    # Don't visualize the camera frustums
+    # Overwrites the default value in the renderer config
+    flags:
+      mjVIS_CAMERA: 0
+
+    # We'll hide all the geomgroups and sitegroups after 2
+    # We can then put stuff at groups > 2 and it will be hidden to the agent
+    # Overwrites the default value in the renderer config
+    geomgroup:
+      slice(2, None): False

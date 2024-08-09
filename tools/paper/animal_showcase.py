@@ -15,7 +15,7 @@ from cambrian.utils.config import (
 
 @config_wrapper
 class AnimalShowcaseConfig(MjCambrianBaseConfig):
-    """The configuration for the animal showcase.
+    """The configuration for the agent showcase.
 
     Attributes:
         logdir (Path): The primary directory which simulation data is stored in. This is
@@ -67,7 +67,7 @@ def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
         if config.mask is not None and fname not in config.mask:
             continue
 
-        get_logger().info(f"Composing animal showcase {fname}...")
+        get_logger().info(f"Composing agent showcase {fname}...")
         exp_config = MjCambrianConfig.compose(
             Path.cwd() / "configs",
             "base",
@@ -116,6 +116,6 @@ if __name__ == "__main__":
     run_hydra(
         main,
         config_path=Path.cwd() / "configs" / "tools" / "paper",
-        config_name="animal_showcase",
+        config_name="agent_showcase",
         parser=parser,
     )

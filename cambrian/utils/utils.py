@@ -79,7 +79,7 @@ def evaluate_policy(
 def calculate_fitness_from_evaluations(
     evaluations_npz: Path, *, return_data: bool = False
 ) -> float | Tuple[float, np.ndarray]:
-    """Calculate the fitness of the animal. This is done by taking the 3rd quartile of
+    """Calculate the fitness of the agent. This is done by taking the 3rd quartile of
     the evaluation rewards."""
     # Return negative infinity if the evaluations file doesn't exist
     if not evaluations_npz.exists():
@@ -107,7 +107,7 @@ def calculate_fitness_from_evaluations(
 def calculate_fitness_from_monitor(
     monitor_csv: Path, *, return_data: bool = False
 ) -> float | Tuple[float, Tuple[np.ndarray, np.ndarray]]:
-    """Calculate the fitness of the animal. Uses the 3rd quartile of the cumulative
+    """Calculate the fitness of the agent. Uses the 3rd quartile of the cumulative
     monitor rewards."""
     timesteps, rewards = parse_monitor_csv(monitor_csv)
 
@@ -649,8 +649,6 @@ def calc_mtf_sum(psf, camera_px_pitch, face_freq, noise_floor=0.0):
     # Define the pixel pitch (in millimeters)
     pixelPitch = camera_px_pitch * 1e3
 
-    # print("pixel pitch (mm) :", pixelPitch)
-
     # Calculate Nyquist Frequency (in cycles/mm)
     nyquistFreq = 1 / (2 * pixelPitch)
 
@@ -664,7 +662,6 @@ def calc_mtf_sum(psf, camera_px_pitch, face_freq, noise_floor=0.0):
     for ind, freq in enumerate(frequencyAxis):
         if freq > face_freq:
             max_index = ind
-            # print(max_index)
             break
 
     maxRadius = torch.round(torch.max(X)).type(torch.int64)

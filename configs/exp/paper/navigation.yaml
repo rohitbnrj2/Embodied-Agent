@@ -4,8 +4,8 @@ defaults:
   - /exp/environmental_effects/navigation_num_eyes_and_resolution
 
 env:
-  animals:
-    animal:
+  agents:
+    agent:
       # Set the initial yaw to -pi / 3.
       init_quat: ["${eval:'math.cos(-math.pi/3)'}", 0, 0, "${eval:'math.sin(-math.pi/3)'}"]
 

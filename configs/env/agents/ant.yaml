@@ -1,0 +1,21 @@
+# @package custom.default.agent
+# We aren't actually going to use this agent, so store it in the special attr `custom` which isn't read
+
+defaults:
+  - agent@_here_
+
+instance:
+  _target_: cambrian.agents.MjCambrianAgent
+  _partial_: true
+
+xml:
+  _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse
+  _convert_: all
+  xml_string: ${read:${path:models,agents,ant.xml}}
+
+body_name: "torso_${parent:}"
+joint_name: "root_${parent:}"
+geom_name: "torso_geom_${parent:}"
+
+eyes_lat_range: [-10, 10]
+eyes_lon_range: [-60, 60]

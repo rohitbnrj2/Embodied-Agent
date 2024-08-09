@@ -3,30 +3,30 @@ aperture_vs_generation:
     type: GENERATION
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.aperture
+    pattern: env.agents.*.eyes.*.aperture
     label: Aperture
 training_reward_vs_aperture:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.aperture
+    pattern: env.agents.*.eyes.*.aperture
     label: Aperture
   y_data:
     type: MONITOR
 fitness_vs_aperture:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.aperture
+    pattern: env.agents.*.eyes.*.aperture
     label: Aperture
   y_data:
     type: EVALUATION
 aperture_vs_fov0_vs_training_reward_color:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.aperture
+    pattern: env.agents.*.eyes.*.aperture
     label: Aperture
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.fov[0]
+    pattern: env.agents.*.eyes.*.fov[0]
     label: FOV
   color_data:
     type: MONITOR
@@ -34,7 +34,7 @@ aperture_vs_fov0_vs_training_reward_color:
 aperture_vs_number_of_eyes_vs_training_reward_color:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.aperture
+    pattern: env.agents.*.eyes.*.aperture
     label: Aperture
   y_data:
     type: CUSTOM
@@ -44,7 +44,7 @@ aperture_vs_number_of_eyes_vs_training_reward_color:
       _partial_: True
       src: math.prod(num_eyes_to_generate[0])
       patterns:
-        num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
   color_data:
     type: MONITOR
     cmap: RdYlGn

@@ -1,5 +1,6 @@
 <mujoco model="scene">
-    <compiler assetdir="models/assets" angle="degree" coordinate="local" inertiafromgeom="true" />
+    <include file="models/settings.xml" />
+    <!-- <compiler assetdir="models/assets" angle="degree" coordinate="local" inertiafromgeom="true" /> -->
     <option density="1000" integrator="implicitfast" timestep="0.02" viscosity="1.8e-5">
         <flag frictionloss="disable" />
     </option>

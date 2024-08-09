@@ -40,9 +40,9 @@ filter_fn:
   _target_: custom_filter_fns.filter_noop
   _partial_: true
   # patterns:
-  #   env.animals.*.eyes.*.resolution[0]: [0, 20]
-  #   env.animals.*.num_eyes_to_generate[1]: [15, 2]
-  # env.animals.*.eyes_lon_range[1]: [45, 10]
+  #   env.agents.*.eyes.*.resolution[0]: [0, 20]
+  #   env.agents.*.num_eyes_to_generate[1]: [15, 2]
+  # env.agents.*.eyes_lon_range[1]: [45, 10]
 
 overrides: []
 
@@ -59,10 +59,10 @@ plots:
         _partial_: True
         src: math.prod(num_eyes_to_generate[0])
         patterns:
-          num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+          num_eyes_to_generate: env.agents.*.num_eyes_to_generate
     y_data:
       type: CONFIG
-      pattern: env.animals.*.eyes.*.fov[0]
+      pattern: env.agents.*.eyes.*.fov[0]
       label: Field of View
     color_data:
       type: EVALUATION
@@ -71,11 +71,11 @@ plots:
   resolution_vs_fov_vs_fitness_color:
     x_data:
       type: CONFIG
-      pattern: env.animals.*.eyes.*.resolution[0]
+      pattern: env.agents.*.eyes.*.resolution[0]
       label: Resolution
     y_data:
       type: CONFIG
-      pattern: env.animals.*.eyes.*.fov[0]
+      pattern: env.agents.*.eyes.*.fov[0]
       label: Field of View
     color_data:
       type: EVALUATION
@@ -92,7 +92,7 @@ plots:
         _partial_: True
         src: math.prod(num_eyes_to_generate[0])
         patterns:
-          num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+          num_eyes_to_generate: env.agents.*.num_eyes_to_generate
     color_data:
       type: EVALUATION
       cmap: RdYlGn
@@ -102,7 +102,7 @@ plots:
       type: GENERATION
     y_data:
       type: CONFIG
-      pattern: env.animals.*.eyes.*.fov[0]
+      pattern: env.agents.*.eyes.*.fov[0]
       label: Field of View
     color_data:
       type: EVALUATION
@@ -111,11 +111,11 @@ plots:
   placement_vs_fov_vs_fitness_color:
     x_data:
       type: CONFIG
-      pattern: env.animals.*.eyes.*.lon[0]
+      pattern: env.agents.*.eyes.*.lon[0]
       label: Eye Placement
     y_data:
       type: CONFIG
-      pattern: env.animals.*.eyes.*.fov[0]
+      pattern: env.agents.*.eyes.*.fov[0]
       label: Field of View
     color_data:
       type: EVALUATION
@@ -126,7 +126,7 @@ plots:
       type: GENERATION
     y_data:
       type: CONFIG
-      pattern: env.animals.*.eyes.*.resolution[0]
+      pattern: env.agents.*.eyes.*.resolution[0]
       label: Resolution
     color_data:
       type: EVALUATION
@@ -143,7 +143,7 @@ plots:
         _partial_: True
         src: math.prod(num_eyes_to_generate[0])
         patterns:
-          num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+          num_eyes_to_generate: env.agents.*.num_eyes_to_generate
     size_data:
       type: CUSTOM
       label: Number of Descendents
@@ -160,7 +160,7 @@ plots:
       type: GENERATION
     y_data:
       type: CONFIG
-      pattern: env.animals.*.eyes.*.resolution[0]
+      pattern: env.agents.*.eyes.*.resolution[0]
       label: Resolution
     size_data:
       type: CUSTOM
@@ -185,7 +185,7 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eye_range_diff
         _partial_: True
-        pattern: env.animals.*.eyes_lon_range
+        pattern: env.agents.*.eyes_lon_range
       lim: [0, 180]
     color_data:
       type: EVALUATION
@@ -203,10 +203,10 @@ plots:
         _partial_: True
         src: math.prod(num_eyes_to_generate[0])
         patterns:
-          num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+          num_eyes_to_generate: env.agents.*.num_eyes_to_generate
     y_data:
       type: CONFIG
-      pattern: env.animals.*.eyes.*.resolution[0]
+      pattern: env.agents.*.eyes.*.resolution[0]
       label: Resolution
       lim: [0, 36]
     color_data:
@@ -236,8 +236,7 @@ plots:
         _partial_: True
         src: eyes_lon_left[0] * math.pi / 180.0
         patterns:
-          eyes_lon_left: env.animals.*.eyes_lon_range[0]
-      # label: Eye Placement Angle (deg)
+          eyes_lon_left: env.agents.*.eyes_lon_range[0]
     y_data:
       type: CONSTANT
       value: 1
@@ -260,8 +259,7 @@ plots:
         _partial_: True
         src: eyes_lon_right[0] * math.pi / 180.0
         patterns:
-          eyes_lon_right: env.animals.*.eyes_lon_range[1]
-      # label: Eye Placement Angle (deg)
+          eyes_lon_right: env.agents.*.eyes_lon_range[1]
   left_placement_heatmap_vs_generation:
     <<: *left_placement_heatmap
     name: placement_heatmap_vs_generation
@@ -273,7 +271,6 @@ plots:
     rmin: 0
     rmax: 50
     rorigin: -20
-    # thetalabel: "Eye Placement Angle"
     y_data:
       type: GENERATION
       ticks: [0, 10, 20, 30, 40, 50]

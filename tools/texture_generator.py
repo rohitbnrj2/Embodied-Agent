@@ -3,6 +3,8 @@ from typing import Tuple
 import cv2
 import numpy as np
 
+from cambrian.utils.logger import get_logger
+
 
 def generate(args):
     import subprocess
@@ -30,7 +32,7 @@ def generate(args):
                     cmd += [f"--{k} {v}"]
 
             cmd = " ".join(cmd)
-            print(f"Running {cmd}")
+            get_logger().info(f"Running {cmd}")
             subprocess.run(cmd, shell=True)
 
 

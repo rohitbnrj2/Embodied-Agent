@@ -7,19 +7,18 @@
 # it reaches the goal (within a certain distance threshold).
 
 defaults:
-  - /env/mazes@env.mazes.maze_1: X_COMPLEX
-  - /env/mazes@env.mazes.maze_2: X_COMPLEX
-
-  # Adds a single goal to the environment
-  - /env/objects@env.objects.goal: goal
+  - /env/mazes@env.mazes.maze_1: COMPLEX
+  - /env/mazes@env.mazes.maze_2: COMPLEX
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
 
-  # Define one animal
-  - /env/animals@env.animals.animal: ${env/animals}
-  - /env/animals/eyes@env.animals.animal.eyes.eye: ${env/animals/eyes}
-  - override /env/animals: point
+  # Define one point agent with a single eye
+  - /env/agents@env.agents.agent: point
+  - /env/agents/eyes@env.agents.agent.eyes.eye: eye
+
+  # Define one goal object
+  - /env/agents@env.agents.goal: object_goal
 
 trainer:
   total_timesteps: 300_000
@@ -29,6 +28,10 @@ env:
   mazes:
     maze_1: &maze
       scale: 1.0
+
+      agent_id_map:
+        default: [agent]
+        O: [goal]
     maze_2:
       <<: *maze
       hflip: true
@@ -45,15 +48,15 @@ env:
 
   truncation_fn:
     truncate_if_low_reward:
-      _target_: cambrian.envs.truncation_fns.truncate_if_low_reward
+      _target_: cambrian.envs.done_fns.done_if_low_reward
       _partial_: true
       threshold: -50.0
 
   termination_fn:
     terminate_if_close_to_goal:
-      _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
+      _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
-      objects: [goal]
+      agents: [goal]
       distance_threshold: 1.0
 
 eval_env:

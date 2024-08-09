@@ -17,7 +17,7 @@ import mujoco as mj
 from gymnasium import spaces
 from pettingzoo import ParallelEnv
 
-from cambrian.animals.animal import MjCambrianAnimal, MjCambrianAnimalConfig
+from cambrian.agents.agent import MjCambrianAgent, MjCambrianAgentConfig
 from cambrian.renderer import (
     MjCambrianRenderer,
     MjCambrianRendererConfig,
@@ -38,17 +38,17 @@ from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.logger import get_logger
 
 MjCambrianTerminationFn: TypeAlias = Callable[
-    Concatenate["MjCambrianEnv", MjCambrianAnimal, Dict[str, Any], ...],
+    Concatenate["MjCambrianEnv", MjCambrianAgent, Dict[str, Any], ...],
     bool,
 ]
 
 MjCambrianTruncationFn: TypeAlias = Callable[
-    Concatenate["MjCambrianEnv", MjCambrianAnimal, Dict[str, Any], ...],
+    Concatenate["MjCambrianEnv", MjCambrianAgent, Dict[str, Any], ...],
     bool,
 ]
 
 MjCambrianRewardFn: TypeAlias = Callable[
-    Concatenate["MjCambrianEnv", MjCambrianAnimal, bool, bool, Dict[str, Any], ...],
+    Concatenate["MjCambrianEnv", MjCambrianAgent, bool, bool, Dict[str, Any], ...],
     float,
 ]
 
@@ -81,8 +81,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             is True and mazes change between evaluations, the sites will be drawn on top
             of each other which may not be desired. When record is False, the overlays
             are always cleared.
-        render_animal_composite_only (Optional[bool]): If set, will only render the
-            composite image all animals.
+        render_agent_composite_only (Optional[bool]): If set, will only render the
+            composite image all agents.
         renderer (Optional[MjCambrianViewerConfig]): The default viewer config to
             use for the mujoco viewer. If unset, no renderer will be used. Should
             set to None if `render` will never be called. This may be useful to
@@ -91,9 +91,9 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         save_filename (Optional[str]): The filename to save recordings to. This is more
             of a placeholder for external scripts to use, if desired.
 
-        animals (List[MjCambrianAnimalConfig]): The configs for the animals.
-            The key will be used as the default name for the animal, unless explicitly
-            set in the animal config.
+        agents (List[MjCambrianAgentConfig]): The configs for the agents.
+            The key will be used as the default name for the agent, unless explicitly
+            set in the agent config.
     """
 
     instance: Callable[[Self], "MjCambrianEnv"]
@@ -110,12 +110,12 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
     add_overlays: bool
     clear_overlays_on_reset: bool
-    render_animal_composite_only: Optional[bool] = None
+    render_agent_composite_only: Optional[bool] = None
     renderer: Optional[MjCambrianRendererConfig] = None
 
     save_filename: Optional[str] = None
 
-    animals: Dict[str, MjCambrianAnimalConfig]
+    agents: Dict[str, MjCambrianAgentConfig]
 
 
 class MjCambrianEnv(ParallelEnv):
@@ -140,8 +140,8 @@ class MjCambrianEnv(ParallelEnv):
         self._name = name or self.__class__.__name__
         self._logger = get_logger()
 
-        self._animals: Dict[str, MjCambrianAnimal] = {}
-        self._create_animals()
+        self._agents: Dict[str, MjCambrianAgent] = {}
+        self._create_agents()
 
         self._xml = self.generate_xml()
 
@@ -183,19 +183,19 @@ class MjCambrianEnv(ParallelEnv):
         # episode.
         self._info: Dict[str, Dict[str, Any]]
 
-    def _create_animals(self):
-        """Helper method to create the animals."""
-        for i, (name, animal_config) in enumerate(self._config.animals.items()):
-            assert name not in self._animals
-            self._animals[name] = animal_config.instance(animal_config, name, i)
+    def _create_agents(self):
+        """Helper method to create the agents."""
+        for i, (name, agent_config) in enumerate(self._config.agents.items()):
+            assert name not in self._agents
+            self._agents[name] = agent_config.instance(agent_config, name, i)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
         xml = MjCambrianXML.from_string(self._config.xml)
 
-        # Add the animals to the xml
-        for animal in self._animals.values():
-            xml += animal.generate_xml()
+        # Add the agents to the xml
+        for agent in self._agents.values():
+            xml += agent.generate_xml()
 
         return xml
 
@@ -204,13 +204,13 @@ class MjCambrianEnv(ParallelEnv):
     ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
         """Reset the environment.
 
-        Will reset all underlying components (the maze, the animals, etc.). The
+        Will reset all underlying components (the maze, the agents, etc.). The
         simulation will then be stepped once to ensure that the observations are
         up-to-date.
 
         Returns:
             Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]: The observations for each
-                animal and the info dict for each animal.
+                agent and the info dict for each agent.
         """
         if seed is not None and self._num_resets == 0:
             self.set_random_seed(seed)
@@ -219,13 +219,13 @@ class MjCambrianEnv(ParallelEnv):
         mj.mj_resetData(self._model, self._data)
 
         # Reset the info dict. We'll update the stateful info dict here, as well.
-        info: Dict[str, Dict[str, Any]] = {a: {} for a in self._animals}
+        info: Dict[str, Dict[str, Any]] = {a: {} for a in self._agents}
         self._info = info
 
-        # Then, reset the animals
+        # Then, reset the agents
         obs: Dict[str, Dict[str, Any]] = {}
-        for name, animal in self._animals.items():
-            obs[name] = animal.reset(self._model, self._data)
+        for name, agent in self._agents.items():
+            obs[name] = agent.reset(self._model, self._data)
 
         # We'll step the simulation once to allow for states to propagate
         self._step_mujoco_simulation(1, info)
@@ -251,10 +251,10 @@ class MjCambrianEnv(ParallelEnv):
             # TODO make this cleaner
             self._rollout.setdefault("actions", [])
             self._rollout["actions"].append(
-                [np.zeros_like(a.action_space.sample()) for a in self._animals.values()]
+                [np.zeros_like(a.action_space.sample()) for a in self._agents.values()]
             )
             self._rollout.setdefault("positions", [])
-            self._rollout["positions"].append([a.qpos for a in self._animals.values()])
+            self._rollout["positions"].append([a.qpos for a in self._agents.values()])
 
         return self._update_obs(obs), self._update_info(info)
 
@@ -272,40 +272,40 @@ class MjCambrianEnv(ParallelEnv):
         The dynamics is updated through the `_step_mujoco_simulation` method.
 
         Args:
-            action (Dict[str, Any]): The action to take for each animal.
-                The keys define the animal name, and the values define the action for
-                that animal.
+            action (Dict[str, Any]): The action to take for each agent.
+                The keys define the agent name, and the values define the action for
+                that agent.
 
         Returns:
-            Dict[str, Any]: The observations for each animal.
-            Dict[str, float]: The reward for each animal.
-            Dict[str, bool]: Whether each animal has terminated.
-            Dict[str, bool]: Whether each animal has truncated.
-            Dict[str, Dict[str, Any]]: The info dict for each animal.
+            Dict[str, Any]: The observations for each agent.
+            Dict[str, float]: The reward for each agent.
+            Dict[str, bool]: Whether each agent has terminated.
+            Dict[str, bool]: Whether each agent has truncated.
+            Dict[str, Dict[str, Any]]: The info dict for each agent.
         """
         info = self._info
 
-        # First, apply the actions to the animals and step the simulation
-        for name, animal in self._animals.items():
-            if not animal.config.trainable or animal.config.use_privileged_action:
+        # First, apply the actions to the agents and step the simulation
+        for name, agent in self._agents.items():
+            if not agent.config.trainable or agent.config.use_privileged_action:
                 assert (
-                    animal.config.trainable or name not in action
+                    agent.config.trainable or name not in action
                 ), f"Action for {name} found in action dict. "
-                "This isn't allowed for non-trainable animals."
-                action[name] = animal.get_action_privileged(self)
+                "This isn't allowed for non-trainable agents."
+                action[name] = agent.get_action_privileged(self)
 
             assert name in action, f"Action for {name} not found in action dict."
-            animal.apply_action(action[name])
-            info[name]["prev_pos"] = animal.pos.copy()
+            agent.apply_action(action[name])
+            info[name]["prev_pos"] = agent.pos.copy()
             info[name]["action"] = action[name]
 
         # Then, step the mujoco simulation
         self._step_mujoco_simulation(self._config.frame_skip, info)
 
-        # We'll then step each animal to render it's current state and get the obs
+        # We'll then step each agent to render it's current state and get the obs
         obs: Dict[str, Any] = {}
-        for name, animal in self._animals.items():
-            obs[name] = animal.step()
+        for name, agent in self._agents.items():
+            obs[name] = agent.step()
 
         # Call helper methods to update the observations, rewards, terminated, and info
         obs = self._update_obs(obs)
@@ -321,7 +321,7 @@ class MjCambrianEnv(ParallelEnv):
 
         if self.record:
             self._rollout["actions"].append(list(action.values()))
-            self._rollout["positions"].append([a.pos for a in self._animals.values()])
+            self._rollout["positions"].append([a.pos for a in self._agents.values()])
 
         if self.record or "human" in self._config.renderer.render_modes:
             self._overlays["Name"] = self._name
@@ -333,9 +333,9 @@ class MjCambrianEnv(ParallelEnv):
 
     def _step_mujoco_simulation(self, n_frames: int, info: Dict[str, Dict[str, Any]]):
         """Sets the mujoco simulation. Will step the simulation `n_frames` times, each
-        time checking if the animal has contacts."""
-        # Initially set has_contacts to False for all animals
-        for name in self._animals:
+        time checking if the agent has contacts."""
+        # Initially set has_contacts to False for all agents
+        for name in self._agents:
             info[name]["has_contacts"] = False
 
         # Check contacts at _every_ step.
@@ -344,16 +344,16 @@ class MjCambrianEnv(ParallelEnv):
             mj.mj_step(self._model, self._data)
 
             # Check for contacts. We won't break here, but we'll store whether an
-            # animal has contacts or not. If we didn't store during the simulation
+            # agent has contacts or not. If we didn't store during the simulation
             # step, contact checking would only occur after the frame skip, meaning
-            # that, if during the course of the frame skip, the animal hits an object
+            # that, if during the course of the frame skip, the agent hits an object
             # and then moves away, the contact would not be detected.
             if self._data.ncon > 0:
-                for name, animal in self._animals.items():
+                for name, agent in self._agents.items():
                     if not info[name]["has_contacts"]:
                         # Only check for has contacts if it hasn't been set to True
                         # This reduces redundant checks
-                        info[name]["has_contacts"] = animal.has_contacts
+                        info[name]["has_contacts"] = agent.has_contacts
 
         # As of MuJoCo 2.0, force-related quantities like cacc are not computed
         # unless there's a force sensor in the model.
@@ -372,8 +372,8 @@ class MjCambrianEnv(ParallelEnv):
         """Overridable method to update the info. This class will just return the info
         as is, but subclasses can override this method to provide custom info updates.
         """
-        for name, animal in self._animals.items():
-            info[name]["qpos"] = animal.qpos
+        for name, agent in self._agents.items():
+            info[name]["qpos"] = agent.qpos
 
         return info
 
@@ -381,13 +381,13 @@ class MjCambrianEnv(ParallelEnv):
         """Compute whether the env has terminated. Termination indicates success,
         whereas truncated indicates failure.
 
-        The default implementation will always return False for all animals. This can
+        The default implementation will always return False for all agents. This can
         be overridden in subclasses to provide custom termination conditions.
         """
 
         terminated: Dict[str, bool] = {}
-        for name, animal in self._animals.items():
-            terminated[name] = self._config.termination_fn(self, animal, info[name])
+        for name, agent in self._agents.items():
+            terminated[name] = self._config.termination_fn(self, agent, info[name])
 
         return terminated
 
@@ -395,13 +395,13 @@ class MjCambrianEnv(ParallelEnv):
         """Compute whether the env has terminated. Termination indicates success,
         whereas truncated indicates failure.
 
-        The default implementation will always return False for all animals. This can
+        The default implementation will always return False for all agents. This can
         be overridden in subclasses to provide custom termination conditions.
         """
 
         truncated: Dict[str, bool] = {}
-        for name, animal in self._animals.items():
-            truncated[name] = self._config.truncation_fn(self, animal, info[name])
+        for name, agent in self._agents.items():
+            truncated[name] = self._config.truncation_fn(self, agent, info[name])
 
         return truncated
 
@@ -414,17 +414,17 @@ class MjCambrianEnv(ParallelEnv):
         """Computes the reward for the environment.
 
         Args:
-            terminated (Dict[str, bool]): Whether each animal has terminated.
+            terminated (Dict[str, bool]): Whether each agent has terminated.
                 Termination indicates success (agent has reached the goal).
-            truncated (Dict[str, bool]): Whether each animal has truncated.
+            truncated (Dict[str, bool]): Whether each agent has truncated.
                 Truncation indicates failure (agent has hit the wall or something).
-            info (Dict[str, bool]): The info dict for each animal.
+            info (Dict[str, bool]): The info dict for each agent.
         """
 
         rewards: Dict[str, float] = {}
-        for name, animal in self._animals.items():
+        for name, agent in self._agents.items():
             rewards[name] = self._config.reward_fn(
-                self, animal, terminated[name], truncated[name], info[name]
+                self, agent, terminated[name], truncated[name], info[name]
             )
 
         return rewards
@@ -447,10 +447,10 @@ class MjCambrianEnv(ParallelEnv):
         renderer_width = renderer.width
         renderer_height = renderer.height
 
-        if self._config.render_animal_composite_only:
-            # NOTE: Uses the first animal
-            animal = next(iter(self._animals.values()))
-            if (composite := animal.create_composite_image()) is None:
+        if self._config.render_agent_composite_only:
+            # NOTE: Uses the first agent
+            agent = next(iter(self._agents.values()))
+            if (composite := agent.create_composite_image()) is None:
                 composite = np.zeros((1, 1, 3), dtype=np.float32)
 
             composite = np.flipud(composite)
@@ -462,19 +462,22 @@ class MjCambrianEnv(ParallelEnv):
                 renderer._rgb_buffer.append(composite)
             return composite
 
-        # Add site overlays for each animal
-        i = self._num_resets * self._max_episode_steps + self._episode_step
-        size = self._model.stat.extent * 1e-2
-        for animal in self._animals.values():
-            # Define a unique id for the site
-            key = f"{animal.name}_pos_{i}"
+        if not self._config.add_overlays:
+            return renderer.render()
 
-            # If the animal is contacting an object, the color will be red; blue
+        # Add site overlays for each agent
+        i = self._num_resets * self._max_episode_steps + self._episode_step
+        size = self._model.stat.extent * 7.5e-3
+        for agent in self._agents.values():
+            # Define a unique id for the site
+            key = f"{agent.name}_pos_{i}"
+
+            # If the agent is contacting an object, the color will be red; blue
             # otherwise
-            color = (1, 0, 0, 1) if animal.has_contacts else (0, 1, 1, 1)
+            color = (1, 0, 0, 1) if agent.has_contacts else (0, 1, 1, 1)
 
             # Add the overlay
-            overlay = MjCambrianSiteViewerOverlay(animal.pos.copy(), color, size)
+            overlay = MjCambrianSiteViewerOverlay(agent.pos.copy(), color, size)
             self._overlays[key] = overlay
 
         overlays: List[MjCambrianViewerOverlay] = []
@@ -487,26 +490,26 @@ class MjCambrianEnv(ParallelEnv):
                 cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
                 overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
 
-        if not self._config.add_overlays:
-            return renderer.render(overlays=overlays)
-
         # Set the overlay size to be a fraction of the renderer size relative to
-        # the animal count. The overlay height will be set to 35% of the renderer from
+        # the agent count. The overlay height will be set to 35% of the renderer from
         # the bottom
-        num_animals = len(self._animals)
-        overlay_width = int(renderer_width // num_animals) if num_animals > 0 else 0
+        num_agents = len([a for a in self._agents.values() if a.config.trainable])
+        overlay_width = int(renderer_width // num_agents) if num_agents > 0 else 0
         overlay_height = int(renderer_height * 0.35)
         overlay_size = (overlay_width, overlay_height)
 
         cursor = MjCambrianCursor(0, 0)
-        for i, (name, animal) in enumerate(self._animals.items()):
+        for i, (name, agent) in enumerate(self._agents.items()):
+            if not agent.config.trainable:
+                continue
+
             cursor.x = i * overlay_width
             cursor.y = 0
             if cursor.x + overlay_width > renderer_width:
                 self._logger.warning("Renderer width is too small!!")
                 continue
 
-            if (composite := animal.create_composite_image()) is None:
+            if (composite := agent.create_composite_image()) is None:
                 # Make the composite image black so we can still render other overlays
                 composite = np.zeros((1, 1, 3), dtype=np.float32)
 
@@ -522,21 +525,21 @@ class MjCambrianEnv(ParallelEnv):
 
             cursor.x -= TEXT_MARGIN
             cursor.y -= TEXT_MARGIN
-            overlay_text = f"Num Eyes: {animal.num_eyes}"
+            overlay_text = f"Num Eyes: {agent.num_eyes}"
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
             cursor.y += TEXT_HEIGHT
-            if animal.num_eyes > 0:
-                eye0 = next(iter(animal.eyes.values()))
+            if agent.num_eyes > 0:
+                eye0 = next(iter(agent.eyes.values()))
                 overlay_text = f"Res: {tuple(eye0.config.resolution)}"
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
                 cursor.y += TEXT_HEIGHT
                 overlay_text = f"FOV: {tuple(f'{f:.2f}' for f in eye0.config.fov)}"
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
                 cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
-            overlay_text = f"Animal: {name}"
+            overlay_text = f"agent: {name}"
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
             overlay_text = (
-                f"Action: {', '.join([f'{a: .3f}' for a in animal.last_action])}"
+                f"Action: {', '.join([f'{a: .3f}' for a in agent.last_action])}"
             )
             cursor.y -= TEXT_HEIGHT
             overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
@@ -557,9 +560,9 @@ class MjCambrianEnv(ParallelEnv):
         return self._xml
 
     @property
-    def animals(self) -> Dict[str, MjCambrianAnimal]:
-        """Returns the animals in the environment."""
-        return self._animals
+    def agents(self) -> Dict[str, MjCambrianAgent]:
+        """Returns the agents in the environment."""
+        return self._agents
 
     @property
     def renderer(self) -> MjCambrianRenderer:
@@ -611,13 +614,13 @@ class MjCambrianEnv(ParallelEnv):
         """Returns the previous cumulative reward."""
         return self._stashed_cumulative_reward
 
-    @property
-    def agents(self) -> List[str]:
-        """Returns the agents in the environment.
+    # @property
+    # def agents(self) -> List[str]:
+    #     """Returns the agents in the environment.
 
-        This is part of the PettingZoo API.
-        """
-        return list(self._animals.keys())
+    #     This is part of the PettingZoo API.
+    #     """
+    #     return list(self._agents.keys())
 
     @property
     def num_agents(self) -> int:
@@ -635,7 +638,7 @@ class MjCambrianEnv(ParallelEnv):
 
         Assumes that the possible agents are the same as the agents.
         """
-        return self.agents
+        return list(self._agents.keys())
 
     @property
     def observation_spaces(self) -> spaces.Dict:
@@ -643,19 +646,19 @@ class MjCambrianEnv(ParallelEnv):
 
         This is part of the PettingZoo API.
 
-        By default, this environment will support multi-animal
+        By default, this environment will support multi-agent
         observations/actions/etc. This method will create _all_ the observation
         spaces for the environment. But note that stable baselines3 only supports single
         agent environments (i.e. non-nested spaces.Dict), so ensure you wrap this env
-        with a `wrappers.MjCambrianSingleAnimalEnvWrapper` if you want to use stable
+        with a `wrappers.MjCambrianSingleagentEnvWrapper` if you want to use stable
         baselines3.
         """
 
         # Create the observation_spaces
         observation_spaces: Dict[str, spaces.Space] = {}
-        for name, animal in self._animals.items():
-            if animal.config.trainable:
-                observation_spaces[name] = animal.observation_space
+        for name, agent in self._agents.items():
+            if agent.config.trainable:
+                observation_spaces[name] = agent.observation_space
         return spaces.Dict(observation_spaces)
 
     @property
@@ -664,19 +667,19 @@ class MjCambrianEnv(ParallelEnv):
 
         This is part of the PettingZoo API.
 
-        By default, this environment will support multi-animal
+        By default, this environment will support multi-agent
         observations/actions/etc. This method will create _all_ the action
         spaces for the environment. But note that stable baselines3 only supports single
         agent environments (i.e. non-nested spaces.Dict), so ensure you wrap this env
-        with a `wrappers.MjCambrianSingleAnimalEnvWrapper` if you want to use stable
+        with a `wrappers.MjCambrianSingleagentEnvWrapper` if you want to use stable
         baselines3.
         """
 
         # Create the action_spaces
         action_spaces: Dict[str, spaces.Space] = {}
-        for name, animal in self._animals.items():
-            if animal.config.trainable:
-                action_spaces[name] = animal.action_space
+        for name, agent in self._agents.items():
+            if agent.config.trainable:
+                action_spaces[name] = agent.action_space
         return spaces.Dict(action_spaces)
 
     def observation_space(self, agent: str) -> spaces.Space:
@@ -777,7 +780,7 @@ if __name__ == "__main__":
         env.xml.write(config.expdir / "env.xml")
 
         action = {
-            name: [-1.0, -0.0] for name, a in env.animals.items() if a.config.trainable
+            name: [-1.0, -0.0] for name, a in env.agents.items() if a.config.trainable
         }
 
         if "human" in config.env.renderer.render_modes:
@@ -814,8 +817,8 @@ if __name__ == "__main__":
             env.render()
 
             if record:
-                for name, animal in env.animals.items():
-                    if (composite := animal.create_composite_image()) is not None:
+                for name, agent in env.agents.items():
+                    if (composite := agent.create_composite_image()) is not None:
                         composite = np.transpose(composite, (1, 0, 2))
                         composite = resize_with_aspect_fill(composite, 256, 256)
                         composite = (composite * 255).astype(np.uint8)

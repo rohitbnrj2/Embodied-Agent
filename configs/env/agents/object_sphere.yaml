@@ -1,0 +1,11 @@
+defaults:
+  - object@_here_
+
+xml:
+  _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse
+  _convert_: all
+  xml_string: ${read:${path:models,agents,sphere.xml}}
+
+body_name: "${parent:}_body"
+joint_name: "${parent:}_joint"
+geom_name: "${parent:}_geom"

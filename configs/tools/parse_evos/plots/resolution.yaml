@@ -3,19 +3,19 @@ resolution_vs_generation:
     type: GENERATION
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
 training_reward_vs_resolution:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
   y_data:
     type: MONITOR
 fitness_vs_resolution:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
   y_data:
     type: EVALUATION
@@ -24,7 +24,7 @@ resolution_vs_generation_vs_training_reward_color:
     type: GENERATION
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes.*.resolution[0]
+    pattern: env.agents.*.eyes.*.resolution[0]
     label: Resolution
   color_data:
     type: MONITOR

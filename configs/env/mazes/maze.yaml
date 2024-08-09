@@ -16,3 +16,5 @@ rotation: 0
 
 wall_texture_map:
   default: [vertical_10]
+agent_id_map:
+  default: ${oc.dict.keys:env.agents}

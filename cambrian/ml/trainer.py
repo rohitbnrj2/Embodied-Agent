@@ -67,10 +67,10 @@ class MjCambrianTrainer:
         self._logger.info(f"Logging to {self._config.expdir / 'logs'}...")
 
     def train(self) -> float:
-        """Train the animal."""
+        """Train the agent."""
 
         # Set to warn so we have something output to the error log
-        self._logger.warning(f"Training the animal in {self._config.expdir}...")
+        self._logger.warning(f"Training the agent in {self._config.expdir}...")
 
         self._config.save(self._config.expdir / "config.yaml")
         self._config.pickle(self._config.expdir / "config.pkl")
@@ -95,14 +95,14 @@ class MjCambrianTrainer:
         # Start training
         total_timesteps = self._config.trainer.total_timesteps
         model.learn(total_timesteps=total_timesteps, callback=callback)
-        self._logger.info("Finished training the animal...")
+        self._logger.info("Finished training the agent...")
 
         # Save the policy
         self._logger.info(f"Saving model to {self._config.expdir}...")
         model.save_policy(self._config.expdir)
         self._logger.debug(f"Saved model to {self._config.expdir}...")
 
-        # The finished file indicates to the evo script that the animal is done
+        # The finished file indicates to the evo script that the agent is done
         Path(self._config.expdir / "finished").touch()
 
         # Calculate fitness

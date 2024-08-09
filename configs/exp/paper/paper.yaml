@@ -6,20 +6,20 @@ defaults:
 env:
   termination_fn:
     terminate_if_close_to_goal:
-      _target_: cambrian.envs.termination_fns.terminate_if_close_to_object
+      _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
       distance_threshold: 3.0
-      objects: [goal]
+      agents: [goal]
 
-  animals:
-    animal:
+  agents:
+    agent:
       # Set the initial yaw to -pi / 4.
       init_quat: ["${eval:'math.cos(-math.pi/4)'}", 0, 0, "${eval:'math.sin(-math.pi/4)'}"]
 
-      # Set the animal to be the optimal policy for the maze
+      # Set the agent to be the optimal policy for the maze
       use_privileged_action: true
       instance:
-        _target_: cambrian.animals.MjCambrianPointAnimalMazeOptimal
+        _target_: cambrian.agents.MjCambrianAgentPointMazeOptimal
         _partial_: true
         target_object: goal
 
@@ -37,5 +37,5 @@ eval_env:
   save_filename: paper/${custom.base}_${custom.with_overlays}
 
 custom:
-  base: ${eval:'"pov" if ${env.render_animal_composite_only} else "bev"'}
+  base: ${eval:'"pov" if ${env.render_agent_composite_only} else "bev"'}
   with_overlays: ${eval:'"with_overlays" if ${env.add_overlays} else "without_overlays"'}

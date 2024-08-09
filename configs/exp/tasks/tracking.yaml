@@ -1,7 +1,7 @@
 # @package _global_
 
 # This task is for tracking of an object. It's similar to detection, but the object(s)
-# are treated as 'animals' which move.
+# are treated as 'agents' which move.
 
 defaults:
   # Use one maze for the time being
@@ -10,15 +10,15 @@ defaults:
   # Use the maze_exp config as the base
   - /exp/maze_exp
 
-  # Define one animal which will be trainable
-  - /env/animals@env.animals.animal: ${env/animals}
-  - /env/animals/eyes@env.animals.animal.eyes.eye: ${env/animals/eyes}
+  # Define one agent which will be trainable
+  - /env/agents@env.agents.agent: ${env/agents}
+  - /env/agents/eyes@env.agents.agent.eyes.eye: ${env/agents/eyes}
 
-  # Then define a second "animal" which is really the object to track
+  # Then define a second "agent" which is really the object to track
   # It has no eyes
-  - /env/animals@env.animals.goal: point_random
+  - /env/agents@env.agents.goal: point_random
 
-  - override /env/animals: point
+  - override /env/agents: point
 
 trainer:
   total_timesteps: 500_000
@@ -30,13 +30,13 @@ env:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
       _partial_: true
       penalty: -1.0
-      animals: [animal]
+      agents: [agent]
 
     reward_euclidean_delta_to_object:
-      _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_animals
+      _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
       _partial_: true
       factor: 0.25
-      animals: [goal]
+      agents: [goal]
 
     reward_for_termination:
       _target_: cambrian.envs.reward_fns.reward_for_termination
@@ -51,7 +51,7 @@ env:
   termination_fn:
     # Terminate (i.e. succeed) if the agent is close to the goal
     terminate_if_close_to_goal:
-      _target_: cambrian.envs.termination_fns.terminate_if_close_to_animal
+      _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
-      animals: [goal]
+      agents: [goal]
       distance_threshold: 1.0

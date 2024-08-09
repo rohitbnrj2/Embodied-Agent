@@ -31,7 +31,7 @@ def constrain_morphologically_feasible_eyes(
     **_,
 ):
     """This constraint method will check whether the eye config, if placed
-    num_eyes_to_generate along the longitude of the animal, would be
+    num_eyes_to_generate along the longitude of the agent, would be
     morphologically feasible. Morphologically feasible in this approximated case is
     basically whether all the eyes would fit. There are two primary factors here:
 
@@ -41,20 +41,20 @@ def constrain_morphologically_feasible_eyes(
     2. The total number of pixels. We want to make sure that the total number of pixels
     generated is less than a certain threshold.
 
-    Going to approximate the animal as a circle and the eyes as a line with a length
+    Going to approximate the agent as a circle and the eyes as a line with a length
     equal to the sensorsize width. Then we'll check whether the eyes fit in the allowed
     longitude range.
 
 
     Args:
         num_eyes_to_generate (int): The number of eyes to generate along
-            the longitude of the animal.
+            the longitude of the agent.
         resolution (Tuple[int, int] | int): The resolution of the eye.
         lon_range (Tuple[int, int] | int): The range of longitudes in which to generate
             the eyes. This is in degrees.
 
     Keyword Args:
-        radius (float): The radius of the animal. Default is 0.2.
+        radius (float): The radius of the agent. Default is 0.2.
         pixel_size (float): The pixel size of the eye. This is used to calculate the
             total width of the eyes. Default is 0.01.
     """
@@ -67,7 +67,7 @@ def constrain_morphologically_feasible_eyes(
     sensor_width = resolution[0] * pixel_size
     total_width = sensor_width * num_eyes_to_generate
 
-    # Check whether the total width is less than the circumference of the animal
+    # Check whether the total width is less than the circumference of the agent
     # Only checked in the lon range
     lon_circumference = (lon_range[1] - lon_range[0]) * np.pi / 180 * radius
     lon_feasibility = total_width < lon_circumference

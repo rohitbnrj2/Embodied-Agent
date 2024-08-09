@@ -7,7 +7,7 @@ placement_vs_generation_vs_fitness_color:
     custom_fn:
       _target_: custom_axis_fns.eye_range_diff
       _partial_: True
-      pattern: env.animals.*.eyes_lon_range
+      pattern: env.agents.*.eyes_lon_range
   color_data:
     type: EVALUATION
     cmap: RdYlGn
@@ -21,32 +21,32 @@ lon_diff_vs_generation:
     custom_fn:
       _target_: custom_axis_fns.eye_range_diff
       _partial_: True
-      pattern: env.animals.*.eyes_lon_range
+      pattern: env.agents.*.eyes_lon_range
 lon_mean_vs_generation:
   x_data:
     type: GENERATION
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes_lon_range
+    pattern: env.agents.*.eyes_lon_range
     label: Longitudinal Mean
 lon0_vs_generation:
   x_data:
     type: GENERATION
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes_lon_range[0]
+    pattern: env.agents.*.eyes_lon_range[0]
     label: Longitudinal Min Range
 training_reward_vs_lon0:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes_lon_range[0]
+    pattern: env.agents.*.eyes_lon_range[0]
     label: Longitudinal Min Range
   y_data:
     type: MONITOR
 fitness_vs_lon0:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes_lon_range[0]
+    pattern: env.agents.*.eyes_lon_range[0]
     label: Longitudinal Min Range
   y_data:
     type: EVALUATION
@@ -57,7 +57,7 @@ fitness_vs_lon_diff:
     custom_fn:
       _target_: custom_axis_fns.eye_range_diff
       _partial_: True
-      pattern: env.animals.*.eyes_lon_range
+      pattern: env.agents.*.eyes_lon_range
   y_data:
     type: EVALUATION
 training_reward_vs_lon_diff:
@@ -67,40 +67,40 @@ training_reward_vs_lon_diff:
     custom_fn:
       _target_: custom_axis_fns.eye_range_diff
       _partial_: True
-      pattern: env.animals.*.eyes_lon_range
+      pattern: env.agents.*.eyes_lon_range
   y_data:
     type: MONITOR
 fitness_vs_lon_mean:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes_lon_range
+    pattern: env.agents.*.eyes_lon_range
     label: Longitudinal Mean
   y_data:
     type: EVALUATION
 training_reward_vs_lon_mean:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes_lon_range
+    pattern: env.agents.*.eyes_lon_range
     label: Longitudinal Mean
   y_data:
     type: MONITOR
 lon0_vs_lon1:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes_lon_range[0]
+    pattern: env.agents.*.eyes_lon_range[0]
     label: Longitudinal Min Range
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes_lon_range[1]
+    pattern: env.agents.*.eyes_lon_range[1]
     label: Longitudinal Max Range
 lon0_vs_lon1_vs_training_reward_color:
   x_data:
     type: CONFIG
-    pattern: env.animals.*.eyes_lon_range[0]
+    pattern: env.agents.*.eyes_lon_range[0]
     label: Longitudinal Min Range
   y_data:
     type: CONFIG
-    pattern: env.animals.*.eyes_lon_range[1]
+    pattern: env.agents.*.eyes_lon_range[1]
     label: Longitudinal Max Range
   color_data:
     type: MONITOR

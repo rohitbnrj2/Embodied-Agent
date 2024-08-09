@@ -1,6 +1,6 @@
 # Wrappers are applied in the order they are listed here (top to bottom)
-animal_env_wrapper:
-  _target_: cambrian.utils.wrappers.MjCambrianSingleAnimalEnvWrapper
+agent_env_wrapper:
+  _target_: cambrian.utils.wrappers.MjCambrianSingleAgentEnvWrapper
   _partial_: true
 frame_stack_wrapper:
   _target_: cambrian.utils.wrappers.FrameStackObservation

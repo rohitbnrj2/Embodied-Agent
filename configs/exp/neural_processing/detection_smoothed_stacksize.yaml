@@ -4,8 +4,8 @@ defaults:
   - /exp/neural_processing/detection_stacksize
 
 env:
-  animals:
-    animal:
+  agents:
+    agent:
       xml:
         overrides:
           - mujoco:

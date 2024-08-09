@@ -1,9 +1,0 @@
-defaults:
-  - env
-  - /MjCambrianObjectEnvConfig
-
-objects: {}
-
-instance:
-  _target_: cambrian.envs.object_env.MjCambrianObjectEnv
-  _partial_: true

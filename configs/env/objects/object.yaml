@@ -1,7 +1,0 @@
-# @package custom.default.object
-# We aren't actually going to use this object, so store it in the special attr `custom` which isn't read
-
-body_name: ${parent:}_body
-geom_name: ${parent:}_geom
-
-use_as_obs: false

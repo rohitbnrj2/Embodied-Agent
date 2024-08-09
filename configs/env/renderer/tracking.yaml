@@ -6,5 +6,5 @@ camera:
   elevation: -45.0
   distance: 0.25
 
-  trackbodyid: 1 # guess the first animal's body id
+  trackbodyid: 1 # guess the first agent's body id
   type: 1 # mjCAMERA_TRACKING

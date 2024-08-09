@@ -1,16 +1,16 @@
 # @package _global_
 
 defaults:
-  # Below is how you specify the default animal configurations. These are not actually
+  # Below is how you specify the default agent configurations. These are not actually
   # used in the experiment, but define the default configurations for different aspects
-  # of the animals. When loading an animal and/or writing a config, you can refer to
+  # of the agents. When loading an agent and/or writing a config, you can refer to
   # these defaults using the following:
-  # - /env/animals/${env/animals}@_here_
+  # - /env/agents/${env/agents}@_here_
   # This will set all defaults in the current config to the ones specified in
-  # ${env/animals}. You can then overwrite these defaults to implement the desired
-  # animal configuration. The same idea applies with eyes and optics.
-  - /env/animals: animal
-  - /env/animals/eyes: eye
+  # ${env/agents}. You can then overwrite these defaults to implement the desired
+  # agent configuration. The same idea applies with eyes and optics.
+  - /env/agents: agent
+  - /env/agents/eyes: eye
 
   # NOTE: there is a bug in OmegaConf that doesn't allow optional dataclass objects
   # that are inherited to be specified via the defaults list. For instance,
@@ -45,18 +45,18 @@ env:
   # functions to combine multiple functions into one. Default fns are then added
   # that _should_ be applied to all sub-configs.
   termination_fn:
-    _target_: cambrian.envs.termination_fns.combined_termination
+    _target_: cambrian.envs.done_fns.done_combined
     _partial_: true
 
     # No termination fns by default
 
   truncation_fn:
-    _target_: cambrian.envs.truncation_fns.combined_truncation
+    _target_: cambrian.envs.done_fns.done_combined
     _partial_: true
 
     # Truncate (good) if the max episode steps is exceeded
     exceeds_max_epsiode_steps:
-      _target_: cambrian.envs.truncation_fns.exceeds_max_episode_steps
+      _target_: cambrian.envs.done_fns.done_if_exceeds_max_episode_steps
       _partial_: true
 
   reward_fn:

@@ -3,8 +3,8 @@
 hydra:
   sweeper:
     params:
-      env.animals.animal.num_eyes_to_generate.1:
-        init: ${env.animals.animal.num_eyes_to_generate.1}
+      env.agents.agent.num_eyes_to_generate.1:
+        init: ${env.agents.agent.num_eyes_to_generate.1}
         lower: 1
         upper: 100
         integer: true

@@ -1,4 +1,4 @@
-# NOTE: This assumes the exp only has one animal
+# NOTE: This assumes the exp only has one agent
 
 defaults:
   - /AnimalShowcaseConfig
@@ -7,7 +7,7 @@ defaults:
 
 logdir: ${path:logs,${now:%Y-%m-%d},${exp}}
 outdir: ${path:${logdir},${outsubdir}}
-outsubdir: "animal_showcase" # by default, the data will be stored in the logdir
+outsubdir: "agent_showcase" # by default, the data will be stored in the logdir
 
 exp: "???"
 
@@ -25,7 +25,7 @@ overrides:
   #   - "env/renderer=bev"
   #   - "env.add_overlays=False"
   first_person:
-    - "env.render_animal_composite_only=True"
+    - "env.render_agent_composite_only=True"
     - "env.add_overlays=False"
 
 hydra:

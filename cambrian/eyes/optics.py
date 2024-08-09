@@ -303,35 +303,35 @@ if __name__ == "__main__":
 
     def run(config: MjCambrianConfig, aperture: float = None):
         if aperture is not None:
-            animal_config = next(iter(config.env.animals.values()))
-            eye_name, eye_config = next(iter(animal_config.eyes.items()))
+            agent_config = next(iter(config.env.agents.values()))
+            eye_name, eye_config = next(iter(agent_config.eyes.items()))
             eye_config1 = eye_config.copy()
             eye_config1.set_readonly(False)
             eye_config1.aperture = aperture
-            animal_config.eyes[eye_name] = eye_config1
+            agent_config.eyes[eye_name] = eye_config1
 
         # xml = MjCambrianXML.from_string(config.env.xml)
         xml = MjCambrianXML("models/test.xml")
 
-        # NOTE: Only uses the first animal
-        animal_config = next(iter(config.env.animals.values()))
-        animal = animal_config.instance(animal_config, "animal", 0)
-        xml += animal.generate_xml()
+        # NOTE: Only uses the first agent
+        agent_config = next(iter(config.env.agents.values()))
+        agent = agent_config.instance(agent_config, "agent", 0)
+        xml += agent.generate_xml()
 
         # Load the model and data
         model = mj.MjModel.from_xml_string(xml.to_string())
         data = mj.MjData(model)
         mj.mj_step(model, data)
 
-        # Reset the animal
-        animal.reset(model, data)
+        # Reset the agent
+        agent.reset(model, data)
 
         # Set initial state
-        animal.quat = [np.cos(np.pi / 2), 0, 0, np.sin(np.pi / 2)]
+        agent.quat = [np.cos(np.pi / 2), 0, 0, np.sin(np.pi / 2)]
         mj.mj_step(model, data)
 
         # Get the first eye
-        eye: MjCambrianOpticsEye = next(iter(animal.eyes.values()))
+        eye: MjCambrianOpticsEye = next(iter(agent.eyes.values()))
         eye._renderer.viewer._scene.flags[mj.mjtRndFlag.mjRND_SKYBOX] = 1
         rgb, depth = eye._renderer.render()
         obs = eye.render()

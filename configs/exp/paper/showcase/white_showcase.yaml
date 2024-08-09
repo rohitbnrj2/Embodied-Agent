@@ -1,18 +1,18 @@
 # @package _global_
 
 defaults:
-  - /env/animals@env.animals.animal: ${env/animals}
-  - /env/animals/eyes@env.animals.animal.eyes.eye: ${env/animals/eyes}
+  - /env/agents@env.agents.agent: ${env/agents}
+  - /env/agents/eyes@env.agents.agent.eyes.eye: ${env/agents/eyes}
 
   # Use the maze_exp config as the base
   - /exp/exp
 
-  - override /env/animals: point
+  - override /env/agents: point
   - override /env/renderer: bev
 
 env:
-  animals:
-    animal:
+  agents:
+    agent:
       init_quat:
         [
           "${eval:'math.cos(-math.pi/2)'}",
@@ -55,7 +55,7 @@ env:
                   - texture: "groundplane2"
           - worldbody:
               - body:
-                  - name: "point_animal"
+                  - name: "point_agent"
                   - pos: "1.25 0 0.6"
 
   add_overlays: False

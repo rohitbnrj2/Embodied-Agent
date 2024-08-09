@@ -30,9 +30,9 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
         resolution (Tuple[int, int]): The width and height of the rendered image.
             Fmt: width height.
         coord (Tuple[float, float]): The x and y coordinates of the eye.
-            This is used to determine the placement of the eye on the animal.
+            This is used to determine the placement of the eye on the agent.
             Specified in degrees. This attr isn't actually used by eye, but by the
-            animal. The eye has no knowledge of the geometry it's trying to be placed
+            agent. The eye has no knowledge of the geometry it's trying to be placed
             on. Fmt: lat lon
 
         renderer (MjCambrianRendererConfig): The renderer config to use for the
@@ -82,7 +82,7 @@ class MjCambrianEye:
     ) -> MjCambrianXML:
         """Generate the xml for the eye.
 
-        In order to combine the xml for an eye with the xml for the animal that it's
+        In order to combine the xml for an eye with the xml for the agent that it's
         attached to, we need to replicate the path with which we want to attach the eye.
         For instance, if the body with which we want to attach the eye to is at
         `mujoco/worldbody/torso`, then we need to replicate that path in the new xml.

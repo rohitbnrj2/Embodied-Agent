@@ -1,9 +1,0 @@
-defaults:
-    - textured_sphere@_here_
-
-custom:
-    # Set the top rgb to be green (good)
-    top_rgba: 0.2 0.8 0.2 1.0
-
-    # Don't rotate the goal
-    euler: 0 0 0

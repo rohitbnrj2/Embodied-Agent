@@ -20,7 +20,7 @@ def _eye_range_parse(rank_data: Rank, *, pattern: str) -> Tuple[float, float]:
     # Get the eye placement range from the globbed data
     key = pattern.split(".")[-1]
     eye_range = rank_data.config.globbed_eval(key, key=key, **{key: pattern})
-    assert len(eye_range) == 1, "Only one animal is supported"
+    assert len(eye_range) == 1, "Only one agent is supported"
     eye_range = eye_range[0]
     assert len(eye_range) == 2, "Eye range must have 2 values."
     return eye_range

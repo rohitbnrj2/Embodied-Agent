@@ -6,55 +6,29 @@ defaults:
   - override /env/mazes@env.mazes.maze: CHOICE
 
 env:
-  animals:
-    animal:
+  agents:
+    agent:
       # Set the initial yaw to -pi / 4.
       init_quat: ["${eval:'math.cos(-math.pi/4)'}", 0, 0, "${eval:'math.sin(-math.pi/4)'}"]
 
   reward_fn:
-    # reward_if_goal_in_view:
-    #   _target_: cambrian.envs.reward_fns.reward_if_objects_in_view
-    #   _partial_: true
-    #   reward_in_view: 0.25
-    #   to_objects: [goal]
-
-    # penalize_if_adversary_in_view:
-    #   _target_: cambrian.envs.reward_fns.reward_if_objects_in_view
-    #   _partial_: true
-    #   reward_in_view: -0.25
-    #   to_objects: [adversary]
-
     reward_if_facing_goal:
-      _target_: cambrian.envs.reward_fns.reward_if_facing_objects
+      _target_: cambrian.envs.reward_fns.reward_if_facing_agents
       _partial_: true
       reward_facing: 0.25
-      to_objects: [goal]
+      to_agents: [goal]
       scale_by_angle: True
-
-    # penalize_if_facing_adversary:
-    #   _target_: cambrian.envs.reward_fns.reward_if_facing_objects
-    #   _partial_: true
-    #   reward_facing: -0.25
-    #   to_objects: [adversary]
-    #   scale_by_angle: True
 
     constant_penalty:
       _target_: cambrian.envs.reward_fns.constant_reward
       _partial_: true
       reward: -0.1
 
-  # truncation_fn:
-  #   truncate_if_animal_facing_adversary:
-  #     _target_: cambrian.envs.truncation_fns.truncate_if_animal_facing_objects
-  #     _partial_: true
-  #     to_objects: [adversary]
-  #     n_frames: 25
-
   termination_fn:
-    terminate_if_animal_facing_goal:
-      _target_: cambrian.envs.termination_fns.terminate_if_animal_facing_objects
+    terminate_if_agent_facing_goal:
+      _target_: cambrian.envs.done_fns.done_if_agents_facing_agents
       _partial_: true
-      to_objects: [goal]
+      to_agents: [goal]
       n_frames: 25
 
 trainer:

@@ -7,8 +7,8 @@ defaults:
   - simple
 
 env:
-  animals:
-    animal:
+  agents:
+    agent:
       eyes_lon_range:
         - ${eval:'-1 * ${.1}'}
         - 20

@@ -3,7 +3,7 @@
 hydra:
   sweeper:
     params:
-      env.animals.animal.eyes.eye.fov.0:
-        init: ${env.animals.animal.eyes.eye.fov.0}
+      env.agents.agent.eyes.eye.fov.0:
+        init: ${env.agents.agent.eyes.eye.fov.0}
         lower: 1
         upper: 100

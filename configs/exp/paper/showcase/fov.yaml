@@ -4,8 +4,8 @@ defaults:
   - /exp/paper/showcase: showcase
 
 env:
-  animals:
-    animal:
+  agents:
+    agent:
       eyes:
         eye:
           fov: [10, 10]

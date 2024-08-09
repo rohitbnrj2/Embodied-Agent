@@ -3,8 +3,8 @@
 hydra:
   sweeper:
     params:
-      env.animals.animal.eyes.eye.resolution.0:
-        init: ${env.animals.animal.eyes.eye.resolution.0}
+      env.agents.agent.eyes.eye.resolution.0:
+        init: ${env.agents.agent.eyes.eye.resolution.0}
         lower: 1
         upper: 100
         integer: true

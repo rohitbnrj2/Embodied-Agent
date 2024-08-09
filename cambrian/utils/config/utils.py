@@ -43,7 +43,7 @@ def run_hydra(
 
             ```python
             def main(config: MjCambrianConfig, *, verbose: int):
-                print(config, verbose)
+                pass
 
             parser = argparse.ArgumentParser()
             parser.add_argument("--verbose", type=int, default=0)
@@ -216,10 +216,10 @@ def build_pattern(patterns: List[str]) -> str:
     Example:
         >>> build_pattern(
         ...     "training_config.seed",
-        ...     "env_config.animal_configs.*.eye_configs.*.resolution",
-        ...     "env_config.animal_configs.*.eye_configs.*.fov",
+        ...     "env_config.agent_configs.*.eye_configs.*.resolution",
+        ...     "env_config.agent_configs.*.eye_configs.*.fov",
         ... )
-        '(training_config|env_config).(seed|animal_configs).*.eye_configs.*.(resolution|fov)'
+        '(training_config|env_config).(seed|agent_configs).*.eye_configs.*.(resolution|fov)'
     """
     depth_based_keys: List[List[str]] = []  # list of keys at depths in the patterns
     for pattern in patterns:

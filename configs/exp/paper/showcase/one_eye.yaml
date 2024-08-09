@@ -4,6 +4,6 @@ defaults:
   - /exp/paper/showcase: showcase
 
 env:
-  animals:
-    animal:
+  agents:
+    agent:
       num_eyes_to_generate: [1, 1]
