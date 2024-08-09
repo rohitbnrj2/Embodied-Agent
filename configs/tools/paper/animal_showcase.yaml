@@ -19,8 +19,8 @@ overrides:
     - "env.renderer.camera.azimuth=200.0"
     - "env.renderer.camera.elevation=-15.0"
     - "env.renderer.camera.distance=5"
-  # birds_eye:
-  #   - "env/renderer=bev"
+  birds_eye:
+    - "env/renderer=bev"
   # birds_eye_no_overlays:
   #   - "env/renderer=bev"
   #   - "env.add_overlays=False"

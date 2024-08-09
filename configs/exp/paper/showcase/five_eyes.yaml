@@ -1,0 +1,10 @@
+# @package _global_
+
+defaults:
+  - /exp/paper/showcase: white_showcase
+
+env:
+  animals:
+    animal:
+      num_eyes_to_generate: [1, 5]
+      eyes_lon_range: [-85, 85]

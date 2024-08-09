@@ -77,47 +77,6 @@ plots:
       type: EVALUATION
       cmap: RdYlGn
       clim: ${custom.clim}
-  number_of_eyes_vs_generation_vs_num_descendents_size_connected:
-    x_data:
-      type: GENERATION
-    y_data:
-      type: CUSTOM
-      label: Number of Eyes
-      custom_fn:
-        _target_: custom_axis_fns.eval_safe
-        _partial_: True
-        src: math.prod(num_eyes_to_generate[0])
-        patterns:
-          num_eyes_to_generate: env.animals.*.num_eyes_to_generate
-    size_data:
-      type: CUSTOM
-      label: Number of Descendents
-      custom_fn:
-        _target_: custom_size_fns.num_descendents
-        _partial_: True
-    custom_fns:
-      - type: LOCAL
-        fn:
-          _target_: custom_plot_fns.connect_with_parent
-          _partial_: True
-  resolution_vs_generation_vs_num_descendents_size_connected:
-    x_data:
-      type: GENERATION
-    y_data:
-      type: CONFIG
-      pattern: env.animals.*.eyes.*.resolution[0]
-      label: Resolution
-    size_data:
-      type: CUSTOM
-      label: Number of Descendents
-      custom_fn:
-        _target_: custom_size_fns.num_descendents
-        _partial_: True
-    custom_fns:
-      - type: LOCAL
-        fn:
-          _target_: custom_plot_fns.connect_with_parent
-          _partial_: True
   placement_vs_generation_vs_fitness_color:
     add_legend: False
     add_title: False
@@ -241,6 +200,48 @@ plots:
       ticks: [0, 10, 20, 30, 40, 50]
       tick_labels: ["0", "10", "20", "30", "40", "50"]
       label: ""
+  fov_vs_generation_vs_fitness_color:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.fov[0]
+      label: Field of View
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  fov_vs_number_of_eyes_vs_fitness_color:
+    x_data:
+      type: CUSTOM
+      label: Number of Eyes
+      custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
+        src: math.prod(num_eyes_to_generate[0])
+        patterns:
+          num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+    y_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.fov[0]
+      label: Field of View
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  fov_vs_resolution_vs_fitness_color:
+    x_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.resolution[0]
+      label: Resolution
+    y_data:
+      type: CONFIG
+      pattern: env.animals.*.eyes.*.fov[0]
+      label: Field of View
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
 hydra:
   run:
     dir: ${output}

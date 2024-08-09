@@ -3,6 +3,7 @@ defaults:
   - _self_
 
 custom:
+  desc: animal_showcase
   num_eyes_to_generate: [1, 1]
   num_eyes_to_generate_str: ${eval:"str(${.num_eyes_to_generate})"}
   resolution: [1, 1]
@@ -13,13 +14,22 @@ custom:
   eyes_lon_range_str: ${eval:"str(${.eyes_lon_range})"}
 
 outsubdir: |
-  "animal_showcase_num${custom.num_eyes_to_generate.0}p${custom.num_eyes_to_generate.1}_res${custom.resolution.0}p${custom.resolution.1}_fov${custom.fov.0}p${custom.fov.1}_lon${custom.eyes_lon_range.0}p${custom.eyes_lon_range.1}"
+  ${custom.desc}_num${custom.num_eyes_to_generate.0}p${custom.num_eyes_to_generate.1}_res${custom.resolution.0}p${custom.resolution.1}_fov${custom.fov.0}p${custom.fov.1}_lon${custom.eyes_lon_range.0}p${custom.eyes_lon_range.1}
 
 mask:
   - third_person
   - first_person
+  - bev
 
 overrides:
+  bev:
+    - "env.add_overlays=False"
+    - "env/renderer=bev"
+    - "env.renderer.camera.distance=3"
+    - "env.animals.animal.num_eyes_to_generate=${custom.num_eyes_to_generate_str}"
+    - "env.animals.animal.eyes.eye.resolution=${custom.resolution_str}"
+    - "env.animals.animal.eyes.eye.fov=${custom.fov_str}"
+    - "env.animals.animal.eyes_lon_range=${custom.eyes_lon_range_str}"
   third_person:
     - "env.add_overlays=False"
     - "env/renderer=tracking"

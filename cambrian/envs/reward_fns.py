@@ -380,6 +380,68 @@ def reward_if_objects_in_view(
     return accumulated_reward
 
 
+25
+
+
+def reward_if_facing_objects(
+    env: MjCambrianObjectEnv,
+    animal: MjCambrianAnimal,
+    terminated: bool,
+    truncated: bool,
+    info: Dict[str, Any],
+    *,
+    reward_facing: float = 0.0,
+    reward_not_facing: float = 0.0,
+    from_animals: Optional[List[str]] = None,
+    to_objects: Optional[List[str]] = None,
+    for_animals: Optional[List[str]] = None,
+    angle_threshold: float = 45,
+    scale_by_angle: bool = False,
+) -> float:
+    """This reward function rewards the animal for minimizing the angle between the
+    animal's yaw and the yaw of the vector between itself and the object.
+
+    Keyword Args:
+        reward_facing (float): The reward to give the animal if it is facing the object.
+            Default is 0.
+        reward_not_facing (float): The reward to give the animal if it is not facing the
+            object. Default is 0.
+        from_animals (Optional[List[str]]): The names of the animals that the reward
+            should be calculated from. If None, the reward will be calculated from all
+            animals.
+        to_objects (Optional[List[str]]): The names of the objects that the reward
+            should be calculated to. If None, the reward will be calculated to all
+            objects.
+        for_animals (Optional[List[str]]): The names of the animals that the reward
+            should be calculated for. If None, the reward will be calculated for all
+            animals.
+    """
+    # Early exit if the animal is not in the from_animals list
+    if for_animals is not None and animal.name not in for_animals:
+        return 0
+
+    accumulated_reward = 0
+    from_animals = from_animals or list(env.animals.keys())
+    to_objects = to_objects or list(env.objects.keys())
+    for from_animal in [env.animals[name] for name in from_animals]:
+        for to_object in [env.objects[name] for name in to_objects]:
+            vec = to_object.pos - from_animal.pos
+            yaw = np.arctan2(animal.mat[1, 0], animal.mat[0, 0])
+            relative_yaw = np.abs(np.arctan2(vec[1], vec[0]) - yaw)
+
+            # Add the reward to the accumulated reward. If the relative yaw is within
+            # the fov of the animal, reward the animal. Otherwise, penalize it.
+            if relative_yaw < np.deg2rad(angle_threshold / 2):
+                reward = reward_facing
+            else:
+                reward = reward_not_facing
+            if scale_by_angle:
+                reward *= 1 - relative_yaw / np.pi
+            accumulated_reward += reward
+
+    return accumulated_reward
+
+
 def constant_reward(
     env: MjCambrianEnv,
     animal: MjCambrianAnimal,
