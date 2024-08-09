@@ -1,5 +1,5 @@
 defaults:
-  - /${env/mazes}@_here_
+  - maze@_here_
 
 map: |-
   [

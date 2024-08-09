@@ -18,8 +18,8 @@ defaults:
   - /env/agents/eyes@env.agents.agent.eyes.eye: eye
 
   # Define two objects: a goal and an adversary
-  - /env/agents@env.agents.goal: object_textured_goal
-  - /env/agents@env.agents.adversary: object_textured_adversary
+  - /env/agents@env.agents.goal: object_sphere_textured_goal
+  - /env/agents@env.agents.adversary: object_sphere_textured_adversary
 
 custom:
   # This sets both the frequency of the texture of the goal and adversary

@@ -1,5 +1,5 @@
 defaults:
-  - object_textured_sphere@_here_
+  - object_sphere_textured@_here_
 
 custom:
   # Set the top rgb to be red (bad)

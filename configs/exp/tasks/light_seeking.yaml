@@ -18,7 +18,7 @@ defaults:
   - /env/agents/eyes@env.agents.agent.eyes.eye: eye
 
   # Define one goal light object
-  - /env/agents@env.agents.goal: object_light
+  - /env/agents@env.agents.goal: object_sphere_light
 
 trainer:
   total_timesteps: 300_000

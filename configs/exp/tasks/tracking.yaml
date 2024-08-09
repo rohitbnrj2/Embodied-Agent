@@ -11,8 +11,8 @@ defaults:
   - /exp/maze_exp
 
   # Define one agent which will be trainable
-  - /env/agents@env.agents.agent: ${env/agents}
-  - /env/agents/eyes@env.agents.agent.eyes.eye: ${env/agents/eyes}
+  - /env/agents@env.agents.agent: agent
+  - /env/agents/eyes@env.agents.agent.eyes.eye: eye
 
   # Then define a second "agent" which is really the object to track
   # It has no eyes
