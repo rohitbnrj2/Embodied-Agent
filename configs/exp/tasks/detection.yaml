@@ -52,6 +52,11 @@ env:
       _partial_: true
       penalty: -1.0
 
+    constant_penalty:
+      _target_: cambrian.envs.reward_fns.constant_reward
+      _partial_: true
+      reward: -0.1
+
     reward_euclidean_delta_to_goal:
       _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
       _partial_: true

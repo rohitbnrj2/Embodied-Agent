@@ -147,7 +147,12 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
     return plt.get_fignums()
 
 
-def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | int]):
+def update_plots(
+    config: ParseEvosConfig,
+    figures: List[plt.Figure | int],
+    save: bool = True,
+    show: bool = False,
+):
     # Filter the plots
     plots: Dict[str, PlotData] = {}
     for plot in config.plots.values():
@@ -250,15 +255,18 @@ def update_plots_and_save(config: ParseEvosConfig, figures: List[plt.Figure | in
         fig.tight_layout()
 
         # Save the plot
-        filename = f"{plot_data.name}.png"
-        plt.savefig(
-            config.plots_folder / filename,
-            dpi=500,
-            bbox_inches="tight",
-            transparent=False,
-        )
+        if save:
+            filename = f"{plot_data.name}.png"
+            plt.savefig(
+                config.plots_folder / filename,
+                dpi=500,
+                bbox_inches="tight",
+                transparent=False,
+            )
 
-        get_logger().debug(f"Saved plot to {config.plots_folder / filename}.")
+            get_logger().debug(f"Saved plot to {config.plots_folder / filename}.")
+        if show:
+            plt.show()
 
         plt.close(fig)
 
@@ -655,7 +663,7 @@ def main(config: ParseEvosConfig):
             or (figs := try_load_pickle(config.output, "plot_data.pkl")) is None
         ):
             figs = run_plot(config, data)
-        update_plots_and_save(config, figs)
+        update_plots(config, figs)
     if config.plot_nevergrad:
         plot_nevergrad(config, data)
     if config.plot_phylogenetic_tree:

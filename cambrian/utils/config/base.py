@@ -9,6 +9,7 @@ from typing import (
     ValuesView,
     List,
     Iterator,
+    Tuple,
 )
 from dataclasses import field
 from pathlib import Path
@@ -146,6 +147,12 @@ class MjCambrianContainerConfig:
         config_name: str,
         *,
         overrides: List[str] = [],
+        return_hydra_config: bool = False,
+    ) -> (
+        Self
+        | DictConfig
+        | ListConfig
+        | Tuple[Self | DictConfig | ListConfig, DictConfig]
     ):
         """Compose a config using the Hydra compose API. This will return the config as
         a MjCambrianContainerConfig instance."""
@@ -163,7 +170,10 @@ class MjCambrianContainerConfig:
             HydraConfig.instance().set_config(hydra_config)
             del hydra_config.hydra
 
-        return cls.create(hydra_config)
+        config = cls.create(hydra_config)
+        if return_hydra_config:
+            return config, HydraConfig.get()
+        return config
 
     @classmethod
     def load(

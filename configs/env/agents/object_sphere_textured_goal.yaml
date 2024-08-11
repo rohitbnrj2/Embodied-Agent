@@ -6,4 +6,4 @@ custom:
   top_rgba: 0.2 0.8 0.2 1.0
 
   # Don't rotate the goal
-  euler: 0 45 0
+  euler: 0 0 0

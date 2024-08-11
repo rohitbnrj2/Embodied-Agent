@@ -224,11 +224,8 @@ class MjCambrianAgentPointMazeOptimal(MjCambrianAgentPoint):
         return super().reset(model, data)
 
     def get_action_privileged(self, env: "MjCambrianMazeEnv") -> List[float]:
-        if self._target in env.agents:
-            agent_pos = env.agents[self._target].pos
-            self._optimal_trajectory = np.array([agent_pos[:2]])
-        else:
-            raise ValueError(f"Target {self._target} not found in env")
+        assert self._target in env.agents, f"Target {self._target} not found in env"
+        agent_pos = env.agents[self._target].pos
 
         # Calculate the optimal trajectory if the current trajectory is None
         if self._optimal_trajectory is None:
