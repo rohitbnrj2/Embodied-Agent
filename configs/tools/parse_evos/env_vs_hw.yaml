@@ -36,13 +36,8 @@ dry_run: False
 renders: {}
 
 filter_fn:
-  # _target_: custom_filter_fns.filter_uniformly
   _target_: custom_filter_fns.filter_noop
   _partial_: true
-  # patterns:
-  #   env.agents.*.eyes.*.resolution[0]: [0, 20]
-  #   env.agents.*.num_eyes_to_generate[1]: [15, 2]
-  # env.agents.*.eyes_lon_range[1]: [45, 10]
 
 overrides: []
 
@@ -61,7 +56,7 @@ plots:
         _partial_: True
         src: math.prod(num_eyes_to_generate[0])
         patterns:
-          num_eyes_to_generate: env.agents.*.num_eyes_to_generate
+          num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
     color_data:
       type: EVALUATION
       cmap: RdYlGn
@@ -71,7 +66,7 @@ plots:
       type: GENERATION
     y_data:
       type: CONFIG
-      pattern: env.agents.*.eyes.*.resolution[0]
+      pattern: env.(agents|animals).*.eyes.*.resolution[0]
       label: Resolution
     color_data:
       type: EVALUATION
@@ -89,13 +84,13 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eye_range_diff
         _partial_: True
-        pattern: env.agents.*.eyes_lon_range
+        pattern: env.(agents|animals).*.eyes_lon_range
       lim: [0, 180]
     color_data:
       type: EVALUATION
       cmap: RdYlGn
       clim: ${custom.clim}
-  resolution_vs_number_of_eyes_vs_fitness_color:
+  resolution_vs_number_of_eyes_vs_fitness_color: &resolution_vs_number_of_eyes_vs_fitness_color
     add_legend: True
     add_title: False
     x_data:
@@ -107,10 +102,10 @@ plots:
         _partial_: True
         src: math.prod(num_eyes_to_generate[0])
         patterns:
-          num_eyes_to_generate: env.agents.*.num_eyes_to_generate
+          num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
     y_data:
       type: CONFIG
-      pattern: env.agents.*.eyes.*.resolution[0]
+      pattern: env.(agents|animals).*.eyes.*.resolution[0]
       label: Resolution
       lim: [0, 36]
     color_data:
@@ -126,6 +121,11 @@ plots:
           _partial_: True
           lon_range: [-90, 90]
           clip_line: False
+  resolution_vs_number_of_eyes_vs_fitness_color_vs_num_size:
+    <<: *resolution_vs_number_of_eyes_vs_fitness_color
+    size_data:
+      type: NUM
+      label: ""
   left_placement_heatmap: &left_placement_heatmap
     name: placement_heatmap
     add_legend: False
@@ -140,7 +140,7 @@ plots:
         _partial_: True
         src: eyes_lon_left[0] * math.pi / 180.0
         patterns:
-          eyes_lon_left: env.agents.*.eyes_lon_range[0]
+          eyes_lon_left: env.(agents|animals).*.eyes_lon_range[0]
     y_data:
       type: CONSTANT
       value: 1
@@ -163,7 +163,7 @@ plots:
         _partial_: True
         src: eyes_lon_right[0] * math.pi / 180.0
         patterns:
-          eyes_lon_right: env.agents.*.eyes_lon_range[1]
+          eyes_lon_right: env.(agents|animals).*.eyes_lon_range[1]
   left_placement_heatmap_vs_generation:
     <<: *left_placement_heatmap
     name: placement_heatmap_vs_generation
@@ -202,7 +202,7 @@ plots:
       type: GENERATION
     y_data:
       type: CONFIG
-      pattern: env.agents.*.eyes.*.fov[0]
+      pattern: env.(agents|animals).*.eyes.*.fov[0]
       label: Field of View
     color_data:
       type: EVALUATION
@@ -217,10 +217,10 @@ plots:
         _partial_: True
         src: math.prod(num_eyes_to_generate[0])
         patterns:
-          num_eyes_to_generate: env.agents.*.num_eyes_to_generate
+          num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
     y_data:
       type: CONFIG
-      pattern: env.agents.*.eyes.*.fov[0]
+      pattern: env.(agents|animals).*.eyes.*.fov[0]
       label: Field of View
     color_data:
       type: EVALUATION
@@ -229,11 +229,11 @@ plots:
   fov_vs_resolution_vs_fitness_color:
     x_data:
       type: CONFIG
-      pattern: env.agents.*.eyes.*.resolution[0]
+      pattern: env.(agents|animals).*.eyes.*.resolution[0]
       label: Resolution
     y_data:
       type: CONFIG
-      pattern: env.agents.*.eyes.*.fov[0]
+      pattern: env.(agents|animals).*.eyes.*.fov[0]
       label: Field of View
     color_data:
       type: EVALUATION

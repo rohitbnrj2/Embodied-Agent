@@ -70,26 +70,24 @@ def adjust_points(
 ):
     """This method will adjust the points depending on different conditions."""
 
-    if size_data.type is SizeType.NUM:
-        # In this case, update the size of the points to reflect the number of points
-        # at the same location and set the color to the average of the colors that are
-        # stacked together
+    # Some points may be stacked together, so we'll adjust the size and color of the
+    # points to reflect this (if desired).
+    unique, counts = np.unique(points, axis=0, return_counts=True)
+    for point, count in zip(unique, counts):
+        if count <= 1:
+            continue
 
-        unique, counts = np.unique(points, axis=0, return_counts=True)
-        for point, count in zip(unique, counts):
-            if count <= 1:
-                continue
+        idx = np.where(np.all(points == point, axis=1))[0]
 
-            idx = np.where(np.all(points == point, axis=1))[0]
+        if size_data.type is SizeType.NUM:
+            sizes[idx] *= count
 
+        # Set the color to the average of the colors that are stacked together
+        if colors is not None:
+            color = np.mean(colors[idx], axis=0)
+            colors[idx] = color
             for i in idx:
-                ax.collections[i].set_sizes(ax.collections[i].get_sizes() * count)
-
-            # Set the color to the average of the colors that are stacked together
-            if colors is not None:
-                color = np.mean(colors[idx], axis=0)
-                # set that color to the largest size since we'll reorder the points
-                ax.collections[sizes[idx].argmax()].set_array(color)
+                ax.collections[i].set_array(color)
 
     # Reorder the points such that the largest points are in the front
     # Use sizes for the zorder unless the are all the same, then use color

@@ -150,6 +150,7 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
 def update_plots(
     config: ParseEvosConfig,
     figures: List[plt.Figure | int],
+    *,
     save: bool = True,
     show: bool = False,
 ):
