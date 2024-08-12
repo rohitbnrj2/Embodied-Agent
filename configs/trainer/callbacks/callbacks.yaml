@@ -24,10 +24,10 @@ eval_callback:
     _target_: cambrian.ml.callbacks.MjCambrianCallbackListWithSharedParent
     _convert_: all
     callbacks:
-      stop_training_on_no_improvement_callback:
-        _target_: stable_baselines3.common.callbacks.StopTrainingOnNoModelImprovement
-        max_no_improvement_evals: 3 # n_envs * check_freq * max_no_improvement_evals steps
-        min_evals: 0 # n_envs * check_freq * min_no_improvement_evals steps
+      # stop_training_on_no_improvement_callback:
+      #   _target_: stable_baselines3.common.callbacks.StopTrainingOnNoModelImprovement
+      #   max_no_improvement_evals: 3 # n_envs * check_freq * max_no_improvement_evals steps
+      #   min_evals: 0 # n_envs * check_freq * min_no_improvement_evals steps
       stop_training_on_reward_threshold_callback:
         _target_: stable_baselines3.common.callbacks.StopTrainingOnRewardThreshold
         reward_threshold: 1e3

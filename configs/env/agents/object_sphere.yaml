@@ -7,5 +7,4 @@ xml:
   xml_string: ${read:${path:models,agents,sphere.xml}}
 
 body_name: "${parent:}_body"
-joint_name: "${parent:}_joint"
 geom_name: "${parent:}_geom"

@@ -14,7 +14,6 @@ xml:
   xml_string: ${read:${path:models,agents,point.xml}}
 
 body_name: "point_${parent:}"
-joint_name: "ball_x_${parent:}"
 geom_name: "point_geom_${parent:}"
 
 eyes_lat_range: [-5, 5]

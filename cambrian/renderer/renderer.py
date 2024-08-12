@@ -252,6 +252,10 @@ class MjCambrianViewer(ABC):
         return self._camera
 
     @property
+    def scene_options(self) -> mj.MjvOption:
+        return self._scene_options
+
+    @property
     def config(self) -> MjCambrianRendererConfig:
         return self._config
 

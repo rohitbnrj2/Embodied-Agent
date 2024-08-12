@@ -49,7 +49,6 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
             name of the agent.
 
         body_name (str): The name of the body that defines the main body of the agent.
-        joint_name (str): The root joint name for the agent. For positioning (see qpos)
         geom_name (str): The name of the geom that are used for eye placement.
 
         init_pos (Tuple[float | None]): The initial position of the agent. Specific
@@ -97,7 +96,6 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
     xml: MjCambrianXMLConfig
 
     body_name: str
-    joint_name: str
     geom_name: str
 
     init_pos: Tuple[float | None]
@@ -164,8 +162,7 @@ class MjCambrianAgent:
         assert config.joint_name is not None, "No joint name specified."
         assert config.geom_name is not None, "No geom name specified."
 
-        return config
-
+        
     def _initialize(self):
         """Initialize the agent.
 
@@ -314,7 +311,8 @@ class MjCambrianAgent:
 
         # Update the geom group. See comment in _parse_geometry for more info.
         for geom in xml.findall(f".//*[@name='{self._config.body_name}']//geom"):
-            geom.set("group", str(self._geom.group))
+            if geom.get("group") is None:
+                geom.set("group", str(self._geom.group))
 
         # Add eyes
         for eye in self.eyes.values():
@@ -381,6 +379,10 @@ class MjCambrianAgent:
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
             obs[name] = eye.reset(model, data)
+
+        # Update the eyes to hide all the geometries from this agent
+        for eye in self.eyes.values():
+            eye.renderer.viewer.scene_options.geomgroup[self.geom.group] = False
 
         return self._update_obs(obs)
 
@@ -637,7 +639,10 @@ class MjCambrianAgent:
         """
         for idx, val in enumerate(value):
             if val is not None:
-                self._model.body_pos[self._body_id][idx] = val
+                if len(self._joints) > 0:
+                    self._data.qpos[self._qposadrs[idx]] = val
+                else:
+                    self._model.body_pos[self._body_id][idx] = val
 
     @property
     def quat(self) -> np.ndarray:

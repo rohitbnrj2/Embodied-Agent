@@ -14,7 +14,6 @@ xml:
   xml_string: ${read:${path:models,agents,ant.xml}}
 
 body_name: "torso_${parent:}"
-joint_name: "root_${parent:}"
 geom_name: "torso_geom_${parent:}"
 
 eyes_lat_range: [-10, 10]

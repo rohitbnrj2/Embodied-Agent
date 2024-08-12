@@ -193,6 +193,11 @@ class MjCambrianEye:
         return self._config
 
     @property
+    def renderer(self) -> MjCambrianRenderer:
+        """The renderer for the eye."""
+        return self._renderer
+
+    @property
     def name(self) -> str:
         """The name of the eye."""
         return self._name
