@@ -1,5 +1,5 @@
 defaults:
-  - object_sphere_textured@_here_
+  - object_sphere_textured
 
 custom:
   # Set the top rgb to be green (good)

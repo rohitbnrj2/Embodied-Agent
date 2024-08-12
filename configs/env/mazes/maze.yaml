@@ -1,6 +1,3 @@
-# @package custom.default.maze
-# We aren't actually going to use this maze, so store it in the special attr `custom` which isn't read
-
 xml:
   _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse
   _convert_: all

@@ -1,8 +1,5 @@
-# @package custom.default.agent
-# We aren't actually going to use this agent, so store it in the special attr `custom` which isn't read
-
 defaults:
-  - point@_here_
+  - point
 
 use_privileged_action: true
 

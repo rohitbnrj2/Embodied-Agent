@@ -1,5 +1,5 @@
 defaults:
-  - object@_here_
+  - object
 
 xml:
   _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse

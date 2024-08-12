@@ -1,5 +1,5 @@
 defaults:
-  - object_sphere@_here_
+  - object_sphere
 
 xml:
   overrides:

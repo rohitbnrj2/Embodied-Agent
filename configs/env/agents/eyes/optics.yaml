@@ -1,8 +1,5 @@
-# @package custom.default.eye
-# Store this eye in the custom attribute in case we don't actually use this eye
-
 defaults:
-  - eye@_here_
+  - eye
   - /MjCambrianOpticsEyeConfig
 
 instance:

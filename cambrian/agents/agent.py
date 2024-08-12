@@ -154,15 +154,10 @@ class MjCambrianAgent:
         self._initialize()
 
     def _check_config(self, config: MjCambrianAgentConfig) -> MjCambrianAgentConfig:
-        """Run some checks/asserts on the config to make sure everything's there. Also,
-        we'll update the model path to make sure it's either absolute/relative to
-        the execution path or relative to this file."""
+        """Run some checks/asserts on the config to make sure everything's there."""
 
-        assert config.body_name is not None, "No body name specified."
-        assert config.joint_name is not None, "No joint name specified."
-        assert config.geom_name is not None, "No geom name specified."
+        return config
 
-        
     def _initialize(self):
         """Initialize the agent.
 
@@ -243,6 +238,10 @@ class MjCambrianAgent:
                 act_bodyid = model.jnt_bodyid[trnid]
             elif trntype == mj.mjtTrn.mjTRN_SITE:
                 act_bodyid = model.site_bodyid[trnid]
+            elif trntype == mj.mjtTrn.mjTRN_BODY:
+                act_bodyid = trnid
+            elif trntype == mj.mjtTrn.mjTRN_TENDON:
+                act_bodyid = model.tendon_adr[trnid]
             else:
                 raise NotImplementedError(f'Unsupported trntype "{trntype}".')
 
@@ -262,8 +261,10 @@ class MjCambrianAgent:
                 # This joint is associated with this agent's body
                 self._joints.append(MjCambrianJoint.create(model, jntadr))
 
+        assert (
+            len(self._joints) > 0
+        ), f"Body {body_name} has no joints. Joints are required for positioning."
         if self.config.trainable:
-            assert len(self._joints) > 0, f"Body {body_name} has no joints."
             assert len(self._actuators) > 0, f"Body {body_name} has no actuators."
 
     def _place_eyes(self):
@@ -272,15 +273,9 @@ class MjCambrianAgent:
         eye_configs: Dict[str, MjCambrianEyeConfig] = {}
         if num_eyes := self._config.num_eyes_to_generate:
             assert len(num_eyes) == 2, "num_eyes should be a tuple of length 2."
-            assert (
-                len(self._config.eyes) == 1
-            ), "Only one eye config should be specified."
-            assert (
-                self._config.eyes_lat_range is not None
-            ), "eyes_lat_range not specified."
-            assert (
-                self._config.eyes_lon_range is not None
-            ), "eyes_lon_range not specified."
+            assert len(self._config.eyes) == 1, "Only one eye should be specified."
+            assert self._config.eyes_lat_range is not None
+            assert self._config.eyes_lon_range is not None
 
             base_eye_name, base_eye_config = list(self._config.eyes.items())[0]
 
@@ -408,10 +403,12 @@ class MjCambrianAgent:
 
         assert (
             len(self._qposadrs) == self._numqpos
-        ), f"Mismatch in qpos adrs for agent '{self.name}'."
+        ), f"Mismatch in qpos adrs for agent '{self.name}': "
+        f"{len(self._qposadrs)} != {self._numqpos}."
         assert (
             len(self._actadrs) == self._numctrl
-        ), f"Mismatch in actuator adrs for agent '{self.name}'."
+        ), f"Mismatch in actuator adrs for agent '{self.name}': "
+        f"{len(self._actadrs)} != {self._numctrl}."
 
     def step(self) -> Dict[str, Any]:
         """Steps the eyes and returns the observation."""
@@ -639,10 +636,7 @@ class MjCambrianAgent:
         """
         for idx, val in enumerate(value):
             if val is not None:
-                if len(self._joints) > 0:
-                    self._data.qpos[self._qposadrs[idx]] = val
-                else:
-                    self._model.body_pos[self._body_id][idx] = val
+                self._data.qpos[self._qposadrs[idx]] = val
 
     @property
     def quat(self) -> np.ndarray:
@@ -660,14 +654,14 @@ class MjCambrianAgent:
         of the x, y, z, and w values. If the value is None, the quaternion is not
         updated.
 
-        NOTE: This base implementation assumes the 3,4,5,6 indicies of the qpos are the
+        NOTE: This base implementation assumes the 3,4,5,6 indices of the qpos are the
         x, y, z, and w values of the quaternion of the agent. This may not be the case
         and depends on the joints defined in the agent, so this method should be
         overridden in the subclass if this is not the case.
         """
         for idx, val in enumerate(value):
             if val is not None:
-                self._model.body_quat[self._body_id][idx] = val
+                self._data.qpos[self._qposadrs[3 + idx]] = val
 
     @property
     def mat(self) -> np.ndarray:
@@ -699,43 +693,21 @@ class MjCambrianAgent:
         return geomgroup
 
 
-def generate_eyes_on_uniform_grid(
-    base_eye_config: MjCambrianEyeConfig,
-    lat_range: Tuple[float, float],
-    lon_range: Tuple[float, float],
-    num_lat: int,
-    num_lon: int,
-    /,
-    *overrides,
-) -> Dict[str, MjCambrianEyeConfig]:
-    """Generates eyes on a uniform grid on the agent.
+class MjCambrianAgent2D(MjCambrianAgent):
+    """Assumes the agent is moving on 2D plane and has a yaw hinge joint which is used
+    to adjust orientation of the agent."""
 
-    Args:
-        base_eye_config (MjCambrianEyeConfig): The base eye config to use for the eyes.
-        lat_range (Tuple[float, float]): The range of the latitudinal placement of the
-            eyes. This is the vertical range of the evenly placed eye about the
-            agent's bounding sphere.
-        lon_range (Tuple[float, float]): The range of the longitudinal placement of the
-            eyes. This is the horizontal range of the evenly placed eye about the
-            agent's bounding sphere.
-        num_lat (int): The number of eyes to generate latitudinally.
-        num_lon (int): The number of eyes to generate longitudinally.
+    @MjCambrianAgent.quat.setter
+    def quat(
+        self, value: Tuple[float | None, float | None, float | None, float | None]
+    ):
+        """Overrides the base implementation to set the z rotation."""
+        assert len(value) == 4, f"Quaternion must have 4 elements, got {len(value)}."
+        # Only set quat if all values are not None
+        if any(val is None for val in value):
+            return
 
-    Returns:
-        Dict[str, MjCambrianEyeConfig]: The eyes on the agent. The keys are the names
-            of the eyes and the values are the configs for the eyes. The eyes will be
-            placed on the agent at the specified coordinates.
-    """
-    base_eye_config.merge_with_dotlist(overrides)
-
-    eyes: Dict[str, MjCambrianEyeConfig] = {}
-    for lat_idx in range(num_lat):
-        for lon_idx in range(num_lon):
-            eye_name = f"eye_{lat_idx}_{lon_idx}"
-            eye_config = base_eye_config.copy()
-            eye_config.update(
-                {"coord": [lat_range[0] + lat_idx, lon_range[0] + lon_idx]}
-            )
-            eyes[eye_name] = eye_config
-
-    return eyes
+        self.qpos[self._qposadrs[2]] = np.arctan2(
+            2 * (value[0] * value[3] + value[1] * value[2]),
+            1 - 2 * (value[2] ** 2 + value[3] ** 2),
+        )

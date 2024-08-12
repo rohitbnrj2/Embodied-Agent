@@ -1,7 +1,5 @@
-# @package env.mazes.FIXED_OPEN
-
 defaults:
-  - /env/mazes/maze@_here_
+  - /env/mazes/maze
 
 map: |-
   [

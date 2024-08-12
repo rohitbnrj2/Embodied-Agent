@@ -1,6 +1,3 @@
-# @package custom.default.agent
-# We aren't actually going to use this agent, so store it in the special attr `custom` which isn't read
-
 trainable: true
 use_privileged_action: false
 
@@ -9,12 +6,12 @@ instance:
   _partial_: true
 
 # Default configuration is randomly placed depending on the selected environment
-init_pos: []
-init_quat: []
+init_pos: [null, null, null]
+init_quat: [null, null, null, null]
 
 # Defaults to using the action and contact observation
-use_action_obs: true
-use_contact_obs: true
+use_action_obs: ${.trainable}
+use_contact_obs: ${.trainable}
 
 # Default configuration is no eyes
 eyes: {}

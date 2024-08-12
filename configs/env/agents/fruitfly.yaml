@@ -8,10 +8,10 @@ instance:
 xml:
   _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse
   _convert_: all
-  xml_string: ${read:${path:models,agents,ant.xml}}
+  xml_string: ${read:${path:models,agents,fruitfly.xml}}
 
-body_name: "torso_${parent:}"
-geom_name: "torso_geom_${parent:}"
+body_name: "thorax"
+geom_name: "thorax"
 
 eyes_lat_range: [-10, 10]
 eyes_lon_range: [-60, 60]

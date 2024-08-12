@@ -4,14 +4,14 @@ import numpy as np
 from gymnasium import spaces
 import mujoco as mj
 
-from cambrian.agents import MjCambrianAgent, MjCambrianAgentConfig
+from cambrian.agents import MjCambrianAgent2D, MjCambrianAgentConfig
 
 if TYPE_CHECKING:
     from cambrian.envs import MjCambrianEnv
     from cambrian.envs.maze_env import MjCambrianMazeEnv
 
 
-class MjCambrianAgentPoint(MjCambrianAgent):
+class MjCambrianAgentPoint(MjCambrianAgent2D):
     """
     This is a hardcoded class which implements the agent as actuated by a forward
     velocity and a rotational position. In mujoco, to the best of my knowledge, all
@@ -67,21 +67,6 @@ class MjCambrianAgentPoint(MjCambrianAgent):
     def action_space(self) -> spaces.Space:
         """Overrides the base implementation to only have two elements."""
         return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
-
-    @MjCambrianAgent.quat.setter
-    def quat(
-        self, value: Tuple[float | None, float | None, float | None, float | None]
-    ):
-        """Overrides the base implementation to set the z rotation."""
-        assert len(value) == 4, f"Quaternion must have 4 elements, got {len(value)}."
-        # Only set quat if all values are not None
-        if any(val is None for val in value):
-            return
-
-        self.qpos[self._qposadrs[2]] = np.arctan2(
-            2 * (value[0] * value[3] + value[1] * value[2]),
-            1 - 2 * (value[2] ** 2 + value[3] ** 2),
-        )
 
 
 class MjCambrianAgentPointPredator(MjCambrianAgentPoint):

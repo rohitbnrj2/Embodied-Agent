@@ -1,6 +1,3 @@
-# @package custom.default.eye
-# Store this eye in the custom attribute in case we don't actually use this eye
-
 defaults:
   - /MjCambrianEyeConfig
   - /env/renderer/renderer@renderer
