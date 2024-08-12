@@ -49,9 +49,14 @@ def done_if_close_to_agents(
     info: Dict[str, Any],
     *,
     agents: Optional[List[str]] = None,
+    for_agents: Optional[List[str]] = None,
     distance_threshold: float,
 ) -> bool:
     """Done if agent is close to another agent."""
+    # Early exit if the agent is not in the for_agents list
+    if for_agents is not None and agent.name not in for_agents:
+        return False
+
     for other_agent in env.agents.values():
         if agents is not None and other_agent.name not in agents:
             continue

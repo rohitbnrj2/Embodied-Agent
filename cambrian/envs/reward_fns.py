@@ -83,6 +83,7 @@ def reward_euclidean_delta_to_agents(
     *,
     factor: float,
     agents: Optional[List[str]] = None,
+    for_agents: Optional[List[str]] = None,
     only_best: bool = False,
     min_delta_threshold: Optional[float] = None,
     max_delta_threshold: Optional[float] = None,
@@ -94,6 +95,10 @@ def reward_euclidean_delta_to_agents(
     `only_best` will only reward the agent if it is closer to the agent than any
     previous position. This requires us to keep around a state of the best position.
     """
+    # Early exit if the agent is not in the for_agents list
+    if for_agents is not None and agent.name not in for_agents:
+        return 0
+
     accumulated_reward = 0.0
     for other_agent in env.agents.values():
         if agents is not None and other_agent.name not in agents:
@@ -132,11 +137,13 @@ def penalize_if_has_contacts(
     info: Dict[str, Any],
     *,
     penalty: float,
-    agents: Optional[List[str]] = None,
+    for_agents: Optional[List[str]] = None,
 ) -> float:
     """Penalizes the agent if it has contacts with the ground."""
-    if agents is not None and agent.name not in agents:
-        return 0.0
+    # Early exit if the agent is not in the for_agents list
+    if for_agents is not None and agent.name not in for_agents:
+        return 0
+
     return penalty if info.get("has_contacts", False) else 0.0
 
 
@@ -176,7 +183,7 @@ def reward_if_agents_in_view(
         scale_by_distance (bool): Whether to scale the reward by the distance between
             the agents. Default is False.
     """
-    # Early exit if the agent is not in the from_agents list
+    # Early exit if the agent is not in the for_agents list
     if for_agents is not None and agent.name not in for_agents:
         return 0
 

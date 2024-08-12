@@ -36,6 +36,7 @@ env:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
       _partial_: true
       penalty: -1.0
+      for_agents: [agent]
 
     reward_euclidean_delta_to_goal:
       _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents

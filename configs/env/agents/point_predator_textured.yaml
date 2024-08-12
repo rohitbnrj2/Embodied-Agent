@@ -6,8 +6,7 @@ trainable: false
 instance:
   _target_: cambrian.agents.MjCambrianAgentPointMazeOptimal
   _partial_: true
-  # Defaults to all agents not including this agent
-  target: "???"
+  target: agent # assumes agent, can change via overrides
 
 custom:
   # Rotate the predator texture by 90 deg
