@@ -18,3 +18,5 @@ map: |-
 
 agent_id_map:
   O: ${oc.dict.keys:env.agents}
+
+scale: 2.0

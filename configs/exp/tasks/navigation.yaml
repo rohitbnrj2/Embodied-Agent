@@ -7,8 +7,7 @@
 # it reaches the goal (within a certain distance threshold).
 
 defaults:
-  - /env/mazes@env.mazes.maze_1: COMPLEX
-  - /env/mazes@env.mazes.maze_2: COMPLEX
+  - /env/mazes@env.mazes.maze: COMPLEX
 
   # Use the maze_exp config as the base
   - /exp/maze_exp
@@ -26,15 +25,12 @@ trainer:
 env:
   # Update the scale of the maze so that it's more difficult
   mazes:
-    maze_1: &maze
+    maze:
       scale: 1.0
 
       agent_id_map:
         default: [agent]
         O: [goal]
-    maze_2:
-      <<: *maze
-      hflip: true
 
   reward_fn:
     euclidean_delta_from_init:

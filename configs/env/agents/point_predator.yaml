@@ -4,10 +4,10 @@ defaults:
 trainable: false
 
 instance:
-  _target_: cambrian.agents.MjCambrianAgentPointPredator
+  _target_: cambrian.agents.MjCambrianAgentPointMazeOptimal
   _partial_: true
   # Defaults to all agents not including this agent
-  preys: ${eval:'[p for p in ${oc.dict.keys:env.agents} if p != "${parent:instance}"]'}
+  target: "???"
 
 # Predators are red
 xml:

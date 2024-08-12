@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - /exp/paper/navigation
+  - /exp/paper/light_seeking
 
   - override /env/agents@env.agents.agent: point_maze_optimal
 

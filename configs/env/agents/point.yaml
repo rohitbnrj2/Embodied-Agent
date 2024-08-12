@@ -10,8 +10,8 @@ xml:
   _convert_: all
   xml_string: ${read:${path:models,agents,point.xml}}
 
-body_name: "point_${parent:}"
-geom_name: "point_geom_${parent:}"
+body_name: "${parent:}_body"
+geom_name: "${parent:}_geom"
 
 eyes_lat_range: [-5, 5]
 eyes_lon_range: [-60, 60]

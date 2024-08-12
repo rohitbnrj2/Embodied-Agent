@@ -42,6 +42,8 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
             are trainable, but have some special logic that needs to be implemented
             in the `get_action_privileged` method. `trainable` takes precedence over
             this attribute, as in if `trainable` is False, this attribute is ignored.
+        overlay_color (Tuple[float, float, float, float]): The color to
+            use in the visualization of the agent.
 
         xml (MjCambrianXMLConfig): The xml for the agent. This is the xml that will be
             used to create the agent. You should use ${parent:xml} to generate
@@ -92,6 +94,7 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
 
     trainable: bool
     use_privileged_action: bool
+    overlay_color: Tuple[float, float, float, float]
 
     xml: MjCambrianXMLConfig
 

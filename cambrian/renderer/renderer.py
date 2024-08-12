@@ -562,13 +562,13 @@ class MjCambrianRenderer:
                 mp4 = path.with_suffix(".mp4")
                 imageio.mimwrite(mp4, rgb_buffer, fps=fps)
             except TypeError:
-                self._logger.warning(
+                self._logger.error(
                     "imageio is not compiled with ffmpeg. "
                     "You may need to install it with `pip install imageio[ffmpeg]`."
                 )
         if save_mode & MjCambrianRendererSaveMode.PNG:
             png = path.with_suffix(".png")
-            imageio.imwrite(png, rgb_buffer[-1])
+            imageio.imwrite(png, rgb_buffer[-2])
         if save_mode & MjCambrianRendererSaveMode.GIF:
             gif = path.with_suffix(".gif")
             imageio.mimwrite(gif, rgb_buffer, loop=0, duration=duration)

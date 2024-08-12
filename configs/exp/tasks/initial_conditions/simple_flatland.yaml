@@ -22,4 +22,4 @@ env:
           resolution:
             - 1
             - ${eval:'${.0}'}
-          fov: [45, 10]
+          fov: [45, 5]

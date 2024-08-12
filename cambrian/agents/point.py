@@ -7,7 +7,6 @@ import mujoco as mj
 from cambrian.agents import MjCambrianAgent2D, MjCambrianAgentConfig
 
 if TYPE_CHECKING:
-    from cambrian.envs import MjCambrianEnv
     from cambrian.envs.maze_env import MjCambrianMazeEnv
 
 
@@ -69,60 +68,6 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
 
 
-class MjCambrianAgentPointPredator(MjCambrianAgentPoint):
-    """This is an agent which is non-trainable and defines a custom policy which
-    acts as a "predator" in the environment. This agent will attempt to catch the prey
-    by taking actions that minimize the distance between itself and the prey.
-
-    Keyword Arguments:
-        preys (List[str]): The names of the preys in the environment. The prey states
-            will be determined from this list by querying the env.
-        speed (float): The speed of the predator. Default is 1.0. This is constant
-            during the simulation. Must be between -1 and 1, where -1 is no movement.
-    """
-
-    def __init__(
-        self,
-        config: MjCambrianAgentConfig,
-        name: str,
-        idx: int,
-        *,
-        preys: List[str],
-        speed: float = 1.0,
-    ):
-        super().__init__(config, name, idx)
-
-        self._preys = preys
-        self._speed = speed
-
-    def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
-        """This is where the predator will calculate its action based on the prey
-        states."""
-
-        # Get the prey states
-        prey_pos = [env.agents[prey].pos for prey in self._preys]
-
-        # Calculate the distance between the predator and the closest prey
-        distances = [np.linalg.norm(self.pos - pos) for pos in prey_pos]
-
-        # Calculate the vector that minimizes the distance between the predator and the
-        # closest prey
-        min_distance_index = np.argmin(distances)
-        min_distance_vector = prey_pos[min_distance_index] - self.pos
-
-        # Calculate the delta from the current angle to the angle that minimizes the
-        # distance
-        min_distance_angle = np.arctan2(min_distance_vector[1], min_distance_vector[0])
-        delta = min_distance_angle - self.last_action[-1]
-
-        # Set the action based on the vector calculated above. Add some noise to the
-        # angle to make the movement.
-        def wrap_angle(angle):
-            return (angle + np.pi) % (2 * np.pi) - np.pi
-
-        return [self._speed, wrap_angle(delta + np.random.randn())]
-
-
 class MjCambrianAgentPointPrey(MjCambrianAgentPoint):
     """This is an agent which is non-trainable and defines a custom policy which
     acts as a "prey" in the environment. This agent will attempt to avoid the predator
@@ -142,16 +87,21 @@ class MjCambrianAgentPointPrey(MjCambrianAgentPoint):
         idx: int,
         *,
         predators: List[str],
-        speed: float = 1.0,
+        speed: float = -0.8,
     ):
         super().__init__(config, name, idx)
 
         self._predators = predators
         self._speed = speed
 
-    def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
+    def get_action_privileged(self, env: "MjCambrianMazeEnv") -> List[float]:
         """This is where the prey will calculate its action based on the predator
         states."""
+
+        # Set the action based on the vector calculated above. Add some noise to the
+        # angle to make the movement.
+        def wrap_angle(angle):
+            return (angle + np.pi) % (2 * np.pi) - np.pi
 
         # Get the predator states
         predator_pos = [env.agents[predator].pos for predator in self._predators]
@@ -167,14 +117,9 @@ class MjCambrianAgentPointPrey(MjCambrianAgentPoint):
         # Calculate the delta from the current angle to the angle that maximizes the
         # distance
         max_distance_angle = np.arctan2(max_distance_vector[1], max_distance_vector[0])
-        delta = max_distance_angle - self.last_action[-1]
 
-        # Set the action based on the vector calculated above. Add some noise to the
-        # angle to make the movement.
-        def wrap_angle(angle):
-            return (angle + np.pi) % (2 * np.pi) - np.pi
-
-        return [self._speed, wrap_angle(delta + np.random.randn())]
+        target_theta = wrap_angle(max_distance_angle + np.random.randn())
+        return [self._speed, target_theta]
 
 
 class MjCambrianAgentPointMazeOptimal(MjCambrianAgentPoint):
@@ -203,6 +148,8 @@ class MjCambrianAgentPointMazeOptimal(MjCambrianAgentPoint):
         self._optimal_trajectory: np.ndarray = None
         self._use_optimal_trajectory = use_optimal_trajectory
 
+        self._prev_target_pos: np.ndarray = None
+
     def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, Any]:
         """Resets the optimal_trajectory."""
         self._optimal_trajectory = None
@@ -210,25 +157,31 @@ class MjCambrianAgentPointMazeOptimal(MjCambrianAgentPoint):
 
     def get_action_privileged(self, env: "MjCambrianMazeEnv") -> List[float]:
         assert self._target in env.agents, f"Target {self._target} not found in env"
-        agent_pos = env.agents[self._target].pos
+        target_pos = env.agents[self._target].pos
+
+        if self._prev_target_pos is None:
+            self._prev_target_pos = target_pos
 
         # Calculate the optimal trajectory if the current trajectory is None
-        if self._optimal_trajectory is None:
+        if (
+            self._optimal_trajectory is None
+            or np.linalg.norm(target_pos - self._prev_target_pos) > 0.1
+        ):
             if self._use_optimal_trajectory:
                 obstacles = []
                 for agent_name, agent in env.agents.items():
                     if agent_name != self._target:
                         obstacles.append(tuple(env.maze.xy_to_rowcol(agent.pos)))
                 self._optimal_trajectory = env.maze.compute_optimal_path(
-                    self.pos, agent_pos, obstacles=obstacles
+                    self.pos, target_pos, obstacles=obstacles
                 )
             else:
-                self._optimal_trajectory = np.array([agent_pos[:2]])
+                self._optimal_trajectory = np.array([target_pos[:2]])
 
-        # If the optimal_trajectory is empty, return no action. We've probably reached
-        # the end
+        # If the optimal trajectory is empty, then set the optimal trajectory to the
+        # target position
         if len(self._optimal_trajectory) == 0:
-            self._optimal_trajectory = np.array([agent_pos[:2]])
+            self._optimal_trajectory = np.array([target_pos[:2]])
 
         # Get the current target. If the distance between the current position and the
         # target is less than the threshold, then remove the target from the optimal
@@ -238,13 +191,63 @@ class MjCambrianAgentPointMazeOptimal(MjCambrianAgentPoint):
         if np.linalg.norm(target_vector) < self._distance_threshold:
             self._optimal_trajectory = self._optimal_trajectory[1:]
 
-        # Calculate the delta from the current angle to the angle that minimizes the
-        # distance
+        # Set the action based on the vector calculated above. Add some noise to the
+        # angle to make the movement.
         target_theta = np.arctan2(target_vector[1], target_vector[0])
-        last_theta = self._calc_v_theta(self.last_action)[1]
-        delta = target_theta - last_theta
+        target_theta = np.interp(target_theta, [-np.pi, np.pi], [-1, 1])
+        return [self._speed, target_theta]
+
+
+class MjCambrianAgentPointMazeRandom(MjCambrianAgentPoint):
+    def __init__(
+        self,
+        config: MjCambrianAgentConfig,
+        name: str,
+        idx: int,
+        *,
+        speed: float = -0.75,
+        distance_threshold: float = 4.0,
+        use_optimal_trajectory: bool = True,
+    ):
+        super().__init__(config, name, idx)
+
+        self._speed = speed
+        self._distance_threshold = distance_threshold
+
+        self._optimal_trajectory: np.ndarray = None
+        self._use_optimal_trajectory = use_optimal_trajectory
+
+    def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, Any]:
+        """Resets the optimal_trajectory."""
+        self._optimal_trajectory = None
+        return super().reset(model, data)
+
+    def get_action_privileged(self, env: "MjCambrianMazeEnv") -> List[float]:
+        if self._optimal_trajectory is None or len(self._optimal_trajectory) == 0:
+            # Generate a random position to navigate to
+            # Chooses one of the empty spaces in the maze
+            rows, cols = np.where(env.maze.map == "0")
+            assert rows.size > 0, "No empty spaces in the maze"
+            index = np.random.randint(rows.size)
+            target_pos = env.maze.rowcol_to_xy((rows[index], cols[index]))
+
+            if self._use_optimal_trajectory:
+                self._optimal_trajectory = env.maze.compute_optimal_path(
+                    self.pos, target_pos
+                )
+            else:
+                self._optimal_trajectory = np.array([target_pos[:2]])
+
+        # Get the current target. If the distance between the current position and the
+        # target is less than the threshold, then remove the target from the optimal
+        # trajectory
+        target = self._optimal_trajectory[0]
+        target_vector = target - self.pos[:2]
+        if np.linalg.norm(target_vector) < self._distance_threshold:
+            self._optimal_trajectory = self._optimal_trajectory[1:]
 
         # Set the action based on the vector calculated above. Add some noise to the
         # angle to make the movement.
-        delta = np.interp(delta, [-np.pi, np.pi], [-1, 1])
-        return [self._speed, np.clip(delta, -1, 1)]
+        target_theta = np.arctan2(target_vector[1], target_vector[0])
+        target_theta = np.interp(target_theta, [-np.pi, np.pi], [-1, 1])
+        return [self._speed, target_theta]

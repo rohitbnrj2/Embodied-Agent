@@ -1,23 +1,19 @@
 # @package _global_
 
 defaults:
-  - /exp/environmental_effects/navigation_num_eyes_and_resolution
+  - /exp/tasks/navigation
+  - /exp/tasks/initial_conditions/simple_flatland
 
 env:
   agents:
     agent:
-      # Set the initial yaw to -pi / 3.
-      init_quat: ["${eval:'math.cos(-math.pi/3)'}", 0, 0, "${eval:'math.sin(-math.pi/3)'}"]
-
-      xml:
-        overrides: []
+      num_eyes_to_generate: [1, 10]
+      eyes_lon_range: [-90, 90]
 
       eyes:
         eye:
-          # Enable the skybox
-          renderer:
-            scene:
-              mjRND_SKYBOX: 1
+          resolution: [1, 1]
+          fov: [10, 5]
 
-  renderer:
-    save_mode: GIF | MP4 | PNG
+eval_env:
+  n_eval_episodes: 1

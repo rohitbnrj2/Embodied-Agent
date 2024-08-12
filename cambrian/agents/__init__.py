@@ -6,8 +6,8 @@ from cambrian.agents.agent import (
 from cambrian.agents.point import (
     MjCambrianAgentPoint,
     MjCambrianAgentPointPrey,
-    MjCambrianAgentPointPredator,
     MjCambrianAgentPointMazeOptimal,
+    MjCambrianAgentPointMazeRandom,
 )
 from cambrian.agents.object import MjCambrianAgentObject
 
@@ -17,7 +17,7 @@ __all__ = [
     "MjCambrianAgentConfig",
     "MjCambrianAgentPoint",
     "MjCambrianAgentPointPrey",
-    "MjCambrianAgentPointPredator",
     "MjCambrianAgentPointMazeOptimal",
+    "MjCambrianAgentPointMazeRandom",
     "MjCambrianAgentObject",
 ]

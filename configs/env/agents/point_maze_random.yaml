@@ -1,0 +1,8 @@
+defaults:
+  - point
+
+trainable: false
+
+instance:
+  _target_: cambrian.agents.MjCambrianAgentPointMazeRandom
+  _partial_: true

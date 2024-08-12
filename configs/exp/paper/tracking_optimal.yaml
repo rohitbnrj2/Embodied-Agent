@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - /exp/paper/detection
+  - /exp/paper/tracking
 
   - override /env/agents@env.agents.agent: point_maze_optimal
 
@@ -11,3 +11,6 @@ env:
       # Set the initial yaw to -pi / 4. This makes the agent face to the left which
       # makes the path the agent follows less perfect.
       init_quat: ["${eval:'math.cos(-math.pi/4)'}", 0, 0, "${eval:'math.sin(-math.pi/4)'}"]
+
+      instance:
+        use_optimal_trajectory: False

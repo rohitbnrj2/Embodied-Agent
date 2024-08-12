@@ -76,6 +76,12 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         n_eval_episodes (int): The number of episodes to evaluate for.
 
         add_overlays (bool): Whether to add overlays or not.
+        add_position_tracking_overlay (bool): Whether to add a position tracking overlay
+            or not. This will draw the position of the agent on the screen. If
+            `add_overlays` is False, this will be ignored.
+        add_debug_overlay (bool): Whether to add a debug overlay or not. This will draw
+            debug information on the screen. If `add_overlays` is False, this will be
+            ignored.
         clear_overlays_on_reset (bool): Whether to clear the overlays on reset or not.
             Consequence of setting to False is that if `add_position_tracking_overlay`
             is True and mazes change between evaluations, the sites will be drawn on top
@@ -109,6 +115,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     n_eval_episodes: int
 
     add_overlays: bool
+    add_position_tracking_overlays: bool
+    add_debug_overlays: bool
     clear_overlays_on_reset: bool
     render_agent_composite_only: Optional[bool] = None
     renderer: Optional[MjCambrianRendererConfig] = None
@@ -323,7 +331,9 @@ class MjCambrianEnv(ParallelEnv):
             self._rollout["actions"].append(list(action.values()))
             self._rollout["positions"].append([a.pos for a in self._agents.values()])
 
-        if self.record or "human" in self._config.renderer.render_modes:
+        if self._config.add_debug_overlays and (
+            self.record or "human" in self._config.renderer.render_modes
+        ):
             self._overlays["Name"] = self._name
             self._overlays["Total Timesteps"] = self.num_timesteps
             self._overlays["Step"] = self._episode_step
@@ -465,20 +475,24 @@ class MjCambrianEnv(ParallelEnv):
         if not self._config.add_overlays:
             return renderer.render()
 
-        # Add site overlays for each agent
-        i = self._num_resets * self._max_episode_steps + self._episode_step
-        size = self._model.stat.extent * 7.5e-3
-        for agent in self._agents.values():
-            # Define a unique id for the site
-            key = f"{agent.name}_pos_{i}"
+        if self._config.add_position_tracking_overlays:
+            # Add site overlays for each agent
+            i = self._num_resets * self._max_episode_steps + self._episode_step
+            size = self._model.stat.extent * 5e-3
+            for agent in self._agents.values():
+                # Define a unique id for the site
+                key = f"{agent.name}_pos_{i}"
 
-            # If the agent is contacting an object, the color will be red; blue
-            # otherwise
-            color = (1, 0, 0, 1) if agent.has_contacts else (0, 1, 1, 1)
+                # If the agent is contacting an object, the color will be red; blue
+                # otherwise
+                # Flip the color if it has contacts
+                color = tuple(agent.config.overlay_color)
+                if agent.has_contacts:
+                    color = (1 - color[0], 1 - color[1], 1 - color[2], 1)
 
-            # Add the overlay
-            overlay = MjCambrianSiteViewerOverlay(agent.pos.copy(), color, size)
-            self._overlays[key] = overlay
+                # Add the overlay
+                overlay = MjCambrianSiteViewerOverlay(agent.pos.copy(), color, size)
+                self._overlays[key] = overlay
 
         overlays: List[MjCambrianViewerOverlay] = []
 
@@ -489,6 +503,9 @@ class MjCambrianEnv(ParallelEnv):
             else:
                 cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
                 overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
+
+        if not self._config.add_debug_overlays:
+            return renderer.render(overlays=overlays)
 
         # Set the overlay size to be a fraction of the renderer size relative to
         # the agent count. The overlay height will be set to 35% of the renderer from

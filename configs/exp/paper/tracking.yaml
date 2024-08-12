@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - /exp/tasks/detection
+  - /exp/tasks/tracking
   - /exp/tasks/initial_conditions/simple_flatland
 
 custom:
@@ -32,9 +32,5 @@ env:
 
       eyes:
         eye:
-          resolution: [1, 1]
+          resolution: [100, 100]
           fov: [45, 5]
-
-  termination_fn:
-    terminate_if_close_to_goal:
-      distance_threshold: 1.0

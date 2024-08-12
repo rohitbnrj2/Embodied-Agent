@@ -55,6 +55,8 @@ def done_if_close_to_agents(
     for other_agent in env.agents.values():
         if agents is not None and other_agent.name not in agents:
             continue
+        if other_agent.name == agent.name:
+            continue
 
         if np.linalg.norm(other_agent.pos - agent.pos) < distance_threshold:
             return True

@@ -37,7 +37,10 @@ env:
     _target_: cambrian.envs.done_fns.done_combined
     _partial_: true
 
-    # No termination fns by default
+    # No termination fns by default; this will always return false
+    never_terminate:
+      _target_: cambrian.envs.done_fns.done_never
+      _partial_: true
 
   truncation_fn:
     _target_: cambrian.envs.done_fns.done_combined

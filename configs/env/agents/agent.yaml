@@ -1,5 +1,6 @@
 trainable: true
 use_privileged_action: false
+overlay_color: [0, 1, 1, 1]
 
 instance:
   _target_: cambrian.agents.MjCambrianAgent

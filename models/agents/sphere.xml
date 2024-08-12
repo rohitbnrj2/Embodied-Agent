@@ -21,4 +21,13 @@
                 limited="false" />
         </body>
     </worldbody>
+  <actuator>
+    <!-- These are just dummy actuators for providing ranges -->
+    <velocity name="act_x_${parent:xml}" joint="joint_x_${parent:xml}" ctrlrange="-10.0 10.0"
+      ctrllimited="true" kv="100" />
+    <velocity name="act_y_${parent:xml}" joint="joint_y_${parent:xml}" ctrlrange="-10.0 10.0"
+      ctrllimited="true" kv="100" />
+    <position name="act_yaw_${parent:xml}" joint="joint_yaw_${parent:xml}" ctrlrange="-3.14 3.14"
+      ctrllimited="true" gear="1" />
+  </actuator>
 </mujoco>

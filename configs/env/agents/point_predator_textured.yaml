@@ -1,0 +1,17 @@
+defaults:
+  - point_textured
+
+trainable: false
+
+instance:
+  _target_: cambrian.agents.MjCambrianAgentPointMazeOptimal
+  _partial_: true
+  # Defaults to all agents not including this agent
+  target: "???"
+
+custom:
+  # Rotate the predator texture by 90 deg
+  euler: 0 90 0
+
+  # Set the top rgb to be red (adversary)
+  top_rgba: 0.8 0.2 0.2 1.0
