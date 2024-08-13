@@ -152,7 +152,7 @@ class SizeType(Enum):
 
 @config_wrapper
 class SizeData:
-    type: SizeType = SizeType.NUM
+    type: SizeType = SizeType.NONE
 
     label: Optional[str] = None
 

@@ -3,10 +3,17 @@
 defaults:
   - /exp/paper/prey
 
-  - override /env/agents@env.agents.agent: point_maze_random
+  - override /env/agents@env.agents.agent: point_maze_optimal
 
 env:
   agents:
     agent:
-      trainable: true
-      use_privileged_action: true
+      instance:
+        use_optimal_trajectory: False
+
+  truncation_fn:
+    truncate_if_close_to_adversary:
+      distance_threshold: 0.0
+  termination_fn:
+    terminate_if_close_to_goal:
+      distance_threshold: 0.0

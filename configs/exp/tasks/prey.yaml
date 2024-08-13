@@ -17,6 +17,9 @@ defaults:
   # Define an adversarial predator which tries to catch the agent
   - /env/agents@env.agents.adversary: point_predator_textured
 
+  # Define a goal which the prey tries to reach
+  - /env/agents@env.agents.goal: point_maze_random_textured
+
 custom:
   # Sets the frequency of the texture of the goal. Easier to override.
   frequency: 8
@@ -30,7 +33,7 @@ env:
     maze:
       agent_id_map:
         default: [agent]
-        O: [adversary]
+        O: [adversary, goal]
 
   agents:
     adversary:
@@ -38,8 +41,12 @@ env:
       custom:
         frequency: ${custom.frequency}
 
-      instance:
-        use_optimal_trajectory: false
+    goal:
+      overlay_color: [0.2, 0.8, 0.2, 1]
+      custom:
+        frequency: ${custom.frequency}
+        euler: 0 0 0
+        top_rgba: 0.2 0.8 0.2 1.0
 
   reward_fn:
     penalize_if_has_contacts:
@@ -55,6 +62,12 @@ env:
       agents: [agent]
       for_agents: [adversary]
 
+    reward_euclidean_delta_to_goal:
+      _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
+      _partial_: true
+      factor: 0.25
+      agents: [goal]
+
   truncation_fn:
     truncate_if_close_to_adversary:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
@@ -62,3 +75,11 @@ env:
       distance_threshold: 1.0
       agents: [adversary]
       for_agents: [agent]
+
+  termination_fn:
+    # Terminate (i.e. succeed) if the agent is close to the goal
+    terminate_if_close_to_goal:
+      _target_: cambrian.envs.done_fns.done_if_close_to_agents
+      _partial_: true
+      agents: [goal]
+      distance_threshold: 1.0
