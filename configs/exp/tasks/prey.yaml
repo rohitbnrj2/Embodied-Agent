@@ -38,6 +38,9 @@ env:
       custom:
         frequency: ${custom.frequency}
 
+      instance:
+        use_optimal_trajectory: false
+
   reward_fn:
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts

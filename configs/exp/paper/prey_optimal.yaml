@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - /exp/paper/prey
+
+  - override /env/agents@env.agents.agent: point_maze_random
+
+env:
+  agents:
+    agent:
+      trainable: true
+      use_privileged_action: true
