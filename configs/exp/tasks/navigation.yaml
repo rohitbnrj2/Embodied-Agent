@@ -7,6 +7,9 @@
 # it reaches the goal (within a certain distance threshold).
 
 defaults:
+  - /exp/tasks/task
+
+  # Use one fairly complicated maze
   - /env/mazes@env.mazes.maze: COMPLEX
 
   # Use the maze_exp config as the base
@@ -55,7 +58,3 @@ env:
       _partial_: true
       agents: [goal]
       distance_threshold: 1.0
-
-eval_env:
-  # Run 4 evaluation episodes
-  n_eval_episodes: 4

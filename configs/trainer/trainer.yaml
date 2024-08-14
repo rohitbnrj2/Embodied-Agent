@@ -6,3 +6,8 @@ defaults:
 total_timesteps: 1_000_000
 max_episode_steps: 256
 n_envs: 10
+
+fitness_fn:
+  _target_: cambrian.utils.calculate_fitness_from_evaluations
+  _partial_: true
+  evaluations_npz: ${path:${expdir},evaluations.npz}

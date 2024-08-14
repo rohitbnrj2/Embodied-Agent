@@ -35,6 +35,6 @@ custom:
     # Need to define frequency, euler, and rgba of the top indicator
     # euler: <str>
     # top_rgba: <float> <float> <float> <float>
-    texture_cmap: "blackwhite"
-#     texture_cmap: "redblue"
+#     texture_cmap: "blackwhite"
+    texture_cmap: "redblue"
     texture: "object_textures/${.texture_cmap}_vertical_${.frequency}.png"

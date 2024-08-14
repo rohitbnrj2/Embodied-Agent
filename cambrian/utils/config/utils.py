@@ -72,6 +72,12 @@ def run_hydra(
 
     # Add one default argument for the --hydra-help message
     parser.add_argument(
+        "--no-instantiate",
+        action="store_false",
+        dest="instantiate",
+        help="Don't instantiate the config.",
+    )
+    parser.add_argument(
         "--hydra-help", action="store_true", help="Print the hydra help message."
     )
 
@@ -109,7 +115,7 @@ def run_hydra(
         version_base=None, config_path=str(config_path), config_name=config_name
     )
     @hydra_argparse_override
-    def main(cfg: DictConfig, **fn_kwargs):
+    def main(cfg: DictConfig, instantiate: bool = instantiate, **fn_kwargs):
         from cambrian.utils.config import MjCambrianBaseConfig
 
         if instantiate:

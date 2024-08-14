@@ -11,7 +11,7 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 
 from cambrian.envs import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.ml.model import MjCambrianModel
-from cambrian.utils import evaluate_policy, calculate_fitness_from_monitor
+from cambrian.utils import evaluate_policy
 from cambrian.utils.config import MjCambrianConfig, config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.wrappers import make_wrapped_env
 from cambrian.utils.logger import get_logger
@@ -38,6 +38,8 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
             will evaluate configs that are invalid for training, which is a waste
             computationally. The train method will return -inf if this function returns
             True. NOTE: for nevergrad, it is recommended to use cheap_constraints.
+        fitness_fn (Callable[[MjCambrianConfig, float]]): The function to use to
+            calculate the fitness of the agent after training.
     """
 
     total_timesteps: int
@@ -49,6 +51,7 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
     wrappers: Dict[str, Callable[[VecEnv], VecEnv] | None]
 
     prune_fn: Optional[Callable[[Concatenate[MjCambrianConfig, ...]], bool]] = None
+    fitness_fn: Callable[Concatenate[MjCambrianConfig, ...], float]
 
 
 class MjCambrianTrainer:
@@ -106,7 +109,7 @@ class MjCambrianTrainer:
         Path(self._config.expdir / "finished").touch()
 
         # Calculate fitness
-        fitness = calculate_fitness_from_monitor(self._config.expdir / "monitor.csv")
+        fitness = self._config.trainer.fitness_fn(self._config)
         self._logger.info(f"Final Fitness: {fitness}")
 
         return fitness
@@ -133,9 +136,17 @@ class MjCambrianTrainer:
         evaluate_policy(eval_env, model, n_runs, record_kwargs=record_kwargs)
 
         # Calculate fitness
-        fitness = calculate_fitness_from_monitor(
-            self._config.expdir / "eval_monitor.csv"
-        )
+        fitness = self._config.trainer.fitness_fn(self._config)
+        self._logger.info(f"Final Fitness: {fitness}")
+
+        return fitness
+
+    def test(self) -> float:
+        """This is a test method which tests the evolutionary loop. It will return a
+        fitness consistent with the expected performance of the agent given the config.
+        This can be used to test the optimizer."""
+        # Calculate fitness
+        fitness = self._config.trainer.fitness_fn(self._config)
         self._logger.info(f"Final Fitness: {fitness}")
 
         return fitness
@@ -202,8 +213,9 @@ if __name__ == "__main__":
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--train", action="store_true", help="Train the model")
     action.add_argument("--eval", action="store_true", help="Evaluate the model")
+    action.add_argument("--test", action="store_true", help="Test the evo loop")
 
-    def main(config: MjCambrianConfig, *, train: bool, eval: bool) -> float | None:
+    def main(config: MjCambrianConfig, *, train: bool, eval: bool, test: bool) -> float:
         """This method will return a float if training. The float represents the
         "fitness" of the agent that was trained. This can be used by hydra to
         determine the best hyperparameters during sweeps."""
@@ -213,5 +225,7 @@ if __name__ == "__main__":
             return runner.train()
         elif eval:
             return runner.eval()
+        elif test:
+            return runner.test()
 
     run_hydra(main, parser=parser)

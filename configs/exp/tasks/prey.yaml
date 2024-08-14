@@ -4,6 +4,8 @@
 # is chasing the agent.
 
 defaults:
+  - /exp/tasks/task
+
   # Use one maze for the time being
   - /env/mazes@env.mazes.maze: OPEN
 

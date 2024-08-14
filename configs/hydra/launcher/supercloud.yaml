@@ -26,7 +26,9 @@ cpus_per_task: ${trainer.n_envs}
 gres: gpu:volta:1
 partition: xeon-g6-volta
 constraint: xeon-g6
-array_parallelism: 8 # number of parallel array jobs launched; sc only allows 8 gpus
+
+# number of parallel array jobs launched; NOTE: sc limit is 8 gpus
+array_parallelism: ${eval:'int(${evo.population_size} // ${.tasks_per_node})'}
 
 # these are run prior to calling sbatch before running the job
 setup:

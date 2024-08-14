@@ -14,6 +14,7 @@ from stable_baselines3.common.vec_env import VecEnv
 
 if TYPE_CHECKING:
     from cambrian.ml.model import MjCambrianModel
+    from cambrian.utils.config import MjCambrianConfig
 
 # ============
 
@@ -77,7 +78,7 @@ def evaluate_policy(
 
 
 def calculate_fitness_from_evaluations(
-    evaluations_npz: Path, *, return_data: bool = False
+    config: "MjCambrianConfig", evaluations_npz: Path, *, return_data: bool = False
 ) -> float | Tuple[float, np.ndarray]:
     """Calculate the fitness of the agent. This is done by taking the 3rd quartile of
     the evaluation rewards."""
@@ -105,7 +106,7 @@ def calculate_fitness_from_evaluations(
 
 
 def calculate_fitness_from_monitor(
-    monitor_csv: Path, *, return_data: bool = False
+    config: "MjCambrianConfig", monitor_csv: Path, *, return_data: bool = False
 ) -> float | Tuple[float, Tuple[np.ndarray, np.ndarray]]:
     """Calculate the fitness of the agent. Uses the 3rd quartile of the cumulative
     monitor rewards."""
@@ -518,7 +519,13 @@ def literal_eval_with_callables(
                 attribute = getattr(obj, node.attr)
                 return attribute if callable(attribute) else attribute
         elif isinstance(node, (ast.Tuple, ast.List)):
-            return type(node.elts)(map(_convert, node.elts))
+            elements = []
+            for elt in node.elts:
+                if isinstance(elt, ast.Starred):
+                    elements.extend(_convert(elt.value))
+                else:
+                    elements.append(_convert(elt))
+            return type(node.elts)(elements)
         elif isinstance(node, ast.Dict):
             return {_convert(k): _convert(v) for k, v in zip(node.keys, node.values)}
         elif isinstance(node, ast.UnaryOp):
@@ -575,6 +582,8 @@ def literal_eval_with_callables(
             obj = _convert(node.value)
             index = _convert(node.slice)
             return obj[index]
+        elif isinstance(node, ast.Starred):
+            return _convert(node.value)
         else:
             raise ValueError(f"Unsupported node type: {type(node)}")
 

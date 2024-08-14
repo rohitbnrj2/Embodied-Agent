@@ -7,6 +7,8 @@
 # env.agents.<object name>.custom.frequency directly for each object.
 
 defaults:
+  - /exp/tasks/task
+
   # Use one maze for the time being
   - /env/mazes@env.mazes.maze: OPEN
 
@@ -18,8 +20,8 @@ defaults:
   - /env/agents/eyes@env.agents.agent.eyes.eye: eye
 
   # Define two objects: a goal and an adversary
-  - /env/agents@env.agents.goal: object_sphere_textured_goal
   - /env/agents@env.agents.adversary: object_sphere_textured_adversary
+  - /env/agents@env.agents.goal: object_sphere_textured_goal
 
 custom:
   # This sets both the frequency of the texture of the goal and adversary
@@ -57,6 +59,7 @@ env:
       _target_: cambrian.envs.reward_fns.constant_reward
       _partial_: true
       reward: -0.1
+      for_agents: [agent]
 
     reward_euclidean_delta_to_goal:
       _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents

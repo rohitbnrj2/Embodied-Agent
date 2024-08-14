@@ -14,14 +14,18 @@ timeout_min: ${eval:'60*24'} # 1 day (in min)
 # NOTE: I'm unsure the best way to allocate gpus/cpus (like how many of each we want
 # to use). We'll start with the same as supercloud.
 nodes: 1
-tasks_per_node: ${eval:'int(40 // ${.cpus_per_task})'}
+tasks_per_node: ${eval:'int(20 // ${.cpus_per_task})'}
 cpus_per_task: ${trainer.n_envs}
+mem_per_cpu: 6G
 gres: gpu:a100:1
-array_parallelism: 8 # number of parallel array jobs launched
 
-# Setting the qos to the lab name has the highest priority (10). `normal` is 5 and `use-everything` is 0.
-qos: cbmm
-partition: cbmm
+# number of parallel array jobs launched
+array_parallelism: ${eval:'int(${evo.population_size} // ${.tasks_per_node})'}
+
+# Setting the qos/partition to the lab name has the highest priority (10).
+# `normal` is 5 and `use-everything` is 0.
+qos: normal
+partition: normal
 
 # these are run prior to calling sbatch before running the job
 setup:

@@ -1,26 +1,21 @@
 # @package _global_
 
-# Update the seed based on the current generation and rank such that each agent's is unique
+# Update the seed based on the current generation and rank such that each agent's is
+# unique
 seed: |
-  ${eval:'${trainer.n_envs} * (${evo.generation} *
-  ${evo.num_agents_per_node} * ${evo.num_nodes} +
-  ${evo.global_rank})'}
+  ${eval:'${trainer.n_envs} * (${evo.generation} * ${evo.population_size} + ${evo.rank})'}
 
 # Update the subdir to use the generation and rank syntax
-expsubdir: generation_${evo.generation}/rank_${evo.global_rank}
+expsubdir: generation_${evo.generation}/rank_${evo.rank}
 
 # Now, update the evo variables
 evo:
-  # The number of nodes in the slurm array job, and how many individual tasks to run
-  # on each node (i.e. how many parallel agents to train).
-  num_nodes: ${oc.env:SLURM_ARRAY_TASK_COUNT,1}
-  num_agents_per_node: ${oc.env:SLURM_NTASKS,1}
+  # How many agents are in a single generation.
+  population_size: 16
 
-  # The local rank of the agent on the node, and the global rank of the agent across
-  # all nodes.
-  local_rank: ${oc.env:SLURM_PROCID,0}
-  global_rank: ${eval:'${oc.env:SLURM_ARRAY_TASK_ID, 0} * ${.num_agents_per_node} + ${.local_rank}'}
+  # The rank is essentially the unique id for an agent within a generation.
+  rank: ${eval:'int(${hydra_select:job.num, 0} % ${.population_size})'}
 
   # The current generation of the agent, and the total number of generations to run.
   num_generations: 50
-  generation: ${eval:'int((${hydra_select:job.num, 0} - ${.global_rank}) / (${.num_agents_per_node} * ${.num_nodes}))'}
+  generation: ${eval:'int(${hydra_select:job.num, 0} // ${.population_size})'}

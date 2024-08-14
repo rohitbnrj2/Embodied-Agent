@@ -4,6 +4,8 @@
 # are treated as 'agents' which move.
 
 defaults:
+  - /exp/tasks/task
+
   # Use one maze for the time being
   - /env/mazes@env.mazes.maze: OPEN
 

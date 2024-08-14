@@ -161,7 +161,8 @@ class MjCambrianEye:
         self._model = model
         self._data = data
 
-        self._renderer.reset(model, data, *self._config.resolution)
+        resolution = [self._renderer.config.width, self._renderer.config.height]
+        self._renderer.reset(model, data, *resolution)
 
         self._fixedcamid = get_camera_id(model, self._name)
         assert self._fixedcamid != -1, f"Camera '{self._name}' not found."

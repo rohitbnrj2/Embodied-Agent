@@ -282,8 +282,12 @@ def constant_reward(
     info: Dict[str, Any],
     *,
     reward: float,
+    for_agents: Optional[List[str]] = None,
 ) -> float:
     """Returns a constant reward."""
+    # Early exit if the agent is not in the for_agents list
+    if for_agents is not None and agent.name not in for_agents:
+        return 0
     return reward
 
 

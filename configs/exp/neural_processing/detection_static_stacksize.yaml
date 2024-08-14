@@ -26,7 +26,7 @@ env:
 
   termination_fn:
     terminate_if_agent_facing_goal:
-      _target_: cambrian.envs.done_fns.done_if_agents_facing_agents
+      _target_: cambrian.envs.done_fns.done_if_facing_agents
       _partial_: true
       to_agents: [goal]
       n_frames: 25
