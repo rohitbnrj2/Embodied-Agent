@@ -18,7 +18,9 @@ tasks_per_node: ${eval:'int(20 // ${.cpus_per_task})'}
 cpus_per_task: ${trainer.n_envs}
 gres: gpu:1
 mem_per_cpu: 6GB
-array_parallelism: 8 # number of parallel array jobs launched
+
+# number of parallel array jobs launched; NOTE: sc limit is 8 gpus
+array_parallelism: ${eval:'int(${evo.population_size} // ${.tasks_per_node})'}
 
 # Set the partition to sbel
 partition: sbel

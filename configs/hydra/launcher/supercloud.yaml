@@ -24,6 +24,7 @@ nodes: 1
 tasks_per_node: ${eval:'int(20 // ${.cpus_per_task})'}
 cpus_per_task: ${trainer.n_envs}
 gres: gpu:volta:1
+mem_per_cpu: 6GB
 partition: xeon-g6-volta
 constraint: xeon-g6
 
