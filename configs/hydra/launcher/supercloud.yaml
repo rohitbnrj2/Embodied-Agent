@@ -29,7 +29,7 @@ partition: xeon-g6-volta
 constraint: xeon-g6
 
 # number of parallel array jobs launched; NOTE: sc limit is 8 gpus
-array_parallelism: ${eval:'int(${evo.population_size} // ${.tasks_per_node})'}
+array_parallelism: ${eval:'int(${oc.select:evo.population_size, 16} // ${.tasks_per_node})'}
 
 # these are run prior to calling sbatch before running the job
 setup:
