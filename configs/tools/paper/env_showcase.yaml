@@ -25,6 +25,21 @@ overrides:
     - "env.agents.agent.num_eyes_to_generate.1=1"
     - "env.agents.agent.eyes_lon_range=[-45,45]"
     - "env.agents.agent.eyes.eye.resolution=[1,1]"
+  bev_1eye_10x10res_15lon:
+    - "env/renderer=bev"
+    - "env.agents.agent.num_eyes_to_generate.1=1"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[10,10]"
+    - 'env.agents.agent.eyes.eye.fov=[60,60]'
+  bev_1eye_10x10res_15lon_ortho:
+    - "env/renderer=bev"
+    - "env.agents.agent.num_eyes_to_generate.1=1"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[10,10]"
+    - "env.agents.agent.eyes.eye.orthographic=True"
+    - 'env.agents.agent.eyes.eye.fov=[10,10]'
   bev_2eye_1x1res_45lon:
     - "env.add_overlays=False"
     - "env/renderer=tracking"
@@ -34,6 +49,21 @@ overrides:
     - "env.agents.agent.num_eyes_to_generate.1=2"
     - "env.agents.agent.eyes_lon_range=[-45,45]"
     - "env.agents.agent.eyes.eye.resolution=[1,1]"
+  bev_2eye_10x10res_15lon:
+    - "env/renderer=bev"
+    - "env.agents.agent.num_eyes_to_generate.1=2"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[10,10]"
+    - 'env.agents.agent.eyes.eye.fov=[60,60]'
+  bev_2eye_10x10res_15lon_ortho:
+    - "env/renderer=bev"
+    - "env.agents.agent.num_eyes_to_generate.1=2"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[10,10]"
+    - "env.agents.agent.eyes.eye.orthographic=True"
+    - 'env.agents.agent.eyes.eye.fov=[10,10]'
   bev_3eye_1x1res_45lon:
     - "env.add_overlays=False"
     - "env/renderer=tracking"
@@ -166,6 +196,66 @@ overrides:
     - "env.agents.agent.num_eyes_to_generate.1=1"
     - "env.agents.agent.eyes_lon_range=[-45,45]"
     - "env.agents.agent.eyes.eye.resolution=[200,200]"
+  pov_1eye_10x10res_15lon:
+    - "env.render_agent_composite_only=True"
+    - "env.agents.agent.num_eyes_to_generate.1=1"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[10,10]"
+    - 'env.agents.agent.eyes.eye.fov=[60,60]'
+  pov_1eye_10x10res_15lon_ortho:
+    - "env.render_agent_composite_only=True"
+    - "env.agents.agent.num_eyes_to_generate.1=1"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[10,10]"
+    - "env.agents.agent.eyes.eye.orthographic=True"
+    - 'env.agents.agent.eyes.eye.fov=[10,10]'
+  pov_1eye_100x100res_15lon:
+    - "env.render_agent_composite_only=True"
+    - "env.agents.agent.num_eyes_to_generate.1=1"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[100,100]"
+    - 'env.agents.agent.eyes.eye.fov=[60,60]'
+  pov_1eye_100x100res_15lon_ortho:
+    - "env.render_agent_composite_only=True"
+    - "env.agents.agent.num_eyes_to_generate.1=1"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[100,100]"
+    - "env.agents.agent.eyes.eye.orthographic=True"
+    - 'env.agents.agent.eyes.eye.fov=[10,10]'
+  pov_2eye_10x10res_15lon:
+    - "env.render_agent_composite_only=True"
+    - "env.agents.agent.num_eyes_to_generate.1=2"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[10,10]"
+    - 'env.agents.agent.eyes.eye.fov=[60,60]'
+  pov_2eye_10x10res_15lon_ortho:
+    - "env.render_agent_composite_only=True"
+    - "env.agents.agent.num_eyes_to_generate.1=2"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[10,10]"
+    - "env.agents.agent.eyes.eye.orthographic=True"
+    - 'env.agents.agent.eyes.eye.fov=[10,10]'
+  pov_2eye_100x100res_15lon:
+    - "env.render_agent_composite_only=True"
+    - "env.agents.agent.num_eyes_to_generate.1=2"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[100,100]"
+    - 'env.agents.agent.eyes.eye.fov=[60,60]'
+  pov_2eye_100x100res_15lon_ortho:
+    - "env.render_agent_composite_only=True"
+    - "env.agents.agent.num_eyes_to_generate.1=2"
+    - "env.add_overlays=False"
+    - "env.agents.agent.eyes_lon_range=[-15,15]"
+    - "env.agents.agent.eyes.eye.resolution=[100,100]"
+    - "env.agents.agent.eyes.eye.orthographic=True"
+    - 'env.agents.agent.eyes.eye.fov=[10,10]'
   pov_3eye_1x1res_45lon:
     - "env.add_overlays=False"
     - "env.render_agent_composite_only=True"

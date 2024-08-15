@@ -13,6 +13,7 @@ sensorsize:
   - ${eval:'2 * ${..focal.1} * math.tan(math.radians(${..fov.1}) / 2)'}
 resolution: [1, 1]
 coord: [0, 0] # placeholder
+orthographic: False
 
 renderer:
   render_modes: [rgb_array]

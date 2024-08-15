@@ -81,6 +81,8 @@ def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
 
         env.record = True
         env.reset(seed=exp_config.seed)
+        for agent in env.agents.values():
+            agent.step()
         for _ in range(30):
             mj.mj_step(env.model, env.data)
             env.render()

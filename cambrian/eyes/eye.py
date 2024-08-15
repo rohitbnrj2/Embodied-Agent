@@ -34,6 +34,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
             Specified in degrees. This attr isn't actually used by eye, but by the
             agent. The eye has no knowledge of the geometry it's trying to be placed
             on. Fmt: lat lon
+        orthographic (bool): Whether the camera is orthographic
 
         renderer (MjCambrianRendererConfig): The renderer config to use for the
             underlying renderer. The width and height of the renderer will be set to the
@@ -47,6 +48,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
     sensorsize: Tuple[float, float]
     resolution: Tuple[int, int]
     coord: Tuple[float, float]
+    orthographic: bool
 
     renderer: MjCambrianRendererConfig
 
@@ -130,6 +132,7 @@ class MjCambrianEye:
             focal=" ".join(map(str, self._config.focal)),
             sensorsize=" ".join(map(str, self._config.sensorsize)),
             resolution=" ".join(map(str, resolution)),
+            orthographic=str(self._config.orthographic).lower(),
         )
 
         return xml

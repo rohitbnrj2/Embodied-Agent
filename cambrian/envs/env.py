@@ -346,7 +346,7 @@ class MjCambrianEnv(ParallelEnv):
             self._overlays["Name"] = self._name
             self._overlays["Total Timesteps"] = self.num_timesteps
             self._overlays["Step"] = self._episode_step
-            self._overlays["Cumulative Reward"] = str(round(self._cumulative_reward, 2))
+            self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
 
         return obs, reward, terminated, truncated, info
 

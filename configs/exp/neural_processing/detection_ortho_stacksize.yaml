@@ -1,0 +1,17 @@
+# @package _global_
+
+defaults:
+  - /exp/neural_processing/detection_stacksize
+  # - override /env/agents@env.agents.agent: point_maze_optimal
+
+# env:
+#   agents:
+#     agent:
+#       # instance:
+#       #   use_optimal_trajectory: false
+#       eyes:
+#         eye:
+#           fov:
+#             - 10
+#             - ${.0}
+#           orthographic: True
