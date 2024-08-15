@@ -1,40 +1,16 @@
 # @package _global_
 
 # This task is for tracking of an object. It's similar to detection, but the object(s)
-# are treated as 'agents' which move.
+# move.
 
 defaults:
-  - /exp/tasks/task
+  - /exp/tasks/detection
 
-  # Use one maze for the time being
-  - /env/mazes@env.mazes.maze: OPEN
-
-  # Use the maze_exp config as the base
-  - /exp/maze_exp
-
-  # Define one agent which will be trainable
-  - /env/agents@env.agents.agent: point
-  - /env/agents/eyes@env.agents.agent.eyes.eye: eye
-
-  # Define a goal and an adversary, which both move around the map
-  - /env/agents@env.agents.goal: point_maze_random_textured
-  - /env/agents@env.agents.adversary: point_maze_random_textured
-
-custom:
-  # Sets the frequency of the texture of the goal. Easier to override.
-  frequency: 8
-
-trainer:
-  total_timesteps: 500_000
-  max_episode_steps: 128 # shorten the episode length
+  # Override the goal and adversary, which both move around the map
+  - override /env/agents@env.agents.goal: point_maze_random_textured
+  - override /env/agents@env.agents.adversary: point_maze_random_textured
 
 env:
-  mazes:
-    maze:
-      agent_id_map:
-        default: [agent]
-        O: [goal, adversary]
-
   agents:
     goal:
       overlay_color: [0.2, 0.8, 0.2, 1]
@@ -48,32 +24,3 @@ env:
         frequency: ${custom.frequency}
         euler: 0 90 0
         top_rgba: 0.8 0.2 0.2 1.0
-
-
-  reward_fn:
-    penalize_if_has_contacts:
-      _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
-      _partial_: true
-      penalty: -1.0
-      for_agents: [agent]
-
-    reward_euclidean_delta_to_object:
-      _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
-      _partial_: true
-      factor: 0.25
-      agents: [goal]
-
-  truncation_fn:
-    truncate_if_close_to_adversary:
-      _target_: cambrian.envs.done_fns.done_if_close_to_agents
-      _partial_: true
-      agents: [adversary]
-      distance_threshold: 1.0
-
-  termination_fn:
-    # Terminate (i.e. succeed) if the agent is close to the goal
-    terminate_if_close_to_goal:
-      _target_: cambrian.envs.done_fns.done_if_close_to_agents
-      _partial_: true
-      agents: [goal]
-      distance_threshold: 1.0

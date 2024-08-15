@@ -566,15 +566,19 @@ class MjCambrianRenderer:
                     "imageio is not compiled with ffmpeg. "
                     "You may need to install it with `pip install imageio[ffmpeg]`."
                 )
+            get_logger().debug(f"Saved visualization at {mp4}")
         if save_mode & MjCambrianRendererSaveMode.PNG:
             png = path.with_suffix(".png")
             imageio.imwrite(png, rgb_buffer[-2])
+            get_logger().debug(f"Saved visualization at {png}")
         if save_mode & MjCambrianRendererSaveMode.GIF:
             gif = path.with_suffix(".gif")
             imageio.mimwrite(gif, rgb_buffer, loop=0, duration=duration)
+            get_logger().debug(f"Saved visualization at {gif}")
         if save_mode & MjCambrianRendererSaveMode.WEBP:
             webp = path.with_suffix(".webp")
             imageio.mimwrite(webp, rgb_buffer, fps=fps, lossless=True)
+            get_logger().debug(f"Saved visualization at {webp}")
 
         self._logger.debug(f"Saved visualization at {path}")
 

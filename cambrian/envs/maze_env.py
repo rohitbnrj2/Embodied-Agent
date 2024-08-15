@@ -230,6 +230,7 @@ class MjCambrianMaze:
         self._reset_locations: List[np.ndarray] = []
         self._reset_agents: List[str] = []
         self._occupied_locations: List[np.ndarray] = []
+        self._agent_locations: Dict[str, int] = {}
 
     def initialize(self, starting_x: float):
         self._starting_x = starting_x
@@ -342,6 +343,7 @@ class MjCambrianMaze:
         locations, if desired."""
         if reset_occupied:
             self._occupied_locations.clear()
+            self._agent_locations.clear()
 
         self._reset_wall_textures(model)
 
@@ -488,8 +490,6 @@ class MjCambrianMaze:
                 if np.linalg.norm(pos - occupied) <= 0.5 * self._config.scale:
                     break
             else:
-                if add_as_occupied:
-                    self._occupied_locations.append(pos)
                 return pos
         raise ValueError(
             f"Could not generate a unique position. {tries} tries failed. "
@@ -502,6 +502,10 @@ class MjCambrianMaze:
     ) -> np.ndarray:
         """Generates a random reset position for an agent.
 
+        Keyword Args:
+            add_as_occupied (bool): Whether to add the chosen location to the
+                occupied locations. Defaults to True.
+
         Returns:
             np.ndarray: The chosen position. Is of size (2,).
         """
@@ -510,7 +514,16 @@ class MjCambrianMaze:
             if agent in self._config.agent_id_map[reset_agent]:
                 reset_locations.append(reset_pos)
 
-        return self._generate_pos(reset_locations, add_as_occupied)
+        # Reset the occupied location if the agent is already in the occupied locations
+        if agent in self._agent_locations:
+            del self._occupied_locations[self._agent_locations[agent]]
+
+        # Generate the pos and assign that pos to the agent
+        pos = self._generate_pos(reset_locations, add_as_occupied)
+        if add_as_occupied:
+            self._agent_locations[agent] = len(self._occupied_locations)
+            self._occupied_locations.append(pos)
+        return pos
 
     # ==================
 

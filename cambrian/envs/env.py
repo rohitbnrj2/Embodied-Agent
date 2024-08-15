@@ -37,6 +37,11 @@ from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.logger import get_logger
 
+MjCambrianStepFn: TypeAlias = Callable[
+    [Concatenate["MjCambrianEnv", Dict[str, Any], Dict[str, Dict[str, Any]], ...]],
+    Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]],
+]
+
 MjCambrianTerminationFn: TypeAlias = Callable[
     Concatenate["MjCambrianEnv", MjCambrianAgent, Dict[str, Any], ...],
     bool,
@@ -64,6 +69,11 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         xml (MjCambrianXMLConfig): The xml for the scene. This is the xml that will be
             used to create the environment. See `MjCambrianXML` for more info.
 
+        step_fn (MjCambrianStepFn): The step function to use. See the `MjCambrianStepFn`
+            for more info. The step fn is called before the termination, truncation, and
+            reward fns, and after the action has been applied to the agents. It takes
+            the environment, the observations, the info dict, and any additional kwargs.
+            Returns the updated observations and info dict.
         termination_fn (MjCambrianTerminationFn): The termination function to use. See
             the `MjCambrianTerminationFn` for more info.
         truncation_fn (MjCambrianTruncationFn): The truncation function to use. See the
@@ -106,6 +116,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
     xml: MjCambrianXMLConfig
 
+    step_fn: MjCambrianStepFn
     termination_fn: MjCambrianTerminationFn
     truncation_fn: MjCambrianTruncationFn
     reward_fn: MjCambrianRewardFn
@@ -264,7 +275,7 @@ class MjCambrianEnv(ParallelEnv):
             self._rollout.setdefault("positions", [])
             self._rollout["positions"].append([a.qpos for a in self._agents.values()])
 
-        return self._update_obs(obs), self._update_info(info)
+        return self._config.step_fn(self, obs, info)
 
     def step(
         self, action: Dict[str, Any]
@@ -316,8 +327,7 @@ class MjCambrianEnv(ParallelEnv):
             obs[name] = agent.step()
 
         # Call helper methods to update the observations, rewards, terminated, and info
-        obs = self._update_obs(obs)
-        info = self._update_info(info)
+        obs, info = self._config.step_fn(self, obs, info)
         terminated = self._compute_terminated(info)
         truncated = self._compute_truncated(info)
         reward = self._compute_reward(terminated, truncated, info)
@@ -325,7 +335,6 @@ class MjCambrianEnv(ParallelEnv):
         self._episode_step += 1
         self._num_timesteps += 1
         self._cumulative_reward += sum(reward.values())
-        self._stashed_cumulative_reward = self._cumulative_reward
 
         if self.record:
             self._rollout["actions"].append(list(action.values()))
@@ -337,7 +346,7 @@ class MjCambrianEnv(ParallelEnv):
             self._overlays["Name"] = self._name
             self._overlays["Total Timesteps"] = self.num_timesteps
             self._overlays["Step"] = self._episode_step
-            self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
+            self._overlays["Cumulative Reward"] = str(round(self._cumulative_reward, 2))
 
         return obs, reward, terminated, truncated, info
 
@@ -369,23 +378,6 @@ class MjCambrianEnv(ParallelEnv):
         # unless there's a force sensor in the model.
         # See https://github.com/openai/gym/issues/1541
         mj.mj_rnePostConstraint(self._model, self._data)
-
-    def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
-        """Overridable method to update the observations. This class will just return
-        the observations as is, but subclasses can override this method to provide
-        custom observation updates."""
-        return obs
-
-    def _update_info(
-        self, info: Dict[str, Dict[str, Any]]
-    ) -> Dict[str, Dict[str, Any]]:
-        """Overridable method to update the info. This class will just return the info
-        as is, but subclasses can override this method to provide custom info updates.
-        """
-        for name, agent in self._agents.items():
-            info[name]["qpos"] = agent.qpos
-
-        return info
 
     def _compute_terminated(self, info: Dict[str, Any]) -> Dict[str, bool]:
         """Compute whether the env has terminated. Termination indicates success,

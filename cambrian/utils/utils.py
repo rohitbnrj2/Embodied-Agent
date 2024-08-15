@@ -130,7 +130,7 @@ def parse_evaluations_npz(evaluations_npz: Path) -> Dict[str, np.ndarray]:
     assert (
         evaluations_npz.exists()
     ), f"Evaluations file {evaluations_npz} does not exist."
-    data = np.load(evaluations_npz)
+    data = np.load(evaluations_npz, allow_pickle=True)
     return {k: data[k] for k in data}
 
 

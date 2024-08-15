@@ -38,13 +38,12 @@ seed: 0
 # just set eval_env: ${env}, ${env} would resolve when these overrides are applied and
 # any overrides of env in that config or downstream configs wouldn't be present in
 # eval_env.
-# NOTE: any overrides are independent of ${env}, like if there is a partial target in
-# env, you also have to specify the _partial_ keyword in the eval_env config (if not,
-# hydra will complain since it'll try instantiating the target fully). This is also the
-# case with any targets, like you will need to specify the target in full if you
-# override one here.
+# NOTE: Instantiated configs are instantiated _before_ merge_with_kwargs is called.
+# Therefore, we need to specify _recursive_: false so `config` isn't instantiated early.
+# Then, in merge_with_kwargs, we instantiate the config.
 eval_env:
   _target_: cambrian.utils.config.utils.merge_with_kwargs
+  _recursive_: false
   config: ${env}
 
   # Define any ${env} interpolations used in subsequent configs expicitly here,

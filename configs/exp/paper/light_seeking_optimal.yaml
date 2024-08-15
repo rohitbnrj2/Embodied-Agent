@@ -10,3 +10,6 @@ env:
     agent:
       # Set the initial yaw to -pi / 4.
       init_quat: ["${eval:'math.cos(-math.pi/4)'}", 0, 0, "${eval:'math.sin(-math.pi/4)'}"]
+
+      instance:
+        use_optimal_trajectory: false

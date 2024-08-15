@@ -82,12 +82,9 @@ def done_if_facing_agents(
     """Terminates the episode if an agent is facing another agent.
 
     Keyword Args:
-        from_agents (Optional[List[str]]): List of agent names to check for facing.
-            If None, all agents are checked. Defaults to None.
-        to_agents (Optional[List[str]]): List of object names to check for facing.
-            If None, all agents are checked. Defaults to None.
-        for_agents (Optional[List[str]]): List of agent names to check for facing.
-            If None, all agents are checked. Defaults to None.
+        from_agents (List[str]): List of agent names to check facing from.
+        to_agents (List[str]): List of agent names to check facing to.
+        for_agents (List[str]): List of agent names to check facing for.
         angle_threshold (float): Angle threshold for facing. Defaults to 45.
         n_frames (int): Number of frames to check for facing. Defaults to 1.
 

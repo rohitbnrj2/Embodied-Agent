@@ -30,6 +30,16 @@ trainer:
       n_eval_episodes: ${eval_env.n_eval_episodes}
 
 env:
+  # Define the step function for the environment. This is called prior to the
+  # termination, truncation, and reward fns.
+  step_fn:
+    _target_: cambrian.envs.step_fns.step_combined
+    _partial_: true
+
+    step_add_agent_qpos_to_info:
+      _target_: cambrian.envs.step_fns.step_add_agent_qpos_to_info
+      _partial_: true
+
   # Define the termination, truncation, and reward fns. All will use the combined_*
   # functions to combine multiple functions into one. Default fns are then added
   # that _should_ be applied to all sub-configs.
@@ -37,22 +47,17 @@ env:
     _target_: cambrian.envs.done_fns.done_combined
     _partial_: true
 
-    # No termination fns by default; this will always return false
-    never_terminate:
-      _target_: cambrian.envs.done_fns.done_never
+    # Terminate (good) if the max episode steps is exceeded
+    terminate_if_exceeds_max_episode_steps:
+      _target_: cambrian.envs.done_fns.done_if_exceeds_max_episode_steps
       _partial_: true
 
   truncation_fn:
     _target_: cambrian.envs.done_fns.done_combined
     _partial_: true
 
-    # Truncate (good) if the max episode steps is exceeded
-    exceeds_max_epsiode_steps:
-      _target_: cambrian.envs.done_fns.done_if_exceeds_max_episode_steps
-      _partial_: true
-
   reward_fn:
-    _target_: cambrian.envs.reward_fns.combined_reward
+    _target_: cambrian.envs.reward_fns.reward_combined
     _partial_: true
 
     reward_for_termination:

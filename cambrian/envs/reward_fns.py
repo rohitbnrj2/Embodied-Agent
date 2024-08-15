@@ -18,13 +18,13 @@ def reward_for_termination(
     info: Dict[str, Any],
     *,
     reward: float,
+    for_agents: Optional[List[str]] = None,
 ) -> float:
     """Terminated indicates that the episode was ended early in a success.
     Returns termination_reward if terminated, else reward."""
+    if for_agents is not None and agent.name not in for_agents:
+        return 0.0
     return reward if terminated else 0.0
-
-
-reward_for_quick_termination = reward_for_termination
 
 
 def reward_for_truncation(
@@ -35,13 +35,13 @@ def reward_for_truncation(
     info: Dict[str, Any],
     *,
     reward: float,
+    for_agents: Optional[List[str]] = None,
 ) -> float:
     """Truncated indicates that the episode was ended early in a failure.
     Returns truncation_reward if truncated, else reward."""
+    if for_agents is not None and agent.name not in for_agents:
+        return 0.0
     return reward if truncated else 0.0
-
-
-reward_for_quick_truncation = reward_for_truncation
 
 
 def euclidean_delta_from_init(
@@ -125,6 +125,73 @@ def reward_euclidean_delta_to_agents(
             continue
 
         accumulated_reward = delta
+
+    return accumulated_reward
+
+
+def reward_if_agents_respawned(
+    env: MjCambrianEnv,
+    agent: MjCambrianAgent,
+    terminated: bool,
+    truncated: bool,
+    info: Dict[str, Any],
+    *,
+    reward: float,
+    for_agents: Optional[List[str]] = None,
+) -> float:
+    """This reward function rewards the agent if it has been respawned."""
+    # Early exit if the agent is not in the for_agents list
+    if for_agents is not None and agent.name not in for_agents:
+        return 0
+
+    return reward if info.get("respawned", False) else 0.0
+
+
+def reward_if_close_to_agents(
+    env: MjCambrianEnv,
+    agent: MjCambrianAgent,
+    terminated: bool,
+    truncated: bool,
+    info: Dict[str, Any],
+    *,
+    reward: float,
+    distance_threshold: float,
+    for_agents: Optional[List[str]] = None,
+    from_agents: Optional[List[str]] = None,
+    to_agents: Optional[List[str]] = None,
+) -> float:
+    """This reward function rewards the agent if it is close to another agent.
+
+    Keyword Args:
+        reward (float): The reward to give the agent if it is close to another agent.
+            Default is 0.
+        distance_threshold (float): The distance threshold to check if the agent is
+            close to another agent.
+        for_agents (Optional[List[str]]): The names of the agents that the reward
+            should be calculated for. If None, the reward will be calculated for all
+            agents.
+        from_agents (Optional[List[str]]): The names of the agents that the reward
+            should be calculated from. If None, the reward will be calculated from all
+            agents.
+        to_agents (Optional[List[str]]): The names of the agents that the reward
+            should be calculated to. If None, the reward will be calculated to all
+            agents.
+    """
+    accumulated_reward = 0
+    for agent_name, agent in env.agents.items():
+        if for_agents is not None and agent_name not in for_agents:
+            continue
+        if from_agents is not None and agent_name not in from_agents:
+            continue
+
+        for other_agent_name, other_agent in env.agents.items():
+            if to_agents is not None and other_agent_name not in to_agents:
+                continue
+            if agent_name == other_agent_name:
+                continue
+
+            if np.linalg.norm(agent.pos - other_agent.pos) < distance_threshold:
+                accumulated_reward += reward
 
     return accumulated_reward
 
@@ -291,7 +358,7 @@ def constant_reward(
     return reward
 
 
-def combined_reward(
+def reward_combined(
     env: MjCambrianEnv,
     agent: MjCambrianAgent,
     terminated: bool,

@@ -36,9 +36,15 @@ env:
         O: [goal]
 
   reward_fn:
+    reward_for_termination:
+      for_agents: [agent]
+    reward_for_truncation:
+      for_agents: [agent]
+
     euclidean_delta_from_init:
       _target_: cambrian.envs.reward_fns.euclidean_delta_from_init
       _partial_: true
+      factor: 0.25
 
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
@@ -46,15 +52,23 @@ env:
       penalty: -1.0
       for_agents: [agent]
 
-  truncation_fn:
-    truncate_if_low_reward:
-      _target_: cambrian.envs.done_fns.done_if_low_reward
-      _partial_: true
-      threshold: -50.0
-
   termination_fn:
     terminate_if_close_to_goal:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
       agents: [goal]
       distance_threshold: 1.0
+
+eval_env:
+  reward_fn:
+    reward_for_termination:
+      # large positive reward for termination; only happens when the agent makes it to
+      # the end of the eval episode w/o being close to the adversary
+      reward: 20.0
+    euclidean_delta_from_init:
+      # increase reward for moving from the initial position
+      factor: 2.5
+    penalize_if_has_contacts:
+      # large negative reward for contacts
+      penalty: -10.0
+      for_agents: [agent]

@@ -248,7 +248,9 @@ def build_pattern(patterns: List[str]) -> str:
 # ===========
 
 
-def merge_with_kwargs(config: DictConfig, **kwargs) -> DictConfig:
+def merge_with_kwargs(
+    config: DictConfig, *, instantiate: bool = True, **kwargs
+) -> DictConfig:
     """This method will merge the kwargs into the config. This is useful for merging
     "late", as in after the config has been resolved (not instantiated). By specifying
     the merge to happen at instantiation time rather than at resolution time, it gives
@@ -260,11 +262,18 @@ def merge_with_kwargs(config: DictConfig, **kwargs) -> DictConfig:
     ```yaml
     config_to_merge_late:
         _target_: <path_to>.merge_with_kwargs
-        config: ${...} # this is what the kwargs arge merged into
+        _recursive_: False
+        config: ${...} # this is what the kwargs are merged into
         kwarg1: value1
         kwarg2: value2
         ...
     ```
+
+    NOTE: You may want _recursive_=False (as above) to avoid instantiating the config
+    before merging the kwargs. If you want to override a config attribute in the config
+    object which is instantiated (i.e. is a partial), you won't have access to the
+    config attribute (only the partial object), so you would want _recursive_=False.
+    Simpler cases can just use _recursive_=True.
 
     Args:
         config (DictConfig): The config to merge the kwargs into.
@@ -275,6 +284,10 @@ def merge_with_kwargs(config: DictConfig, **kwargs) -> DictConfig:
     for key, value in kwargs.items():
         OmegaConf.update(config, key, value)
 
+    if instantiate:
+        import hydra
+
+        return hydra.utils.instantiate(config)
     return config
 
 
