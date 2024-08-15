@@ -21,6 +21,33 @@ def nevergrad_constraint_fn(
     return get_method(fn)(**arguments)
 
 
+def constrain_total_pixels(
+    *,
+    num_eyes_to_generate: Tuple[int, int],
+    resolution: Tuple[int, int],
+    max_num_pixels: int,
+):
+    """This constraint method will check whether the total number of pixels generated
+    is less than a certain threshold."""
+    pixels_per_eye = resolution[0] * resolution[1]
+    number_of_eyes = num_eyes_to_generate[0] * num_eyes_to_generate[1]
+    return pixels_per_eye * number_of_eyes <= max_num_pixels
+
+
+def constraint_total_memory_throughput(
+    *,
+    num_eyes_to_generate: Tuple[int, int],
+    resolution: Tuple[int, int],
+    stack_size: int,
+    max_pixels_in_memory: int,
+):
+    """This constraint method will check whether the total number of pixels generated
+    is less than a certain threshold."""
+    pixels_per_eye = resolution[0] * resolution[1]
+    number_of_eyes = num_eyes_to_generate[0] * num_eyes_to_generate[1]
+    return pixels_per_eye * number_of_eyes * stack_size <= max_pixels_in_memory
+
+
 def constrain_morphologically_feasible_eyes(
     *,
     num_eyes_to_generate: int,
@@ -83,20 +110,3 @@ def constrain_total_num_eyes(
     """This constraint method will check whether the total number of eyes generated
     is less than a certain threshold."""
     return num_eyes_to_generate[0] * num_eyes_to_generate[1] <= max_num_eyes
-
-
-def constrain_total_pixels(
-    *,
-    num_eyes_to_generate: Tuple[int, int],
-    resolution: Tuple[int, int],
-    max_num_pixels: int,
-):
-    """This constraint method will check whether the total number of pixels generated
-    is less than a certain threshold."""
-    return (
-        num_eyes_to_generate[0]
-        * resolution[0]
-        * num_eyes_to_generate[1]
-        * resolution[1]
-        <= max_num_pixels
-    )

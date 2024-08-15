@@ -8,6 +8,6 @@ max_episode_steps: 256
 n_envs: 10
 
 fitness_fn:
-  _target_: cambrian.utils.calculate_fitness_from_evaluations
+  _target_: cambrian.utils.calculate_fitness_from_monitor
   _partial_: true
-  evaluations_npz: ${path:${expdir},evaluations.npz}
+  evaluations_npz: ${path:${expdir},eval_monitor.csv}

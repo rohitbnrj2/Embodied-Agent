@@ -1,7 +1,7 @@
 # @package _global_
 
-# NOTE: Uses a subset of the full serach space, like assumes that the optimization is
-# only performed for the longtidunal axis.
+# NOTE: Uses a subset of the full search space, like assumes that the optimization is
+# only performed for the longitudinal axis.
 
 hydra:
   sweeper:

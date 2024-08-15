@@ -1,11 +1,5 @@
 defaults:
-  # Set to use submitit_slurm
-  - /hydra/launcher/submitit_slurm@_here_
-
-# Set the timeout of each individual job to 1 day. Note that this isn't the total job
-# length. It is recommended to start the "daemon" job using srun/sbatch on a low
-# compute node. This way, you can limit the total job length to some maximum value.
-timeout_min: ${eval:'60*24'} # 1 day (in min)
+  - slurm
 
 # Supercloud only allows allocation of 40 cpus and 8 gpus at any one time. To optimize
 # usage of resources, we want to use all 40 cpus and 8 gpus and also have multiple
@@ -20,20 +14,6 @@ timeout_min: ${eval:'60*24'} # 1 day (in min)
 # 20 // cpus_per_task. This will allow us to run the maximum number of trainers on each
 # node while still allowing for another trainer to run on the same node. In this way,
 # there will be 8 total trainers running on each node (1 per gpu, each with 20 cpus).
-nodes: 1
-tasks_per_node: ${eval:'int(20 // ${.cpus_per_task})'}
-cpus_per_task: ${trainer.n_envs}
 gres: gpu:volta:1
-mem_per_cpu: 6GB
 partition: xeon-g6-volta
 constraint: xeon-g6
-
-# number of parallel array jobs launched; NOTE: sc limit is 8 gpus
-array_parallelism: ${eval:'int(${oc.select:evo.population_size, 16} // ${.tasks_per_node})'}
-
-# these are run prior to calling sbatch before running the job
-setup:
-  - source /etc/profile
-  - export TF_CPP_MIN_LOG_LEVEL=2
-  - export OPENBLAS_NUM_THREADS=1
-  - export PMIX_MCA_gds=hash
