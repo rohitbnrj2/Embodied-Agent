@@ -29,20 +29,28 @@ def constrain_total_pixels(
 ):
     """This constraint method will check whether the total number of pixels generated
     is less than a certain threshold."""
+    if is_number(num_eyes_to_generate):
+        num_eyes_to_generate = (1, num_eyes_to_generate)
+    if is_number(resolution):
+        resolution = (resolution, 1)
     pixels_per_eye = resolution[0] * resolution[1]
     number_of_eyes = num_eyes_to_generate[0] * num_eyes_to_generate[1]
     return pixels_per_eye * number_of_eyes <= max_num_pixels
 
 
-def constraint_total_memory_throughput(
+def constrain_total_memory_throughput(
     *,
-    num_eyes_to_generate: Tuple[int, int],
-    resolution: Tuple[int, int],
+    num_eyes_to_generate: Tuple[int, int] | int,
+    resolution: Tuple[int, int] | int,
     stack_size: int,
     max_pixels_in_memory: int,
 ):
     """This constraint method will check whether the total number of pixels generated
     is less than a certain threshold."""
+    if is_number(num_eyes_to_generate):
+        num_eyes_to_generate = (1, num_eyes_to_generate)
+    if is_number(resolution):
+        resolution = (resolution, 1)
     pixels_per_eye = resolution[0] * resolution[1]
     number_of_eyes = num_eyes_to_generate[0] * num_eyes_to_generate[1]
     return pixels_per_eye * number_of_eyes * stack_size <= max_pixels_in_memory
@@ -85,8 +93,10 @@ def constrain_morphologically_feasible_eyes(
         pixel_size (float): The pixel size of the eye. This is used to calculate the
             total width of the eyes. Default is 0.01.
     """
+    if is_number(num_eyes_to_generate):
+        num_eyes_to_generate = (1, num_eyes_to_generate)
     if is_number(resolution):
-        resolution = (resolution, resolution)
+        resolution = (resolution, 1)
     if is_number(lon_range):
         lon_range = (-abs(lon_range), abs(lon_range))
 

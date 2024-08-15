@@ -1,0 +1,9 @@
+# @package _global_
+
+defaults:
+  - /exp/tasks/mutations:
+      - num_eyes1
+      - resolution0
+      - stacksize
+
+  - /exp/tasks/constraints/morphological_feasibility_small
