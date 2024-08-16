@@ -52,6 +52,12 @@ env:
       penalty: -1.0
       for_agents: [agent]
 
+  truncation_fn:
+    truncate_if_low_reward:
+      _target_: cambrian.envs.done_fns.done_if_low_reward
+      _partial_: true
+      threshold: -200.0
+
   termination_fn:
     terminate_if_close_to_goal:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
