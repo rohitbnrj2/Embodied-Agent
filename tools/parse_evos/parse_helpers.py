@@ -138,7 +138,10 @@ def load_data(config: ParseEvosConfig) -> Data:
         uid_to_parent_uid: Dict[str, str] = {}
         for param in loaded_parameters:
             uid = param["#uid"]
-            generation = param["#generation"] - 1  # 1-indexed, convert to 0 indexed
+            if "CMA" in param["#optimizer"]:
+                generation = param["#generation"] - 1  # 1-indexed, convert to 0 indexed
+            elif "DE" in param["#optimizer"]:
+                generation = param["#generation"]
             rank = param["#num-tell"] % int(param["#num-ask"] // (generation + 1))
 
             uid_to_rank_and_generation[uid] = (rank, generation)
@@ -197,7 +200,7 @@ def load_data(config: ParseEvosConfig) -> Data:
                     rank_data.eval_fitness,
                     rank_data.evaluations,
                 ) = calculate_fitness_from_evaluations(
-                    evaluations_file, return_data=True
+                    None, evaluations_file, return_data=True
                 )
 
             # Get the monitor file
@@ -206,7 +209,7 @@ def load_data(config: ParseEvosConfig) -> Data:
                 (
                     rank_data.train_fitness,
                     rank_data.monitor,
-                ) = calculate_fitness_from_monitor(monitor_file, return_data=True)
+                ) = calculate_fitness_from_monitor(None, monitor_file, return_data=True)
 
             # If we're loading nevergrad data, we do that here to store the parent rank
             # and generation
@@ -290,6 +293,8 @@ def get_color_label(color_data: ColorData | None) -> str:
         return ""
     elif color_data.type is ColorType.SOLID:
         label = "Color"
+    elif color_data.type is ColorType.CONFIG:
+        label = color_data.pattern
     elif color_data.type is ColorType.GENERATION:
         label = "Generation"
     elif color_data.type is ColorType.RANK:
@@ -310,6 +315,15 @@ def parse_color_data(
     if color_data.type is ColorType.SOLID:
         assert color_data.color is not None, "Color is required for solid color."
         color = color_data.color
+    elif color_data.type is ColorType.CONFIG:
+        assert rank_data.config is not None, "Config is required for CONFIG."
+        assert color_data.pattern is not None, "Pattern is required for CONFIG."
+        color = rank_data.config.glob(color_data.pattern, flatten=True)
+        pattern = color_data.pattern.split(".")[-1]
+        assert pattern in color, f"Pattern {color_data.pattern} not found."
+        color = color[pattern]
+        if isinstance(color, list):
+            color = np.average(color)
     elif color_data.type is ColorType.GENERATION:
         assert color_data.cmap is not None or (
             color_data.start_color is not None and color_data.end_color is not None

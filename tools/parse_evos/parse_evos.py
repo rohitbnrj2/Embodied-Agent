@@ -102,6 +102,13 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                                 plot.name,
                             ]
                         continue
+                except Exception as e:
+                    if config.debug:
+                        get_logger().error(f"Error parsing plot {plot.name}")
+                        raise e
+                    else:
+                        get_logger().error(f"Error parsing plot {plot.name}: {e}")
+                    continue
 
                 x_data, xlabel = x_data
                 y_data, ylabel = y_data

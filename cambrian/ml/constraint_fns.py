@@ -102,7 +102,7 @@ def constrain_morphologically_feasible_eyes(
 
     # Total width of each eye
     sensor_width = resolution[0] * pixel_size
-    total_width = sensor_width * num_eyes_to_generate
+    total_width = sensor_width * num_eyes_to_generate[1]
 
     # Check whether the total width is less than the circumference of the agent
     # Only checked in the lon range

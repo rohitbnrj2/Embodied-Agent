@@ -118,6 +118,7 @@ class AxisData:
 
 class ColorType(Enum):
     SOLID = "solid"
+    CONFIG = "config"
     GENERATION = "generation"
     RANK = "rank"
     MONITOR = "monitor"
@@ -134,6 +135,9 @@ class ColorData:
 
     # SOLID
     color: Tuple[float, float, float, float] = (0.65490, 0.78039, 0.90588, 0.75)
+
+    # CONFIG
+    pattern: Optional[str] = None
 
     # GENERATION or RANK
     cmap: Optional[str] = None
