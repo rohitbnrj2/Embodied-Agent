@@ -33,7 +33,7 @@ from parse_types import (
 )
 
 
-def save_data(config: ParseEvosConfig, data: Any, pickle_file: Path):
+def save_data(config: Any, data: Any, pickle_file: Path):
     """Save the parsed data to a pickle file."""
     pickle_file = config.output / pickle_file
     pickle_file.parent.mkdir(parents=True, exist_ok=True)

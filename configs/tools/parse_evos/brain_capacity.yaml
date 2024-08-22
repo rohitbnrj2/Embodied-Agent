@@ -15,6 +15,7 @@ output: ${path:${folder},brain_capacity}
 plots_folder: ${path:${output},plots}
 renders_folder: ${path:${output},renders}
 evals_folder: ${path:${output},evals}
+config_filename: "config.yaml"
 
 force: False
 force_plot: True

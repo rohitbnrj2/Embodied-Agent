@@ -2,16 +2,24 @@
 
 defaults:
   - /exp/neural_processing/detection_stacksize
-  # - override /env/agents@env.agents.agent: point_maze_optimal
 
-# env:
-#   agents:
-#     agent:
-#       # instance:
-#       #   use_optimal_trajectory: false
-#       eyes:
-#         eye:
-#           fov:
-#             - 10
-#             - ${.0}
-#           orthographic: True
+custom:
+  gear: 1.0 # same as default
+  gear_str: ${float_to_str:${.gear}}
+
+env:
+  agents:
+    agent:
+      xml:
+        overrides:
+          - mujoco:
+              - actuator:
+                  - position:
+                      - name: "${parent:xml}_act_yaw"
+                      - gear: "${custom.gear}"
+      eyes:
+        eye:
+          fov:
+            - 10
+            - ${.0}
+          orthographic: True

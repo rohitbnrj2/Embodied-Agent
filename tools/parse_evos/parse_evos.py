@@ -600,7 +600,7 @@ def run_render(config: ParseEvosConfig, data: Data):
             for fname, exp_overrides in config.renders.items():
                 exp_config = MjCambrianConfig.compose(
                     rank_data.path.absolute(),
-                    "config.yaml",
+                    config.config_filename,
                     overrides=[
                         *config.overrides,
                         *exp_overrides,

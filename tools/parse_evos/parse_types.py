@@ -232,6 +232,7 @@ class ParseEvosConfig(MjCambrianBaseConfig):
         plots_folder (Path): The folder to save the plots.
         renders_folder (Path): The folder to save the renders.
         evals_folder (Path): The folder to save the evaluations.
+        config_filename (Path): The filename of the config file.
 
         force (bool): Force loading of the data. If not passed, this script will try to
             find a parse_evos.pkl file and load that instead.
@@ -279,6 +280,7 @@ class ParseEvosConfig(MjCambrianBaseConfig):
     plots_folder: Path
     renders_folder: Path
     evals_folder: Path
+    config_filename: Path
 
     force: bool
     force_plot: bool
