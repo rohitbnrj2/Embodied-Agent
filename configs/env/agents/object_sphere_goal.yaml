@@ -1,6 +1,9 @@
 defaults:
   - object_sphere
 
+custom:
+  size: 0.5
+
 xml:
   overrides:
     - mujoco:
@@ -13,3 +16,13 @@ xml:
                 - name: ${parent:xml}_top_mat
                 - rgba: 0.2 0.8 0.2 1.0
                 - emission: 1
+        - worldbody:
+            - body:
+                - name: ${parent:xml}_body
+                - geom:
+                    - name: ${parent:xml}_geom
+                    - size: ${${search:${parent:xml},path}.custom.size}
+                - site:
+                    - name: ${parent:xml}_top_site
+                    - size: ${eval:'${${search:${parent:xml},path}.custom.size} / 2'}
+                    - pos: 0 0 ${${search:${parent:xml},path}.custom.size}

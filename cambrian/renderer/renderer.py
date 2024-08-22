@@ -569,7 +569,8 @@ class MjCambrianRenderer:
             get_logger().debug(f"Saved visualization at {mp4}")
         if save_mode & MjCambrianRendererSaveMode.PNG:
             png = path.with_suffix(".png")
-            imageio.imwrite(png, rgb_buffer[-2])
+            idx = -2 if len(rgb_buffer) > 1 else -1
+            imageio.imwrite(png, rgb_buffer[idx])
             get_logger().debug(f"Saved visualization at {png}")
         if save_mode & MjCambrianRendererSaveMode.GIF:
             gif = path.with_suffix(".gif")
@@ -638,5 +639,5 @@ if __name__ == "__main__":
             renderer.render()
 
     # Recommended to use these args:
-    # env.xml.base_xml_path=models/test.xml env/renderer=fixed
+    # env.xml.base_xml_path=models/blocks.xml env/renderer=fixed
     run_hydra(main)

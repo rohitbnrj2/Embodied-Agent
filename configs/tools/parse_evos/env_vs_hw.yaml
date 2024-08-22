@@ -219,6 +219,26 @@ plots:
       type: EVALUATION
       cmap: RdYlGn
       clim: ${custom.clim}
+  resolution_vs_generation_vs_fitness_color_vs_numeyes_size:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: CONFIG
+      pattern: env.(agents|animals).*.eyes.*.resolution[0]
+      label: Resolution
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+    size_data:
+      type: CUSTOM
+      label: Number of Eyes
+      custom_fn:
+        _target_: custom_size_fns.eval_safe
+        _partial_: True
+        src: math.prod(num_eyes_to_generate[0])
+        patterns:
+          num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
   resolution_vs_generation_vs_training_color:
     x_data:
       type: GENERATION
@@ -277,13 +297,14 @@ plots:
       type: MONITOR
       cmap: RdYlGn
       clim: ${custom.clim}
-  resolution_vs_number_of_eyes_vs_fitness_color: &resolution_vs_number_of_eyes_vs_fitness_color
+  resolution_vs_number_of_eyes_vs_fitness_color:
+    &resolution_vs_number_of_eyes_vs_fitness_color
     add_legend: True
     add_title: False
     x_data:
       type: CUSTOM
       label: Number of Eyes
-      lim: [0, 30]
+      # lim: [0, 30]
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
@@ -294,7 +315,7 @@ plots:
       type: CONFIG
       pattern: env.(agents|animals).*.eyes.*.resolution[0]
       label: Resolution
-      lim: [0, 36]
+      # lim: [0, 36]
     color_data:
       type: EVALUATION
       cmap: RdYlGn
@@ -308,6 +329,14 @@ plots:
           _partial_: True
           lon_range: [-90, 90]
           clip_line: False
+  resolution_vs_number_of_eyes_vs_fitness_color_vs_pixels_constraint:
+    <<: *resolution_vs_number_of_eyes_vs_fitness_color
+    custom_fns:
+      - type: GLOBAL
+        fn:
+          _target_: custom_plot_fns.num_eyes_and_resolution_pixels_constraint
+          _partial_: True
+          max_total_pixels: 50
   resolution_vs_number_of_eyes_vs_fitness_color_vs_num_size:
     <<: *resolution_vs_number_of_eyes_vs_fitness_color
     size_data:
@@ -467,7 +496,6 @@ plots:
         fn:
           _target_: custom_plot_fns.connect_with_parent
           _partial_: True
-
 
 hydra:
   run:

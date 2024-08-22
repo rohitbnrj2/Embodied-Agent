@@ -26,6 +26,11 @@ trainer:
   total_timesteps: 300_000
 
 env:
+  agents:
+    goal:
+      custom:
+        size: 0.25
+
   # Update the scale of the maze so that it's more difficult
   mazes:
     maze:

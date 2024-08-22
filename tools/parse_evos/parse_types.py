@@ -152,6 +152,7 @@ class SizeType(Enum):
     MONITOR = "monitor"
     EVALUATION = "evaluation"
     CUSTOM = "custom"
+    CONFIG = "config"
 
 
 @config_wrapper
@@ -160,7 +161,7 @@ class SizeData:
 
     label: Optional[str] = None
 
-    factor: float = 36  # default size for matplotlib scatter plots
+    factor: float = 10
 
     size_min: float = SI("${eval:'0.25*${.factor}'}")
     size_max: float = SI("${eval:'5*${.factor}'}")
@@ -168,6 +169,9 @@ class SizeData:
 
     # CUSTOM
     custom_fn: Optional[Callable[[Self, Data, Generation, Rank], ParsedAxisData]] = None
+
+    # CONFIG
+    pattern: Optional[str] = None
 
 
 class CustomPlotFnType(Enum):

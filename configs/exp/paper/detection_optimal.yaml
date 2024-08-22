@@ -14,3 +14,8 @@ env:
 
       instance:
         use_optimal_trajectory: false
+
+    goal:
+      custom:
+        # Rotate the yaw of the texture so that it is facing the agent
+        euler: 0 0 90

@@ -777,7 +777,7 @@ if __name__ == "__main__":
                 viewer.sync()
 
     @register_fn
-    def run_renderer(config: MjCambrianConfig, *, record: Any, **__):
+    def run_renderer(config: MjCambrianConfig, *, record: Any, no_step: bool, **__):
         config.save(config.expdir / "config.yaml")
 
         env = config.env.instance(config.env)
@@ -822,7 +822,8 @@ if __name__ == "__main__":
             if max_steps and env.episode_step > max_steps:
                 break
 
-            env.step(action.copy())
+            if not no_step:
+                env.step(action.copy())
             env.render()
 
             if record:
@@ -874,5 +875,11 @@ if __name__ == "__main__":
         help="Record the simulation. Pass an optional int to specify how many "
         "iterations to record.",
         default=None,
+    )
+    parser.add_argument(
+        "--no-step",
+        action="store_true",
+        help="Don't step the environment. Useful for debugging.",
+        default=False,
     )
     run_hydra(main, parser=parser)

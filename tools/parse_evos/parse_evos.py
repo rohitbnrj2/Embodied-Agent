@@ -8,6 +8,14 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import seaborn as sns
 
+try:
+    import scienceplots  # noqa
+
+    HAS_SCIENCEPLOTS = True
+except ImportError:
+    HAS_SCIENCEPLOTS = False
+
+
 from cambrian.utils import is_integer
 from cambrian.utils.config.utils import clean_key
 from cambrian.utils.logger import get_logger
@@ -15,7 +23,6 @@ from cambrian.utils.config import (
     MjCambrianConfig,
     run_hydra,
 )
-
 from parse_types import (
     Rank,
     Generation,
@@ -41,6 +48,7 @@ from plot_helpers import (
 )
 from utils import extract_data
 
+
 # =======================================================
 
 # Parsing the yaml files sometimes causes a RecursionError
@@ -49,6 +57,11 @@ sys.setrecursionlimit(10000)
 
 sns.set_theme("paper", font_scale=1.5)
 sns.set_style("ticks")
+
+if HAS_SCIENCEPLOTS:
+    plt.style.use(["science", "nature"])
+else:
+    get_logger().warning("SciencePlots not found. Using default matplotlib style.")
 
 # =======================================================
 
@@ -171,10 +184,16 @@ def update_plots(
         plots[plot.name] = plot
 
     # Now save the plots
-    assert len(figures) == len(plots), (
-        f"Num of figures ({len(figures)}) does "
-        f"not match num of plots ({len(plots)})."
-    )
+    if len(figures) != len(plots):
+        if config.debug:
+            raise ValueError(
+                f"Num of figures ({len(figures)}) does "
+                f"not match num of plots ({len(plots)})."
+            )
+        get_logger().warning(
+            f"Num of figures ({len(figures)}) does "
+            f"not match num of plots ({len(plots)})."
+        )
     progress_bar = tqdm.tqdm(total=len(figures), desc="Saving...", disable=config.debug)
     for plot_data, fig in zip(plots.values(), figures):
         progress_bar.update(1)

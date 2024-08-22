@@ -112,6 +112,10 @@ class MjCambrianTrainer:
         fitness = self._config.trainer.fitness_fn(self._config)
         self._logger.info(f"Final Fitness: {fitness}")
 
+        # Save the final fitness to a file
+        with open(self._config.expdir / "final_fitness.txt", "w") as f:
+            f.write(str(fitness))
+
         return fitness
 
     def eval(self, *, filename: Optional[Path | str] = None) -> float:

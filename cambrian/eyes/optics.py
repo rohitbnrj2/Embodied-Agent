@@ -311,7 +311,7 @@ if __name__ == "__main__":
             agent_config.eyes[eye_name] = eye_config1
 
         # xml = MjCambrianXML.from_string(config.env.xml)
-        xml = MjCambrianXML("models/test.xml")
+        xml = MjCambrianXML("models/blocks.xml")
 
         # NOTE: Only uses the first agent
         agent_config = next(iter(config.env.agents.values()))

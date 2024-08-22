@@ -67,7 +67,7 @@ class MjCambrianXML:
     """
 
     WHITELIST_ATTRIBUTES = ["name"]
-    WHITELIST_TAGS = ["global", "include"]
+    WHITELIST_TAGS = ["global", "include", "scale", "map", "headlight"]
 
     def __init__(
         self,

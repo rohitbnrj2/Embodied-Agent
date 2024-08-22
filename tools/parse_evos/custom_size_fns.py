@@ -1,5 +1,10 @@
+from typing import Dict
+
+from cambrian.utils import safe_eval
+
 from parse_evos import Rank
 from parse_types import SizeData, ParsedAxisData
+from parse_helpers import get_size_label
 
 
 def best_n(
@@ -43,3 +48,22 @@ def num_descendents(size_data: SizeData, rank_data: Rank) -> ParsedAxisData:
         return count
 
     return count_descendents(rank_data), "Number of Descendents"
+
+
+def eval_safe(
+    size_data: SizeData,
+    rank_data: Rank,
+    *,
+    src: str,
+    patterns: Dict[str, str],
+) -> ParsedAxisData:
+    """This custom axis fn will pass a pattern directly to `safe_eval` using the
+    `rank_data.config`."""
+
+    variables = {}
+    for key, pattern in patterns.items():
+        variable = rank_data.config.glob(pattern, flatten=True)
+        assert len(variable) == 1, f"Pattern {pattern} must return a single value."
+        variables[key] = next(iter(variable.values()))
+
+    return safe_eval(src, variables), get_size_label(size_data)

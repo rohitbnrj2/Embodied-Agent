@@ -37,6 +37,8 @@ class AnimalShowcaseConfig(MjCambrianBaseConfig):
         ignore (Optional[List[str]]): The overrides to ignore. If an override is in
             this list, it will not be used.
 
+        steps (int): The number of steps to run the experiment for.
+
         overrides (Dict[str, List[str]]): The overrides to apply to the loaded
             configuration. This is a number of overrides that are used to generate
             images. The image is saved using the key as the filename and the value as
@@ -51,6 +53,8 @@ class AnimalShowcaseConfig(MjCambrianBaseConfig):
 
     mask: Optional[List[str]] = None
     ignore: Optional[List[str]] = None
+
+    steps: int
 
     overrides: Dict[str, List[str]]
 
@@ -83,7 +87,7 @@ def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
         env.reset(seed=exp_config.seed)
         for agent in env.agents.values():
             agent.step()
-        for _ in range(30):
+        for _ in range(config.steps):
             mj.mj_step(env.model, env.data)
             env.render()
         config.outdir.mkdir(parents=True, exist_ok=True)
@@ -108,8 +112,7 @@ if __name__ == "__main__":
         "--override",
         "--overrides",
         dest="overrides",
-        action="extend",
-        nargs="+",
+        action="append",
         type=str,
         help="Global override config values. Do <config>.<key>=<value>. Used for all exps.",
         default=[],

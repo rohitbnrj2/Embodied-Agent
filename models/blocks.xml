@@ -1,0 +1,35 @@
+<mujoco>
+    <compiler assetdir="assets" angle="degree" coordinate="local" inertiafromgeom="true" />
+    <statistic center="0 0 0.1" extent="0.6" meansize=".05"/>
+    <visual>
+        <!-- <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/> -->
+        <rgba haze="0.15 0.25 0.35 1"/>
+        <global azimuth="-20" elevation="-20" ellipsoidinertia="true"/>
+        <map znear="0.01" zfar="100"/>
+    </visual>
+
+    <asset>
+        <texture name="skybox" type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+        <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+        <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+
+        <texture type="2d" name="blue_stripes" builtin="checker" rgb1="0 0 1" rgb2="1 1 1" width="300" height="300"/>
+        <material name="blue" texture="blue_stripes" texuniform="true" texrepeat="10 10" reflectance="0.2"/>
+
+        <texture type="2d" name="green_stripes" builtin="checker" rgb1="0 1 0" rgb2="1 1 1" width="300" height="300"/>
+        <material name="green" texture="green_stripes" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+
+        <texture type="2d" name="red_stripes" builtin="checker" rgb1="1 0 0" rgb2="1 1 1" width="300" height="300"/>
+        <material name="red" texture="red_stripes" texuniform="true" texrepeat="19 19" reflectance="0.2"/>
+    </asset>
+
+    <worldbody>
+        <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+        <body name="body" pos="-0.5 0 0">
+            <!-- <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/> -->
+            <geom name="box1" type="box" size="0.25 0.25 0.25" pos="-1 0 0.2" condim="1" material="blue" />
+            <geom name="box2" type="box" size="0.25 0.25 0.25" pos="-1 0.75 0.2" condim="1" material="green" euler="45 0 0"/>
+            <geom name="box3" type="box" size="0.25 0.25 0.25" pos="-1 -0.75 0.2" condim="1" material="red" euler="90 0 0"/>
+        </body>
+    </worldbody>
+</mujoco>

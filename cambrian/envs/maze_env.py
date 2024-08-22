@@ -183,9 +183,7 @@ class MjCambrianMazeEnv(MjCambrianEnv):
                 viewer.camera.lookat = self._maze.lookat
 
             # Update the camera distance to match the current maze's extent
-            viewer.camera.distance = viewer.config.select(
-                "camera.distance", default=1.25
-            )
+            viewer.camera.distance = viewer.config.camera.distance
             viewer.camera.distance *= self._maze.max_dim / renderer.ratio
             if self._maze.ratio < 2.0:
                 viewer.camera.distance *= 2

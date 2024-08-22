@@ -12,9 +12,11 @@ custom:
   fov_str: ${eval:"str(${.fov})"}
   eyes_lon_range: [-45, 45]
   eyes_lon_range_str: ${eval:"str(${.eyes_lon_range})"}
+  suffix: ""
 
-outsubdir: |
-  ${custom.desc}_num${custom.num_eyes_to_generate.0}p${custom.num_eyes_to_generate.1}_res${custom.resolution.0}p${custom.resolution.1}_fov${custom.fov.0}p${custom.fov.1}_lon${custom.eyes_lon_range.0}p${custom.eyes_lon_range.1}
+outsubdir: "${custom.desc}_num${custom.num_eyes_to_generate.0}p${custom.num_eyes_to_generate.1}_res${custom.resolution.0}p${custom.resolution.1}_fov${float_to_str:${custom.fov.0}}p${float_to_str:${custom.fov.1}}_lon${float_to_str:${custom.eyes_lon_range.0}}p${float_to_str:${custom.eyes_lon_range.1}}${custom.suffix}" # yamllint disable-line rule:line-length
+
+exp: "paper/showcase/white_showcase"
 
 mask:
   - third_person

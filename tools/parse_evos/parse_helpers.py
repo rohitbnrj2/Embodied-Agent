@@ -363,6 +363,10 @@ def get_size_label(size_data: SizeData | None) -> str:
         label = "Training Reward"
     elif size_data.type is SizeType.EVALUATION:
         label = "Fitness"
+    elif size_data.type is SizeType.CUSTOM:
+        label = "Custom"
+    elif size_data.type is SizeType.CONFIG:
+        label = size_data.pattern
     return size_data.label if size_data.label is not None else label
 
 
@@ -387,6 +391,14 @@ def parse_size_data(
     elif size_data.type is SizeType.CUSTOM:
         assert size_data.custom_fn is not None, "Custom function is required."
         return size_data.custom_fn(size_data, rank_data)
+    elif size_data.type is SizeType.CONFIG:
+        assert rank_data.config is not None, "Config is required for CONFIG."
+        size = rank_data.config.glob(size_data.pattern, flatten=True)
+        pattern = size_data.pattern.split(".")[-1]
+        assert pattern in size, f"Pattern {size_data.pattern} not found."
+        size = size[pattern]
+        if isinstance(size, list):
+            size = np.average(size)
     else:
         raise ValueError(f"Unknown size type {size_data.type}.")
 

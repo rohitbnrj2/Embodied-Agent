@@ -60,6 +60,32 @@ def num_eyes_and_resolution_constraint(
     ax.plot(num_eyes, max_feasible_resolution, "r-", label="Morophological Constraint")
 
 
+def num_eyes_and_resolution_pixels_constraint(
+    ax: plt.Axes,
+    *,
+    max_total_pixels: int,
+    clip_line: bool = True,
+):
+    # Extract the data from the plot
+    # Assumes num_eyes is the x axis and resolution is the y axis
+    num_eyes, resolution, _ = extract_data(ax, return_data=True)
+    num_eyes = np.linspace(num_eyes.min(), num_eyes.max(), 1000)
+
+    # Calculate the maximum feasible resolution for each number of eyes
+    max_feasible_resolution = max_total_pixels / num_eyes
+
+    if clip_line:
+        # Clip the max feasible resolution to the maximum resolution
+        # Delete all the resolutions/num eyes at that max value so we don't have a flat
+        # line at the top
+        mask = max_feasible_resolution <= np.max(resolution)
+        num_eyes = num_eyes[mask]
+        max_feasible_resolution = max_feasible_resolution[mask]
+
+    # Plot the constraint as a red curve
+    ax.plot(num_eyes, max_feasible_resolution, "r-", label="Morophological Constraint")
+
+
 def connect_with_parent(ax: plt.Axes, plot_data: PlotData, rank_data: Rank, **kwargs):
     """This custom plot fn is called for each rank and plots a line between itself and
     it's parent. No line is plotted if the rank doesn't have a parent."""

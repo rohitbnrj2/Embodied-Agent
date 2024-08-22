@@ -11,6 +11,8 @@ outsubdir: "agent_showcase" # by default, the data will be stored in the logdir
 
 exp: "???"
 
+steps: 30
+
 overrides:
   bev:
     - "env/renderer=bev"
