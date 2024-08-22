@@ -6,5 +6,3 @@ defaults:
       - resolution0
       - lon_range1
       - fov0
-
-  - /exp/tasks/constraints/total_pixels

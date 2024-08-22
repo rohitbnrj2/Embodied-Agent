@@ -60,12 +60,6 @@ env:
       penalty: -1.0
       for_agents: [agent]
 
-    constant_penalty:
-      _target_: cambrian.envs.reward_fns.constant_reward
-      _partial_: true
-      reward: -0.1
-      for_agents: [agent]
-
     reward_euclidean_delta_to_goal:
       _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
       _partial_: true
@@ -100,9 +94,6 @@ eval_env:
       distance_threshold: 1.0
 
   reward_fn:
-    constant_penalty:
-      # Remove constant penalty
-      reward: 0.0
     reward_euclidean_delta_to_goal:
       # increase reward for moving closer to the goal
       factor: 2.5

@@ -3,5 +3,6 @@
 defaults:
   - /exp/tasks/detection
   - /exp/tasks/mutations/groupings/numeyes1_res0_lon1_fov0
+  - /exp/tasks/constraints/total_pixels
 
   - /exp/environmental_effects/environmental_effects
