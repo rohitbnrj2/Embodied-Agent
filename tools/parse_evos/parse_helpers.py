@@ -1,16 +1,16 @@
 from typing import Any, Dict, Tuple
 from pathlib import Path
 import os
-import pickle
 
 import numpy as np
 from stable_baselines3.common.results_plotter import ts2xy
 
 from cambrian.utils.config import MjCambrianConfig
-from cambrian.utils import (
-    calculate_fitness_from_evaluations,
-    calculate_fitness_from_monitor,
-    moving_average,
+from cambrian.utils import moving_average
+from cambrian.ml.fitness_fns import (
+    fitness_from_evaluations,
+    fitness_from_monitor,
+    fitness_from_txt,
 )
 from cambrian.utils.logger import get_logger
 
@@ -31,29 +31,6 @@ from parse_types import (
     AxisDataType,
     PlotData,
 )
-
-
-def save_data(config: Any, data: Any, pickle_file: Path):
-    """Save the parsed data to a pickle file."""
-    pickle_file = config.output / pickle_file
-    pickle_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(pickle_file, "wb") as f:
-        pickle.dump(data, f)
-    get_logger().info(f"Saved parsed data to {pickle_file}.")
-
-
-def try_load_pickle(folder: Path, pickle_file: Path) -> Any | None:
-    """Try to load the data from the pickle file."""
-    pickle_file = folder / pickle_file
-    if pickle_file.exists():
-        get_logger().info(f"Loading parsed data from {pickle_file}...")
-        with open(pickle_file, "rb") as f:
-            data = pickle.load(f)
-        get_logger().info(f"Loaded parsed data from {pickle_file}.")
-        return data
-
-    get_logger().warning(f"Could not load {pickle_file}.")
-    return None
 
 
 def get_generation_file_paths(folder: Path) -> Data:
@@ -177,17 +154,14 @@ def load_data(config: ParseEvosConfig) -> Data:
 
             # Check if the `finished` file exists.
             # If not, don't load the data. Sorry for the double negative.
-            if (
-                not (rank_data.path / "finished").exists()
-                and not config.no_check_finished
-            ):
+            if not (rank_data.path / "finished").exists() and config.check_finished:
                 get_logger().warning(
                     f"\t\tSkipping rank {rank} because it is not finished."
                 )
                 continue
 
             # Get the config file
-            if (config_file := rank_data.path / "config.yaml").exists():
+            if (config_file := rank_data.path / config.config_filename).exists():
                 get_logger().debug(f"\tLoading config from {config_file}...")
                 rank_data.config = MjCambrianConfig.load(config_file, instantiate=False)
                 rank_data.config.merge_with_dotlist(overrides)
@@ -199,9 +173,15 @@ def load_data(config: ParseEvosConfig) -> Data:
                 (
                     rank_data.eval_fitness,
                     rank_data.evaluations,
-                ) = calculate_fitness_from_evaluations(
-                    None, evaluations_file, return_data=True
+                ) = fitness_from_evaluations(
+                    rank_data.config, evaluations_file, return_data=True
                 )
+            else:
+                txt_file = rank_data.path / "test_fitness.txt"
+                if txt_file.exists():
+                    rank_data.eval_fitness = fitness_from_txt(
+                        rank_data.config, txt_file
+                    )
 
             # Get the monitor file
             monitor_file = rank_data.path / "monitor.csv"
@@ -209,7 +189,7 @@ def load_data(config: ParseEvosConfig) -> Data:
                 (
                     rank_data.train_fitness,
                     rank_data.monitor,
-                ) = calculate_fitness_from_monitor(None, monitor_file, return_data=True)
+                ) = fitness_from_monitor(None, monitor_file, return_data=True)
 
             # If we're loading nevergrad data, we do that here to store the parent rank
             # and generation

@@ -2,12 +2,8 @@ defaults:
   - model: model
   - callbacks: callbacks
   - wrappers: wrappers
+  - fitness_fn: eval_monitor
 
 total_timesteps: 1_000_000
 max_episode_steps: 256
 n_envs: 10
-
-fitness_fn:
-  _target_: cambrian.utils.calculate_fitness_from_monitor
-  _partial_: true
-  monitor_csv: ${path:${expdir},eval_monitor.csv}

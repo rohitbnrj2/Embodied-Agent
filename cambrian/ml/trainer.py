@@ -113,7 +113,7 @@ class MjCambrianTrainer:
         self._logger.info(f"Final Fitness: {fitness}")
 
         # Save the final fitness to a file
-        with open(self._config.expdir / "final_fitness.txt", "w") as f:
+        with open(self._config.expdir / "train_fitness.txt", "w") as f:
             f.write(str(fitness))
 
         return fitness
@@ -133,9 +133,10 @@ class MjCambrianTrainer:
         cambrian_env.xml.write(xml_path)
 
         n_runs = self._config.eval_env.n_eval_episodes
-        filename = self._config.expdir / self._config.eval_env.save_filename
+        filename = self._config.eval_env.save_filename
         record_kwargs = dict(
-            path=filename, save_mode=self._config.eval_env.renderer.save_mode
+            path=self._config.expdir / filename,
+            save_mode=self._config.eval_env.renderer.save_mode,
         )
         evaluate_policy(eval_env, model, n_runs, record_kwargs=record_kwargs)
 
@@ -143,15 +144,26 @@ class MjCambrianTrainer:
         fitness = self._config.trainer.fitness_fn(self._config)
         self._logger.info(f"Final Fitness: {fitness}")
 
+        # Save the final fitness to a file
+        with open(self._config.expdir / f"{filename}_fitness.txt", "w") as f:
+            f.write(str(fitness))
+
         return fitness
 
     def test(self) -> float:
         """This is a test method which tests the evolutionary loop. It will return a
         fitness consistent with the expected performance of the agent given the config.
         This can be used to test the optimizer."""
+
+        self._config.save(self._config.expdir / "test_config.yaml")
+
         # Calculate fitness
         fitness = self._config.trainer.fitness_fn(self._config)
         self._logger.info(f"Final Fitness: {fitness}")
+
+        # Save the final fitness to a file
+        with open(self._config.expdir / "test_fitness.txt", "w") as f:
+            f.write(str(fitness))
 
         return fitness
 

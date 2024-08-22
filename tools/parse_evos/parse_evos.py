@@ -6,23 +6,16 @@ import tqdm.rich as tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
-import seaborn as sns
 
-try:
-    import scienceplots  # noqa
-
-    HAS_SCIENCEPLOTS = True
-except ImportError:
-    HAS_SCIENCEPLOTS = False
-
-
-from cambrian.utils import is_integer
-from cambrian.utils.config.utils import clean_key
-from cambrian.utils.logger import get_logger
-from cambrian.utils.config import (
-    MjCambrianConfig,
-    run_hydra,
+from cambrian.utils import (
+    is_integer,
+    save_data,
+    try_load_pickle,
+    set_matplotlib_style,
+    get_logger,
 )
+from cambrian.utils.config.utils import clean_key
+from cambrian.utils.config import MjCambrianConfig, run_hydra
 from parse_types import (
     Rank,
     Generation,
@@ -32,12 +25,7 @@ from parse_types import (
     AxisDataType,
     PlotData,
 )
-from parse_helpers import (
-    parse_plot_data,
-    try_load_pickle,
-    save_data,
-    load_data,
-)
+from parse_helpers import parse_plot_data, load_data
 from plot_helpers import (
     plot_helper,
     adjust_points,
@@ -55,13 +43,7 @@ from utils import extract_data
 # Default is 1000, but we'll set it to 10000 to be safe
 sys.setrecursionlimit(10000)
 
-sns.set_theme("paper", font_scale=1.5)
-sns.set_style("ticks")
-
-if HAS_SCIENCEPLOTS:
-    plt.style.use(["science", "nature"])
-else:
-    get_logger().warning("SciencePlots not found. Using default matplotlib style.")
+set_matplotlib_style()
 
 # =======================================================
 
@@ -169,7 +151,6 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
 
 def update_plots(
     config: ParseEvosConfig,
-    figures: List[plt.Figure | int],
     *,
     save: bool = True,
     show: bool = False,
@@ -184,22 +165,11 @@ def update_plots(
         plots[plot.name] = plot
 
     # Now save the plots
-    if len(figures) != len(plots):
-        if config.debug:
-            raise ValueError(
-                f"Num of figures ({len(figures)}) does "
-                f"not match num of plots ({len(plots)})."
-            )
-        get_logger().warning(
-            f"Num of figures ({len(figures)}) does "
-            f"not match num of plots ({len(plots)})."
-        )
-    progress_bar = tqdm.tqdm(total=len(figures), desc="Saving...", disable=config.debug)
-    for plot_data, fig in zip(plots.values(), figures):
+    progress_bar = tqdm.tqdm(total=len(plots), desc="Saving...", disable=config.debug)
+    for plot_data in plots.values():
         progress_bar.update(1)
 
-        if isinstance(fig, int):
-            fig = plt.figure(fig)
+        fig = plt.figure(plot_data.name)
         ax = fig.gca()
 
         try:
@@ -677,7 +647,7 @@ def main(config: ParseEvosConfig):
         data = load_data(config)
 
         if not config.no_save:
-            save_data(config, data, "data.pkl")
+            save_data(data, config.output, "data.pkl")
 
     # Update the generations and ranks list, if desired
     if config.filter_fn is not None:
@@ -685,12 +655,8 @@ def main(config: ParseEvosConfig):
             data.generations = config.filter_fn(data)
 
     if config.plot:
-        if (
-            config.force_plot
-            or (figs := try_load_pickle(config.output, "plot_data.pkl")) is None
-        ):
-            figs = run_plot(config, data)
-        update_plots(config, figs)
+        run_plot(config, data)
+        update_plots(config)
     if config.plot_nevergrad:
         plot_nevergrad(config, data)
     if config.plot_phylogenetic_tree:

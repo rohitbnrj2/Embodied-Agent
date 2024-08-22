@@ -1,56 +1,40 @@
 # @package _global_
 
 defaults:
-  - /ParseEvosConfig
-
-  - plots:
-      - average_hidden_layer_size
-      - fov
-      - nn_output_layer_size
-      - number_of_eyes
-      - resolution
-      - placement
-      - fitness
-      - training_reward
-      # - aperture
-      - tree
-  - renders:
-      - default
-      - first_person
-      - third_person
-      - birds_eye
-      - birds_eye_no_overlays
+  - /ParseSweepsConfig
 
   - _self_
 
 folder: "???"
-output: ${path:${folder},parse_evos}
-plots_folder: ${path:${output},plots}
-renders_folder: ${path:${output},renders}
-evals_folder: ${path:${output},evals}
-config_filename: "config.yaml"
+output: ${path:${folder},parse_sweep}
 
 force: False
-no_save: False
-check_finished: False
+plot: False
 quiet: False
 debug: False
 
-plots_to_ignore: []
+load_config_fn:
+  _target_: parse_sweeps.load_config
+  _partial_: true
+load_fitness_fn:
+  _target_: parse_sweeps.load_fitness_from_monitor
+  _partial_: true
+load_monitor_fn:
+  _target_: parse_sweeps.load_monitor
+  _partial_: true
+load_evaluations_fn:
+  _target_: parse_sweeps.load_monitor
+  _partial_: true
+  filename: "eval_monitor.csv"
+combine_fn:
+  _target_: parse_sweeps.combine
+  _partial_: true
+  fitness_method: MEDIAN
 
-plot: False
-plot_nevergrad: False
-plot_phylogenetic_tree: False
-render: False
-eval: False
+
+overrides: {}
 
 dry_run: False
-
-filter_fn:
-  _target_: custom_filter_fns.filter_noop
-  _partial_: true
-
-overrides: []
 
 hydra:
   run:

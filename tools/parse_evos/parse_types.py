@@ -237,8 +237,7 @@ class ParseEvosConfig(MjCambrianBaseConfig):
         force (bool): Force loading of the data. If not passed, this script will try to
             find a parse_evos.pkl file and load that instead.
         no_save (bool): Do not save the parsed data.
-        no_check_finished (bool): Don't check if a file called `finished` has been
-            written.
+        check_finished (bool): Check if a file called `finished` has been written.
         quiet (bool): Quiet mode. Set's the logger to warning.
         debug (bool): Debug mode. Set's the logger to debug and disables tqdm.
 
@@ -283,9 +282,8 @@ class ParseEvosConfig(MjCambrianBaseConfig):
     config_filename: Path
 
     force: bool
-    force_plot: bool
     no_save: bool
-    no_check_finished: bool
+    check_finished: bool
     quiet: bool
     debug: bool
 

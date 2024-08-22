@@ -18,9 +18,8 @@ evals_folder: ${path:${output},evals}
 config_filename: "config.yaml"
 
 force: False
-force_plot: True
 no_save: False
-no_check_finished: False
+check_finished: False
 quiet: False
 debug: False
 

@@ -374,7 +374,7 @@ class MjCambrianContainerConfig:
         result = glob(key, flatten, self._config)
         if assume_one:
             assert len(result) == 1, f"Expected one match, got {len(result)}"
-            return next(iter(result.values()))
+            return next(iter(result.values()))[0]
         return result
 
     def globbed_eval(

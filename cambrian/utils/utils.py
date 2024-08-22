@@ -1,20 +1,22 @@
+"""General purpose utils for cambrian"""
+
 from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable, Dict, Generator
 from types import ModuleType
-from pathlib import Path
 from dataclasses import dataclass
 import contextlib
 import ast
 import re
-import torch
-import csv
+import pickle
+from pathlib import Path
 
 import mujoco as mj
 import numpy as np
 from stable_baselines3.common.vec_env import VecEnv
 
+from cambrian.utils.logger import get_logger
+
 if TYPE_CHECKING:
     from cambrian.ml.model import MjCambrianModel
-    from cambrian.utils.config import MjCambrianConfig
 
 # ============
 
@@ -77,85 +79,17 @@ def evaluate_policy(
         cambrian_env.record = False
 
 
-def calculate_fitness_from_evaluations(
-    config: "MjCambrianConfig", evaluations_npz: Path, *, return_data: bool = False
-) -> float | Tuple[float, np.ndarray]:
-    """Calculate the fitness of the agent. This is done by taking the 3rd quartile of
-    the evaluation rewards."""
-    # Return negative infinity if the evaluations file doesn't exist
-    if not evaluations_npz.exists():
-        return -float("inf")
-
-    def top_25_excluding_outliers(data: np.ndarray) -> float:
-        q1, q3 = np.percentile(data, [25, 75])
-        iqr = q3 - q1
-        filtered_data = data[(data > q1 - 1.5 * iqr) & (data < q3 + 1.5 * iqr)]
-        return float(np.mean(np.sort(filtered_data)[-len(filtered_data) // 4 :]))
-
-    # The rewards array will be stored in a 2D array where each row represents each
-    # evaluation run and each column represents the rewards for each evaluation step.
-    # We may run multiple steps of the same or slightly different environment to reduce
-    # variance. We will average the rewards across each row to get the final rewards.
-    evaluations = parse_evaluations_npz(evaluations_npz)
-    rewards = evaluations["results"]
-    rewards = np.mean(rewards, axis=1)
-
-    if return_data:
-        return float(top_25_excluding_outliers(rewards)), evaluations
-    return float(top_25_excluding_outliers(rewards))
-
-
-def calculate_fitness_from_monitor(
-    config: "MjCambrianConfig", monitor_csv: Path, *, return_data: bool = False
-) -> float | Tuple[float, Tuple[np.ndarray, np.ndarray]]:
-    """Calculate the fitness of the agent. Uses the 3rd quartile of the cumulative
-    monitor rewards."""
-    timesteps, rewards = parse_monitor_csv(monitor_csv)
-
-    if len(rewards) == 0:
-        return -float("inf")
-
-    if return_data:
-        return float(np.percentile(rewards, 75)), (timesteps, rewards)
-    return float(np.percentile(rewards, 75))
-
-
 def moving_average(values, window, mode="valid"):
     weights = np.repeat(1.0, window) / window
     return np.convolve(values, weights, mode=mode)
 
 
-def parse_evaluations_npz(evaluations_npz: Path) -> Dict[str, np.ndarray]:
-    """Parse the evaluations npz file and return the rewards."""
-    assert (
-        evaluations_npz.exists()
-    ), f"Evaluations file {evaluations_npz} does not exist."
-    data = np.load(evaluations_npz, allow_pickle=True)
-    return {k: data[k] for k in data}
-
-
-def parse_monitor_csv(monitor_csv: Path) -> Tuple[np.ndarray, np.ndarray]:
-    """Parse the monitor csv file and return the timesteps and rewards."""
-    assert monitor_csv.exists(), f"Monitor file {monitor_csv} does not exist."
-    timesteps, rewards = [], []
-    with open(monitor_csv, "r") as f:
-        # Skip the comment line
-        f.readline()
-
-        csv_reader = csv.DictReader(f)
-        for row in csv_reader:
-            timesteps.append(float(row["t"]))
-            rewards.append(float(row["r"]))
-
-    return np.array(timesteps), np.array(rewards)
-
-
 # =============
 
 
-def save_data(config: Any, data: Any, pickle_file: Path):
+def save_data(data: Any, outdir: Path, pickle_file: Path):
     """Save the parsed data to a pickle file."""
-    pickle_file = config.output / pickle_file
+    pickle_file = outdir / pickle_file
     pickle_file.parent.mkdir(parents=True, exist_ok=True)
     with open(pickle_file, "wb") as f:
         pickle.dump(data, f)
@@ -646,107 +580,24 @@ def safe_eval(src: Any, additional_vars: Dict[str, Any] = {}) -> Any:
         raise ValueError(f"Error evaluating expression '{src}': {e}") from e
 
 
-def calc_mtf_sum(psf, camera_px_pitch, face_freq, noise_floor=0.0):
-    """
-    Calculate MTF and the sum of MTF values for indices lower than max_index using PyTorch.
+# =============
 
-    Parameters:
-    - psf: CxHxW tensor representing the point spread function.
-    - camera_px_pitch: Pixel pitch of the camera in millimeters.
-    - max_index: The threshold index below which the sum of MTF values is calculated.
 
-    Returns:
-    - frequencyAxis: The frequency axis for the MTF.
-    - radialAvg: The radial average of the MTF.
-    - sum_below_max_index: The sum of MTF values for indices lower than max_index.
-    """
-    # Calculate OTF
-    otf = torch.fft.fftshift(torch.fft.fft2(psf), dim=(2, 3))
+def set_matplotlib_style():
+    import matplotlib.pyplot as plt
+    import seaborn as sns
 
-    mtf_orig = torch.abs(otf)
-    # Calculate MTF
-    mtf = torch.abs(otf) - noise_floor
+    try:
+        import scienceplots  # noqa
 
-    # Compute the radial average and sum below max_index
-    _, _, rows, cols = mtf.shape
-    if rows % 2 == 0:
-        x = torch.linspace(-cols // 2, cols // 2 - 1, steps=cols)
-        y = torch.linspace(-rows // 2, rows // 2 - 1, steps=rows)
+        HAS_SCIENCEPLOTS = True
+    except ImportError:
+        HAS_SCIENCEPLOTS = False
+
+    sns.set_theme("paper", font_scale=1.5)
+    sns.set_style("ticks")
+
+    if HAS_SCIENCEPLOTS:
+        plt.style.use(["science", "nature"])
     else:
-        x = torch.linspace(-cols // 2 + 1, cols // 2, steps=cols)
-        y = torch.linspace(-rows // 2 + 1, rows // 2, steps=rows)
-    X, Y = torch.meshgrid(x, y, indexing="ij")
-    #     import pdb; pdb.set_trace()
-    R = torch.sqrt(X**2 + Y**2)
-    R = torch.round(R).type(torch.int64)
-    #     import pdb; pdb.set_trace()
-
-    # Define the pixel pitch (in millimeters)
-    pixelPitch = camera_px_pitch * 1e3
-
-    # Calculate Nyquist Frequency (in cycles/mm)
-    nyquistFreq = 1 / (2 * pixelPitch)
-
-    # Number of frequency points
-    numPoints = rows // 2 + (0 if rows % 2 == 0 else 1)
-    sensorSize = pixelPitch * numPoints
-    # Get the lowest frequency
-    lowestFreq = 1 / (sensorSize)
-    frequencyAxis = torch.linspace(lowestFreq, nyquistFreq, steps=numPoints)
-
-    for ind, freq in enumerate(frequencyAxis):
-        if freq > face_freq:
-            max_index = ind
-            break
-
-    maxRadius = torch.round(torch.max(X)).type(torch.int64)
-
-    mask_end = R <= maxRadius
-
-    mask_in = R < max_index
-    mask_out = (R >= max_index) * mask_end
-    mtf_r = mtf[0, 0, ...]
-    mtf_g = mtf[0, 1, ...]
-    mtf_b = mtf[0, 2, ...]
-
-    mtf_r_orig = mtf_orig[0, 0, ...]
-    mtf_g_orig = mtf_orig[0, 1, ...]
-    mtf_b_orig = mtf_orig[0, 2, ...]
-
-    sum_value_in_r = torch.sum(mtf_r[mask_in])
-    sum_value_in_g = torch.sum(mtf_g[mask_in])
-    sum_value_in_b = torch.sum(mtf_b[mask_in])
-
-    sum_value_out_r = torch.sum(mtf_r[mask_out])
-    sum_value_out_g = torch.sum(mtf_g[mask_out])
-    sum_value_out_b = torch.sum(mtf_b[mask_out])
-
-    radialAvg_R = torch.zeros(maxRadius + 1, dtype=mtf.dtype)
-    radialAvg_G = torch.zeros(maxRadius + 1, dtype=mtf.dtype)
-    radialAvg_B = torch.zeros(maxRadius + 1, dtype=mtf.dtype)
-
-    for r in range(maxRadius + 1):
-        mask = R == r
-        #         import pdb; pdb.set_trace()
-        if torch.any(mask):
-            radial_value = torch.mean(mtf_r_orig[mask])
-            radialAvg_R[r] = radial_value
-            radial_value = torch.mean(mtf_g_orig[mask])
-            radialAvg_G[r] = radial_value
-            radial_value = torch.mean(mtf_b_orig[mask])
-            radialAvg_B[r] = radial_value
-
-    return (
-        sum_value_in_r,
-        sum_value_in_g,
-        sum_value_in_b,
-        sum_value_out_r,
-        sum_value_out_g,
-        sum_value_out_b,
-        frequencyAxis,
-        mtf_orig,
-        radialAvg_R,
-        radialAvg_G,
-        radialAvg_B,
-        max_index,
-    )
+        get_logger().warning("SciencePlots not found. Using default matplotlib style.")
