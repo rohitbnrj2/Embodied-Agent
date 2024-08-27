@@ -61,6 +61,9 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
             indices of the quaternion are set when not None. The length of the tuple
             should be <= 4. None's are filled in at the end if the length is less than
             4.
+        perturb_init_pose (bool): Whether to perturb the initial pose of the agent or
+            not. If this is True, then the initial pose of the agent will be randomly
+            adjusted based on a normal distribution.
 
         use_action_obs (bool): Whether to use the action observation or not. NOTE: If
             the MjCambrianConstantActionWrapper is used, this is not reflected in the
@@ -103,6 +106,7 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
 
     init_pos: Tuple[float | None]
     init_quat: Tuple[float | None]
+    perturb_init_pose: bool
 
     use_action_obs: bool
     use_contact_obs: bool
@@ -368,6 +372,10 @@ class MjCambrianAgent:
         # Update the agent's qpos
         self.pos = self._init_pos
         self.quat = self._init_quat
+        if self._config.perturb_init_pose:
+            # Perturb at a normal distribution with a std equal to 10% of the rbound
+            rbound = self.geom.rbound
+            self.pos += np.random.normal(0, rbound * 0.1, 3)
 
         # step here so that the observations are updated
         mj.mj_forward(model, data)

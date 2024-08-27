@@ -13,15 +13,24 @@ plot: False
 quiet: False
 debug: False
 
+show_plots: False
+save_plots: True
+
 load_config_fn:
   _target_: parse_sweeps.load_config
   _partial_: true
-load_fitness_fn:
+load_train_fitness_fn:
   _target_: parse_sweeps.load_fitness_from_monitor
   _partial_: true
+  filename: "monitor.csv"
+load_eval_fitness_fn:
+  _target_: parse_sweeps.load_fitness_from_monitor
+  _partial_: true
+  filename: "eval_monitor.csv"
 load_monitor_fn:
   _target_: parse_sweeps.load_monitor
   _partial_: true
+  filename: "monitor.csv"
 load_evaluations_fn:
   _target_: parse_sweeps.load_monitor
   _partial_: true

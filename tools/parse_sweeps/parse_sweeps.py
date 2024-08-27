@@ -4,6 +4,7 @@ from enum import Enum
 
 import numpy as np
 import matplotlib.pyplot as plt
+import tqdm.rich as tqdm
 
 from cambrian.utils import save_data, try_load_pickle, get_logger, set_matplotlib_style
 from cambrian.utils.config import (
@@ -33,6 +34,9 @@ class ParseSweepsConfig(MjCambrianBaseConfig):
     quiet (bool): Quiet mode. Set's the logger to warning.
     debug (bool): Debug mode. Set's the logger to debug and disables tqdm.
 
+    show_plots (bool): Show the plots.
+    save_plots (bool): Save the plots. Will save to the output / plots folder.
+
     overrides (Dict[str, Any]): Overrides for the sweep data.
 
     dry_run (bool): Do not actually do any of the processing, just run the code without
@@ -47,8 +51,12 @@ class ParseSweepsConfig(MjCambrianBaseConfig):
     quiet: bool
     debug: bool
 
+    show_plots: bool
+    save_plots: bool
+
     load_config_fn: Callable[[Path], Optional[MjCambrianConfig]]
-    load_fitness_fn: Callable[[Path], float]
+    load_eval_fitness_fn: Callable[[Path], float]
+    load_train_fitness_fn: Callable[[Path], float]
     load_monitor_fn: Callable[[Path], np.ndarray]
     load_evaluations_fn: Callable[[Path], np.ndarray]
 
@@ -64,7 +72,8 @@ class Result:
     """The result of parsing a single training run."""
 
     config: Optional[MjCambrianConfig] = None
-    fitness: Optional[float] = None
+    train_fitness: Optional[float] = None
+    eval_fitness: Optional[float] = None
     monitor: Optional[np.ndarray] = None
     evaluations: Optional[np.ndarray] = None
 
@@ -95,9 +104,7 @@ def load_config(
 # ==================
 
 
-def load_fitness_from_monitor(
-    folder: Path, *, filename: str = "eval_monitor.csv"
-) -> float:
+def load_fitness_from_monitor(folder: Path, *, filename: str) -> float:
     assert (monitor := folder / filename).exists(), f"Monitor {monitor} does not exist."
 
     from cambrian.ml.fitness_fns import fitness_from_monitor
@@ -108,7 +115,7 @@ def load_fitness_from_monitor(
 # ==================
 
 
-def load_monitor(folder: Path, *, filename: str = "monitor.csv") -> np.ndarray:
+def load_monitor(folder: Path, *, filename: str) -> np.ndarray:
     assert (monitor := folder / filename).exists(), f"Monitor {monitor} does not exist."
 
     from cambrian.ml.fitness_fns import fitness_from_monitor
@@ -133,42 +140,59 @@ def combine(results: List[Result], *, fitness_method: str) -> Result:
     get_logger().info(f"Combining {len(results)} results...")
 
     result = {}
+    fitness_method = FitnessCombineMethod[fitness_method]
 
     # config
     # TODO
-    if all(r.config is not None for r in results):
-        result["config"] = results[0].config
+    result["config"] = None
+    for r in results:
+        if r.config is not None:
+            result["config"] = r.config
+            break
 
     # fitness
-    fitnesses = [r.fitness for r in results]
-    fitness_method = FitnessCombineMethod[fitness_method]
-    if all(f is not None for f in fitnesses):
-        if fitness_method == FitnessCombineMethod.MEAN:
-            fitness = np.mean(fitnesses)
-        elif fitness_method == FitnessCombineMethod.MEDIAN:
-            fitness = np.median(fitnesses)
-        elif fitness_method == FitnessCombineMethod.MAX:
-            fitness = np.max(fitnesses)
-        elif fitness_method == FitnessCombineMethod.MIN:
-            fitness = np.min(fitnesses)
-        else:
-            raise ValueError(f"Unknown fitness method {fitness_method}.")
+    fitnesses = [r.eval_fitness for r in results if r.eval_fitness is not None]
+    if fitness_method == FitnessCombineMethod.MEAN:
+        fitness = np.mean(fitnesses)
+    elif fitness_method == FitnessCombineMethod.MEDIAN:
+        fitness = np.median(fitnesses)
+    elif fitness_method == FitnessCombineMethod.MAX:
+        fitness = np.max(fitnesses)
+    elif fitness_method == FitnessCombineMethod.MIN:
+        fitness = np.min(fitnesses)
+    else:
+        raise ValueError(f"Unknown fitness method {fitness_method}.")
 
-        result["fitness"] = fitness
+    result["eval_fitness"] = fitness
+
+    # train fitness
+    train_fitnesses = [r.train_fitness for r in results if r.train_fitness is not None]
+    if fitness_method == FitnessCombineMethod.MEAN:
+        train_fitness = np.mean(train_fitnesses)
+    elif fitness_method == FitnessCombineMethod.MEDIAN:
+        train_fitness = np.median(train_fitnesses)
+    elif fitness_method == FitnessCombineMethod.MAX:
+        train_fitness = np.max(train_fitnesses)
+    elif fitness_method == FitnessCombineMethod.MIN:
+        train_fitness = np.min(train_fitnesses)
+    else:
+        raise ValueError(f"Unknown fitness method {fitness_method}.")
+
+    result["train_fitness"] = train_fitness
 
     # monitor; stack the monitors
-    if all(r.monitor is not None for r in results):
-        min_length = min(len(r.monitor) for r in results)
-        monitor = np.stack([r.monitor[:min_length] for r in results], axis=0)
+    monitors = [r.monitor for r in results if r.monitor is not None]
+    min_length = min(len(m) for m in monitors)
+    monitor = np.stack([m[:min_length] for m in monitors], axis=0)
 
-        result["monitor"] = np.median(monitor, axis=0)
+    result["monitor"] = np.median(monitor, axis=0)
 
     # evaluations; stack the evaluations
-    if all(r.evaluations is not None for r in results):
-        min_length = min(len(r.evaluations) for r in results)
-        evalutions = np.stack([r.evaluations[:min_length] for r in results], axis=0)
+    evalutions = [r.evaluations for r in results if r.evaluations is not None]
+    min_length = min(len(e) for e in evalutions)
+    evalutions = np.stack([e[:min_length] for e in evalutions], axis=0)
 
-        result["evaluations"] = np.median(evalutions, axis=0)
+    result["evaluations"] = np.median(evalutions, axis=0)
 
     return Result(**result)
 
@@ -177,14 +201,20 @@ def combine(results: List[Result], *, fitness_method: str) -> Result:
 
 
 def parse_folder(config: ParseSweepsConfig, folder: Path) -> Result | None:
-    exp_config = config.load_config_fn(folder, config.overrides)
-    fitness = config.load_fitness_fn(folder)
-    monitor = config.load_monitor_fn(folder)
-    evaluations = config.load_evaluations_fn(folder)
+    result = {}
+    try:
+        result["config"] = config.load_config_fn(folder, config.overrides)
+        result["train_fitness"] = config.load_train_fitness_fn(folder)
+        result["eval_fitness"] = config.load_eval_fitness_fn(folder)
+        result["monitor"] = config.load_monitor_fn(folder)
+        result["evaluations"] = config.load_evaluations_fn(folder)
+    except Exception as e:
+        if config.debug:
+            raise Exception(f"Error parsing {folder}: {e}") from e
+        get_logger().error(f"Error parsing {folder}: {e}")
+        return None
 
-    return Result(
-        config=exp_config, fitness=fitness, monitor=monitor, evaluations=evaluations
-    )
+    return Result(**result)
 
 
 def load_folder(config: ParseSweepsConfig, folder: Path) -> Result | None:
@@ -236,20 +266,39 @@ def load_data(config: ParseSweepsConfig) -> Data:
 
 
 def plot_data(config: ParseSweepsConfig, data: Data):
-    for name, result in data.results.items():
-        # Fitness
-        plt.figure("Fitness")
-        plt.scatter(0, result.fitness, marker="o")
-        plt.annotate(
-            name,
-            (0, result.fitness),
-            textcoords="offset points",
-            xytext=(10, 0),
-            ha="left",
-        )
+    get_logger().info("Plotting data...")
+    for name, result in tqdm.tqdm(
+        data.results.items(), desc="Plotting...", disable=config.debug
+    ):
+        # Eval Fitness
+        if result.eval_fitness is not None:
+            plt.figure("Eval Fitness")
+            plt.suptitle("Eval Fitness")
+            plt.scatter(0, result.eval_fitness, marker="o")
+            plt.annotate(
+                name,
+                (0, result.eval_fitness),
+                textcoords="offset points",
+                xytext=(10, 0),
+                ha="left",
+            )
+
+        # Train Fitness
+        if result.train_fitness is not None:
+            plt.figure("Train Fitness")
+            plt.suptitle("Train Fitness")
+            plt.scatter(0, result.train_fitness, marker="o")
+            plt.annotate(
+                name,
+                (0, result.train_fitness),
+                textcoords="offset points",
+                xytext=(10, 0),
+                ha="left",
+            )
 
         # Monitor
         plt.figure("Monitor")
+        plt.suptitle("Monitor")
 
         monitor = result.monitor
         if len(monitor) > 100:
@@ -268,6 +317,7 @@ def plot_data(config: ParseSweepsConfig, data: Data):
 
         # Evaluations
         plt.figure("Evaluations")
+        plt.suptitle("Evaluations")
 
         evaluations = result.evaluations
         if len(evaluations) > 3:
@@ -284,7 +334,24 @@ def plot_data(config: ParseSweepsConfig, data: Data):
             horizontalalignment="left",
         )
 
-    plt.show()
+    if config.save_plots:
+        plots_folder = config.output / "plots"
+        plots_folder.mkdir(parents=True, exist_ok=True)
+        for fig in plt.get_fignums():
+            fig = plt.figure(fig)
+            title = fig.get_suptitle()
+            filename = title.lower().replace(" ", "_").replace("/", "_")
+
+            get_logger().info(f"Saving {filename}...")
+            plt.savefig(
+                config.output / "plots" / f"{filename}.png",
+                dpi=500,
+                bbox_inches="tight",
+                transparent=False,
+            )
+
+    if config.show_plots:
+        plt.show()
 
 
 # ==================

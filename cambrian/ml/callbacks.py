@@ -109,7 +109,7 @@ class MjCambrianPlotEvaluationsCallback(BaseCallback):
         with np.load(self.logdir / "evaluations.npz") as data:
             x = data["timesteps"].flatten()
             y: np.ndarray = np.mean(data["results"], axis=1).flatten()
-        if len(x) <= 3 or len(y) <= 3:
+        if len(x) <= 1 or len(y) <= 1:
             get_logger().warning("Not enough evaluation data to plot.")
             return True
 

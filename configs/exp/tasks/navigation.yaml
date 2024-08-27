@@ -34,7 +34,7 @@ env:
   # Update the scale of the maze so that it's more difficult
   mazes:
     maze:
-      scale: 1.0
+      scale: 2.0
 
       agent_id_map:
         default: [agent]
@@ -61,7 +61,7 @@ env:
     truncate_if_low_reward:
       _target_: cambrian.envs.done_fns.done_if_low_reward
       _partial_: true
-      threshold: -100.0
+      threshold: -50.0
 
   termination_fn:
     terminate_if_close_to_goal:

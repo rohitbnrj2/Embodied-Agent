@@ -31,7 +31,7 @@ custom:
 
 trainer:
   total_timesteps: 500_000
-  max_episode_steps: 128 # relatively short the episode length
+  max_episode_steps: 256 
 
 env:
   agents:
@@ -48,12 +48,18 @@ env:
         default: [agent]
         O: [goal, adversary]
 
-  reward_fn:
-    reward_for_termination:
-      for_agents: [agent]
-    reward_for_truncation:
-      for_agents: [agent]
+  step_fn:
+    # Respawn the goal if the agent is close to it
+    # This subsequently means that agents which avoid the adversary more often are
+    # far more likely to be selected for (i.e. they are better agents)
+    respawn_objects_if_agent_close:
+      _target_: cambrian.envs.step_fns.step_respawn_agents_if_close_to_agents
+      _partial_: true
+      for_agents: [goal, adversary]
+      to_agents: [agent]
+      distance_threshold: 1.0
 
+  reward_fn:
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
       _partial_: true
@@ -66,53 +72,31 @@ env:
       factor: 0.25
       agents: [goal]
 
-  truncation_fn:
-    truncate_if_close_to_adversary:
-      _target_: cambrian.envs.done_fns.done_if_close_to_agents
+    reward_if_goal_respawned:
+      _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
       _partial_: true
-      agents: [adversary]
-      distance_threshold: 1.0
+      reward: 1.0
+      for_agents: [goal]
 
-  termination_fn:
-    # Terminate (i.e. succeed) if the agent is close to the goal
-    terminate_if_close_to_goal:
-      _target_: cambrian.envs.done_fns.done_if_close_to_agents
+    reward_if_adversary_respawned:
+      _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
       _partial_: true
-      agents: [goal]
-      distance_threshold: 1.0
+      reward: -1.0
+      for_agents: [adversary]
 
 eval_env:
-  step_fn:
-    # For eval only, respawn the goal if the agent is close to it
-    # This subsequently means that agents which avoid the adversary more often are
-    # far more likely to be selected for (i.e. they are better agents)
-    respawn_goal_if_agent_close:
-      _target_: cambrian.envs.step_fns.step_respawn_agents_if_close_to_agents
-      _partial_: true
-      for_agents: [goal]
-      to_agents: [agent]
-      distance_threshold: 1.0
-
   reward_fn:
     reward_euclidean_delta_to_goal:
       # increase reward for moving closer to the goal
       factor: 2.5
-    reward_if_respawned:
-      _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
-      _partial_: true
+    reward_if_goal_respawned:
       # large positive reward for respawning the goal (which happens if the agent is
       # close to it)
       reward: 10.0
-      for_agents: [goal]
-    reward_for_termination:
-      # large positive reward for termination; only happens when the agent makes it to
-      # the end of the eval episode w/o being close to the adversary
-      reward: 20.0
-    reward_for_truncation:
-      # large negative reward for truncation; happens when the agent is close to the
-      # adversary
-      reward: -10.0 # large negative reward for truncation
+    reward_if_adversary_respawned:
+      # large negative reward for respawning the advsrary (which happens if the agent is
+      # close to it)
+      reward: -10.0
     penalize_if_has_contacts:
       # large negative reward for contacts
       penalty: -10.0
-      for_agents: [agent]
