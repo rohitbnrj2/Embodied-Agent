@@ -1,0 +1,26 @@
+# @package _global_
+
+defaults:
+  - /exp/tasks/navigation
+
+  - override /env/mazes@env.mazes.maze: STRAIGHT
+
+  # We want to load the model from a previous training run strictly for eval
+  - override /trainer/model: loaded_model
+
+custom:
+  # Must specify the folder which contains the model and the configs
+  folder: "???"
+
+  # Little trick to be able to load the specific agent config from file at load time
+  config_filename: config.yaml
+  config_pattern: env.agents.agent
+  agents:
+    agent: ${load:${path:${custom.folder},${custom.config_filename}},${custom.config_pattern}}
+
+trainer:
+  model:
+    path: ${path:${custom.folder},best_model}
+
+env:
+  agents: ${custom.agents}

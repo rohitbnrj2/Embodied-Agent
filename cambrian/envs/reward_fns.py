@@ -118,7 +118,7 @@ def reward_euclidean_delta_to_agents(
 
         # NOTE: calc_delta returns a positive value if the agent moves away from the
         # agent. We'll multiple by -1 to flip the convention.
-        delta = -factor * calc_delta(agent, info, other_agent.pos)
+        delta = -factor * calc_delta(agent, info, other_agent.pos) / env.extent
         if min_delta_threshold is not None and delta < min_delta_threshold:
             continue
         elif max_delta_threshold is not None and delta > max_delta_threshold:

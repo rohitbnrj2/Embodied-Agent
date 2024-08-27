@@ -31,6 +31,20 @@ env:
       custom:
         size: 0.25
 
+    agent:
+      # Up the ctrl range to make the environment more difficult
+      xml:
+        overrides:
+          - mujoco:
+              - actuator:
+                  - velocity:
+                      - name: "${parent:xml}_act_x"
+                      - ctrlrange: "-100.0 100.0"
+                  - velocity:
+                      - name: "${parent:xml}_act_y"
+                      - ctrlrange: "-100.0 100.0"
+
+
   # Update the scale of the maze so that it's more difficult
   mazes:
     maze:

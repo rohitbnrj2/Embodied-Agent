@@ -56,8 +56,8 @@ class MazeEditor(tk.Tk):
 
         self.command_stack = CommandStack()
 
-        self.selected_item = tk.StringVar(value="Wall")  # Default selection
-        self.wall_texture = tk.StringVar(value="")  # Default texture
+        self.selected_item = tk.StringVar(value="Wall (1)")  # Default selection
+        self.texture = tk.StringVar(value="")  # Default texture
         self.initialize_ui()
 
     def initialize_ui(self):
@@ -73,12 +73,7 @@ class MazeEditor(tk.Tk):
         combobox = ttk.Combobox(
             toolbar,
             textvariable=self.selected_item,
-            values=[
-                "Open Space (0)",
-                "Reset Location (R)",
-                "Object Position (X)",
-                "Wall",
-            ],
+            values=["Open Space (0)", "Reset Location (R)", "Wall (1)"],
             state="readonly",
         )
         combobox.pack(side=tk.LEFT)
@@ -86,7 +81,7 @@ class MazeEditor(tk.Tk):
 
         # Text box for Wall texture
         tk.Label(toolbar, text="Texture:").pack(side=tk.LEFT)
-        self.texture_entry = ttk.Entry(toolbar, textvariable=self.wall_texture)
+        self.texture_entry = ttk.Entry(toolbar, textvariable=self.texture)
         self.texture_entry.pack(side=tk.LEFT)
 
         # Add undo/redu buttons
@@ -232,11 +227,10 @@ class MazeEditor(tk.Tk):
         if item == "Open Space (0)":
             return {"text": "0", "background": "white"}
         elif item == "Reset Location (R)":
-            return {"text": "R", "background": "yellow"}
-        elif item == "Object Position (X)":
-            return {"text": "X", "background": "blue"}
+            text = f"R:{self.texture.get()}" if self.texture.get() else "R"
+            return {"text": text, "background": "yellow"}
         elif item.startswith("Wall"):
-            text = f"1:{self.wall_texture.get()}" if self.wall_texture.get() else "1"
+            text = f"1:{self.texture.get()}" if self.texture.get() else "1"
             return {"text": text, "background": "gray"}
 
     def update_grid(self, row, col):
@@ -260,7 +254,12 @@ class MazeEditor(tk.Tk):
         self.command_stack.execute(cmd)
 
     def on_item_selected(self, _: tk.Event):
-        state = "normal" if self.selected_item.get().startswith("Wall") else "disabled"
+        item = self.selected_item.get()
+        state = (
+            "normal"
+            if item.startswith("Wall") or item.startswith("Reset")
+            else "disabled"
+        )
         self.texture_entry.config(state=state)
 
     def add_row(self, cmd: int):
@@ -324,7 +323,7 @@ class MazeEditor(tk.Tk):
         # Fill the text box with the map
         text = f"""\
 defaults:
-- /${{env/mazes}}@_here_
+- maze
 
 {self.print_map()}"""
         save_entry.insert(tk.END, textwrap.dedent(text))
@@ -361,12 +360,12 @@ defaults:
                 item = str(map[row][col])
                 if "0" == item:
                     bg = "white"
-                elif "R" == item:
+                elif item.startswith("R"):
                     bg = "yellow"
-                elif "X" == item:
-                    bg = "blue"
-                else:
+                elif item.startswith("1"):
                     bg = "gray"
+                else:
+                    raise ValueError(f"Invalid item: {item}")
                 app.grid_buttons[(row, col)].config(text=item, bg=bg)
 
         return app

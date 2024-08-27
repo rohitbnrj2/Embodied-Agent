@@ -54,14 +54,18 @@ def eval_safe(
     *,
     src: str,
     patterns: Dict[str, str],
+    assume_one: bool = True,
 ) -> ParsedAxisData:
     """This custom axis fn will pass a pattern directly to `safe_eval` using the
     `rank_data.config`."""
 
     variables = {}
     for key, pattern in patterns.items():
-        variable = rank_data.config.glob(pattern, flatten=True)
-        assert len(variable) == 1, f"Pattern {pattern} must return a single value."
-        variables[key] = next(iter(variable.values()))
+        variables[key] = rank_data.config.glob(
+            pattern, flatten=True, assume_one=assume_one
+        )
 
-    return safe_eval(src, variables), get_axis_label(axis_data)
+    try:
+        return safe_eval(src, variables), get_axis_label(axis_data)
+    except TypeError as e:
+        raise TypeError(f"Failed to evaluate {src} with variables {variables}") from e

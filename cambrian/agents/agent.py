@@ -372,10 +372,9 @@ class MjCambrianAgent:
         # Update the agent's qpos
         self.pos = self._init_pos
         self.quat = self._init_quat
+
         if self._config.perturb_init_pose:
-            # Perturb at a normal distribution with a std equal to 10% of the rbound
-            rbound = self.geom.rbound
-            self.pos += np.random.normal(0, rbound * 0.1, 3)
+            self.perturb_init_pose()
 
         # step here so that the observations are updated
         mj.mj_forward(model, data)
@@ -673,6 +672,18 @@ class MjCambrianAgent:
         for idx, val in enumerate(value):
             if val is not None:
                 self._data.qpos[self._qposadrs[3 + idx]] = val
+
+    def perturb_init_pose(self):
+        """Base implementation of the pose perturbation. Doesn't make any assumptions
+        about the qpos structure. For fine tuned adjustment of perturbation behavior,
+        this method should be overridden in the subclass."""
+        mask = np.ones(self._data.qpos.shape, dtype=bool)
+        mask[self._qposadrs] = False
+
+        # Perturb at a normal distribution with a std equal to the rbound
+        self._data.qpos[~mask] += np.random.normal(
+            0, self.geom.rbound, len(self._qposadrs)
+        )
 
     @property
     def mat(self) -> np.ndarray:

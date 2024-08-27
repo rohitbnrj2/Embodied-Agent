@@ -614,6 +614,11 @@ class MjCambrianEnv(ParallelEnv):
         return self._overlays
 
     @property
+    def extent(self) -> float:
+        """Returns the extent of the environment."""
+        return self._model.stat.extent
+
+    @property
     def cumulative_reward(self) -> float:
         """Returns the cumulative reward."""
         return self._cumulative_reward
@@ -791,6 +796,7 @@ if __name__ == "__main__":
         action = {
             name: [-1.0, -0.0] for name, a in env.agents.items() if a.config.trainable
         }
+        env.step(action.copy())
 
         if "human" in config.env.renderer.render_modes:
             import glfw

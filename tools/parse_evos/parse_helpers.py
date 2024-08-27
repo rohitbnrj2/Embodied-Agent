@@ -102,7 +102,7 @@ def load_data(config: ParseEvosConfig) -> Data:
 
     # If we're loading nevergrad data, we do that here to store the parent rank and
     # generation
-    if (nevergrad_log := config.folder / "nevergrad.log").exists():
+    if (nevergrad_log := config.folder / "nevergrad.log").exists() and False:
         import nevergrad as ng
 
         parameters_logger = ng.callbacks.ParametersLogger(nevergrad_log)
@@ -117,8 +117,9 @@ def load_data(config: ParseEvosConfig) -> Data:
             uid = param["#uid"]
             if "CMA" in param["#optimizer"]:
                 generation = param["#generation"] - 1  # 1-indexed, convert to 0 indexed
-            elif "DE" in param["#optimizer"]:
+            else:
                 generation = param["#generation"]
+
             rank = param["#num-tell"] % int(param["#num-ask"] // (generation + 1))
 
             uid_to_rank_and_generation[uid] = (rank, generation)
@@ -141,6 +142,7 @@ def load_data(config: ParseEvosConfig) -> Data:
     for generation, generation_data in data.generations.items():
         # Only load the generation we want, if specified
         if config.generations is not None and generation not in config.generations:
+            generation_data.ignored = True
             continue
 
         get_logger().info(f"Loading generation {generation}...")
@@ -148,6 +150,7 @@ def load_data(config: ParseEvosConfig) -> Data:
         for rank, rank_data in generation_data.ranks.items():
             # Only load the rank we want, if specified
             if config.ranks is not None and rank not in config.ranks:
+                rank_data.ignored = True
                 continue
 
             get_logger().info(f"\tLoading rank {rank}...")
@@ -158,6 +161,7 @@ def load_data(config: ParseEvosConfig) -> Data:
                 get_logger().warning(
                     f"\t\tSkipping rank {rank} because it is not finished."
                 )
+                rank_data.ignored = True
                 continue
 
             # Get the config file
@@ -323,6 +327,7 @@ def parse_color_data(
         color = rank_data.train_fitness
     elif color_data.type is ColorType.EVALUATION:
         color = rank_data.eval_fitness
+        assert color is not None, "Evaluations is required."
     else:
         raise ValueError(f"Unknown color type {color_data.type}.")
 

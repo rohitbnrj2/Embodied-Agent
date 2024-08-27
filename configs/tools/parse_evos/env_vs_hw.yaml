@@ -19,7 +19,7 @@ config_filename: "config.yaml"
 
 force: False
 no_save: False
-check_finished: False
+check_finished: True
 quiet: False
 debug: False
 
@@ -45,6 +45,18 @@ custom:
   clim: null
 
 plots:
+  fitness_vs_generation:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: EVALUATION
+      label: Fitness
+  training_vs_generation:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: MONITOR
+      label: Training Fitness
   total_pixels_vs_generation_vs_fitness_color:
     x_data:
       type: GENERATION
@@ -54,10 +66,10 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: num_eyes_to_generate[0][1] * resolution[0][0] * stack_size[0]
+        src: num_eyes_to_generate * resolution * stack_size
         patterns:
-          num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
-          resolution: env.(agents|animals).*.eyes.*.resolution
+          num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate[1]
+          resolution: env.(agents|animals).*.eyes.*.resolution[0]
           stack_size: trainer.wrappers.frame_stack_wrapper.stack_size
     color_data:
       type: EVALUATION
@@ -72,10 +84,10 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: num_eyes_to_generate[0][1] * resolution[0][0] * stack_size[0]
+        src: num_eyes_to_generate * resolution * stack_size
         patterns:
-          num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
-          resolution: env.(agents|animals).*.eyes.*.resolution
+          num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate[1]
+          resolution: env.(agents|animals).*.eyes.*.resolution[0]
           stack_size: trainer.wrappers.frame_stack_wrapper.stack_size
     color_data:
       type: MONITOR
@@ -105,7 +117,7 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: math.prod(num_eyes_to_generate[0])
+        src: math.prod(num_eyes_to_generate)
         patterns:
           num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
     color_data:
@@ -123,7 +135,7 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: math.prod(num_eyes_to_generate[0])
+        src: math.prod(num_eyes_to_generate)
         patterns:
           num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
     color_data:
@@ -143,7 +155,7 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: math.prod(num_eyes_to_generate[0])
+        src: math.prod(num_eyes_to_generate)
         patterns:
           num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
     z_data:
@@ -185,7 +197,7 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: math.prod(num_eyes_to_generate[0])
+        src: math.prod(num_eyes_to_generate)
         patterns:
           num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
     color_data:
@@ -201,7 +213,7 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: math.prod(num_eyes_to_generate[0])
+        src: math.prod(num_eyes_to_generate)
         patterns:
           num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
     color_data:
@@ -236,7 +248,7 @@ plots:
       custom_fn:
         _target_: custom_size_fns.eval_safe
         _partial_: True
-        src: math.prod(num_eyes_to_generate[0])
+        src: math.prod(num_eyes_to_generate)
         patterns:
           num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
   resolution_vs_generation_vs_training_color:
@@ -308,7 +320,7 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: math.prod(num_eyes_to_generate[0])
+        src: math.prod(num_eyes_to_generate)
         patterns:
           num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
     y_data:
@@ -354,9 +366,9 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: eyes_lon_left[0] * math.pi / 180.0
+        src: eyes_lon_range[0] * math.pi / 180.0
         patterns:
-          eyes_lon_left: env.(agents|animals).*.eyes_lon_range[0]
+          eyes_lon_range: env.(agents|animals).*.eyes_lon_range
     y_data:
       type: CONSTANT
       value: 1
@@ -377,9 +389,9 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: eyes_lon_right[0] * math.pi / 180.0
+        src: eyes_lon_range[1] * math.pi / 180.0
         patterns:
-          eyes_lon_right: env.(agents|animals).*.eyes_lon_range[1]
+          eyes_lon_range: env.(agents|animals).*.eyes_lon_range
   left_placement_heatmap_vs_generation:
     <<: *left_placement_heatmap
     name: placement_heatmap_vs_generation
@@ -431,7 +443,7 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: math.prod(num_eyes_to_generate[0])
+        src: math.prod(num_eyes_to_generate)
         patterns:
           num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
     y_data:
@@ -464,9 +476,9 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: math.prod(num_eyes_to_generate[0])
+        src: math.prod(num_eyes_to_generate)
         patterns:
-          num_eyes_to_generate: env.animals.*.num_eyes_to_generate
+          num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
     size_data:
       type: CUSTOM
       label: Number of Descendents
@@ -483,7 +495,7 @@ plots:
       type: GENERATION
     y_data:
       type: CONFIG
-      pattern: env.animals.*.eyes.*.resolution[0]
+      pattern: env.(agents|animals).*.eyes.*.resolution[0]
       label: Resolution
     size_data:
       type: CUSTOM

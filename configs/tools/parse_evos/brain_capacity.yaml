@@ -19,7 +19,7 @@ config_filename: "config.yaml"
 
 force: False
 no_save: False
-check_finished: False
+check_finished: True
 quiet: False
 debug: False
 

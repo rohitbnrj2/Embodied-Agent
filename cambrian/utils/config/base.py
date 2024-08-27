@@ -177,10 +177,21 @@ class MjCambrianContainerConfig:
 
     @classmethod
     def load(
-        cls, *args, instantiate: bool = True, **instantiate_kwargs
+        cls,
+        *args,
+        instantiate: bool = True,
+        pattern: Optional[str] = None,
+        **instantiate_kwargs,
     ) -> Self | DictConfig | ListConfig:
-        """Wrapper around OmegaConf.load to instantiate the config."""
+        """Wrapper around OmegaConf.load to instantiate the config.
+
+        Keyword Args:
+            pattern (Optional[str]): The specific pattern to select from the loaded
+                config.
+        """
         loaded = OmegaConf.load(*args)
+        if pattern is not None:
+            loaded = OmegaConf.select(loaded, pattern)
         if instantiate:
             return cls.instantiate(loaded, **instantiate_kwargs)
         else:
@@ -373,7 +384,9 @@ class MjCambrianContainerConfig:
         """
         result = glob(key, flatten, self._config)
         if assume_one:
-            assert len(result) == 1, f"Expected one match, got {len(result)}"
+            assert (
+                len(result) == 1
+            ), f"Expected one match for {key = }, got {len(result)}."
             return next(iter(result.values()))[0]
         return result
 

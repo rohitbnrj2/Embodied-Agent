@@ -223,7 +223,7 @@ def load_folder(config: ParseSweepsConfig, folder: Path) -> Result | None:
 
     # Check if the folder is a singly-nested or doubly-nested folder
     result = None
-    if (folder / "best_model.zip").exists():
+    if (folder / "finished").exists():
         get_logger().info(f"Processing {folder}...")
 
         result = parse_folder(config, folder)

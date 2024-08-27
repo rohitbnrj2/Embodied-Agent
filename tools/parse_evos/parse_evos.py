@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Any, List, Tuple
+from typing import Dict, Optional, Any, Tuple
 from functools import partial
 import sys
 
@@ -48,7 +48,7 @@ set_matplotlib_style()
 # =======================================================
 
 
-def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
+def run_plot(config: ParseEvosConfig, data: Data):
     get_logger().info("Plotting data...")
 
     # Update the rcparams.figure.max_open_warning to suppress the warning
@@ -77,6 +77,7 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                     get_logger().debug(f"Skipping plot {plot.name}.")
                     continue
 
+                rank_id = f"G{generation}_R{rank}"
                 try:
                     x_data, y_data, z_data, color_data, size_data = parse_plot_data(
                         plot, data, generation_data, rank_data
@@ -84,13 +85,19 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                 except AssertionError as e:
                     if rank_data.ignored:
                         title = f" {plot.title}" if plot.title else ""
-                        get_logger().debug(f"Ignoring plot{title}: {e}")
+                        get_logger().debug(f"{rank_id} Ignoring plot{title}: {e}")
                         continue
                     elif config.debug:
-                        raise ValueError(f"Error parsing plot {plot.name}: {e}")
+                        raise ValueError(
+                            f"{rank_id} Error parsing plot {plot.name}: {e}"
+                        )
                     else:
-                        get_logger().warning(f"Couldn't parse plot {plot.name}: {e}")
-                        get_logger().warning("Ignoring this plot in the future.")
+                        get_logger().warning(
+                            f"{rank_id} Couldn't parse plot {plot.name}: {e}"
+                        )
+                        get_logger().warning(
+                            f"{rank_id} Ignoring this plot in the future."
+                        )
                         with config.set_readonly_temporarily(False):
                             config.plots_to_ignore = [
                                 *config.plots_to_ignore,
@@ -99,10 +106,12 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                         continue
                 except Exception as e:
                     if config.debug:
-                        get_logger().error(f"Error parsing plot {plot.name}")
+                        get_logger().error(f"{rank_id} Error parsing plot {plot.name}")
                         raise e
                     else:
-                        get_logger().error(f"Error parsing plot {plot.name}: {e}")
+                        get_logger().error(
+                            f"{rank_id} Error parsing plot {plot.name}: {e}"
+                        )
                     continue
 
                 x_data, xlabel = x_data
@@ -119,7 +128,7 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                 projection = plot.projection or ("3d" if z_data else "rectilinear")
 
                 # Plot the data
-                get_logger().debug(f"\t\tPlotting {title}...")
+                get_logger().debug(f"\t\tPlotting {plot.name}...")
 
                 # Run custom functions
                 if plot.custom_fns:
@@ -146,7 +155,17 @@ def run_plot(config: ParseEvosConfig, data: Data) -> List[int]:
                     dry_run=config.dry_run,
                 )
 
-    return plt.get_fignums()
+    # If there is no data, set all the plots to be ignored
+    if len(data.generations) == 0:
+        if config.debug:
+            raise ValueError("No data found. Ignoring all plots.")
+        else:
+            get_logger().warning("No data found. Ignoring all plots.")
+        with config.set_readonly_temporarily(False):
+            config.plots_to_ignore = [
+                *config.plots_to_ignore,
+                *[p.name for p in config.plots.values()],
+            ]
 
 
 def update_plots(
@@ -163,6 +182,10 @@ def update_plots(
         elif plot.name in config.plots_to_ignore:
             continue
         plots[plot.name] = plot
+
+    if len(plots) == 0:
+        get_logger().warning("No plots to save.")
+        return
 
     # Now save the plots
     progress_bar = tqdm.tqdm(total=len(plots), desc="Saving...", disable=config.debug)

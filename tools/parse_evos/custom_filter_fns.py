@@ -99,7 +99,7 @@ def filter_uniformly(
             distance = sum(
                 abs(
                     agent[pattern]
-                    - rank.config.glob(pattern, flatten=True, assume_one=True)[0]
+                    - rank.config.glob(pattern, flatten=True, assume_one=True)
                 )
                 for pattern in patterns.keys()
                 if rank.config is not None

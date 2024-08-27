@@ -1,3 +1,10 @@
+try:
+    import nevergrad as ng  # noqa
+
+    has_nevergrad = True
+except ImportError:
+    has_nevergrad = False
+
 from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 
 
@@ -8,3 +15,9 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
 
     rank: int
     generation: int
+
+
+if has_nevergrad:
+    ng.optimizers.ParametrizedCMA(popsize=16, diagonal=True, fcmaes=False).set_name(
+        "CambrianCMA", register=True
+    )
