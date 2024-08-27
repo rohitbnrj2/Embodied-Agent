@@ -95,14 +95,15 @@ def run_plot(config: ParseEvosConfig, data: Data):
                         get_logger().warning(
                             f"{rank_id} Couldn't parse plot {plot.name}: {e}"
                         )
-                        get_logger().warning(
-                            f"{rank_id} Ignoring this plot in the future."
-                        )
-                        with config.set_readonly_temporarily(False):
-                            config.plots_to_ignore = [
-                                *config.plots_to_ignore,
-                                plot.name,
-                            ]
+                        if config.quiet:
+                            get_logger().warning(
+                                f"{rank_id} Ignoring this plot in the future."
+                            )
+                            with config.set_readonly_temporarily(False):
+                                config.plots_to_ignore = [
+                                    *config.plots_to_ignore,
+                                    plot.name,
+                                ]
                         continue
                 except Exception as e:
                     if config.debug:
