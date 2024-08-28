@@ -89,8 +89,8 @@ optim:
     - name: tell
       callback:
         _target_: nevergrad.callbacks.OptimizationLogger
-    # Stop the optimization if the best agent hasn't improved in the last 5 generations
+    # Stop the optimization if the best agent hasn't improved in the last 10 generations
     # - name: ask
     #   callback:
     #     _target_: nevergrad.callbacks.EarlyStopping.no_improvement_stopper
-    #     tolerance_window: ${eval:'${oc.select:evo.population_size, 1} * 5'}
+    #     tolerance_window: ${eval:'${oc.select:evo.population_size, 1} * 10'}

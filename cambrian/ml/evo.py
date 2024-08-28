@@ -16,8 +16,5 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
     rank: int
     generation: int
 
-
 if has_nevergrad:
-    ng.optimizers.ParametrizedCMA(popsize=16, diagonal=True, fcmaes=False).set_name(
-        "CambrianCMA", register=True
-    )
+    ng.optimizers.EvolutionStrategy(recombination_ratio=0.25, only_offsprings=False, offsprings=8, popsize=16).set_name("CambrianES2", register=True)

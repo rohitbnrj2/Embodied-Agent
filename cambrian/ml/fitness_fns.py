@@ -117,3 +117,33 @@ def fitness_num_eyes(
         population_size = config.evo.population_size
         seed = generation * population_size + rank
     return np.random.default_rng(seed).normal(mean + np.prod(num_eyes), std)
+
+def fitness_num_eyes_and_fov(
+    config: "MjCambrianConfig",
+    *,
+    num_eyes_pattern: str,
+    fov_pattern: str,
+    mean: float = 0,
+    std: float = 5,
+    assume_one: bool = True,
+    optimal_fov: float = 45
+) -> float:
+    """This fitness function will return higher rewards generally for agents with more
+    eyes and a fov closer to the `optimal_fov`.
+    """
+    num_eyes = config.glob(num_eyes_pattern, flatten=True, assume_one=assume_one)
+    fov = config.glob(fov_pattern, flatten=True, assume_one=assume_one)
+
+    # Set the seed such that when loading later, the same random values are generated
+    # Get the seed based on the agent's id
+    seed = config.seed
+    if config.evo is not None:
+        rank = config.evo.rank
+        generation = config.evo.generation
+        population_size = config.evo.population_size
+        seed = generation * population_size + rank
+
+    rng = np.random.default_rng(seed)
+    num_eyes = rng.normal(mean + np.prod(num_eyes), std)
+    fov = rng.normal(mean + optimal_fov / max(abs(optimal_fov - fov), 1), std)
+    return num_eyes + fov

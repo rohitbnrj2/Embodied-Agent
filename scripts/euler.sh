@@ -5,7 +5,7 @@
 #SBATCH --time=4-00:00:00
 #SBATCH --qos=sbel
 #SBATCH --partition=sbel
-#SBATCH --mem-per-cpu=2000
+#SBATCH --mem-per-cpu=3000
 #SBATCH --job-name cambrian
 #SBATCH --output=out/R-%x.%j_%a.out
 #SBATCH --error=out/R-%x.%j_%a.err

@@ -43,7 +43,7 @@ from utils import extract_data
 # Default is 1000, but we'll set it to 10000 to be safe
 sys.setrecursionlimit(10000)
 
-set_matplotlib_style()
+set_matplotlib_style(use_scienceplots=False)
 
 # =======================================================
 
@@ -209,22 +209,26 @@ def update_plots(
 
             # We'll ignore any plots which don't have unique data along any axis
             # These plots aren't really useful as there is no independent variable.
-            if plot_data.x_data.type is not AxisDataType.CONSTANT and np.all(
-                x_data == x_data[0]
-            ):
-                get_logger().debug(f"Skipping plot {plot_data.name}: no unique x_data.")
-                continue
-            elif plot_data.y_data.type is not AxisDataType.CONSTANT and np.all(
-                y_data == y_data[0]
-            ):
-                get_logger().debug(f"Skipping plot {plot_data.name}: no unique y_data.")
-                continue
-            elif (
-                is_3d
-                and plot_data.z_data.type is not AxisDataType.CONSTANT
-                and np.all(z_data == z_data[0])
-            ):
-                get_logger().debug(f"Skipping plot {plot_data.name}: no unique z_data.")
+            try:
+                if plot_data.x_data.type is not AxisDataType.CONSTANT and np.all(
+                    x_data == x_data[0]
+                ):
+                    get_logger().debug(f"Skipping plot {plot_data.name}: no unique x_data.")
+                    continue
+                elif plot_data.y_data.type is not AxisDataType.CONSTANT and np.all(
+                    y_data == y_data[0]
+                ):
+                    get_logger().debug(f"Skipping plot {plot_data.name}: no unique y_data.")
+                    continue
+                elif (
+                    is_3d
+                    and plot_data.z_data.type is not AxisDataType.CONSTANT
+                    and np.all(z_data == z_data[0])
+                ):
+                    get_logger().debug(f"Skipping plot {plot_data.name}: no unique z_data.")
+                    continue
+            except IndexError:
+                get_logger().debug(f"Skipping plot {plot_data.name}.")
                 continue
 
             # Adjust the points, if necessary

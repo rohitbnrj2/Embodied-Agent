@@ -119,7 +119,6 @@ def load_data(config: ParseEvosConfig) -> Data:
                 generation = param["#generation"] - 1  # 1-indexed, convert to 0 indexed
             else:
                 generation = param["#generation"]
-
             rank = param["#num-tell"] % int(param["#num-ask"] // (generation + 1))
 
             uid_to_rank_and_generation[uid] = (rank, generation)

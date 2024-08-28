@@ -16,7 +16,7 @@ timeout_min: ${eval:'60*24'} # 1 day (in min)
 nodes: 1
 tasks_per_node: ${eval:'int(20 // ${.cpus_per_task})'}
 cpus_per_task: ${trainer.n_envs}
-mem_per_cpu: 3G
+mem_per_cpu: 5G
 
 # number of parallel array jobs launched
 array_parallelism: ${eval:'int(${oc.select:evo.population_size, 16} // ${.tasks_per_node})'}
