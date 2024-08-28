@@ -32,17 +32,8 @@ env:
         size: 0.25
 
     agent:
-      # Up the ctrl range to make the environment more difficult
-      xml:
-        overrides:
-          - mujoco:
-              - actuator:
-                  - velocity:
-                      - name: "${parent:xml}_act_x"
-                      - ctrlrange: "-100.0 100.0"
-                  - velocity:
-                      - name: "${parent:xml}_act_y"
-                      - ctrlrange: "-100.0 100.0"
+      # Set the initial yaw to -pi / 4.
+      init_quat: ["${eval:'math.cos(-math.pi/4)'}", 0, 0, "${eval:'math.sin(-math.pi/4)'}"]
 
 
   # Update the scale of the maze so that it's more difficult
@@ -52,6 +43,7 @@ env:
 
       agent_id_map:
         default: [agent]
+        E: [agent]
         O: [goal]
 
   reward_fn:
@@ -85,6 +77,12 @@ env:
       distance_threshold: 1.0
 
 eval_env:
+  mazes:
+    maze:
+      agent_id_map:
+        # Update the default map such that the agent is only placed on R:E spaces
+        default: []
+
   reward_fn:
     reward_for_termination:
       # large positive reward for termination; only happens when the agent makes it to
@@ -97,3 +95,7 @@ eval_env:
       # large negative reward for contacts
       penalty: -10.0
       for_agents: [agent]
+
+  truncation_fn:
+    truncate_if_low_reward:
+      threshold: -.inf

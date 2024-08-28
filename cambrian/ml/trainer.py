@@ -78,6 +78,10 @@ class MjCambrianTrainer:
         self._config.save(self._config.expdir / "config.yaml")
         self._config.pickle(self._config.expdir / "config.pkl")
 
+        # Delete an existing finished file, if it exists
+        if (finished := self._config.expdir / "finished").exists():
+            finished.unlink()
+
         # Prune the experiment, if necessary
         if (prune_fn := self._config.trainer.prune_fn) and prune_fn(self._config):
             Path(self._config.expdir / "pruned").touch()
