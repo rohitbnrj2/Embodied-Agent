@@ -14,9 +14,7 @@ custom:
 
   # Little trick to be able to load the specific agent config from file at load time
   config_filename: config.yaml
-  config_pattern: env.agents.agent
-  agents:
-    agent: ${load:${path:${custom.folder},${custom.config_filename}},${custom.config_pattern}}
+  agents: ${load:${path:${custom.folder},${custom.config_filename}},env.agents}
 
 trainer:
   model:

@@ -378,6 +378,7 @@ class MjCambrianAgent:
 
         # step here so that the observations are updated
         mj.mj_forward(model, data)
+
         self.init_pos = self.pos
         self.init_quat = self.quat
 

@@ -5,6 +5,9 @@ defaults:
 # actions.
 trainable: false
 
+# Don't perturb pose
+perturb_init_pose: False
+
 instance:
   _target_: cambrian.agents.MjCambrianAgentObject
   _partial_: true

@@ -181,18 +181,24 @@ def combine(results: List[Result], *, fitness_method: str) -> Result:
     result["train_fitness"] = train_fitness
 
     # monitor; stack the monitors
+    monitor = None
     monitors = [r.monitor for r in results if r.monitor is not None]
-    min_length = min(len(m) for m in monitors)
-    monitor = np.stack([m[:min_length] for m in monitors], axis=0)
+    if len(monitors) != 0:
+        min_length = min(len(m) for m in monitors)
+        monitor = np.stack([m[:min_length] for m in monitors], axis=0)
+        monitor = np.median(monitor, axis=0)
 
-    result["monitor"] = np.median(monitor, axis=0)
+    result["monitor"] = monitor
 
     # evaluations; stack the evaluations
+    evaluation = None
     evalutions = [r.evaluations for r in results if r.evaluations is not None]
-    min_length = min(len(e) for e in evalutions)
-    evalutions = np.stack([e[:min_length] for e in evalutions], axis=0)
+    if len(evalutions) != 0:
+        min_length = min(len(e) for e in evalutions)
+        evaluation = np.stack([e[:min_length] for e in evalutions], axis=0)
+        evaluation = np.median(evaluation, axis=0)
 
-    result["evaluations"] = np.median(evalutions, axis=0)
+    result["evaluations"] = evaluation
 
     return Result(**result)
 
@@ -201,18 +207,21 @@ def combine(results: List[Result], *, fitness_method: str) -> Result:
 
 
 def parse_folder(config: ParseSweepsConfig, folder: Path) -> Result | None:
+    def run(fn, *args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            if config.debug:
+                raise Exception(f"Error running {fn}: {e}") from e
+            get_logger().error(f"Error running {fn}: {e}")
+            return None
+
     result = {}
-    try:
-        result["config"] = config.load_config_fn(folder, config.overrides)
-        result["train_fitness"] = config.load_train_fitness_fn(folder)
-        result["eval_fitness"] = config.load_eval_fitness_fn(folder)
-        result["monitor"] = config.load_monitor_fn(folder)
-        result["evaluations"] = config.load_evaluations_fn(folder)
-    except Exception as e:
-        if config.debug:
-            raise Exception(f"Error parsing {folder}: {e}") from e
-        get_logger().error(f"Error parsing {folder}: {e}")
-        return None
+    result["config"] = run(config.load_config_fn, folder, config.overrides)
+    result["train_fitness"] = run(config.load_train_fitness_fn, folder)
+    result["eval_fitness"] = run(config.load_eval_fitness_fn, folder)
+    result["monitor"] = run(config.load_monitor_fn, folder)
+    result["evaluations"] = run(config.load_evaluations_fn, folder)
 
     return Result(**result)
 
@@ -223,7 +232,7 @@ def load_folder(config: ParseSweepsConfig, folder: Path) -> Result | None:
 
     # Check if the folder is a singly-nested or doubly-nested folder
     result = None
-    if (folder / "finished").exists():
+    if (folder / "evaluations").exists():
         get_logger().info(f"Processing {folder}...")
 
         result = parse_folder(config, folder)
@@ -256,6 +265,7 @@ def load_data(config: ParseSweepsConfig) -> Data:
     results = {}
 
     for folder in sorted(config.folder.iterdir()):
+        get_logger().debug(f"Loading {folder}...")
         if result := load_folder(config, folder):
             results[folder.name] = result
 
@@ -297,42 +307,43 @@ def plot_data(config: ParseSweepsConfig, data: Data):
             )
 
         # Monitor
-        plt.figure("Monitor")
-        plt.suptitle("Monitor")
+        if (monitor := result.monitor) is not None:
+            plt.figure("Monitor")
+            plt.suptitle("Monitor")
 
-        monitor = result.monitor
-        if len(monitor) > 100:
-            # convolve; window size 100
-            monitor = np.convolve(monitor, np.ones(100) / 100, mode="valid")
-        x, y = np.arange(len(monitor)), monitor
-        plt.plot(x, y)
-        plt.annotate(
-            name,
-            (x[-1], y[-1]),
-            xytext=(10, 0),
-            textcoords="offset points",
-            verticalalignment="center",
-            horizontalalignment="left",
-        )
+            if len(monitor) > 100:
+                # convolve; window size 100
+                monitor = np.convolve(monitor, np.ones(100) / 100, mode="valid")
+            x, y = np.arange(len(monitor)), monitor
+            plt.plot(x, y)
+            plt.annotate(
+                name,
+                (x[-1], y[-1]),
+                xytext=(10, 0),
+                textcoords="offset points",
+                verticalalignment="center",
+                horizontalalignment="left",
+            )
 
         # Evaluations
-        plt.figure("Evaluations")
-        plt.suptitle("Evaluations")
+        if (evaluations := result.evaluations) is not None:
+            plt.figure("Evaluations")
+            plt.suptitle("Evaluations")
 
-        evaluations = result.evaluations
-        if len(evaluations) > 3:
-            # convolve; window size 3
-            evaluations = np.convolve(evaluations, np.ones(3) / 3, mode="valid")
-        x, y = np.arange(len(evaluations)), evaluations
-        plt.plot(x, y)
-        plt.annotate(
-            name,
-            (x[-1], y[-1]),
-            xytext=(10, 0),
-            textcoords="offset points",
-            verticalalignment="center",
-            horizontalalignment="left",
-        )
+            evaluations = result.evaluations
+            if len(evaluations) > 3:
+                # convolve; window size 3
+                evaluations = np.convolve(evaluations, np.ones(3) / 3, mode="valid")
+            x, y = np.arange(len(evaluations)), evaluations
+            plt.plot(x, y)
+            plt.annotate(
+                name,
+                (x[-1], y[-1]),
+                xytext=(10, 0),
+                textcoords="offset points",
+                verticalalignment="center",
+                horizontalalignment="left",
+            )
 
     if config.save_plots:
         plots_folder = config.output / "plots"
