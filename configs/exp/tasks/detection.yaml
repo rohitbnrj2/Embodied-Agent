@@ -44,7 +44,7 @@ env:
 
   mazes:
     maze:
-      scale: 5
+      scale: 3
       agent_id_map:
         default: [agent]
         O: [goal, adversary]
