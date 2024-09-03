@@ -31,7 +31,7 @@ custom:
 
 trainer:
   total_timesteps: 500_000
-  max_episode_steps: 256
+  max_episode_steps: 128
 
 env:
   agents:
@@ -49,6 +49,48 @@ env:
         default: [agent]
         O: [goal, adversary]
 
+  reward_fn:
+    reward_for_termination:
+      for_agents: [agent]
+      reward: 2.0
+    reward_for_truncation:
+      reward: -2.0
+      for_agents: [agent]
+
+    penalize_if_has_contacts:
+      _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
+      _partial_: true
+      penalty: -1.0
+      for_agents: [agent]
+
+    constant_penalty:
+      _target_: cambrian.envs.reward_fns.constant_reward
+      _partial_: true
+      reward: -0.1
+      for_agents: [agent]
+
+    reward_euclidean_delta_to_goal:
+      _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
+      _partial_: true
+      factor: 0.25
+      agents: [goal]
+
+  truncation_fn:
+    truncate_if_close_to_adversary:
+      _target_: cambrian.envs.done_fns.done_if_close_to_agents
+      _partial_: true
+      agents: [adversary]
+      distance_threshold: 1.0
+
+  termination_fn:
+    # Terminate (i.e. succeed) if the agent is close to the goal
+    terminate_if_close_to_goal:
+      _target_: cambrian.envs.done_fns.done_if_close_to_agents
+      _partial_: true
+      agents: [goal]
+      distance_threshold: 1.0
+
+eval_env:
   step_fn:
     # Respawn the goal if the agent is close to it
     # This subsequently means that agents which avoid the adversary more often are
@@ -61,43 +103,28 @@ env:
       distance_threshold: 1.0
 
   reward_fn:
-    penalize_if_has_contacts:
-      _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
-      _partial_: true
-      penalty: -1.0
-      for_agents: [agent]
-
     reward_euclidean_delta_to_goal:
-      _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
-      _partial_: true
-      factor: 0.25
-      agents: [goal]
+      # increase reward for moving closer to the goal
+      factor: 2.5
+    constant_penalty:
+      # Remove the constant penalty
+      reward: 0.0
+    penalize_if_has_contacts:
+      # large negative reward for contacts
+      penalty: -10.0
 
     reward_if_goal_respawned:
       _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
       _partial_: true
-      reward: 1.0
+      # large positive reward for respawning the goal (which happens if the agent is
+      # close to it)
+      reward: 10.0
       for_agents: [goal]
 
     reward_if_adversary_respawned:
       _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
       _partial_: true
-      reward: -1.0
-      for_agents: [adversary]
-
-eval_env:
-  reward_fn:
-    reward_euclidean_delta_to_goal:
-      # increase reward for moving closer to the goal
-      factor: 2.5
-    reward_if_goal_respawned:
-      # large positive reward for respawning the goal (which happens if the agent is
-      # close to it)
-      reward: 10.0
-    reward_if_adversary_respawned:
       # large negative reward for respawning the advsrary (which happens if the agent is
       # close to it)
       reward: -10.0
-    penalize_if_has_contacts:
-      # large negative reward for contacts
-      penalty: -10.0
+      for_agents: [adversary]
