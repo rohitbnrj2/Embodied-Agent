@@ -232,9 +232,14 @@ class MjCambrianAgentPointMazeRandom(MjCambrianAgentPoint):
             target_pos = env.maze.rowcol_to_xy((rows[index], cols[index]))
 
             if self._use_optimal_trajectory:
-                self._optimal_trajectory = env.maze.compute_optimal_path(
-                    self.pos, target_pos
-                )
+                try:
+                    self._optimal_trajectory = env.maze.compute_optimal_path(
+                        self.pos, target_pos
+                    )
+                except ValueError as e:
+                    raise ValueError(
+                        f"Couldn't find path for '{self.name}' from {self.pos} to {target_pos}"
+                    ) from e
             else:
                 self._optimal_trajectory = np.array([target_pos[:2]])
 

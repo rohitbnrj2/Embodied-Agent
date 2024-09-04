@@ -1,0 +1,147 @@
+# @package _global_
+
+defaults:
+  - /exp/tasks/task
+
+  # Use one maze for the time being
+  - /env/mazes@env.mazes.maze: ALL
+
+  # Use the maze_exp config as the base
+  - /exp/maze_exp
+
+  # Define one point agent with a single eye
+  - /env/agents@env.agents.agent: point
+  - /env/agents/eyes@env.agents.agent.eyes.eye: eye
+
+  # Define two static objects: a goal and an adversary
+  - /env/agents@env.agents.adversary: object_sphere_textured_adversary
+  - /env/agents@env.agents.goal: object_sphere_textured_goal
+
+  # Add two dynamic objects: a moving goal and a moving adversary
+  - /env/agents@env.agents.goal_moving: point_maze_random_textured
+  - /env/agents@env.agents.adversary_moving: point_maze_random_textured
+
+  # Define one goal light object
+  - /env/agents@env.agents.goal_light: object_sphere_light
+
+custom:
+  # This sets both the frequency of the texture of the goal and adversary
+  # The goal and adversary textures are the same, just rotated 90 degrees relative
+  # to one another
+  frequency: 8
+
+trainer:
+  total_timesteps: 1_000_000
+  max_episode_steps: 128 # relatively short the episode length
+
+env:
+  agents:
+    goal:
+      custom:
+        frequency: ${custom.frequency}
+    adversary:
+      custom:
+        frequency: ${custom.frequency}
+    goal_moving:
+      overlay_color: [0.2, 0.8, 0.2, 1]
+      custom:
+        frequency: ${custom.frequency}
+        euler: 0 0 0
+        top_rgba: 0.2 0.8 0.2 1.0
+    adversary_moving:
+      overlay_color: [0.8, 0.2, 0.2, 1]
+      custom:
+        frequency: ${custom.frequency}
+        euler: 0 90 0
+        top_rgba: 0.8 0.2 0.2 1.0
+
+  mazes:
+    maze:
+      scale: 5
+      agent_id_map:
+        default: [agent]
+        N: [agent]
+        D: [agent]
+        O: [goal, adversary]
+        T: [goal_moving, adversary_moving]
+        L: [goal_light]
+
+  reward_fn:
+    reward_for_termination:
+      for_agents: [agent]
+      reward: 2.0
+    reward_for_truncation:
+      reward: -2.0
+      for_agents: [agent]
+
+    penalize_if_has_contacts:
+      _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
+      _partial_: true
+      penalty: -1.0
+      for_agents: [agent]
+
+    constant_penalty:
+      _target_: cambrian.envs.reward_fns.constant_reward
+      _partial_: true
+      reward: -0.1
+      for_agents: [agent]
+
+    reward_euclidean_delta_to_goal:
+      _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
+      _partial_: true
+      factor: 0.25
+      agents: [goal]
+
+  truncation_fn:
+    truncate_if_close_to_adversary:
+      _target_: cambrian.envs.done_fns.done_if_close_to_agents
+      _partial_: true
+      agents: [adversary]
+      distance_threshold: 1.0
+
+  termination_fn:
+    # Terminate (i.e. succeed) if the agent is close to the goal
+    terminate_if_close_to_goal:
+      _target_: cambrian.envs.done_fns.done_if_close_to_agents
+      _partial_: true
+      agents: [goal]
+      distance_threshold: 1.0
+
+eval_env:
+  step_fn:
+    # Respawn the goal if the agent is close to it
+    # This subsequently means that agents which avoid the adversary more often are
+    # far more likely to be selected for (i.e. they are better agents)
+    respawn_objects_if_agent_close:
+      _target_: cambrian.envs.step_fns.step_respawn_agents_if_close_to_agents
+      _partial_: true
+      for_agents: [goal, adversary]
+      to_agents: [agent]
+      distance_threshold: 1.0
+
+  reward_fn:
+    reward_euclidean_delta_to_goal:
+      # increase reward for moving closer to the goal
+      factor: 2.5
+    constant_penalty:
+      # Remove the constant penalty
+      reward: 0.0
+    penalize_if_has_contacts:
+      # large negative reward for contacts
+      penalty: -10.0
+
+    reward_if_goal_respawned:
+      _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
+      _partial_: true
+      # large positive reward for respawning the goal (which happens if the agent is
+      # close to it)
+      reward: 10.0
+      for_agents: [goal]
+
+    reward_if_adversary_respawned:
+      _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
+      _partial_: true
+      # large negative reward for respawning the advsrary (which happens if the agent is
+      # close to it)
+      reward: -10.0
+      for_agents: [adversary]

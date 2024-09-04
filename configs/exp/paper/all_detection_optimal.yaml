@@ -1,0 +1,24 @@
+# @package _global_
+
+defaults:
+  - /exp/tasks/all
+  - /exp/tasks/initial_conditions/simple_flatland
+
+  - override /env/agents@env.agents.agent: point_maze_optimal
+
+custom:
+  frequency: 8
+
+env:
+  agents:
+    agent:
+      instance:
+        use_optimal_trajectory: false
+
+      num_eyes_to_generate: [1, 2]
+      eyes_lon_range: [-15, 15]
+
+      eyes:
+        eye:
+          resolution: [100, 100]
+          fov: [45, 5]

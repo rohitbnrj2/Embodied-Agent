@@ -458,19 +458,12 @@ class MjCambrianMaze:
 
     # ==================
 
-    def _generate_pos(
-        self,
-        locations: List[np.ndarray],
-        add_as_occupied: bool = True,
-        tries: int = 20,
-    ) -> np.ndarray:
+    def _generate_pos(self, locations: List[np.ndarray], tries: int = 20) -> np.ndarray:
         """Helper method to generate a position. The generated position must be at a
         unique location from self._occupied_locations.
 
         Args:
             locations (List[np.ndarray]): The locations to choose from.
-            add_as_occupied (bool): Whether to add the chosen location to the
-                occupied locations. Defaults to True.
             tries (int): The number of tries to attempt to find a unique position.
                 Defaults to 20.
 
@@ -511,13 +504,16 @@ class MjCambrianMaze:
         for reset_agent, reset_pos in zip(self._reset_agents, self._reset_locations):
             if agent in self._config.agent_id_map[reset_agent]:
                 reset_locations.append(reset_pos)
+        reset_locations = np.array(reset_locations)
 
         # Reset the occupied location if the agent is already in the occupied locations
         if agent in self._agent_locations:
             del self._occupied_locations[self._agent_locations[agent]]
 
         # Generate the pos and assign that pos to the agent
-        pos = self._generate_pos(reset_locations, add_as_occupied)
+        if len(reset_locations) == 0:
+            raise ValueError(f"No reset locations found for agent '{agent}'.")
+        pos = self._generate_pos(reset_locations)
         if add_as_occupied:
             self._agent_locations[agent] = len(self._occupied_locations)
             self._occupied_locations.append(pos)

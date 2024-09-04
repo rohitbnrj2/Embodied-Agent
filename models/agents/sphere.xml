@@ -13,6 +13,8 @@
             <site name="${parent:xml}_top_site" material="${parent:xml}_top_mat" pos="0 0 0.5"
                 size="0.2" group="2" />
 
+            <inertial pos="0 0 0" mass="1" diaginertia="0.1 0.1 0.1" />
+
             <joint name="joint_x_${parent:xml}" type="slide" pos="0 0 0" axis="1 0 0" damping="1"
                 limited="false" />
             <joint name="joint_y_${parent:xml}" type="slide" pos="0 0 0" axis="0 1 0" damping="1"
