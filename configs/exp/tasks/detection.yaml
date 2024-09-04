@@ -27,7 +27,7 @@ custom:
   # This sets both the frequency of the texture of the goal and adversary
   # The goal and adversary textures are the same, just rotated 90 degrees relative
   # to one another
-  frequency: 20
+  frequency: 8
 
 trainer:
   total_timesteps: 1_000_000

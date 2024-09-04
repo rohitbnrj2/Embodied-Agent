@@ -82,6 +82,8 @@ eval_env:
       agent_id_map:
         # Update the default map such that the agent is only placed on R:E spaces
         default: []
+        E: [agent]
+        O: [goal]
 
   reward_fn:
     reward_for_termination:

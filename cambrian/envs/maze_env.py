@@ -274,7 +274,7 @@ class MjCambrianMaze:
                     self._reset_locations.append(loc)
 
                     # Do a check for the agent id
-                    assert entity_id in self._config.agent_id_map, (
+                    assert entity_id in list(self._config.agent_id_map.keys()), (
                         f"Invalid agent id: {entity_id}. "
                         f"Available agent ids: {list(self._config.agent_id_map.keys())}"
                     )
