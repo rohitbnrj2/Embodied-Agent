@@ -471,6 +471,10 @@ class MjCambrianContainerConfig:
         if not self._config_is_content:
             OmegaConf.update(self._config, *args, **kwargs)
 
+    def __contains__(self, key: Any) -> bool:
+        """Check if the key is in the content."""
+        return key in self._content
+
     def __getattr__(self, name: str) -> Self | Any:
         """Get the attribute from the content and return the wrapped instance. If the
         attribute is a DictConfig or ListConfig, we'll wrap it in this class.

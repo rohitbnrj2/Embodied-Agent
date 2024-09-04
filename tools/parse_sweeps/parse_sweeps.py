@@ -112,6 +112,11 @@ def load_fitness_from_monitor(folder: Path, *, filename: str) -> float:
     return fitness_from_monitor(None, monitor)
 
 
+def load_fitness_from_txt(folder: Path, *, filename: str) -> float:
+    assert (txt := folder / filename).exists(), f"Txt {txt} does not exist."
+    return np.genfromtxt(txt)
+
+
 # ==================
 
 

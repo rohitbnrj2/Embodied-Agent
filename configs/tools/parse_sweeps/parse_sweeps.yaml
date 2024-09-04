@@ -3,6 +3,8 @@
 defaults:
   - /ParseSweepsConfig
 
+  - load_eval_fitness_fn: from_monitor
+
   - _self_
 
 folder: "???"
@@ -23,10 +25,6 @@ load_train_fitness_fn:
   _target_: parse_sweeps.load_fitness_from_monitor
   _partial_: true
   filename: "monitor.csv"
-load_eval_fitness_fn:
-  _target_: parse_sweeps.load_fitness_from_monitor
-  _partial_: true
-  filename: "eval_monitor.csv"
 load_monitor_fn:
   _target_: parse_sweeps.load_monitor
   _partial_: true

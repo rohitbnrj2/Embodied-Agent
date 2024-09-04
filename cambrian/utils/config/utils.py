@@ -249,7 +249,10 @@ def build_pattern(patterns: List[str]) -> str:
 
 
 def merge_with_kwargs(
-    config: DictConfig, *, instantiate: bool = True, **kwargs
+    config: DictConfig,
+    *,
+    instantiate: bool = True,
+    **kwargs,
 ) -> DictConfig:
     """This method will merge the kwargs into the config. This is useful for merging
     "late", as in after the config has been resolved (not instantiated). By specifying
@@ -281,8 +284,7 @@ def merge_with_kwargs(
     Keyword Args:
         kwargs: The kwargs to merge into the config.
     """
-    for key, value in kwargs.items():
-        OmegaConf.update(config, key, value)
+    OmegaConf.unsafe_merge(config, kwargs)
 
     if instantiate:
         import hydra

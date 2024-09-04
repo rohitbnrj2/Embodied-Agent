@@ -134,7 +134,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
 
     save_filename: Optional[str] = None
 
-    agents: Dict[str, MjCambrianAgentConfig]
+    agents: Dict[str, MjCambrianAgentConfig | Any]
 
 
 class MjCambrianEnv(ParallelEnv):

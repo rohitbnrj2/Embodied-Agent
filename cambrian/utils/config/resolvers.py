@@ -168,10 +168,11 @@ def read_resolver(path: str) -> str:
 
 @register_new_resolver("load")
 def load_resolver(
-    path: str, pattern: Optional[str] = None, default: Optional[Any] = None
+    path: Path | str, pattern: Optional[str] = None, default: Optional[Any] = None
 ) -> Any:
     """Load a yaml from the specified path. If a pattern is specified, will use the
     pattern to select a specific value from the yaml."""
+    path = Path(path)
     assert path.exists(), f"Path {path} does not exist."
     config = OmegaConf.load(path)
     if pattern is not None:
