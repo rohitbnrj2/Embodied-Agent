@@ -3,7 +3,7 @@
 defaults:
   - /exp/tasks/mutations:
       - num_eyes1
-      - resolution0
+      - res0
       - stacksize
 
   - /exp/tasks/constraints/morphological_feasibility_small

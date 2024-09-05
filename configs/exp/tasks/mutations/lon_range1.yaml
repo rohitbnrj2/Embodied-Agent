@@ -8,4 +8,4 @@ hydra:
       env.agents.agent.eyes_lon_range.1:
         init: ${env.agents.agent.eyes_lon_range.1}
         lower: 0
-        upper: 180
+        upper: 90

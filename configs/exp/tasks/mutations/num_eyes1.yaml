@@ -6,5 +6,5 @@ hydra:
       env.agents.agent.num_eyes_to_generate.1:
         init: ${env.agents.agent.num_eyes_to_generate.1}
         lower: 1
-        upper: 100
+        upper: 50
         integer: true

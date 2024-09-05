@@ -20,4 +20,4 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
 if has_nevergrad:
     ng.optimizers.EvolutionStrategy(
         recombination_ratio=0.25, only_offsprings=False, offsprings=8, popsize=16
-    ).set_name("CambrianES2", register=True)
+    ).set_name("CambrianES", register=True)

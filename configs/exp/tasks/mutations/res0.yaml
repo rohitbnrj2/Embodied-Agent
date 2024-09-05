@@ -6,5 +6,5 @@ hydra:
       env.agents.agent.eyes.eye.resolution.0:
         init: ${env.agents.agent.eyes.eye.resolution.0}
         lower: 1
-        upper: 100
+        upper: 50
         integer: true

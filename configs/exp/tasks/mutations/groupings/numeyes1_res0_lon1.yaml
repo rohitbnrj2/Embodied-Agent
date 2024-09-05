@@ -3,5 +3,5 @@
 defaults:
   - /exp/tasks/mutations:
       - num_eyes1
-      - resolution0
+      - res0
       - lon_range1
