@@ -213,19 +213,25 @@ def update_plots(
                 if plot_data.x_data.type is not AxisDataType.CONSTANT and np.all(
                     x_data == x_data[0]
                 ):
-                    get_logger().debug(f"Skipping plot {plot_data.name}: no unique x_data.")
+                    get_logger().debug(
+                        f"Skipping plot {plot_data.name}: no unique x_data."
+                    )
                     continue
                 elif plot_data.y_data.type is not AxisDataType.CONSTANT and np.all(
                     y_data == y_data[0]
                 ):
-                    get_logger().debug(f"Skipping plot {plot_data.name}: no unique y_data.")
+                    get_logger().debug(
+                        f"Skipping plot {plot_data.name}: no unique y_data."
+                    )
                     continue
                 elif (
                     is_3d
                     and plot_data.z_data.type is not AxisDataType.CONSTANT
                     and np.all(z_data == z_data[0])
                 ):
-                    get_logger().debug(f"Skipping plot {plot_data.name}: no unique z_data.")
+                    get_logger().debug(
+                        f"Skipping plot {plot_data.name}: no unique z_data."
+                    )
                     continue
             except IndexError:
                 get_logger().debug(f"Skipping plot {plot_data.name}.")

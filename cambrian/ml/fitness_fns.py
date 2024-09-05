@@ -118,6 +118,7 @@ def fitness_num_eyes(
         seed = generation * population_size + rank
     return np.random.default_rng(seed).normal(mean + np.prod(num_eyes), std)
 
+
 def fitness_num_eyes_and_fov(
     config: "MjCambrianConfig",
     *,
@@ -126,7 +127,7 @@ def fitness_num_eyes_and_fov(
     mean: float = 0,
     std: float = 5,
     assume_one: bool = True,
-    optimal_fov: float = 45
+    optimal_fov: float = 45,
 ) -> float:
     """This fitness function will return higher rewards generally for agents with more
     eyes and a fov closer to the `optimal_fov`.

@@ -10,7 +10,7 @@
 #SBATCH --output=out/R-%x.%j_%a.out
 #SBATCH --error=out/R-%x.%j_%a.err
 
-# This is set globally for some reason, and complains when you set slurm mem 
+# This is set globally for some reason, and complains when you set slurm mem
 # per gpu at a job level
 unset SLURM_MEM_PER_CPU
 
