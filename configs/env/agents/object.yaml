@@ -5,6 +5,9 @@ defaults:
 # actions.
 trainable: false
 
+# Objects also don't have contact detection
+check_contacts: false
+
 # Don't perturb pose
 perturb_init_pose: False
 

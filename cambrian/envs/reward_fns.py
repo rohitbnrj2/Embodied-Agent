@@ -5,6 +5,7 @@ import mujoco as mj
 
 from cambrian.envs import MjCambrianEnv
 from cambrian.agents import MjCambrianAgent
+from cambrian.utils import agent_selected
 
 # =====================
 # Reward functions
@@ -22,7 +23,7 @@ def reward_for_termination(
 ) -> float:
     """Terminated indicates that the episode was ended early in a success.
     Returns termination_reward if terminated, else reward."""
-    if for_agents is not None and agent.name not in for_agents:
+    if not agent_selected(agent, for_agents):
         return 0.0
     return reward if terminated else 0.0
 
@@ -39,7 +40,7 @@ def reward_for_truncation(
 ) -> float:
     """Truncated indicates that the episode was ended early in a failure.
     Returns truncation_reward if truncated, else reward."""
-    if for_agents is not None and agent.name not in for_agents:
+    if not agent_selected(agent, for_agents):
         return 0.0
     return reward if truncated else 0.0
 
@@ -53,6 +54,7 @@ def euclidean_delta_from_init(
     *,
     factor: float = 1.0,
     only_best: bool = False,
+    for_agents: Optional[List[str]] = None,
 ) -> float:
     """
     Rewards the change in distance over the previous step scaled by the timestep.
@@ -61,6 +63,9 @@ def euclidean_delta_from_init(
     than any previous position. This requires us to keep around a state of the best
     position.
     """
+    if not agent_selected(agent, for_agents):
+        return 0.0
+
     if only_best:
         # Only reward if the current position is further from the initial position than
         # any previous position. This requires us to keep around a state of the best
@@ -82,48 +87,25 @@ def reward_euclidean_delta_to_agents(
     info: Dict[str, Any],
     *,
     factor: float,
-    agents: Optional[List[str]] = None,
+    to_agents: Optional[List[str]] = None,
     for_agents: Optional[List[str]] = None,
-    only_best: bool = False,
-    min_delta_threshold: Optional[float] = None,
-    max_delta_threshold: Optional[float] = None,
 ):
     """
     Rewards the change in distance to any enabled agent over the previous step.
     Convention is that a positive reward indicates getting closer to the agent.
-
-    `only_best` will only reward the agent if it is closer to the agent than any
-    previous position. This requires us to keep around a state of the best position.
     """
     # Early exit if the agent is not in the for_agents list
-    if for_agents is not None and agent.name not in for_agents:
-        return 0
+    if not agent_selected(agent, for_agents):
+        return 0.0
 
     accumulated_reward = 0.0
     for other_agent in env.agents.values():
-        if agents is not None and other_agent.name not in agents:
+        if not agent_selected(other_agent, to_agents):
             continue
-
-        if only_best:
-            # Only reward if the current position is closer to the agent than any
-            # previous position. This requires us to keep around a state of the best
-            # position. If the current position is further, we'll skip this agent.
-            closest_pos = info.setdefault(
-                f"best_pos_{other_agent.name}", agent.pos.copy()
-            )
-            if check_if_larger(other_agent.pos, closest_pos, agent.pos):
-                info[f"best_pos_{other_agent.name}"] = agent.pos.copy()
-            else:
-                continue
 
         # NOTE: calc_delta returns a positive value if the agent moves away from the
         # agent. We'll multiple by -1 to flip the convention.
         delta = -factor * calc_delta(agent, info, other_agent.pos)
-        if min_delta_threshold is not None and delta < min_delta_threshold:
-            continue
-        elif max_delta_threshold is not None and delta > max_delta_threshold:
-            continue
-
         accumulated_reward = delta
 
     return accumulated_reward
@@ -141,8 +123,8 @@ def reward_if_agents_respawned(
 ) -> float:
     """This reward function rewards the agent if it has been respawned."""
     # Early exit if the agent is not in the for_agents list
-    if for_agents is not None and agent.name not in for_agents:
-        return 0
+    if not agent_selected(agent, for_agents):
+        return 0.0
 
     return reward if info.get("respawned", False) else 0.0
 

@@ -8,6 +8,7 @@ import ast
 import re
 import pickle
 from pathlib import Path
+from fnmatch import fnmatch
 
 import mujoco as mj
 import numpy as np
@@ -17,6 +18,7 @@ from cambrian.utils.logger import get_logger
 
 if TYPE_CHECKING:
     from cambrian.ml.model import MjCambrianModel
+    from cambrian.agents import MjCambrianAgent
 
 # ============
 
@@ -358,6 +360,14 @@ class MjCambrianGeometry:
     group: int
 
 
+# ============
+
+
+def agent_selected(agent: "MjCambrianAgent", agents: Optional[List[str]]):
+    """Check if the agent is selected."""
+    return agents is None or any(fnmatch(agent.name, pattern) for pattern in agents)
+
+
 # =============
 # Misc utils
 
@@ -596,4 +606,6 @@ def set_matplotlib_style(*, use_scienceplots: bool = True):
 
             plt.style.use(["science", "nature"])
         except ImportError:
-            get_logger().warning("SciencePlots not found. Using default matplotlib style.")
+            get_logger().warning(
+                "SciencePlots not found. Using default matplotlib style."
+            )

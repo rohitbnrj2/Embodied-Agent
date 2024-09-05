@@ -30,7 +30,7 @@ xml:
 
 custom:
     # Must be defined in the custom field
-    frequency: "???"
+    frequency: ${oc.select:custom.frequency,"???"}
 
     # Need to define frequency, euler, and rgba of the top indicator
     # euler: <str>

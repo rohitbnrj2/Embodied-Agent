@@ -73,7 +73,7 @@ env:
     terminate_if_close_to_goal:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
-      agents: [goal]
+      to_agents: [goal]
       distance_threshold: 1.0
 
 eval_env:

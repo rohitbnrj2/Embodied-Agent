@@ -6,6 +6,7 @@ import numpy as np
 
 from cambrian.envs import MjCambrianEnv
 from cambrian.agents import MjCambrianAgent
+from cambrian.utils import agent_selected
 
 # ======================
 # Generic Done Functions
@@ -48,19 +49,17 @@ def done_if_close_to_agents(
     agent: MjCambrianAgent,
     info: Dict[str, Any],
     *,
-    agents: Optional[List[str]] = None,
+    to_agents: Optional[List[str]] = None,
     for_agents: Optional[List[str]] = None,
     distance_threshold: float,
 ) -> bool:
     """Done if agent is close to another agent."""
     # Early exit if the agent is not in the for_agents list
-    if for_agents is not None and agent.name not in for_agents:
+    if not agent_selected(agent, for_agents):
         return False
 
     for other_agent in env.agents.values():
-        if agents is not None and other_agent.name not in agents:
-            continue
-        if other_agent.name == agent.name:
+        if not agent_selected(other_agent, to_agents) or other_agent.name == agent.name:
             continue
 
         if np.linalg.norm(other_agent.pos - agent.pos) < distance_threshold:
@@ -89,7 +88,7 @@ def done_if_facing_agents(
         n_frames (int): Number of frames to check for facing. Defaults to 1.
 
     """
-    if for_agents is not None and agent.name not in for_agents:
+    if not agent_selected(agent, from_agents):
         return False
 
     from_agents = from_agents or list(env.agents.keys())

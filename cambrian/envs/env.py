@@ -479,7 +479,7 @@ class MjCambrianEnv(ParallelEnv):
                 # otherwise
                 # Flip the color if it has contacts
                 color = tuple(agent.config.overlay_color)
-                if agent.has_contacts:
+                if self._info[agent.name].get("has_contacts", False):
                     color = (1 - color[0], 1 - color[1], 1 - color[2], 1)
 
                 # Add the overlay

@@ -90,13 +90,13 @@ env:
       _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
       _partial_: true
       factor: 0.25
-      agents: [goal]
+      to_agents: [goal]
 
   truncation_fn:
     truncate_if_close_to_adversary:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
-      agents: [adversary]
+      to_agents: [adversary]
       distance_threshold: 1.0
 
   termination_fn:
@@ -104,7 +104,7 @@ env:
     terminate_if_close_to_goal:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
-      agents: [goal]
+      to_agents: [goal]
       distance_threshold: 1.0
 
 eval_env:

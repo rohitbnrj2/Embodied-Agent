@@ -9,6 +9,8 @@ instance:
   _target_: cambrian.agents.MjCambrianAgent
   _partial_: true
 
+check_contacts: true
+
 # Default configuration is randomly placed depending on the selected environment
 init_pos: [null, null, null]
 init_quat: [null, null, null, null]

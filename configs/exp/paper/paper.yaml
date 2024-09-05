@@ -9,7 +9,7 @@ env:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
       distance_threshold: 3.0
-      agents: [goal]
+      to_agents: [goal]
 
   agents:
     agent:

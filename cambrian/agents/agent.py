@@ -52,6 +52,8 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
 
         body_name (str): The name of the body that defines the main body of the agent.
         geom_name (str): The name of the geom that are used for eye placement.
+        check_contacts (bool): Whether to check contacts or not. If this is True, then
+            the contacts will be checked in the environment.
 
         init_pos (Tuple[float | None]): The initial position of the agent. Specific
             indices of the position are set when not None. The length of the tuple
@@ -103,6 +105,7 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
 
     body_name: str
     geom_name: str
+    check_contacts: bool
 
     init_pos: Tuple[float | None]
     init_quat: Tuple[float | None]
@@ -501,6 +504,9 @@ class MjCambrianAgent:
         Walks through all the contacts in the environment and checks if any of them
         involve this agent.
         """
+        if not self._config.check_contacts:
+            return False
+
         for contact in self._data.contact:
             geom1 = int(contact.geom[0])
             body1 = self._model.geom_bodyid[geom1]

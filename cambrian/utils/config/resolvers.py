@@ -1,7 +1,8 @@
 from typing import Any, Dict, List, Optional
 from pathlib import Path
+import re
 
-from omegaconf import OmegaConf, DictConfig, Node
+from omegaconf import OmegaConf, DictConfig, Node, ListConfig
 from omegaconf.errors import ConfigKeyError
 
 
@@ -122,19 +123,22 @@ def safe_eval(key: str, /, *, _root_: DictConfig) -> Any:
 
 
 @register_new_resolver("glob")
-def glob(key: str, flattened: bool = False, /, *, _root_: DictConfig) -> List[str]:
-    from cambrian.utils.config.utils import glob
+def glob_resolver(
+    pattern: str,
+    config: Optional[DictConfig | ListConfig | str] = None,
+    /,
+    *,
+    _root_: DictConfig,
+) -> ListConfig | DictConfig:
+    if config is None:
+        config = _root_
 
-    try:
-        globbed: Dict[str, Any] = glob(key, flattened, _root_)
-        return next(iter(globbed.values()))
-    except Exception as e:
-        _root_._format_and_raise(
-            key=key,
-            value=key,
-            msg=f"Error evaluating expression '{key}': {e}",
-            cause=e,
-        )
+    if isinstance(config, str):
+        config = OmegaConf.select(_root_, config)
+    if isinstance(config, DictConfig):
+        return {k: v for k, v in config.items() if re.match(pattern, k)}
+    if isinstance(config, ListConfig):
+        return [v for v in config if re.match(pattern, v)]
 
 
 @register_new_resolver("hydra_select")

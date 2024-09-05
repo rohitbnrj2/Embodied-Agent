@@ -1,6 +1,6 @@
 <mujoco model="scene">
     <include file="models/settings.xml" />
-    <option density="1000" integrator="implicitfast" timestep="0.02" viscosity="1.8e-5">
+    <option integrator="implicitfast" timestep="0.02">
         <flag frictionloss="disable" />
     </option>
     <visual>

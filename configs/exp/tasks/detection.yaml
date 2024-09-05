@@ -20,8 +20,10 @@ defaults:
   - /env/agents/eyes@env.agents.agent.eyes.eye: eye
 
   # Define two objects: a goal and an adversary
-  - /env/agents@env.agents.adversary: object_sphere_textured_adversary
-  - /env/agents@env.agents.goal: object_sphere_textured_goal
+  - /env/agents@env.agents.adversary0: object_sphere_textured_adversary
+  - /env/agents@env.agents.adversary1: object_sphere_textured_adversary
+  - /env/agents@env.agents.goal0: object_sphere_textured_goal
+  - /env/agents@env.agents.goal1: object_sphere_textured_goal
 
 custom:
   # This sets both the frequency of the texture of the goal and adversary
@@ -34,20 +36,12 @@ trainer:
   max_episode_steps: 128
 
 env:
-  agents:
-    goal:
-      custom:
-        frequency: ${custom.frequency}
-    adversary:
-      custom:
-        frequency: ${custom.frequency}
-
   mazes:
     maze:
       scale: 3
       agent_id_map:
         default: [agent]
-        O: [goal, adversary]
+        O: ${glob:goal*|adversary*,${oc.dict.keys:env.agents}}
 
   reward_fn:
     reward_for_termination:
@@ -73,13 +67,13 @@ env:
       _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
       _partial_: true
       factor: 0.25
-      agents: [goal]
+      to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
 
   truncation_fn:
     truncate_if_close_to_adversary:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
-      agents: [adversary]
+      to_agents: ${glob:adversary*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
 
   termination_fn:
@@ -87,7 +81,7 @@ env:
     terminate_if_close_to_goal:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
-      agents: [goal]
+      to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
 
 eval_env:
@@ -98,7 +92,7 @@ eval_env:
     respawn_objects_if_agent_close:
       _target_: cambrian.envs.step_fns.step_respawn_agents_if_close_to_agents
       _partial_: true
-      for_agents: [goal, adversary]
+      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
       to_agents: [agent]
       distance_threshold: 1.0
 
@@ -119,12 +113,12 @@ eval_env:
       # large positive reward for respawning the goal (which happens if the agent is
       # close to it)
       reward: 10.0
-      for_agents: [goal]
+      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
 
-    reward_if_adversary_respawned:
-      _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
-      _partial_: true
-      # large negative reward for respawning the advsrary (which happens if the agent is
-      # close to it)
+    reward_for_truncation:
+      # large negative reward for truncation
       reward: -10.0
-      for_agents: [adversary]
+    reward_for_termination:
+      # large positive reward for termination; only happens when the agent makes it to
+      # the end of the eval episode w/o being close to the adversary
+      reward: 20.0
