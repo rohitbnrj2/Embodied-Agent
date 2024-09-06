@@ -16,11 +16,11 @@ env:
           [1, 1, 1, 1, 1, 1,   1, 1, 1],
           [1, 0, 0, 0, 0, 0,   0, 0, 1],
           [1, 0, 0, 0, 0, 0,   0, 0, 1],
-          [1, 0, 0, 0, 0, 0,   0, 0, 1],
           [1, 0, 0, 0, 0, 0, R:O, 0, 1],
-          [1, R, 0, 0, 0, 0,   0, 0, 1],
           [1, 0, 0, 0, 0, 0, R:O, 0, 1],
-          [1, 0, 0, 0, 0, 0,   0, 0, 1],
+          [1, R, 0, 0, 0, 0, R:O, 0, 1],
+          [1, 0, 0, 0, 0, 0, R:O, 0, 1],
+          [1, 0, 0, 0, 0, 0, R:O, 0, 1],
           [1, 0, 0, 0, 0, 0,   0, 0, 1],
           [1, 0, 0, 0, 0, 0,   0, 0, 1],
           [1, 1, 1, 1, 1, 1,   1, 1, 1],
@@ -61,14 +61,10 @@ env:
         ]
 
       use_privileged_action: true
+      check_contacts: true
 
       instance:
         _target_: cambrian.agents.MjCambrianAgentPointMazeOptimal
         _partial_: true
-        target: goal # assumes goal, can change via overrides
+        target: goal0 # assumes goal, can change via overrides
         use_optimal_trajectory: false
-
-    goal:
-      custom:
-        # Rotate the yaw of the texture so that it is facing the agent
-        euler: 0 0 90
