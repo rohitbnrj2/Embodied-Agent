@@ -27,9 +27,9 @@
   </worldbody>
   <actuator>
     <!-- These are just dummy actuators for providing ranges -->
-    <velocity name="${parent:xml}_act_x" joint="${parent:xml}_joint_x" ctrlrange="-50.0 50.0"
+    <velocity name="${parent:xml}_act_x" joint="${parent:xml}_joint_x" ctrlrange="-10.0 10.0"
       ctrllimited="true" kv="100" />
-    <velocity name="${parent:xml}_act_y" joint="${parent:xml}_joint_y" ctrlrange="-50.0 50.0"
+    <velocity name="${parent:xml}_act_y" joint="${parent:xml}_joint_y" ctrlrange="-10.0 10.0"
       ctrllimited="true" kv="100" />
     <position name="${parent:xml}_act_yaw" joint="${parent:xml}_joint_yaw" ctrlrange="-3.14 3.14"
       ctrllimited="true" gear="1" />

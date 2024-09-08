@@ -8,12 +8,15 @@ defaults:
   - _self_
 
 folder: "???"
-output: ${path:${folder},parse_sweep}
+output: ${path:${folder},parse_sweep,${combine_fn.fitness_method}}
+pkl: "data.pkl"
 
 force: False
 plot: False
 quiet: False
 debug: False
+
+ignore: []
 
 show_plots: False
 save_plots: True
@@ -36,8 +39,7 @@ load_evaluations_fn:
 combine_fn:
   _target_: parse_sweeps.combine
   _partial_: true
-  fitness_method: MEDIAN
-
+  fitness_method: MIN
 
 overrides: {}
 

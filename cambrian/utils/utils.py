@@ -91,7 +91,7 @@ def moving_average(values, window, mode="valid"):
 
 def save_data(data: Any, outdir: Path, pickle_file: Path):
     """Save the parsed data to a pickle file."""
-    pickle_file = outdir / pickle_file
+    pickle_file = (outdir / pickle_file).resolve()
     pickle_file.parent.mkdir(parents=True, exist_ok=True)
     with open(pickle_file, "wb") as f:
         pickle.dump(data, f)
@@ -100,7 +100,7 @@ def save_data(data: Any, outdir: Path, pickle_file: Path):
 
 def try_load_pickle(folder: Path, pickle_file: Path) -> Any | None:
     """Try to load the data from the pickle file."""
-    pickle_file = folder / pickle_file
+    pickle_file = (folder / pickle_file).resolve()
     if pickle_file.exists():
         get_logger().info(f"Loading parsed data from {pickle_file}...")
         with open(pickle_file, "rb") as f:

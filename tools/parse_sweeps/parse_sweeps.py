@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional, Callable, Concatenate, List
 from pathlib import Path
 from enum import Enum
+import re
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,6 +27,7 @@ class ParseSweepsConfig(MjCambrianBaseConfig):
     """
     folder (Path): The folder containing the sweep data.
     output (Path): The folder to save the parsed data.
+    pkl (Path): The name of the pickle file to save the data to.
 
     force (bool): Force loading of the data. If not passed, this script will try to
         find a parse_sweep.pkl file and load that instead.
@@ -37,6 +39,7 @@ class ParseSweepsConfig(MjCambrianBaseConfig):
     show_plots (bool): Show the plots.
     save_plots (bool): Save the plots. Will save to the output / plots folder.
 
+    ignore (List[str]): List of folders to ignore.
     overrides (Dict[str, Any]): Overrides for the sweep data.
 
     dry_run (bool): Do not actually do any of the processing, just run the code without
@@ -45,6 +48,7 @@ class ParseSweepsConfig(MjCambrianBaseConfig):
 
     folder: Path
     output: Path
+    pkl: Path
 
     force: bool
     plot: bool
@@ -62,6 +66,7 @@ class ParseSweepsConfig(MjCambrianBaseConfig):
 
     combine_fn: Optional[Callable[[Concatenate[Path, ...]], "Result"]] = None
 
+    ignore: List[str]
     overrides: Dict[str, Any]
 
     dry_run: bool
@@ -212,6 +217,11 @@ def combine(results: List[Result], *, fitness_method: str) -> Result:
 
 
 def parse_folder(config: ParseSweepsConfig, folder: Path) -> Result | None:
+    if folder.name in config.ignore or folder.parent.name in config.ignore:
+        return None
+    if not (folder / "finished").exists():
+        return None
+
     def run(fn, *args, **kwargs):
         try:
             return fn(*args, **kwargs)
@@ -281,21 +291,37 @@ def load_data(config: ParseSweepsConfig) -> Data:
 
 
 def plot_data(config: ParseSweepsConfig, data: Data):
+    # Clear all figures
+    plt.close("all")
+
+    # Sort the data by the suffix in the name
+    def sort_key(x):
+        # Find all numeric parts in the string
+        num_part = re.findall(r'\d+', x[0])
+        return (x[0].split("_")[-1], int(num_part[0]) if num_part else 0, x[0])
+    data.results = dict(sorted(data.results.items(), key=sort_key))
+
     get_logger().info("Plotting data...")
     for name, result in tqdm.tqdm(
         data.results.items(), desc="Plotting...", disable=config.debug
     ):
         # Eval Fitness
         if result.eval_fitness is not None:
+            plt.figure("Eval Fitness Bar Chart")
+            plt.suptitle("Eval Fitness Bar Chart")
+            plt.bar(name, result.eval_fitness, alpha=0.5)
+            plt.xticks(rotation=90)
+
             plt.figure("Eval Fitness")
             plt.suptitle("Eval Fitness")
-            plt.scatter(0, result.eval_fitness, marker="o")
+            plt.scatter(name, result.eval_fitness, marker="o")
             plt.annotate(
                 name,
                 (0, result.eval_fitness),
                 textcoords="offset points",
                 xytext=(10, 0),
                 ha="left",
+                rotation=90,
             )
 
         # Train Fitness
@@ -382,9 +408,9 @@ def main(config: ParseSweepsConfig):
 
     assert config.folder.exists(), f"Folder {config.folder} does not exist."
 
-    if config.force or (data := try_load_pickle(config.output, "data.pkl")) is None:
+    if config.force or (data := try_load_pickle(config.output, config.pkl)) is None:
         data = load_data(config)
-        save_data(data, config.output, "data.pkl")
+        save_data(data, config.output, config.pkl)
 
     if config.plot:
         plot_data(config, data)
