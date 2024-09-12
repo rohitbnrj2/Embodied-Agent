@@ -36,9 +36,10 @@ def reward_for_quick_termination(
     info: Dict[str, Any],
     *,
     reward: float,
+    for_agents: Optional[List[str]] = None,
 ) -> float:
     """Return a reward based on how early the episode was terminated."""
-    if terminated:
+    if terminated and agent_selected(animal, for_agents):
         remaining_steps = max(env._max_episode_steps - env._episode_step, 0)
         return reward * (remaining_steps / env._max_episode_steps)
     return 0.0
