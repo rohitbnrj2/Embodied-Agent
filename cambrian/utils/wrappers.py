@@ -11,6 +11,7 @@ from gymnasium.spaces.space import T_cov
 from stable_baselines3.common.env_checker import check_env
 
 from cambrian.envs import MjCambrianEnv, MjCambrianEnvConfig
+from cambrian.utils import is_integer
 
 
 class MjCambrianSingleAgentEnvWrapper(gym.Wrapper):
@@ -85,10 +86,6 @@ class MjCambrianPettingZooEnvWrapper(gym.Wrapper):
         action = {
             agent_name: action[:, i]
             for i, agent_name in enumerate(self.env.agents.keys())
-        }
-        action = {
-            agent.name: agent.action_space.sample()
-            for agent in self.env.agents.values()
         }
 
         obs, reward, terminated, truncated, info = self.env.step(action)
@@ -196,10 +193,17 @@ class MjCambrianConstantActionWrapper(gym.Wrapper):
     def __init__(self, env: MjCambrianEnv, constant_actions: Dict[Any, Any]):
         super().__init__(env)
 
-        self._constant_action_indices = list(constant_actions.keys())
+        self._constant_action_indices = [
+            int(k) if is_integer(k) else k for k in constant_actions.keys()
+        ]
         self._constant_action_values = list(constant_actions.values())
 
     def step(self, action: Any) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
+        if isinstance(action, dict):
+            assert all(idx in action for idx in self._constant_action_indices), (
+                "The constant action indices must be in the action space."
+                f"Indices: {self._constant_action_indices}, Action space: {action}"
+            )
         action[self._constant_action_indices] = self._constant_action_values
 
         return self.env.step(action)

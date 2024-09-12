@@ -166,8 +166,16 @@ def is_number(maybe_num: Any) -> bool:
     return isinstance(maybe_num, Number)
 
 
-def is_integer(maybe_int: Any):
-    return isinstance(maybe_int, int) or np.all(np.mod(maybe_int, 1) == 0)
+def is_integer(maybe_int: Any) -> bool:
+    if isinstance(maybe_int, int):
+        return True
+    if isinstance(maybe_int, str):
+        return maybe_int.isdigit() or (
+            maybe_int[1:].isdigit() if maybe_int[0] == "-" else False
+        )
+    if isinstance(maybe_int, np.ndarray):
+        return np.all(np.mod(maybe_int, 1) == 0)
+    return False
 
 
 def make_odd(num: int | float) -> int:

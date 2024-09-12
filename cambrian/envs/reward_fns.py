@@ -28,6 +28,22 @@ def reward_for_termination(
     return reward if terminated else 0.0
 
 
+def reward_for_quick_termination(
+    env: MjCambrianEnv,
+    animal: MjCambrianAgent,
+    terminated: bool,
+    truncated: bool,
+    info: Dict[str, Any],
+    *,
+    reward: float,
+) -> float:
+    """Return a reward based on how early the episode was terminated."""
+    if terminated:
+        remaining_steps = max(env._max_episode_steps - env._episode_step, 0)
+        return reward * (remaining_steps / env._max_episode_steps)
+    return 0.0
+
+
 def reward_for_truncation(
     env: MjCambrianEnv,
     agent: MjCambrianAgent,
@@ -186,6 +202,7 @@ def penalize_if_has_contacts(
     info: Dict[str, Any],
     *,
     penalty: float,
+    reward: float = 0.0,
     for_agents: Optional[List[str]] = None,
 ) -> float:
     """Penalizes the agent if it has contacts with the ground."""
@@ -193,7 +210,7 @@ def penalize_if_has_contacts(
     if for_agents is not None and agent.name not in for_agents:
         return 0
 
-    return penalty if info.get("has_contacts", False) else 0.0
+    return penalty if info.get("has_contacts", False) else reward
 
 
 def reward_if_agents_in_view(

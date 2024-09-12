@@ -306,7 +306,7 @@ class MjCambrianAgent:
             eye_configs = self._config.eyes
 
         for name, eye_config in eye_configs.items():
-            self._eyes[name] = eye_config.instance(eye_config, name)
+            self._eyes[name] = eye_config.instance(eye_config, f"{self._name}_{name}")
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the agent. Will generate the xml from the model file

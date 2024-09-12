@@ -43,7 +43,7 @@ from utils import extract_data
 # Default is 1000, but we'll set it to 10000 to be safe
 sys.setrecursionlimit(10000)
 
-set_matplotlib_style(use_scienceplots=False)
+set_matplotlib_style(use_scienceplots=True)
 
 # =======================================================
 
