@@ -149,7 +149,6 @@ def load_data(config: ParseEvosConfig) -> Data:
         for rank, rank_data in generation_data.ranks.items():
             # Only load the rank we want, if specified
             if config.ranks is not None and rank not in config.ranks:
-                rank_data.ignored = True
                 continue
 
             get_logger().info(f"\tLoading rank {rank}...")
@@ -160,7 +159,6 @@ def load_data(config: ParseEvosConfig) -> Data:
                 get_logger().warning(
                     f"\t\tSkipping rank {rank} because it is not finished."
                 )
-                rank_data.ignored = True
                 continue
 
             # Get the config file
@@ -179,6 +177,11 @@ def load_data(config: ParseEvosConfig) -> Data:
                 ) = fitness_from_evaluations(
                     rank_data.config, evaluations_file, return_data=True
                 )
+                if np.isnan(rank_data.eval_fitness):
+                    get_logger().warning(
+                        f"\t\tRank {rank} has NaN evaluation fitness. Ignoring..."
+                    )
+                    rank_data.ignored = True
             else:
                 txt_file = rank_data.path / "test_fitness.txt"
                 if txt_file.exists():
@@ -267,6 +270,7 @@ def parse_axis_data(
     else:
         raise ValueError(f"Unknown data type {axis_data.type}.")
 
+    assert data is not None
     return data, get_axis_label(axis_data)
 
 
@@ -330,6 +334,7 @@ def parse_color_data(
     else:
         raise ValueError(f"Unknown color type {color_data.type}.")
 
+    assert not np.any(np.isnan(color)), "Color cannot be NaN."
     return [color], get_color_label(color_data)
 
 

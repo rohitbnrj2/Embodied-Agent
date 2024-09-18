@@ -297,7 +297,6 @@ class MjCambrianXML:
             return (el.tag, hashabledict(el.attrib))
 
         # Create a mapping from tag name to element, as that's what we are filtering with
-        # import pdb; pdb.set_trace()
         mapping = {create_key(el): el for el in root}
         for el in other:
             key = create_key(el)

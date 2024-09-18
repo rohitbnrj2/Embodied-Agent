@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 from parse_types import ExtractedData
 
 
@@ -21,6 +22,7 @@ def extract_data(
         x_data, y_data, z_data = [], [], []
         for collection in ax.collections:
             offset: np.ndarray = collection.get_offsets()
+
             if offset.shape[-1] == 2:
                 x, y = offset.T
                 x_data.append(x)
@@ -30,8 +32,13 @@ def extract_data(
                 x_data.append(x)
                 y_data.append(y)
                 z_data.append(z)
-        x_data, y_data = np.array(x_data), np.array(y_data)
-        z_data = None if not z_data else np.array(z_data)
+        try:
+            x_data, y_data = np.array(x_data), np.array(y_data)
+            z_data = None if not z_data else np.array(z_data)
+        except ValueError:
+            import pdb
+
+            pdb.set_trace()
 
         return_values.extend([x_data, y_data, z_data])
 

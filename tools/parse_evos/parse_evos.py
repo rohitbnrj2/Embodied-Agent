@@ -45,6 +45,8 @@ sys.setrecursionlimit(10000)
 
 set_matplotlib_style(use_scienceplots=True)
 
+plt.switch_backend("agg")
+
 # =======================================================
 
 

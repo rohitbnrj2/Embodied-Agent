@@ -93,7 +93,7 @@ def adjust_points(
     # Use sizes for the zorder unless the are all the same, then use color
     zorder_data = sizes if len(np.unique(sizes)) > 1 else colors
     if zorder_data is not None:
-        for i in range(len(ax.collections)):
+        for i in range(len(zorder_data)):
             ax.collections[i].set_zorder(zorder_data[i])
 
     sizes = sizes * size_data.factor
