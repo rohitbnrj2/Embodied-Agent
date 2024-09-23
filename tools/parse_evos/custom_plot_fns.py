@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Callable
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,19 +10,19 @@ from parse_types import Rank, PlotData
 from parse_helpers import parse_plot_data
 
 
-def average_line(ax: plt.Axes):
-    """Extracts the data from a figure and plots the average line along with
+def accumulation_line(ax: plt.Axes, accumulation_fn: Callable[[np.ndarray], float]):
+    """Extracts the data from a figure and plots the accumulation line along with
     the standard deviation. NOTE: does not support 3d"""
 
     # Extract the data from the plot
     x_data, y_data, z_data = extract_data(ax, return_data=True)
-    assert z_data is None, "Average line does not support 3d plots."
+    assert z_data is None, "Accumulation line does not support 3d plots."
 
-    # Calculates the average y value for each unique x value
+    # Calculates the accumulation y value for each unique x value
     x, y, y_std = [], [], []
     for unique_x in np.unique(x_data):
         x.append(unique_x)
-        y.append(np.average(y_data[x_data == unique_x]))
+        y.append(accumulation_fn(y_data[x_data == unique_x]))
         y_std.append(np.std(y_data[x_data == unique_x]))
     x, y, y_std = np.array(x), np.array(y), np.array(y_std)
 

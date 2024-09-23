@@ -31,5 +31,8 @@ resolution_vs_generation_vs_training_reward_color:
   custom_fns:
     - type: GLOBAL
       fn:
-        _target_: custom_plot_fns.average_line
+        _target_: custom_plot_fns.accumulation_line
         _partial_: True
+        accumulation_fn:
+          _target_: numpy.median
+          _partial_: True

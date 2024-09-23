@@ -57,6 +57,9 @@ def run_plot(config: ParseEvosConfig, data: Data):
     get_logger().debug(f"Setting max open warning to {len(config.plots)}.")
     plt.rcParams["figure.max_open_warning"] = len(config.plots)
 
+    # Clear all the plots
+    plt.close("all")
+
     for generation, generation_data in data.generations.items():
         # Only plot the generation we want, if specified
         if generation_data.ignored:

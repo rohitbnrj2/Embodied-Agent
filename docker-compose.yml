@@ -1,0 +1,47 @@
+name: cambrian
+services:
+  cambrian:
+    image: "atk/${COMPOSE_PROJECT_NAME}:cambrian"
+    hostname: '${COMPOSE_PROJECT_NAME}'
+    container_name: '${COMPOSE_PROJECT_NAME}-cambrian'
+    build:
+      context: "./"
+      network: "host"
+      dockerfile: "./docker/cambrian.dockerfile"
+      args:
+        PROJECT: "${COMPOSE_PROJECT_NAME}"
+        IMAGE_BASE: "nvidia/cuda"
+        IMAGE_TAG: "12.2.2-devel-ubuntu20.04"
+        USER_GROUPS: "dialout video"
+        PIP_REQUIREMENTS_FILE: "dev-requirements.txt"
+    volumes:
+      - '/tmp/.X11-unix:/tmp/.X11-unix'
+      - './:/home/${COMPOSE_PROJECT_NAME}/${COMPOSE_PROJECT_NAME}'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+      DISPLAY: '${DISPLAY:-vnc:0.0}'
+    working_dir: '/home/${COMPOSE_PROJECT_NAME}/${COMPOSE_PROJECT_NAME}'
+    tty: true
+  vnc:
+    image: "${COMPOSE_PROJECT_NAME}:vnc"
+    hostname: "${COMPOSE_PROJECT_NAME}-vnc"
+    container_name: "${COMPOSE_PROJECT_NAME}-vnc"
+    build:
+      context: "./"
+      dockerfile: "./docker/vnc.dockerfile"
+      network: "host"
+      args:
+        VNC_PASSWORD: "${COMPOSE_PROJECT_NAME}"
+    ports:
+      - "127.0.0.1:8080-8099:8080"
+      - "127.0.0.1:5900-5999:5900"
+networks:
+  default:
+    name: "${COMPOSE_PROJECT_NAME}"

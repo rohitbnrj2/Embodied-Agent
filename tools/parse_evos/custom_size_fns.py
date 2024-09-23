@@ -1,4 +1,6 @@
-from typing import Dict
+from typing import Dict, Callable, List
+
+import numpy as np
 
 from cambrian.utils import safe_eval
 
@@ -7,27 +9,46 @@ from parse_types import SizeData, ParsedAxisData
 from parse_helpers import get_size_label
 
 
-def best_n(
+def select_rank(
     size_data: SizeData,
     rank_data: Rank,
     *,
-    n: int,
+    selection_fn: Callable[[np.ndarray], np.ndarray],
+    per_generation: bool = False,
+    n: int | slice = 1,
 ) -> ParsedAxisData:
-    """If the rank is one of the best n, return size_data.size_max, else return
-    size_data.size_min. Will sort the ranks by the eval_fitness."""
+    if isinstance(n, int):
+        n = slice(None, n)
 
-    # Get the best n ranks
-    ranks = [
-        r
-        for g in rank_data.generation.data.generations.values()
-        for r in g.ranks.values()
-        if r.eval_fitness is not None
-    ]
-    best_n_ranks = sorted(ranks, key=lambda r: r.eval_fitness, reverse=True)[:n]
+    def get_valid_ranks(ranks: List[Rank]):
+        """Returns ranks with valid fitness."""
+        return [r for r in ranks if r.eval_fitness is not None]
 
-    # Check if the rank is in the best n
-    if rank_data in best_n_ranks:
-        return size_data.size_max, f"Top {n} Performing Agent"
+    def select_top_ranks(ranks: List[Rank]):
+        """Selects top ranks based on the selection function."""
+        fitness_values = np.array([r.eval_fitness for r in ranks])
+        selected_fitness = selection_fn(fitness_values)
+        if isinstance(selected_fitness, (int, float)):
+            selected_fitness = [selected_fitness]
+        return [r for r in ranks if r.eval_fitness in set(selected_fitness[n])]
+
+    if per_generation:
+        generations = rank_data.generation.data.generations.values()
+        ranks = [get_valid_ranks(g.ranks.values()) for g in generations]
+        selected_ranks = [select_top_ranks(gen_ranks) for gen_ranks in ranks]
+        selected_ranks = [r for gen_ranks in selected_ranks for r in gen_ranks]
+    else:
+        ranks = get_valid_ranks(
+            [
+                r
+                for g in rank_data.generation.data.generations.values()
+                for r in g.ranks.values()
+            ]
+        )
+        selected_ranks = select_top_ranks(ranks)
+
+    if rank_data in selected_ranks:
+        return size_data.size_max, "Selected Agent"
     else:
         return size_data.size_min, "Other Agents"
 

@@ -21,3 +21,6 @@ if has_nevergrad:
     ng.optimizers.EvolutionStrategy(
         recombination_ratio=0.25, only_offsprings=False, offsprings=8, popsize=16
     ).set_name("CambrianES", register=True)
+    ng.optimizers.ParametrizedCMA(scale=3.0, diagonal=True, fcmaes=False).set_name(
+        "CambrianCMA", register=True
+    )

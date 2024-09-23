@@ -27,8 +27,11 @@ number_of_eyes_vs_generation_vs_training_reward_color:
   custom_fns:
     - type: GLOBAL
       fn:
-        _target_: custom_plot_fns.average_line
+        _target_: custom_plot_fns.accumulation_line
         _partial_: True
+        accumulation_fn:
+          _target_: numpy.median
+          _partial_: True
 resolution_vs_number_of_eyes_vs_best_n_size:
   x_data:
     type: CUSTOM
@@ -50,9 +53,14 @@ resolution_vs_number_of_eyes_vs_best_n_size:
     size_min: 10
     size_max: 30
     custom_fn:
-      _target_: custom_size_fns.best_n
+      _target_: custom_size_fns.select_rank
       _partial_: True
-      n: 3
+      selection_fn:
+        _target_: numpy.sort
+        _partial_: true
+      n:
+        _target_: builtins.slice
+        _args_: [-3, null]
 number_of_eyes_vs_generation_connected:
   x_data:
     type: GENERATION
@@ -254,9 +262,14 @@ resolution_vs_number_of_eyes_vs_training_reward_color_vs_best_n_size:
     size_min: 10
     size_max: 30
     custom_fn:
-      _target_: custom_size_fns.best_n
+      _target_: custom_size_fns.select_rank
       _partial_: True
-      n: 3
+      selection_fn:
+        _target_: numpy.sort
+        _partial_: true
+      n:
+        _target_: builtins.slice
+        _args_: [-3, null]
 resolution_vs_number_of_eyes_vs_fitness_color:
   add_legend: True
   x_data:

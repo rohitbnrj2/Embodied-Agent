@@ -24,7 +24,7 @@ defaults:
 # expensive. See other sweepers for how to define constraints.
 
 optim:
-  optimizer: "CambrianES"
+  optimizer: "CambrianCMA"
 
   # This seed is only used at the very beginning and is used for reproducibility of the
   # nevergrad algorithm, not of the individual runs. We'll set it to 0 here instead of

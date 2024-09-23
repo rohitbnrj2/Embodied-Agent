@@ -196,6 +196,56 @@ pattern for that day (recommended).
 issues down the line with the `parse_evos.py` script since the output log directory is
 in two places.
 
+## Docker
+
+We've also added dockerfiles for easy reproducibility. It's orchistrated through
+`docker compose`. To build the docker image, run the following:
+
+```bash
+docker-compose build cambrian
+```
+
+To run the docker image, run the following. This will start the container and have it
+run in the background. This is the recommended method so we can attach to it as if it
+were a local environment.
+
+```bash
+docker-compose up cambrian up -d
+```
+
+Finally, to attach to the container, run the following:
+
+```bash
+docker-compose exec -it cambrian /bin/bash
+```
+
+> [!NOTE]
+> By default, the docker compose service `cambrian` will assign nvidia gpus to the
+> container. This may not be possible on your system if you don't have nvidia-docker
+> installed.
+
+> [!TIP]
+> By default, the X11 path is shared as a volume. This means you can run gui apps
+> from the container and have them display on your host machine assuming you have
+> X11 installed.
+
+### VNC
+
+In addition to X11, VNC has been setup to allow for remote access to the container.
+It is built on noVNC and runs as a separate container where gui apps are shared via
+a local docker network. To start the vnc server, run the following:
+
+```bash
+docker-compose up vnc -d
+```
+
+You will then be able to access the vnc server at `http://localhost:8080`. If vnc isn't
+available at that port, it's possible that port was already in use and
+another was selected. If that's the case, run `docker ps` to find out which port vnc
+was assigned to. If you're running on a remote server, you can access the vnc server
+by either port forwarding or by accessing the server directly (i.e. using the server's
+ip address if it's publicly accessible and the ports are open).
+
 ## Other things
 
 ### Introspection into the Configs
