@@ -242,14 +242,14 @@ def update_plots(
                 get_logger().debug(f"Skipping plot {plot_data.name}.")
                 continue
 
+            # Run any custom functions
+            run_custom_fns(ax, plot_data)
+
             # Adjust the points, if necessary
             adjust_points(plot_data.size_data, ax, sizes, points, colors)
 
             # Adjust the axes
             adjust_axes(ax, plot_data)
-
-            # Run any custom functions
-            run_custom_fns(ax, plot_data)
 
             # Add a legend entry for the blue circles
             if plot_data.add_legend:

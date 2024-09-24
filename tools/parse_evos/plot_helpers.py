@@ -89,12 +89,14 @@ def adjust_points(
             for i in idx:
                 ax.collections[i].set_array(color)
 
-    # # Reorder the points such that the largest points are in the front
-    # # Use sizes for the zorder unless the are all the same, then use color
-    # zorder_data = sizes if len(np.unique(sizes)) > 1 else colors
-    # if zorder_data is not None:
-    #     for i in range(len(zorder_data)):
-    #         ax.collections[i].set_zorder(zorder_data[i])
+    # Reorder the points such that the largest points are in the front
+    # Use sizes for the zorder unless the are all the same, then use color
+    zorder_data = sizes if len(np.unique(sizes)) > 1 else colors
+    if zorder_data is not None:
+        for i in range(len(zorder_data)):
+            ax.collections[i].set_zorder(zorder_data[i])
+        for line in ax.lines:
+            line.set_zorder(zorder_data.max() + 1)
 
     sizes = sizes * size_data.factor
     if size_data.normalize and sizes.min() != sizes.max():
