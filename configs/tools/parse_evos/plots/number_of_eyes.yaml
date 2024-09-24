@@ -7,9 +7,9 @@ number_of_eyes_vs_generation:
     custom_fn:
       _target_: custom_axis_fns.eval_safe
       _partial_: True
-      src: math.prod(num_eyes_to_generate[0])
+      src: math.prod(num_eyes_to_generate)
       patterns:
-        num_eyes_to_generate: env.agents.*.num_eyes_to_generate
+        num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
 number_of_eyes_vs_generation_vs_training_reward_color:
   x_data:
     type: GENERATION

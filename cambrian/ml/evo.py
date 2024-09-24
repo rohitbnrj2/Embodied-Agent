@@ -18,15 +18,30 @@ class MjCambrianEvoConfig(MjCambrianBaseConfig):
 
 
 if has_nevergrad:
-    ng.optimizers.EvolutionStrategy(
+    CambrianES = ng.optimizers.EvolutionStrategy(
         recombination_ratio=0.25,
         only_offsprings=False,
         offsprings=8,
         popsize=16,
     ).set_name("CambrianES", register=True)
+    ng.optimizers.Chaining(
+        [
+            ng.optimizers.RandomSearch,
+            CambrianES,
+        ],
+        ["tenth"],
+    ).set_name("CambrianESRS", register=True)
 
-    ng.optimizers.ParametrizedCMA(
+    CambrianCMA = ng.optimizers.ParametrizedCMA(
         scale=3.0,
         diagonal=True,
         fcmaes=False,
     ).set_name("CambrianCMA", register=True)
+
+    ng.optimizers.Chaining(
+        [
+            ng.optimizers.RandomSearch,
+            CambrianCMA,
+        ],
+        ["tenth"],
+    ).set_name("CambrianCMARS", register=True)
