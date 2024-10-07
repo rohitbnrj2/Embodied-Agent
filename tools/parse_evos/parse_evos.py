@@ -204,7 +204,11 @@ def update_plots(
         try:
             # Extract the data from the plot
             x_data, y_data, z_data, colors, sizes = extract_data(
-                ax, return_data=True, return_color=True, return_size=True
+                ax,
+                plot_data=plot_data,
+                return_data=True,
+                return_color=True,
+                return_size=True,
             )
             is_3d = z_data is not None
             if is_3d:

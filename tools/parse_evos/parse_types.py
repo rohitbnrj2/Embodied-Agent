@@ -102,6 +102,7 @@ class AxisData:
     lim: Optional[Tuple[float, float]] = None
     ticks: Optional[List[float]] = None
     tick_labels: Optional[List[str]] = None
+    remove_outliers: bool = False
 
     # CONFIG
     pattern: Optional[str] = None
@@ -132,6 +133,7 @@ class ColorData:
     label: Optional[str] = None
     clim: Optional[Tuple[float, float]] = None
     kwargs: Dict[str, Any] = field(default_factory=dict)
+    remove_outliers: bool = False
 
     # SOLID
     color: Tuple[float, float, float, float] = (0.65490, 0.78039, 0.90588, 0.75)

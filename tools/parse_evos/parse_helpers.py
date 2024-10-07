@@ -168,6 +168,47 @@ def load_data(config: ParseEvosConfig) -> Data:
                 rank_data.config.merge_with_dotlist(overrides)
                 rank_data.config.resolve()
 
+                # rank_data.config = MjCambrianConfig.load(config_file, instantiate=True)
+
+                # import torchviz, torch, hydra
+                # from cambrian.ml.model import MjCambrianModel
+                # from cambrian.utils.wrappers import MjCambrianSingleAgentEnvWrapper
+                # from cambrian.utils.wrappers import make_wrapped_env
+                # from ann_visualizer.visualize import ann_viz
+                # from stable_baselines3 import PPO
+                # import torch
+
+                # # env = rank_data.config.env.instance(rank_data.config.env)
+                # wrappers = [w for w in rank_data.config.trainer.wrappers.values() if w]
+                # wrapped_env = make_wrapped_env(
+                #     config=rank_data.config.env.copy(),
+                #     name=rank_data.config.expname,
+                #     wrappers=wrappers,
+                # )()
+                # # model = rank_data.config.trainer.model(env=env)
+                # model = MjCambrianModel.load(rank_data.path / "best_model", env=wrapped_env)
+                # policy = model.policy
+                # policy.eval()
+
+                # # Create a sample input tensor with the appropriate observation space shape
+                # sample_input = model.observation_space.sample()
+                # for key, value in sample_input.items():
+                #     sample_input[key] = torch.from_numpy(value).unsqueeze(0).to(device=policy.device)
+
+                # # Forward the sample input through the policy network to generate a graph
+                # dot = torchviz.make_dot(policy(sample_input), params=dict(policy.named_parameters()))
+                # dot.format = 'png'  # Specify file format, e.g., 'png' or 'pdf'
+                # dot.render("ppo_model_visualization")  # Save to file "ppo_model_visualization.png"
+
+                # # Save the visualization of the model to a file
+                # # ann_viz(policy.features_extractor.extractors, title="PPO Neural Network", filename="ppo_model_visualization_ann")
+
+                # # Save features_extractor to onnx
+                # features_extractor = policy
+                # # features_extractor.to("cpu")
+                # torch.onnx.export(features_extractor, sample_input, "features_extractor.onnx", verbose=True, input_names=["input"], output_names=["output"])
+                # exit()
+
             # Get the evaluations file
             evaluations_file = rank_data.path / "evaluations.npz"
             if evaluations_file.exists():

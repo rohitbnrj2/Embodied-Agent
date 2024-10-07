@@ -297,8 +297,9 @@ def plot_data(config: ParseSweepsConfig, data: Data):
     # Sort the data by the suffix in the name
     def sort_key(x):
         # Find all numeric parts in the string
-        num_part = re.findall(r'\d+', x[0])
+        num_part = re.findall(r"\d+", x[0])
         return (x[0].split("_")[-1], int(num_part[0]) if num_part else 0, x[0])
+
     data.results = dict(sorted(data.results.items(), key=sort_key))
 
     get_logger().info("Plotting data...")

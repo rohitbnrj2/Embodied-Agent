@@ -723,9 +723,12 @@ class MjCambrianEnv(ParallelEnv):
         """
         raise NotImplementedError("Not implemented yet.")
 
-    def set_random_seed(self, seed: int | float):
+    def set_random_seed(self, seed: int | float | None):
         """Sets the seed for the environment."""
         from stable_baselines3.common.utils import set_random_seed
+
+        if seed is None:
+            return
 
         self._logger.info(f"Setting random seed to {seed}")
         set_random_seed(seed)

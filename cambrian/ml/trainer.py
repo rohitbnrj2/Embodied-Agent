@@ -1,4 +1,4 @@
-from typing import Dict, Callable, Optional, Concatenate
+from typing import Dict, Callable, Optional, Concatenate, Type
 from pathlib import Path
 
 from stable_baselines3.common.vec_env import (
@@ -26,7 +26,7 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
         max_episode_steps (int): The maximum number of steps per episode.
         n_envs (int): The number of parallel environments to use for training.
 
-        model (MjCambrianModelType): The model to use for training.
+        model (Type[MjCambrianModel]): The model to use for training.
         callbacks (Dict[str, BaseCallback]): The callbacks to use for training.
         wrappers (Dict[str, Callable[[VecEnv], VecEnv]] | None): The wrappers to use for
             training. If None, will ignore.
@@ -46,7 +46,7 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
     max_episode_steps: int
     n_envs: int
 
-    model: MjCambrianModel
+    model: Type[MjCambrianModel]
     callbacks: Dict[str, BaseCallback | Callable[[VecEnv], BaseCallback]]
     wrappers: Dict[str, Callable[[VecEnv], VecEnv] | None]
 

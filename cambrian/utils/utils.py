@@ -572,7 +572,10 @@ def literal_eval_with_callables(
                 # Method call (e.g., obj.method())
                 obj = _convert(node.func.value)
                 method_name = node.func.attr
-                method_key = (obj if isinstance(obj, ModuleType) else type(obj), method_name)
+                method_key = (
+                    obj if isinstance(obj, ModuleType) else type(obj),
+                    method_name,
+                )
                 if method_key in safe_methods:
                     method = safe_methods[method_key]
                     return method(

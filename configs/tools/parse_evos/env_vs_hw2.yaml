@@ -130,7 +130,6 @@ plots:
     x_data:
       type: CUSTOM
       label: Number of Eyes
-      # lim: [0, 30]
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
@@ -141,7 +140,6 @@ plots:
       type: CONFIG
       pattern: env.(agents|animals).*.eyes.*.resolution[0]
       label: Resolution
-      # lim: [0, 36]
     color_data:
       type: EVALUATION
       cmap: RdYlGn
@@ -154,8 +152,9 @@ plots:
           _target_: custom_plot_fns.num_eyes_and_resolution_pixels_constraint
           _partial_: True
           max_total_pixels: 50
-  left_placement_heatmap: &left_placement_heatmap
-    name: placement_heatmap
+          clip_line: False
+  left_placement_radial_vs_generation_vs_fitness_color: &left_placement_heatmap_vs_generation_vs_fitness_color
+    name: placement_radial_vs_generation_vs_fitness_color
     add_legend: False
     add_title: False
     projection: "polar"
@@ -170,9 +169,10 @@ plots:
         patterns:
           eyes_lon_range: env.(agents|animals).*.eyes_lon_range
     y_data:
-      type: CONSTANT
-      value: 1
-      tick_labels: []
+      type: GENERATION
+      ticks: [0, 10, 20, 30, 40, 50]
+      tick_labels: ["0", "10", "20", "30", "40", "50"]
+      label: ""
     size_data:
       factor: 100
     color_data:
@@ -181,20 +181,6 @@ plots:
       clim: ${custom.clim}
       kwargs:
         pad: 0.1
-  right_placement_heatmap: &right_placement_heatmap
-    <<: *left_placement_heatmap
-    name: placement_heatmap
-    x_data:
-      type: CUSTOM
-      custom_fn:
-        _target_: custom_axis_fns.eval_safe
-        _partial_: True
-        src: eyes_lon_range[1] * math.pi / 180.0
-        patterns:
-          eyes_lon_range: env.(agents|animals).*.eyes_lon_range
-  left_placement_heatmap_vs_generation:
-    <<: *left_placement_heatmap
-    name: placement_heatmap_vs_generation
     label_params:
       labelleft: True
       labelright: False
@@ -203,14 +189,17 @@ plots:
     rmin: 0
     rmax: 50
     rorigin: -20
-    y_data:
-      type: GENERATION
-      ticks: [0, 10, 20, 30, 40, 50]
-      tick_labels: ["0", "10", "20", "30", "40", "50"]
-      label: ""
-  right_placement_heapmap_vs_generation:
-    <<: *right_placement_heatmap
-    name: placement_heatmap_vs_generation
+  right_placement_heapmap_vs_generation_vs_fitness_color:
+    <<: *left_placement_heatmap_vs_generation_vs_fitness_color
+    name: placement_radial_vs_generation_vs_fitness_color
+    x_data:
+      type: CUSTOM
+      custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
+        src: eyes_lon_range[1] * math.pi / 180.0
+        patterns:
+          eyes_lon_range: env.(agents|animals).*.eyes_lon_range
     label_params:
       labelleft: True
       labelright: False
@@ -225,6 +214,22 @@ plots:
       ticks: [0, 10, 20, 30, 40, 50]
       tick_labels: ["0", "10", "20", "30", "40", "50"]
       label: ""
+  placement_vs_generation_vs_fitness_color:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: CUSTOM
+      label: Placement
+      custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
+        src: eyes_lon_range[0]
+        patterns:
+          eyes_lon_range: env.(agents|animals).*.eyes_lon_range
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
   total_pixels_vs_generation_vs_fitness_color:
     x_data:
       type: GENERATION
@@ -243,7 +248,66 @@ plots:
       type: EVALUATION
       cmap: RdYlGn
       clim: ${custom.clim}
-
+  stacksize_vs_generation_vs_fitness_color:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: CONFIG
+      pattern: trainer.wrappers.frame_stack_wrapper.stack_size
+      label: Stack Size
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  stacksize_vs_resolution_vs_fitness_color:
+    x_data:
+      type: CONFIG
+      pattern: trainer.wrappers.frame_stack_wrapper.stack_size
+      label: Stack Size
+    y_data:
+      type: CONFIG
+      pattern: env.(agents|animals).*.eyes.*.resolution[0]
+      label: Resolution
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  stacksize_vs_num_eyes_vs_fitness_color:
+    x_data:
+      type: CONFIG
+      pattern: trainer.wrappers.frame_stack_wrapper.stack_size
+      label: Stack Size
+    y_data:
+      type: CUSTOM
+      label: Number of Eyes
+      custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
+        src: math.prod(num_eyes_to_generate)
+        patterns:
+          num_eyes_to_generate: env.(agents|animals).*.num_eyes_to_generate
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+  resolution_vs_placement_vs_fitness_color:
+    x_data:
+      type: CONFIG
+      pattern: env.(agents|animals).*.eyes.*.resolution[0]
+      label: Resolution
+    y_data:
+      type: CUSTOM
+      label: Placement
+      custom_fn:
+        _target_: custom_axis_fns.eval_safe
+        _partial_: True
+        src: eyes_lon_range[0]
+        patterns:
+          eyes_lon_range: env.(agents|animals).*.eyes_lon_range
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
 hydra:
   run:
     dir: ${output}
