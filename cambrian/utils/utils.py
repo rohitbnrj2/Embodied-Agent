@@ -421,11 +421,6 @@ def format_string_with_obj_attributes(s, obj):
     return re.sub(r"\{([^}]+)\}", replace_attr, s)
 
 
-import ast
-from types import ModuleType
-from typing import Any, Callable, Dict, Tuple
-
-
 def literal_eval_with_callables(
     node_or_string,
     safe_callables: Dict[str, Callable] = {},
