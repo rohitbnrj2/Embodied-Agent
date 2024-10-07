@@ -1,0 +1,26 @@
+# @package _global_
+
+# Base working configuration for _most_ detection tasks (depending on frequency and
+# possibly other factors)
+
+defaults:
+  - simple
+
+env:
+  agents:
+    agent:
+      eyes_lon_range:
+        - ${eval:'-1 * ${.1}'}
+        - 90
+      eyes_lat_range:
+        - ${eval:'-1 * ${.1}'}
+        - 5
+
+      num_eyes_to_generate: [1, 10]
+
+      eyes:
+        eye:
+          resolution:
+            - 1
+            - ${eval:'${.0}'}
+          fov: [10, 10]

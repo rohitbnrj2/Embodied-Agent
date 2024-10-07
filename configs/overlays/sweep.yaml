@@ -1,0 +1,23 @@
+# @package _global_
+
+# Update the expsubdir to include all the overrides
+# NOTE: very ugly, more for debugging
+expsubdir: |
+  ${eval:'
+  "-".join([
+      (
+        "_".join(override.split("=", 1)[0].replace("+", "").split(".")[-2:])
+        if (
+          override.split("=", 1)[0].replace("+", "").startswith("env.reward_fn.") 
+          or override.split("=", 1)[0].replace("+", "").startswith("env.truncation_fn.") 
+          or override.split("=", 1)[0].replace("+", "").startswith("env.termination_fn.") 
+          or override.split("=", 1)[0].replace("+", "").startswith("env.step_fn.")
+        )
+        else override.split("=", 1)[0].replace("+", "").split("/")[-1].split(".")[-1]
+      )
+      + "_" 
+      + override.split("=", 1)[1].replace(".", "p").replace("-", "n")
+      for override in ${hydra_select:overrides.task, []}
+      if "exp=" not in override
+  ])
+  '}

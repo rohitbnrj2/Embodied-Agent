@@ -1,4 +1,4 @@
 # @package _global_
 
 defaults:
-  - /exp/tasks/initial_conditions/simple_flatland
+  - /exp/tasks/initial_conditions: simple_flatland

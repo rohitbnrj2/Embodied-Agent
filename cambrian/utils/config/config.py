@@ -38,7 +38,7 @@ class MjCambrianConfig(MjCambrianBaseConfig):
     logdir: Path
     expdir: Path
     expsubdir: Path
-    expname: str
+    expname: Any
 
     seed: int
 

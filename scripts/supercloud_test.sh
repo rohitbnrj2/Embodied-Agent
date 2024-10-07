@@ -13,10 +13,10 @@
 OPT=$1
 shift
 
-# cmd="MUJOCO_GL=egl bash scripts/test.sh exp=environmental_effects/detection_numeyes1_res0_lon1_fov0 $@ trainer/fitness_fn=test_num_eyes expname='evo/${OPT}' hydra.sweeper.optim.optimizer=${OPT} hydra/launcher=joblib hydra.sweeper.optim.load_if_exists=null -m"
-# echo "Running command: $cmd" | tee /dev/stderr
-# eval $cmd
+cmd="MUJOCO_GL=egl bash scripts/test.sh exp=environmental_effects/detection_numeyes1_res0_lon1_fov0 $@ trainer/fitness_fn=test_num_eyes expname='evo/${OPT}' hydra.sweeper.optim.optimizer=${OPT} hydra/launcher=joblib hydra.sweeper.optim.load_if_exists=null -m"
+echo "Running command: $cmd"
+eval $cmd
 
 cmd="MUJOCO_GL=egl python tools/parse_evos/parse_evos.py folder=logs/$(date +%F)/evo/${OPT} plot=True force=True config_filename=test_config.yaml plots_mask='[fov0_vs_generation,lon0_vs_generation,resolution_vs_generation,number_of_eyes_vs_generation,fitness_vs_generation]' check_finished=False"
-# echo "Running command: $cmd" | tee /dev/stderr
+echo "Running command: $cmd"
 eval $cmd
