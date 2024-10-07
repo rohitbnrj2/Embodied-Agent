@@ -572,22 +572,28 @@ def literal_eval_with_callables(
                 # Method call (e.g., obj.method())
                 obj = _convert(node.func.value)
                 method_name = node.func.attr
-                method_key = (
-                    obj if isinstance(obj, ModuleType) else type(obj),
-                    method_name,
-                )
-                if method_key in safe_methods:
-                    method = safe_methods[method_key]
-                    return method(
-                        *map(_convert, node.args),
-                        **{kw.arg: _convert(kw.value) for kw in node.keywords},
-                    )
+                if isinstance(obj, ModuleType):
+                    method_key = (obj, method_name)
+                    if method_key in safe_methods:
+                        method = safe_methods[method_key]
+                        return method(
+                            *map(_convert, node.args),
+                            **{kw.arg: _convert(kw.value) for kw in node.keywords},
+                        )
                 else:
-                    print(safe_methods, method_key)
-                    exit()
-                    raise ValueError(
-                        f"Method '{method_name}' not allowed on type '{type(obj).__name__}'."
-                    )
+                    method_key = (type(obj), method_name)
+                    if method_key in safe_methods:
+                        method = safe_methods[method_key]
+                        # If the method is a callable, call it with the arguments and
+                        # pass the object as the first argument
+                        return method(
+                            obj,
+                            *map(_convert, node.args),
+                            **{kw.arg: _convert(kw.value) for kw in node.keywords},
+                        )
+                raise ValueError(
+                    f"Method '{method_name}' not allowed on type '{type(obj).__name__}'."
+                )
             elif isinstance(node.func, ast.Name):
                 # Function call (e.g., func())
                 func_name = node.func.id
