@@ -61,11 +61,7 @@ def maybe_transpose_obs(observation: torch.Tensor) -> torch.Tensor:
 # Feature Extractors
 
 
-class MjCambrianBaseFeaturesExtractor(BaseFeaturesExtractor):
-    pass
-
-
-class MjCambrianCombinedExtractor(MjCambrianBaseFeaturesExtractor):
+class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
     """Overwrite of the default feature extractor of Stable Baselines 3."""
 
     def __init__(
@@ -74,7 +70,7 @@ class MjCambrianCombinedExtractor(MjCambrianBaseFeaturesExtractor):
         output_dim: int,
         normalized_image: bool,
         activation: torch.nn.Module,
-        image_extractor: MjCambrianBaseFeaturesExtractor,
+        image_extractor: BaseFeaturesExtractor,
     ) -> None:
         # We do not know features-dim here before going over all the items, so put
         # something there.
@@ -112,7 +108,7 @@ class MjCambrianCombinedExtractor(MjCambrianBaseFeaturesExtractor):
         return features
 
 
-class MjCambrianImageFeaturesExtractor(MjCambrianBaseFeaturesExtractor):
+class MjCambrianImageFeaturesExtractor(BaseFeaturesExtractor):
     """This is a feature extractor for images. Will implement an image queue for
     temporal features. Should be inherited by other classes."""
 
@@ -136,6 +132,38 @@ class MjCambrianImageFeaturesExtractor(MjCambrianBaseFeaturesExtractor):
         )
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        return self.temporal_linear(observations)
+
+
+class MjCambrianFlattenExtractor(BaseFeaturesExtractor):
+    """Flatten feature extractor for images. This is the default feature extractor for
+    stable baseline3 images. The main differences between this and the original is that
+    this supports temporal features (i.e. image stacks) and dynamically calculates the
+    kernel sizes and strides. In sb3, the fixed kernel sizes and strides restricted the
+    image size to be > 36x36, which is a bd assumption here."""
+
+    def __init__(
+        self,
+        observation_space: gym.Space,
+        features_dim: int,
+        activation: torch.nn.Module,
+    ):
+        super().__init__(observation_space, features_dim)
+
+        n_channels = observation_space.shape[1]
+        height, width = observation_space.shape[2], observation_space.shape[3]
+
+        self._num_pixels = n_channels * height * width
+        self._queue_size = observation_space.shape[0]
+
+        self.temporal_linear = torch.nn.Sequential(
+            torch.nn.Linear(features_dim * self._queue_size, features_dim),
+            activation(),
+        )
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        B = observations.shape[0]
+        observations = observations.reshape(B, -1)
         return self.temporal_linear(observations)
 
 
@@ -204,7 +232,6 @@ class MjCambrianNatureCNNExtractor(MjCambrianImageFeaturesExtractor):
         # Compute shape by doing one forward pass
         with torch.no_grad():
             sample = torch.as_tensor(observation_space.sample())
-            sample.reshape(-1, *sample.shape[2:])
             n_flatten = self.cnn(sample)
             n_flatten = n_flatten.shape[0] * n_flatten.shape[1]
 
