@@ -6,4 +6,6 @@ features_extractor_kwargs:
   activation:
     _target_: torch.nn.Tanh
     _partial_: true
-net_arch: [4, 8]
+net_arch:
+  pi: [8, 8]
+  vf: ${.pi}

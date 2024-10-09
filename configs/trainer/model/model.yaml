@@ -3,6 +3,7 @@ defaults:
 
 _target_: cambrian.ml.model.MjCambrianModel
 _partial_: true
+_convert_: all
 
 policy: MultiInputPolicy
 n_steps: 2048
