@@ -4,7 +4,7 @@ defaults:
 # Request only a100s
 gres: gpu:a100:1
 
-# Setting the qos/partition to the lab name has the highest priority (10).
+# Setting the qos/partition to the lab name (i.e. cbmm) has the highest priority (10).
 # `normal` is 5 and `use-everything` is 0.
 qos: normal
 partition: normal

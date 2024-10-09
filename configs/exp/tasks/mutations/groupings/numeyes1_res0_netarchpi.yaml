@@ -4,6 +4,6 @@ defaults:
   - /exp/tasks/mutations:
       - num_eyes1
       - res0
-      - stacksize
+      - net_arch_pi
 
-  - /exp/tasks/constraints/total_memory_throughput
+  - /exp/tasks/constraints/total_pixels

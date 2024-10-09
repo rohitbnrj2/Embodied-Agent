@@ -1,0 +1,10 @@
+# @package _global_
+
+hydra:
+  sweeper:
+    params:
+      trainer.model.policy_kwargs.net_arch.pi:
+        init: [1, 1]
+        lower: 1
+        upper: 128
+        integer: true
