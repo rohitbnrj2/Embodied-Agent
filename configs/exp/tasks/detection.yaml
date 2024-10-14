@@ -21,7 +21,6 @@ defaults:
 
   # Define two objects: a goal and an adversary
   - /env/agents@env.agents.adversary0: object_sphere_textured_adversary
-  - /env/agents@env.agents.adversary1: object_sphere_textured_adversary
   - /env/agents@env.agents.goal0: object_sphere_textured_goal
 
 custom:
@@ -47,7 +46,7 @@ env:
       for_agents: [agent]
       reward: 1.0
     reward_for_truncation:
-      reward: -2.0
+      reward: -1.0
       for_agents: [agent]
 
     reward_for_quick_termination:

@@ -5,6 +5,8 @@ import re
 from omegaconf import OmegaConf, DictConfig, Node, ListConfig
 from omegaconf.errors import ConfigKeyError
 
+from cambrian.utils import is_integer
+
 
 def register_new_resolver(name: str, replace: bool = True, **kwargs):
     def decorator(fn):
@@ -227,3 +229,48 @@ def custom_resolver(target: str, default: Optional[Any] = None, /):
 @register_new_resolver("float_to_str")
 def float_to_str_resolver(value: float) -> str:
     return str(value).replace(".", "p").replace("-", "n")
+
+
+@register_new_resolver("clean_overrides")
+def clean_overrides_resolver(overrides: List[str]) -> str:
+    cleaned_overrides: List[str] = []
+    for override in overrides:
+        if "=" not in override or override.count("=") > 1:
+            continue
+
+        key, value = override.split("=", 1)
+        if key == "exp":
+            continue
+
+        # Special key cases that we want the second key rather than the first
+        if (
+            key.startswith("env.reward_fn")
+            or key.startswith("env.truncation_fn")
+            or key.startswith("env.termination_fn")
+            or key.startswith("env.step_fn")
+            or is_integer(key.split(".")[-1])
+        ):
+            key = "_".join(key.split(".")[-2:])
+        else:
+            key = key.split("/")[-1].split(".")[-1]
+
+        # Clean the key and value
+        key = (
+            key.replace("+", "")
+            .replace("[", "")
+            .replace("]", "")
+            .replace(",", "_")
+            .replace(" ", "")
+        )
+        value = (
+            value.replace(".", "p")
+            .replace("-", "n")
+            .replace("[", "")
+            .replace("]", "")
+            .replace(",", "_")
+            .replace(" ", "")
+        )
+
+        cleaned_overrides.append(f"{key}_{value}")
+
+    return "_".join(cleaned_overrides)

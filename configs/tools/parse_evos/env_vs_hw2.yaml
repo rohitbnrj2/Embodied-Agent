@@ -308,6 +308,18 @@ plots:
       type: EVALUATION
       cmap: RdYlGn
       clim: ${custom.clim}
+  netarchpi_vs_generation_vs_fitness_color:
+    x_data:
+      type: GENERATION
+    y_data:
+      type: CONFIG
+      pattern: trainer.model.policy_kwargs.net_arch.pi[0]
+      label: Hidden Units
+    color_data:
+      type: EVALUATION
+      cmap: RdYlGn
+      clim: ${custom.clim}
+
 hydra:
   run:
     dir: ${output}
