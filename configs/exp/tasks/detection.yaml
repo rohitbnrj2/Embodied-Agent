@@ -21,7 +21,9 @@ defaults:
 
   # Define two objects: a goal and an adversary
   - /env/agents@env.agents.adversary0: object_sphere_textured_adversary
+  - /env/agents@env.agents.adversary1: object_sphere_textured_adversary
   - /env/agents@env.agents.goal0: object_sphere_textured_goal
+  - /env/agents@env.agents.goal1: object_sphere_textured_goal
 
 custom:
   # This sets both the frequency of the texture of the goal and adversary
@@ -44,9 +46,9 @@ env:
   reward_fn:
     reward_for_termination:
       for_agents: [agent]
-      reward: 1.0
+      reward: 2.0
     reward_for_truncation:
-      reward: -1.0
+      reward: -2.0
       for_agents: [agent]
 
     reward_for_quick_termination:
@@ -86,7 +88,7 @@ eval_env:
   reward_fn:
     reward_euclidean_delta_to_goal:
       # increase reward for moving closer to the goal
-      factor: 0.0
+      factor: 0.25
     penalize_if_has_contacts:
       # large negative reward for contacts
       penalty: -2.0
