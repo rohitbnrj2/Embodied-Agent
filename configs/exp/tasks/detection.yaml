@@ -94,6 +94,3 @@ eval_env:
       # large positive reward for termination; only happens when the agent makes it to
       # the end of the eval episode w/o being close to the adversary
       reward: 5.0
-    reward_for_quick_termination:
-      # large positive reward for quick termination
-      reward: 5.0
