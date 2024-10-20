@@ -51,12 +51,6 @@ env:
       reward: -2.0
       for_agents: [agent]
 
-    reward_for_quick_termination:
-      _target_: cambrian.envs.reward_fns.reward_for_quick_termination
-      _partial_: true
-      reward: 1.0
-      for_agents: [agent]
-
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
       _partial_: true
@@ -88,7 +82,7 @@ eval_env:
   reward_fn:
     reward_euclidean_delta_to_goal:
       # increase reward for moving closer to the goal
-      factor: 0.25
+      factor: 0.01
     penalize_if_has_contacts:
       # large negative reward for contacts
       penalty: -2.0
