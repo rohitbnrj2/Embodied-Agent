@@ -79,6 +79,17 @@ env:
       distance_threshold: 1.0
 
 eval_env:
+  step_fn:
+    # respawn the goal if the agent is close to it
+    # this subsequently means that agents which avoid the adversary more often are
+    # far more likely to be selected for (i.e. they are better agents)
+    respawn_objects_if_agent_close:
+      _target_: cambrian.envs.step_fns.step_respawn_agents_if_close_to_agents
+      _partial_: true
+      for_agents: [goal, adversary]
+      to_agents: [agent]
+      distance_threshold: 1.0
+
   reward_fn:
     reward_euclidean_delta_to_goal:
       # increase reward for moving closer to the goal
