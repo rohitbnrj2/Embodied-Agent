@@ -91,9 +91,25 @@ eval_env:
       distance_threshold: 1.0
 
   reward_fn:
+    reward_if_goal_respawned:
+      _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
+      _partial_: true
+      # large positive reward for respawning the goal (which happens if the agent is
+      # close to it)
+      reward: 10.0
+      for_agents: [goal]
+
+    reward_if_adversary_respawned:
+      _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
+      _partial_: true
+      # large negative reward for respawning the advsrary (which happens if the agent is
+      # close to it)
+      reward: -10.0
+      for_agents: [adversary]
+
     reward_euclidean_delta_to_goal:
       # increase reward for moving closer to the goal
-      factor: 0.01
+      factor: 0.1
     penalize_if_has_contacts:
       # large negative reward for contacts
       penalty: -2.0

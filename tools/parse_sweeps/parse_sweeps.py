@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Callable, Concatenate, List
+from typing import Dict, Any, Optional, Callable, Concatenate, List, Tuple
 from pathlib import Path
 from enum import Enum
 import re
@@ -39,6 +39,22 @@ class ParseSweepsConfig(MjCambrianBaseConfig):
     show_plots (bool): Show the plots.
     save_plots (bool): Save the plots. Will save to the output / plots folder.
 
+    load_config_fn (Callable[[Path], Optional[MjCambrianConfig]]): The function to use to
+        load the config from a folder.
+    load_eval_fitness_fn (Callable[[Path], float]): The function to use to load the
+        evaluation fitness from a folder.
+    load_train_fitness_fn (Callable[[Path], float]): The function to use to load the
+        training fitness from a folder.
+    load_monitor_fn (Callable[[Path], np.ndarray]): The function to use to load the
+        monitor from a folder.
+    load_evaluations_fn (Callable[[Path], np.ndarray]): The function to use to load the
+        evaluations from a folder.
+
+    combine_fn (Callable[[Concatenate[Path, ...]], "Result"]): The function to use to
+        combine the results of the sweep data.
+
+    ylim (Optional[Tuple[float, float]]): The y-axis limits for the eval plots.
+
     ignore (List[str]): List of folders to ignore.
     overrides (Dict[str, Any]): Overrides for the sweep data.
 
@@ -65,6 +81,8 @@ class ParseSweepsConfig(MjCambrianBaseConfig):
     load_evaluations_fn: Callable[[Path], np.ndarray]
 
     combine_fn: Optional[Callable[[Concatenate[Path, ...]], "Result"]] = None
+
+    ylim: Optional[Tuple[float, float]] = None
 
     ignore: List[str]
     overrides: Dict[str, Any]
@@ -312,6 +330,8 @@ def plot_data(config: ParseSweepsConfig, data: Data):
             plt.suptitle("Eval Fitness Bar Chart")
             plt.bar(name, result.eval_fitness, alpha=0.5)
             plt.xticks(rotation=90)
+            if config.ylim is not None:
+                plt.ylim(*config.ylim)
 
             plt.figure("Eval Fitness")
             plt.suptitle("Eval Fitness")
@@ -324,6 +344,8 @@ def plot_data(config: ParseSweepsConfig, data: Data):
                 ha="left",
                 rotation=90,
             )
+            if config.ylim is not None:
+                plt.ylim(*config.ylim)
 
         # Train Fitness
         if result.train_fitness is not None:

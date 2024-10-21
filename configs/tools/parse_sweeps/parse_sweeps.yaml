@@ -39,7 +39,7 @@ load_evaluations_fn:
 combine_fn:
   _target_: parse_sweeps.combine
   _partial_: true
-  fitness_method: MIN
+  fitness_method: MAX
 
 overrides: {}
 
