@@ -6,6 +6,3 @@ features_extractor_class:
   _partial_: true
 features_extractor_kwargs:
   normalized_image: True
-  activation:
-    _target_: torch.nn.Tanh
-    _partial_: true

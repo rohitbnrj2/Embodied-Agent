@@ -351,13 +351,17 @@ def reward_speed(
     reward: float,
     for_agents: Optional[List[str]] = None,
     inverse: bool = False,
+    clip: bool = True,
 ) -> float:
     """Rewards the agent for moving quickly."""
     # Early exit if the agent is not in the for_agents list
     if for_agents is not None and agent.name not in for_agents:
         return 0
 
-    return reward * agent.speed if not inverse else reward / agent.speed
+    reward = reward * agent.speed if not inverse else reward / agent.speed
+    if clip:
+        reward = np.clip(reward, -1, 1)
+    return reward
 
 
 def constant_reward(

@@ -4,8 +4,10 @@ import torch
 import gymnasium as gym
 from gymnasium import spaces
 from stable_baselines3.common.type_aliases import TensorDict
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
-from stable_baselines3.common.preprocessing import get_flattened_obs_dim
+from stable_baselines3.common.torch_layers import (
+    BaseFeaturesExtractor,
+    FlattenExtractor,
+)
 
 # ==================
 # Utils
@@ -67,31 +69,25 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
     def __init__(
         self,
         observation_space: spaces.Dict,
-        output_dim: int,
+        *,
         normalized_image: bool,
-        activation: torch.nn.Module,
         image_extractor: BaseFeaturesExtractor,
     ) -> None:
         # We do not know features-dim here before going over all the items, so put
         # something there.
         super().__init__(observation_space, features_dim=1)
 
-        extractors: Dict[str, torch.nn.Module] = {}
+        extractors: Dict[str, BaseFeaturesExtractor] = {}
 
         total_concat_size = 0
         for key, subspace in observation_space.spaces.items():
             if is_image_space(subspace, normalized_image=normalized_image):
                 subspace = maybe_transpose_space(subspace, key)
-                extractors[key] = image_extractor(
-                    subspace,
-                    features_dim=output_dim,
-                    activation=activation,
-                )
-                total_concat_size += output_dim
+                extractors[key] = image_extractor(subspace)
             else:
                 # The observation key is a vector, flatten it if needed
-                extractors[key] = torch.nn.Flatten()
-                total_concat_size += get_flattened_obs_dim(subspace)
+                extractors[key] = FlattenExtractor(subspace)
+            total_concat_size += extractors[key].features_dim
 
         self.extractors = torch.nn.ModuleDict(extractors)
 
@@ -132,38 +128,6 @@ class MjCambrianImageFeaturesExtractor(BaseFeaturesExtractor):
         )
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        return self.temporal_linear(observations)
-
-
-class MjCambrianFlattenExtractor(BaseFeaturesExtractor):
-    """Flatten feature extractor for images. This is the default feature extractor for
-    stable baseline3 images. The main differences between this and the original is that
-    this supports temporal features (i.e. image stacks) and dynamically calculates the
-    kernel sizes and strides. In sb3, the fixed kernel sizes and strides restricted the
-    image size to be > 36x36, which is a bd assumption here."""
-
-    def __init__(
-        self,
-        observation_space: gym.Space,
-        features_dim: int,
-        activation: torch.nn.Module,
-    ):
-        super().__init__(observation_space, features_dim)
-
-        n_channels = observation_space.shape[1]
-        height, width = observation_space.shape[2], observation_space.shape[3]
-
-        self._num_pixels = n_channels * height * width
-        self._queue_size = observation_space.shape[0]
-
-        self.temporal_linear = torch.nn.Sequential(
-            torch.nn.Linear(features_dim * self._queue_size, features_dim),
-            activation(),
-        )
-
-    def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        B = observations.shape[0]
-        observations = observations.reshape(B, -1)
         return self.temporal_linear(observations)
 
 

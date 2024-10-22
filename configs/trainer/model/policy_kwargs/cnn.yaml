@@ -2,9 +2,10 @@ defaults:
   - combined@_here_
 
 features_extractor_kwargs:
-  output_dim: 256
   image_extractor:
     _target_: cambrian.ml.features_extractors.MjCambrianNatureCNNExtractor
     _partial_: true
-    features_dim: ${..output_dim}
-    activation: ${..activation}
+    features_dim: 256
+    activation:
+      _target_: torch.nn.Tanh
+      _partial_: true
