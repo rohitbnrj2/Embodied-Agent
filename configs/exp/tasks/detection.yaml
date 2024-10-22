@@ -86,7 +86,7 @@ eval_env:
     respawn_objects_if_agent_close:
       _target_: cambrian.envs.step_fns.step_respawn_agents_if_close_to_agents
       _partial_: true
-      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
+      for_agents: ${glob:goal*|adversary*,${oc.dict.keys:env.agents}}
       to_agents: [agent]
       distance_threshold: 1.0
 
