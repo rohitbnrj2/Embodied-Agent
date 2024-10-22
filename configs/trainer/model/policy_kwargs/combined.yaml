@@ -1,3 +1,6 @@
+defaults:
+  - net_arch: 16x16
+
 features_extractor_class:
   _target_: cambrian.ml.features_extractors.MjCambrianCombinedExtractor
   _partial_: true
@@ -6,6 +9,3 @@ features_extractor_kwargs:
   activation:
     _target_: torch.nn.Tanh
     _partial_: true
-net_arch:
-  pi: [8, 8]
-  vf: ${.pi}
