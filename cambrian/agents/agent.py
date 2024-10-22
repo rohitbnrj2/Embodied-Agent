@@ -532,10 +532,8 @@ class MjCambrianAgent:
 
         The agent has three observation spaces:
             - {eye.name}: The eyes observations
-            - qpos: The joint positions of the agent. The number of joints is extracted
-            from the model. It's queried using `qpos`.
-            - qvel: The joint velocities of the agent. The number of joints is
-            extracted from the model. It's queried using `qvel`.
+            - action: The last action that was applied to the agent
+            - contacts: Whether the agent has contacts or not
         """
         observation_space: Dict[Any, spaces.Space] = {}
 
@@ -696,6 +694,11 @@ class MjCambrianAgent:
     def mat(self) -> np.ndarray:
         """Returns the rotation matrix of the agent in the environment."""
         return self._data.xmat[self._body_id].reshape(3, 3).copy()
+
+    @property
+    def speed(self) -> float:
+        """Returns the speed of the agent in the environment."""
+        return np.linalg.norm(self._data.qvel[self._qposadrs])
 
     @property
     def last_action(self) -> np.ndarray:

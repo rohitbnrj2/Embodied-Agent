@@ -97,7 +97,7 @@ eval_env:
       # large positive reward for respawning the goal (which happens if the agent is
       # close to it)
       reward: 10.0
-      for_agents: [goal]
+      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
 
     reward_if_adversary_respawned:
       _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
@@ -105,11 +105,11 @@ eval_env:
       # large negative reward for respawning the advsrary (which happens if the agent is
       # close to it)
       reward: -10.0
-      for_agents: [adversary]
+      for_agents: ${glob:adversary*,${oc.dict.keys:env.agents}}
 
     reward_euclidean_delta_to_goal:
       # increase reward for moving closer to the goal
-      factor: 0.1
+      factor: 1
     penalize_if_has_contacts:
       # large negative reward for contacts
       penalty: -2.0
@@ -121,3 +121,12 @@ eval_env:
       # large positive reward for termination; only happens when the agent makes it to
       # the end of the eval episode w/o being close to the adversary
       reward: 5.0
+
+    penalize_for_slow_speed:
+      # penalize the agent for slower speeds to select for agents which
+      # prioritize movements
+      _target_: cambrian.envs.reward_fns.reward_speed
+      _partial_: true
+      reward: -0.1
+      for_agents: [agent]
+      inverse: true

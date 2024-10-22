@@ -67,6 +67,11 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         """Overrides the base implementation to only have two elements."""
         return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
 
+    @property
+    def speed(self) -> float:
+        """Returns the speed of the agent in the environment."""
+        return self.last_action[0]
+
 
 class MjCambrianAgentPointPrey(MjCambrianAgentPoint):
     """This is an agent which is non-trainable and defines a custom policy which

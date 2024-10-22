@@ -341,6 +341,25 @@ def reward_if_facing_agents(
     return accumulated_reward
 
 
+def reward_speed(
+    env: MjCambrianEnv,
+    agent: MjCambrianAgent,
+    terminated: bool,
+    truncated: bool,
+    info: Dict[str, Any],
+    *,
+    reward: float,
+    for_agents: Optional[List[str]] = None,
+    inverse: bool = False,
+) -> float:
+    """Rewards the agent for moving quickly."""
+    # Early exit if the agent is not in the for_agents list
+    if for_agents is not None and agent.name not in for_agents:
+        return 0
+
+    return reward * agent.speed if not inverse else reward / agent.speed
+
+
 def constant_reward(
     env: MjCambrianEnv,
     agent: MjCambrianAgent,
