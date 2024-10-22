@@ -85,7 +85,23 @@ eval_env:
         E: [agent]
         O: [goal]
 
+  step_fn:
+    # respawn the goal if the agent is close to it
+    respawn_objects_if_agent_close:
+      _target_: cambrian.envs.step_fns.step_respawn_agents_if_close_to_agents
+      _partial_: true
+      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
+      to_agents: [agent]
+      distance_threshold: 1.0
+
   reward_fn:
+    reward_if_goal_respawned:
+      _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
+      _partial_: true
+      # large positive reward for respawning the goal (which happens if the agent is
+      # close to it)
+      reward: 10.0
+      for_agents: [goal]
     reward_for_termination:
       # large positive reward for termination; only happens when the agent makes it to
       # the end of the eval episode w/o being close to the adversary
@@ -94,8 +110,7 @@ eval_env:
       # increase reward for moving from the initial position
       factor: 2.5
     penalize_if_has_contacts:
-      # large negative reward for contacts
-      penalty: -5.0
+      penalty: 0
       for_agents: [agent]
 
   truncation_fn:
