@@ -49,8 +49,10 @@ env:
   reward_fn:
     reward_for_termination:
       for_agents: [agent]
+      reward: 1.0
     reward_for_truncation:
       for_agents: [agent]
+      reward: -1.0
 
     euclidean_delta_from_init:
       _target_: cambrian.envs.reward_fns.euclidean_delta_from_init
@@ -110,8 +112,7 @@ eval_env:
       # increase reward for moving from the initial position
       factor: 2.5
     penalize_if_has_contacts:
-      penalty: 0
-      for_agents: [agent]
+      penalty: -0.05
 
   truncation_fn:
     truncate_if_low_reward:

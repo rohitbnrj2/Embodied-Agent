@@ -1,5 +1,5 @@
 defaults:
-  - policy_kwargs: mlp
+  - policy_kwargs: flatten
 
 _target_: cambrian.ml.model.MjCambrianModel
 _partial_: true
