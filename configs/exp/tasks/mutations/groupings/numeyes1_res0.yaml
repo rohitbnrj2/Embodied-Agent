@@ -5,4 +5,4 @@ defaults:
       - num_eyes1
       - res0
 
-  - /exp/tasks/constraints/morphological_feasibility_small
+  - /exp/tasks/constraints/total_pixels
