@@ -23,8 +23,8 @@ def nevergrad_constraint_fn(
 
 def constrain_total_pixels(
     *,
-    num_eyes_to_generate: Tuple[int, int],
-    resolution: Tuple[int, int],
+    num_eyes_to_generate: Tuple[int, int] | int,
+    resolution: Tuple[int, int] | int,
     max_num_pixels: int,
 ):
     """This constraint method will check whether the total number of pixels generated
