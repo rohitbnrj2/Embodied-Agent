@@ -312,9 +312,21 @@ def plot_data(config: ParseSweepsConfig, data: Data):
     # Clear all figures
     plt.close("all")
 
-    # Sort the data by the suffix in the name
-    def sort_key(x):
-        # Find all numeric parts in the string
+    def sort_key(x, key: list[str] | None = ["resolution", "pi"]):
+        if key:
+            # Create a concatenated sorting key based on numbers following each key in the list
+            key_values = []
+            for k in key:
+                # Find the pattern key followed by numbers, capturing all numbers after the key
+                key_match = re.search(rf"{k}_(\d+(?:_\d+)*)", x[0])
+                if key_match:
+                    # Split the matched numbers by underscore and convert them to integers
+                    key_values.append(tuple(map(int, key_match.group(1).split("_"))))
+                else:
+                    key_values.append((0,))
+            return (tuple(key_values), x[0])
+
+        # If key is not provided or not found, use the original sorting logic
         num_part = re.findall(r"\d+", x[0])
         return (x[0].split("_")[-1], int(num_part[0]) if num_part else 0, x[0])
 
@@ -349,15 +361,21 @@ def plot_data(config: ParseSweepsConfig, data: Data):
 
         # Train Fitness
         if result.train_fitness is not None:
+            plt.figure("Train Fitness Bar Chart")
+            plt.suptitle("Train Fitness Bar Chart")
+            plt.bar(name, result.train_fitness, alpha=0.5)
+            plt.xticks(rotation=90)
+
             plt.figure("Train Fitness")
             plt.suptitle("Train Fitness")
-            plt.scatter(0, result.train_fitness, marker="o")
+            plt.scatter(name, result.train_fitness, marker="o")
             plt.annotate(
                 name,
                 (0, result.train_fitness),
                 textcoords="offset points",
                 xytext=(10, 0),
                 ha="left",
+                rotation=90,
             )
 
         # Monitor
