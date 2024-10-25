@@ -101,14 +101,14 @@ eval_env:
 
     reward_euclidean_delta_to_goal:
       # increase reward for moving closer to the goal
-      factor: 1
+      factor: 1.0
     penalize_if_has_contacts:
       # large negative reward for contacts
-      penalty: -2.0
+      penalty: -5.0
 
     reward_for_truncation:
       # large negative reward for truncation
-      reward: -10.0
+      reward: -20.0
     reward_for_termination:
       # large positive reward for termination; only happens when the agent makes it to
       # the end of the eval episode w/o being close to the adversary

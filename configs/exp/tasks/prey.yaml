@@ -1,25 +1,11 @@
 # @package _global_
 
+# Similar to tracking problem, but the adversaries have a fixed policy which tries to
+# catch the agent.
+
 defaults:
-  - /exp/tasks/detection
+  - /exp/tasks/tracking
 
   # Define an adversarial predator which tries to catch the agent
-  - /env/agents@env.agents.adversary: point_predator_textured
-
-  # Define a goal which the prey tries to reach
-  - /env/agents@env.agents.goal: point_maze_random_textured
-
-env:
-  agents:
-    goal:
-      overlay_color: [0.2, 0.8, 0.2, 1]
-      custom:
-        frequency: ${custom.frequency}
-        euler: 0 0 0
-        top_rgba: 0.2 0.8 0.2 1.0
-    adversary:
-      overlay_color: [0.8, 0.2, 0.2, 1]
-      custom:
-        frequency: ${custom.frequency}
-        euler: 0 90 0
-        top_rgba: 0.8 0.2 0.2 1.0
+  - override /env/agents@env.agents.adversary0: point_predator_textured
+  - override /env/agents@env.agents.adversary1: point_predator_textured
