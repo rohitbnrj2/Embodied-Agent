@@ -103,18 +103,8 @@ eval_env:
       _partial_: true
       # large positive reward for respawning the goal (which happens if the agent is
       # close to it)
-      reward: 10.0
+      reward: ${..reward_for_termination.reward}
       for_agents: [goal]
-    reward_for_termination:
-      # large positive reward for termination; only happens when the agent makes it to
-      # the end of the eval episode w/o being close to the adversary
-      reward: 20.0
-    euclidean_delta_from_init:
-      # increase reward for moving from the initial position
-      factor: 2.5
-    penalize_if_has_contacts:
-      # larger negative reward for contacts
-      penalty: -2.5
 
   truncation_fn:
     truncate_if_low_reward:

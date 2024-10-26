@@ -223,7 +223,7 @@ plots:
       custom_fn:
         _target_: custom_axis_fns.eval_safe
         _partial_: True
-        src: eyes_lon_range[0]
+        src: eyes_lon_range[1]
         patterns:
           eyes_lon_range: env.(agents|animals).*.eyes_lon_range
     color_data:
