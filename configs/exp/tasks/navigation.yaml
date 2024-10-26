@@ -76,7 +76,7 @@ env:
     terminate_if_close_to_goal:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
-      to_agents: [goal]
+      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
 
 eval_env:
@@ -103,8 +103,8 @@ eval_env:
       _partial_: true
       # large positive reward for respawning the goal (which happens if the agent is
       # close to it)
-      reward: ${..reward_for_termination.reward}
-      for_agents: [goal]
+      reward: ${env.reward_fn.reward_for_termination.reward}
+      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
 
   truncation_fn:
     truncate_if_low_reward:
