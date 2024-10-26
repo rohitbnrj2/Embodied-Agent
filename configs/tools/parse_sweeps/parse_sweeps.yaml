@@ -36,6 +36,7 @@ load_evaluations_fn:
   _target_: parse_sweeps.load_monitor
   _partial_: true
   filename: "eval_monitor.csv"
+  percent: 0.95
 combine_fn:
   _target_: parse_sweeps.combine
   _partial_: true

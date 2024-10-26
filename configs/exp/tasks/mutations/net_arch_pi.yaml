@@ -6,5 +6,5 @@ hydra:
       trainer.model.policy_kwargs.net_arch.pi:
         init: [1, 1]
         lower: 1
-        upper: 128
+        upper: 512
         integer: true

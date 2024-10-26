@@ -143,12 +143,12 @@ def load_fitness_from_txt(folder: Path, *, filename: str) -> float:
 # ==================
 
 
-def load_monitor(folder: Path, *, filename: str) -> np.ndarray:
+def load_monitor(folder: Path, *, filename: str, **kwargs) -> np.ndarray:
     assert (monitor := folder / filename).exists(), f"Monitor {monitor} does not exist."
 
     from cambrian.ml.fitness_fns import fitness_from_monitor
 
-    _, (_, rewards) = fitness_from_monitor(None, monitor, return_data=True)
+    _, (_, rewards) = fitness_from_monitor(None, monitor, return_data=True, **kwargs)
     return rewards
 
 
@@ -312,7 +312,7 @@ def plot_data(config: ParseSweepsConfig, data: Data):
     # Clear all figures
     plt.close("all")
 
-    def sort_key(x, key: list[str] | None = ["resolution", "pi"]):
+    def sort_key(x, key: list[str] | None = ["pi", "resolution"]):
         if key:
             # Create a concatenated sorting key based on numbers following each key in the list
             key_values = []
@@ -348,14 +348,14 @@ def plot_data(config: ParseSweepsConfig, data: Data):
             plt.figure("Eval Fitness")
             plt.suptitle("Eval Fitness")
             plt.scatter(name, result.eval_fitness, marker="o")
-            plt.annotate(
-                name,
-                (0, result.eval_fitness),
-                textcoords="offset points",
-                xytext=(10, 0),
-                ha="left",
-                rotation=90,
-            )
+            # plt.annotate(
+            #     name,
+            #     (0, result.eval_fitness),
+            #     textcoords="offset points",
+            #     xytext=(10, 0),
+            #     ha="left",
+            #     rotation=90,
+            # )
             if config.ylim is not None:
                 plt.ylim(*config.ylim)
 
@@ -369,14 +369,14 @@ def plot_data(config: ParseSweepsConfig, data: Data):
             plt.figure("Train Fitness")
             plt.suptitle("Train Fitness")
             plt.scatter(name, result.train_fitness, marker="o")
-            plt.annotate(
-                name,
-                (0, result.train_fitness),
-                textcoords="offset points",
-                xytext=(10, 0),
-                ha="left",
-                rotation=90,
-            )
+            # plt.annotate(
+            #     name,
+            #     (0, result.train_fitness),
+            #     textcoords="offset points",
+            #     xytext=(10, 0),
+            #     ha="left",
+            #     rotation=90,
+            # )
 
         # Monitor
         if (monitor := result.monitor) is not None:
