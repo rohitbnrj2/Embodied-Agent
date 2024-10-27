@@ -96,7 +96,7 @@ eval_env:
       _partial_: true
       # large positive reward for respawning the goal (which happens if the agent is
       # close to it)
-      reward: 20.0
+      reward: 10.0
       for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
 
     penalize_if_adversary_respawned:
@@ -104,7 +104,7 @@ eval_env:
       _partial_: true
       # large negative reward for respawning the adversary (which happens if the agent
       # is close to it)
-      reward: -20.0
+      reward: -10.0
       for_agents: ${glob:adversary*,${oc.dict.keys:env.agents}}
 
     reward_euclidean_delta_to_goal:
@@ -113,14 +113,6 @@ eval_env:
     penalize_if_has_contacts:
       # large negative reward for contacts
       penalty: -5.0
-
-    reward_for_truncation:
-      # large negative reward for truncation
-      reward: -20.0
-    reward_for_termination:
-      # large positive reward for termination; only happens when the agent makes it to
-      # the end of the eval episode w/o being close to the adversary
-      reward: 5.0
 
     penalize_for_slow_speed:
       # penalize the agent for slower speeds to select for agents which

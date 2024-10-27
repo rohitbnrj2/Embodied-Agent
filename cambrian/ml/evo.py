@@ -36,7 +36,6 @@ if has_nevergrad:
         scale=3.0,
         diagonal=True,
         fcmaes=False,
-        elitist=True,
     ).set_name("CambrianCMA", register=True)
 
     ng.optimizers.Chaining(
