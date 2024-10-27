@@ -41,7 +41,7 @@ env:
   # Update the scale of the maze so that it's more difficult
   mazes:
     maze:
-      scale: 2.0
+      scale: 1.0
 
       agent_id_map:
         default: [agent]
