@@ -8,19 +8,12 @@ defaults:
 
   # Override the goal and adversary, which both move around the map
   - override /env/agents@env.agents.goal0: point_maze_random_textured
-  - override /env/agents@env.agents.goal1: point_maze_random_textured
   - override /env/agents@env.agents.adversary0: point_maze_random_textured
   - override /env/agents@env.agents.adversary1: point_maze_random_textured
 
 env:
   agents:
     goal0:
-      overlay_color: [0.2, 0.8, 0.2, 1]
-      custom:
-        frequency: ${custom.frequency}
-        euler: 0 0 0
-        top_rgba: 0.2 0.8 0.2 1.0
-    goal1:
       overlay_color: [0.2, 0.8, 0.2, 1]
       custom:
         frequency: ${custom.frequency}

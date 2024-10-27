@@ -6,5 +6,6 @@ hydra:
       trainer.wrappers.frame_stack_wrapper.stack_size:
         init: 1
         lower: 1
+        step: 1
         upper: 20
         integer: true
