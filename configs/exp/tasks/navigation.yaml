@@ -24,7 +24,8 @@ defaults:
   - /env/agents@env.agents.goal: object_sphere_goal
 
 trainer:
-  total_timesteps: 300_000
+  total_timesteps: 500_000
+  max_episode_steps: 128
 
 env:
   agents:
@@ -45,7 +46,7 @@ env:
       agent_id_map:
         default: [agent]
         E: [agent]
-        O: [goal]
+        O: ${glob:goal*,${oc.dict.keys:env.agents}}
 
   reward_fn:
     reward_for_termination:

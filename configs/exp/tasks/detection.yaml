@@ -23,7 +23,6 @@ defaults:
   - /env/agents@env.agents.adversary0: object_sphere_textured_adversary
   - /env/agents@env.agents.adversary1: object_sphere_textured_adversary
   - /env/agents@env.agents.goal0: object_sphere_textured_goal
-  - /env/agents@env.agents.goal1: object_sphere_textured_goal
 
 custom:
   # This sets both the frequency of the texture of the goal and adversary
@@ -32,13 +31,13 @@ custom:
   frequency: 8
 
 trainer:
-  total_timesteps: 500_000
+  total_timesteps: 1_000_000
   max_episode_steps: 128
 
 env:
   mazes:
     maze:
-      scale: 2
+      scale: 2.0
       agent_id_map:
         default: [agent]
         O: ${glob:goal*|adversary*,${oc.dict.keys:env.agents}}
