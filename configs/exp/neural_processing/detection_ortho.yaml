@@ -2,7 +2,7 @@
 
 defaults:
   - /exp/tasks/detection
-  - /exp/environmental_effects/environmental_effects
+  - /exp/tasks/initial_conditions: detection_base
 
 custom:
   gear: 1.0 # same as default
