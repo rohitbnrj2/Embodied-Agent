@@ -103,6 +103,12 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
         features = torch.cat(encoded_tensor_list, dim=1)
         return features
 
+class PermutedFlattenExtractor(FlattenExtractor):
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        flattened = super().forward(observations)
+        perm = torch.randperm(flattened.size(-1))
+        return flattened[:, perm]
+
 
 class MjCambrianImageFeaturesExtractor(BaseFeaturesExtractor):
     """This is a feature extractor for images. Will implement an image queue for

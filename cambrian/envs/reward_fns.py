@@ -358,7 +358,7 @@ def reward_speed(
     if for_agents is not None and agent.name not in for_agents:
         return 0
 
-    reward = reward * agent.speed if not inverse else reward / agent.speed
+    reward = reward * agent.speed if not inverse else reward / (agent.speed + 1e-6)
     if clip:
         reward = np.clip(reward, -1, 1)
     return reward

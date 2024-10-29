@@ -232,14 +232,22 @@ def float_to_str_resolver(value: float) -> str:
 
 
 @register_new_resolver("clean_overrides")
-def clean_overrides_resolver(overrides: List[str]) -> str:
+def clean_overrides_resolver(
+    overrides: List[str],
+    use_seed_as_subfolder: bool = True,
+) -> str:
     cleaned_overrides: List[str] = []
+    
+    seed: Optional[Any] = None
     for override in overrides:
         if "=" not in override or override.count("=") > 1:
             continue
 
         key, value = override.split("=", 1)
         if key == "exp":
+            continue
+        if key == "seed" and use_seed_as_subfolder:
+            seed = value
             continue
 
         # Special key cases that we want the second key rather than the first
@@ -273,4 +281,4 @@ def clean_overrides_resolver(overrides: List[str]) -> str:
 
         cleaned_overrides.append(f"{key}_{value}")
 
-    return "_".join(cleaned_overrides)
+    return "_".join(cleaned_overrides) + (f"/seed_{seed}" if seed is not None else "")
