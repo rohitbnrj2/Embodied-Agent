@@ -160,6 +160,10 @@ def load_data(config: ParseEvosConfig) -> Data:
                     f"\t\tSkipping rank {rank} because it is not finished."
                 )
                 continue
+            if (rank_data.path / "ignore").exists():
+                get_logger().warning(f"\t\tSkipping rank {rank} because it is ignored.")
+                rank_data.ignored = True
+                continue
 
             # Get the config file
             if (config_file := rank_data.path / config.config_filename).exists():

@@ -21,8 +21,9 @@ defaults:
 
   # Define two objects: a goal and an adversary
   - /env/agents@env.agents.adversary0: object_sphere_textured_adversary
-  - /env/agents@env.agents.adversary1: object_sphere_textured_adversary
+  # - /env/agents@env.agents.adversary1: object_sphere_textured_adversary
   - /env/agents@env.agents.goal0: object_sphere_textured_goal
+  # - /env/agents@env.agents.goal1: object_sphere_textured_goal
 
 custom:
   # This sets both the frequency of the texture of the goal and adversary
@@ -45,10 +46,24 @@ env:
   reward_fn:
     reward_for_termination:
       for_agents: [agent]
-      reward: 2.0
+      reward: 0.0
     reward_for_truncation:
-      reward: -2.0
+      reward: -1.0
       for_agents: [agent]
+
+    reward_if_close_to_agents:
+      _target_: cambrian.envs.reward_fns.reward_if_close_to_agents
+      _partial_: true
+      reward: 1.0
+      for_agents: [agent]
+      to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
+      distance_threshold: 1.0
+
+    reward_for_quick_termination:
+      _target_: cambrian.envs.reward_fns.reward_for_quick_termination
+      _partial_: true
+      for_agents: [agent]
+      factor: 2.0
 
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
@@ -108,16 +123,7 @@ eval_env:
 
     reward_euclidean_delta_to_goal:
       # increase reward for moving closer to the goal
-      factor: 1.0
+      factor: 1.5
     penalize_if_has_contacts:
       # large negative reward for contacts
-      penalty: -5.0
-
-    penalize_for_slow_speed:
-      # penalize the agent for slower speeds to select for agents which
-      # prioritize movements
-      _target_: cambrian.envs.reward_fns.reward_speed
-      _partial_: true
-      reward: -0.001
-      for_agents: [agent]
-      inverse: true
+      penalty: -2.0

@@ -312,7 +312,7 @@ def plot_data(config: ParseSweepsConfig, data: Data):
     # Clear all figures
     plt.close("all")
 
-    def sort_key(x, key: list[str] | None = ["pi", "resolution"]):
+    def sort_key(x, key: list[str] | None = ["pi", "resolution", "stack_size"]):
         if key:
             # Create a concatenated sorting key based on numbers following each key in the list
             key_values = []
