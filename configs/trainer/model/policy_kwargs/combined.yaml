@@ -1,5 +1,5 @@
 defaults:
-  - net_arch: 16x16
+  - net_arch: 64x64
 
 features_extractor_class:
   _target_: cambrian.ml.features_extractors.MjCambrianCombinedExtractor

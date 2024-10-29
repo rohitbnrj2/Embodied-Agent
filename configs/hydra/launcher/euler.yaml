@@ -4,8 +4,10 @@ defaults:
 # Request 1 GPU per trainer
 gres: gpu:1
 
-# Set the partition to sbel
-partition: sbel
+# Set the partition to research
+# Could use "sbel", but typically found upon especially for high
+# usage nodes like ones with a100s
+partition: research
 
 # Exclude all the nodes with bad GPUs
-exclude: euler[01-05,07-09,11-12,14,21]
+exclude: euler[01-05,07-09,11-12,14]
