@@ -63,7 +63,7 @@ env:
       _target_: cambrian.envs.reward_fns.reward_for_quick_termination
       _partial_: true
       for_agents: [agent]
-      factor: 2.0
+      reward: 2.0
 
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
@@ -112,6 +112,7 @@ eval_env:
       # close to it)
       reward: 10.0
       for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
+      scale_by_quickness: true
 
     penalize_if_adversary_respawned:
       _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
@@ -120,6 +121,7 @@ eval_env:
       # is close to it)
       reward: -10.0
       for_agents: ${glob:adversary*,${oc.dict.keys:env.agents}}
+      scale_by_quickness: true
 
     reward_euclidean_delta_to_goal:
       # increase reward for moving closer to the goal

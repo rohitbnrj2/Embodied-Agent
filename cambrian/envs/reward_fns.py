@@ -39,10 +39,10 @@ def reward_for_quick_termination(
     for_agents: Optional[List[str]] = None,
 ) -> float:
     """Return a reward based on how early the episode was terminated."""
-    if terminated and agent_selected(animal, for_agents):
-        remaining_steps = max(env._max_episode_steps - env._episode_step, 0)
-        return reward * (remaining_steps / env._max_episode_steps)
-    return 0.0
+    if not terminated or not agent_selected(animal, for_agents):
+        return 0.0
+
+    return reward * calc_quickness(env)
 
 
 def reward_for_truncation(
@@ -137,13 +137,15 @@ def reward_if_agents_respawned(
     *,
     reward: float,
     for_agents: Optional[List[str]] = None,
+    scale_by_quickness: bool = False,
 ) -> float:
     """This reward function rewards the agent if it has been respawned."""
     # Early exit if the agent is not in the for_agents list
     if not agent_selected(agent, for_agents):
         return 0.0
 
-    return reward if info.get("respawned", False) else 0.0
+    scale = calc_quickness(env) if scale_by_quickness else 1.0
+    return reward * scale if info.get("respawned", False) else 0.0
 
 
 def reward_if_close_to_agents(
@@ -432,6 +434,11 @@ def check_if_larger(
     """Checks if the distance from point to p1 is larger than the distance from point
     to p2."""
     return np.linalg.norm(p1 - point) > np.linalg.norm(p2 - point)
+
+
+def calc_quickness(env: MjCambrianEnv) -> float:
+    """Calculates the quickness of the agent."""
+    return max(env.max_episode_steps - env.episode_step, 0.0) / env.max_episode_steps
 
 
 def check_in_view(
