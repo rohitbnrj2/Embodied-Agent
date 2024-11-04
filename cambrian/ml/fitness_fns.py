@@ -7,6 +7,9 @@ import numpy as np
 if TYPE_CHECKING:
     from cambrian.utils.config import MjCambrianConfig
 
+# ========================
+# Utils
+
 
 def parse_evaluations_npz(evaluations_npz: Path) -> Dict[str, np.ndarray]:
     """Parse the evaluations npz file and return the rewards."""
@@ -33,6 +36,26 @@ def parse_monitor_csv(monitor_csv: Path) -> Tuple[np.ndarray, np.ndarray]:
     return np.array(timesteps), np.array(rewards)
 
 
+def top_n_percent(
+    data: np.ndarray,
+    percent: float,
+    use_outliers: bool,
+    quartiles: tuple[float, float] = (25, 75),
+) -> float:
+    """Calculate the mean of the top `percent` of the data, optionally excluding
+    outliers."""
+    if not use_outliers:
+        q1, q3 = np.percentile(data, quartiles)
+        iqr = q3 - q1
+        data = data[(data > q1 - 1.5 * iqr) & (data < q3 + 1.5 * iqr)]
+
+    n_top = int(len(data) * (percent / 100.0))
+    return float(np.mean(np.sort(data)[-n_top:]))
+
+
+# ========================
+
+
 def fitness_from_evaluations(
     config: "MjCambrianConfig",
     evaluations_npz: Path,
@@ -40,6 +63,7 @@ def fitness_from_evaluations(
     return_data: bool = False,
     use_outliers: bool = False,
     percent: float = 25.0,
+    quartiles: tuple[float, float] = (25, 75),
 ) -> float | Tuple[float, np.ndarray]:
     """
     Calculate the fitness of the agent based on evaluation results. The fitness is
@@ -55,7 +79,7 @@ def fitness_from_evaluations(
         use_outliers (bool): If True, includes outliers in the fitness calculation.
             Defaults to False.
         percent (float): Defines the top 'n' percent of rewards to be used for
-            calculating fitness. Defaults to 25.0.
+            calculating fitness. Defaults to 75.0.
 
     Returns:
         float | Tuple[float, np.ndarray]: The calculated fitness value. If `return_data`
@@ -73,15 +97,6 @@ def fitness_from_evaluations(
     if not evaluations_npz.exists():
         return -float("inf")
 
-    def top_n_percent(data: np.ndarray, percent: float, use_outliers: bool) -> float:
-        if not use_outliers:
-            q1, q3 = np.percentile(data, [25, 75])
-            iqr = q3 - q1
-            data = data[(data > q1 - 1.5 * iqr) & (data < q3 + 1.5 * iqr)]
-
-        n_top = int(len(data) * (percent / 100.0))
-        return float(np.mean(np.sort(data)[-n_top:]))
-
     # The rewards array will be stored in a 2D array where each row represents each
     # evaluation run and each column represents the rewards for each evaluation step.
     # We may run multiple steps of the same or slightly different environment to reduce
@@ -90,9 +105,10 @@ def fitness_from_evaluations(
     rewards = evaluations["results"]
     rewards = np.mean(rewards, axis=1)
 
+    fitness = top_n_percent(rewards, percent, use_outliers, quartiles)
     if return_data:
-        return float(top_n_percent(rewards, percent, use_outliers)), evaluations
-    return float(top_n_percent(rewards, percent, use_outliers))
+        return fitness, evaluations
+    return top_n_percent(rewards, percent, use_outliers, quartiles)
 
 
 def fitness_from_monitor(
@@ -100,7 +116,8 @@ def fitness_from_monitor(
     monitor_csv: Path,
     *,
     return_data: bool = False,
-    percent: float = 75.0,
+    percent: float = 25.0,
+    quartiles: tuple[float, float] = (25, 75),
 ) -> float | Tuple[float, Tuple[np.ndarray, np.ndarray]]:
     """
     Calculate the fitness of the agent based on monitor data. The fitness is determined
@@ -130,11 +147,10 @@ def fitness_from_monitor(
     if len(rewards) == 0:
         return -float("inf")
 
-    fitness_value = float(np.percentile(rewards, percent))
-
+    fitness  = top_n_percent(rewards, percent, use_outliers=False, quartiles=quartiles)
     if return_data:
-        return fitness_value, (timesteps, rewards)
-    return fitness_value
+        return fitness, (timesteps, rewards)
+    return fitness
 
 
 def fitness_from_txt(config: "MjCambrianConfig", txt_file: Path) -> float:

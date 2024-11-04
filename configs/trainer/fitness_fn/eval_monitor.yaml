@@ -1,3 +1,4 @@
 _target_: cambrian.ml.fitness_fns.fitness_from_monitor
 _partial_: true
 monitor_csv: ${path:${expdir},eval_monitor.csv}
+quartiles: [0.25, 0.95]
