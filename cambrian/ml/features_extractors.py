@@ -29,7 +29,7 @@ def is_image_space(
     )
 
 
-def maybe_transpose_space(observation_space: spaces.Box, key: str = "") -> spaces.Box:
+def maybe_transpose_space(observation_space: spaces.Box) -> spaces.Box:
     """This is an extension of the sb3 maybe_transpose_space to support both regular
     images (HxWxC) and images with an additional dimension (NxHxWxC). sb3 will call
     maybe_transpose_space on the 3D case, but not the 4D."""
@@ -72,18 +72,36 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
         *,
         normalized_image: bool,
         image_extractor: BaseFeaturesExtractor,
+        share_image_extractor: bool = False,
     ) -> None:
         # We do not know features-dim here before going over all the items, so put
         # something there.
         super().__init__(observation_space, features_dim=1)
+
+        if share_image_extractor:
+            # Verify all the image spaces have the same shape
+            image_space = None
+            for subspace in observation_space.values():
+                if is_image_space(subspace, normalized_image=normalized_image):
+                    subspace = maybe_transpose_space(subspace)
+                    if image_space is None:
+                        image_space = subspace
+                    assert image_space.shape == subspace.shape, (
+                        "All the image spaces must have the same shape"
+                    )
+            assert image_space is not None, "There must be at least one image space"
+            self._image_extractor = image_extractor(image_space)
 
         extractors: Dict[str, BaseFeaturesExtractor] = {}
 
         total_concat_size = 0
         for key, subspace in observation_space.spaces.items():
             if is_image_space(subspace, normalized_image=normalized_image):
-                subspace = maybe_transpose_space(subspace, key)
-                extractors[key] = image_extractor(subspace)
+                subspace = maybe_transpose_space(subspace)
+                if share_image_extractor:
+                    extractors[key] = self._image_extractor
+                else:
+                    extractors[key] = image_extractor(subspace)
             else:
                 # The observation key is a vector, flatten it if needed
                 extractors[key] = FlattenExtractor(subspace)
