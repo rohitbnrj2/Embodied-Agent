@@ -21,6 +21,7 @@ defaults:
 
   # Define two objects: a goal and an adversary
   - /env/agents@env.agents.adversary0: object_sphere_textured_adversary
+  - /env/agents@env.agents.adversary1: object_sphere_textured_adversary
   - /env/agents@env.agents.goal0: object_sphere_textured_goal
 
 custom:

@@ -50,7 +50,7 @@ def top_n_percent(
         data = data[(data > q1 - 1.5 * iqr) & (data < q3 + 1.5 * iqr)]
 
     n_top = int(len(data) * (percent / 100.0))
-    return float(np.mean(np.sort(data)[-n_top:]))
+    return float(np.median(np.sort(data)[-n_top:]))
 
 
 # ========================

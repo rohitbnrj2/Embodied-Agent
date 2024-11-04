@@ -210,7 +210,7 @@ class MjCambrianAgentPointMazeRandom(MjCambrianAgentPoint):
         name: str,
         idx: int,
         *,
-        speed: float = -0.9,
+        speed: float = -0.825,
         distance_threshold: float = 4.0,
         use_optimal_trajectory: bool = True,
     ):
