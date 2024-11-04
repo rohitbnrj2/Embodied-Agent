@@ -40,7 +40,7 @@ load_evaluations_fn:
 combine_fn:
   _target_: parse_sweeps.combine
   _partial_: true
-  fitness_method: MAX
+  fitness_method: MEDIAN
 
 overrides: {}
 

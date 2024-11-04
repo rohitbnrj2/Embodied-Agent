@@ -54,6 +54,8 @@ class ParseSweepsConfig(MjCambrianBaseConfig):
         combine the results of the sweep data.
 
     ylim (Optional[Tuple[float, float]]): The y-axis limits for the eval plots.
+    sort_keys (List[str]): The keys to sort the results by.
+    filter_keys (List[Tuple[str, float | int]]): The keys to filter the results by.
 
     ignore (List[str]): List of folders to ignore.
     overrides (Dict[str, Any]): Overrides for the sweep data.
@@ -83,6 +85,8 @@ class ParseSweepsConfig(MjCambrianBaseConfig):
     combine_fn: Optional[Callable[[Concatenate[Path, ...]], "Result"]] = None
 
     ylim: Optional[Tuple[float, float]] = None
+    sort_keys: Optional[List[str]] = None
+    filter_keys: Optional[List[Tuple[str, float | int]]] = None
 
     ignore: List[str]
     overrides: Dict[str, Any]
@@ -312,14 +316,14 @@ def plot_data(config: ParseSweepsConfig, data: Data):
     # Clear all figures
     plt.close("all")
 
-    def sort_key(x, key: list[str] | None = ["pi", "resolution", "stack_size"]):
+    def sort_key(x, key: list[str] | None = config.sort_keys):
         if key:
             # Create a concatenated sorting key based on numbers following each key in the list
             key_values = []
             for k in key:
                 # Find the pattern key followed by numbers, capturing all numbers after the key
                 key_match = re.search(rf"{k}_(\d+(?:_\d+)*)", x[0])
-                if key_match:
+                if key_match is not None:
                     # Split the matched numbers by underscore and convert them to integers
                     key_values.append(tuple(map(int, key_match.group(1).split("_"))))
                 else:
@@ -330,7 +334,36 @@ def plot_data(config: ParseSweepsConfig, data: Data):
         num_part = re.findall(r"\d+", x[0])
         return (x[0].split("_")[-1], int(num_part[0]) if num_part else 0, x[0])
 
-    data.results = dict(sorted(data.results.items(), key=sort_key))
+    def filter_key(
+        x, key: list[tuple[str, float | int | str]] | None = config.filter_keys
+    ) -> bool:
+        if key:
+            for k, v in key:
+                if isinstance(v, (int, float)):
+                    # Capture numeric values following the key
+                    key_match = re.search(rf"{k}_(\d+(?:_\d+)*)", x[0])
+                else:
+                    # Capture string values until the next underscore
+                    key_match = re.search(rf"{k}_([^_]+)", x[0])
+
+                if key_match is not None:
+                    key_value = key_match.group(1)
+
+                    # Convert to int if `v` is numeric
+                    if isinstance(v, (int, float)):
+                        try:
+                            key_value = int(key_value)
+                        except ValueError:
+                            return False
+
+                    # Compare values
+                    if key_value != v:
+                        return False
+
+        return True
+
+    data.results = filter(filter_key, data.results.items())
+    data.results = dict(sorted(data.results, key=sort_key))
 
     get_logger().info("Plotting data...")
     for name, result in tqdm.tqdm(
@@ -341,7 +374,7 @@ def plot_data(config: ParseSweepsConfig, data: Data):
             plt.figure("Eval Fitness Bar Chart")
             plt.suptitle("Eval Fitness Bar Chart")
             plt.bar(name, result.eval_fitness, alpha=0.5)
-            plt.xticks(rotation=90)
+            plt.xticks(rotation=90, fontsize=1)
             if config.ylim is not None:
                 plt.ylim(*config.ylim)
 
@@ -428,7 +461,7 @@ def plot_data(config: ParseSweepsConfig, data: Data):
             get_logger().info(f"Saving {filename}...")
             plt.savefig(
                 config.output / "plots" / f"{filename}.png",
-                dpi=500,
+                dpi=700,
                 bbox_inches="tight",
                 transparent=False,
             )
