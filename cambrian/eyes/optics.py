@@ -38,6 +38,8 @@ class MjCambrianMaskApertureConfig(MjCambrianApertureConfig):
             not None. Defaults to None.
         randomize (bool): Randomize the aperture mask. If True, the aperture mask is
             randomized.
+        random_prob (Optional[float]): Probability of the aperture mask being 1. If
+            None, the probability is 0.5. Defaults to None.
         size (Optional[Tuple[int, int]]): Size of the aperture mask. This is the size
             of the aperture mask. If None, the size is the same as the pupil resolution.
             Defaults to None.
@@ -45,6 +47,7 @@ class MjCambrianMaskApertureConfig(MjCambrianApertureConfig):
 
     mask: Optional[List[List[int]]] = None
     randomize: bool
+    random_prob: Optional[float] = None
     size: Optional[Tuple[int, int]] = None
 
 
@@ -148,6 +151,9 @@ class MjCambrianOpticsEye(MjCambrianEye):
         # Aperture mask
         A = self._calculate_aperture_mask(X1_Y1, Lx, Ly)
 
+        # Going to scale the intensity by the overall throughput of the aperture
+        self._scaling_intensity = (A.sum() / (max(pupil_Mx * pupil_My, 1))) ** 2
+
         # Calculate the wave number
         wavelengths = torch.tensor(self._config.wavelengths).reshape(-1, 1, 1)
         k = 1j * 2 * torch.pi / wavelengths
@@ -211,8 +217,9 @@ class MjCambrianOpticsEye(MjCambrianEye):
 
             if aperture.mask is None:
                 assert aperture.randomize
+                random_prob = aperture.random_prob or 0.5
                 temp_size = size if aperture.size is None else tuple(aperture.size)
-                mask = torch.randint(0, 2, temp_size, dtype=torch.float32)
+                mask = torch.bernoulli(torch.full(temp_size, random_prob))
             else:
                 mask = torch.tensor(aperture.mask, dtype=torch.float32)
                 assert mask.shape[0] == mask.shape[1]
@@ -291,6 +298,9 @@ class MjCambrianOpticsEye(MjCambrianEye):
         psf = psf.unsqueeze(1)
         image = torch.nn.functional.conv2d(image, psf, padding="same", groups=3)
 
+        # Apply the scaling intensity ratio
+        image *= self._scaling_intensity
+
         # Post-process the image
         image = image.squeeze(0).permute(1, 2, 0)
         image = self._crop(image)
@@ -339,12 +349,15 @@ class MjCambrianOpticsEye(MjCambrianEye):
 if __name__ == "__main__":
     import mujoco as mj
     import matplotlib.pyplot as plt
+    from stable_baselines3.common.utils import set_random_seed
 
     from cambrian.utils import setattrs_temporary
     from cambrian.utils.cambrian_xml import MjCambrianXML
     from cambrian.utils.config import run_hydra, MjCambrianConfig
 
     def run(config: MjCambrianConfig, aperture: float = None):
+        set_random_seed(config.seed)
+
         agent_config = next(iter(config.env.agents.values()))
         agent_config.perturb_init_pose = False
         if aperture is not None:
@@ -433,6 +446,13 @@ if __name__ == "__main__":
         plt.suptitle(filename.replace(".png", ""))
         plt.tight_layout()
         plt.savefig(config.expdir / filename)
+
+        # Save the observation as a separate image
+        filename = f"obs_{filename}"
+        plt.figure()
+        plt.imshow(obs.transpose(1, 0, 2))
+        plt.gca().set_axis_off()
+        plt.savefig(config.expdir / filename, bbox_inches="tight", pad_inches=0)
 
         get_logger().info(f"Saved to {config.expdir / filename}")
 
