@@ -1,11 +1,51 @@
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Optional
 
 import torch
 import numpy as np
 
 from cambrian.eyes import MjCambrianEyeConfig, MjCambrianEye
-from cambrian.utils import make_odd
-from cambrian.utils.config import config_wrapper
+from cambrian.utils import make_odd, get_logger
+from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
+
+
+@config_wrapper
+class MjCambrianApertureConfig(MjCambrianBaseConfig):
+    pass
+
+
+@config_wrapper
+class MjCambrianCircularApertureConfig(MjCambrianApertureConfig):
+    """This defines the config for the circular aperture. This extends the base aperture
+    config and adds additional parameters for the circular aperture.
+
+    Attributes:
+        radius (float): Radius of the circular aperture.
+    """
+
+    radius: float
+
+
+@config_wrapper
+class MjCambrianMaskApertureConfig(MjCambrianApertureConfig):
+    """This defines the config for the custom aperture. This extends the base aperture
+    config and adds additional parameters for the custom aperture.
+
+    Attributes:
+        mask (Optional[List[List[int]]]): Aperture mask. This is a 2D array that defines
+            the aperture mask. The aperture mask is a binary mask that defines the
+            aperture of the lens. It's a binary mask where 1 lets light through and 0
+            blocks it. The mask can only be None if randomize is True or if size is
+            not None. Defaults to None.
+        randomize (bool): Randomize the aperture mask. If True, the aperture mask is
+            randomized.
+        size (Optional[Tuple[int, int]]): Size of the aperture mask. This is the size
+            of the aperture mask. If None, the size is the same as the pupil resolution.
+            Defaults to None.
+    """
+
+    mask: Optional[List[List[int]]] = None
+    randomize: bool
+    size: Optional[Tuple[int, int]] = None
 
 
 @config_wrapper
@@ -14,8 +54,9 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
     and adds additional parameters for the optics module.
 
     Attributes:
-        aperture (float): Aperture size of the lens. This defines the radius of the
-            aperture as a percentage of the sensor size.
+        pupil_resolution (Tuple[int, int]): Resolution of the pupil plane. This
+            is used to calculate the PSF.
+
         noise_std (float): Standard deviation of the Gaussian noise to be
             added to the image. If 0.0, no noise is added.
         wavelengths (Tuple[float, float, float]): Wavelengths of the RGB channels.
@@ -26,8 +67,8 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
             calculate the phase shift of the light passing through the lens. Uses a
             radially symmetric approximation.
 
-        pupil_resolution (Tuple[int, int]): Resolution of the pupil plane. This
-            is used to calculate the PSF.
+        aperture (MjCambrianApertureConfig): Aperture config. This defines the
+            aperture of the lens. The aperture can be circular or custom.
 
         depths (List[float]): Depths at which the PSF is calculated. If empty, the psf
             is calculated for each render call; otherwise, the PSFs are precomputed.
@@ -35,7 +76,6 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
 
     pupil_resolution: Tuple[int, int]
 
-    aperture: float
     noise_std: float
     wavelengths: Tuple[float, float, float]
 
@@ -43,37 +83,9 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
     refractive_index: float
     height_map: List[float]
 
+    aperture: MjCambrianApertureConfig
+
     depths: List[float]
-
-
-# utility functions for optics
-
-
-def convert_hmap(hmap, wavelengths, refractive_index):
-    """
-    hydra needs the hmap to be [0,1] range but we need
-    to convert it to the correct range before calcuating the
-    pupil function.
-    Args:
-        hmap: torch.tensor with range [0,1]
-        wavelengths: np.array with shape (3,) with the wavelengths of the RGB channels
-        refractive_index: float with the refractive index of the lens material
-    Out:
-        hmap: torch.tensor with range [0, max_height]
-    """
-    hmap_max_height = get_max_height(wavelengths, refractive_index)
-    hmap *= hmap_max_height
-    return hmap
-
-
-def get_max_height(wavelengths, refractive_index):
-    maxs = []
-    for _lambda in wavelengths:
-        k = 2 * np.pi / _lambda
-        _max = (2 * np.pi) / (k * (refractive_index - 1.0))
-        maxs.append(_max)
-    hmap_max_height = np.max(np.array(maxs))
-    return hmap_max_height
 
 
 class MjCambrianOpticsEye(MjCambrianEye):
@@ -134,9 +146,7 @@ class MjCambrianOpticsEye(MjCambrianEye):
         FX, FY = torch.meshgrid(freqx, freqy, indexing="ij")
 
         # Aperture mask
-        assert 0.0 <= self._config.aperture <= 1.0
-        aperture_radius = min(Lx / 2, Ly / 2) * self._config.aperture + 1e-7  # (m)
-        A = torch.nan_to_num(torch.sqrt(X1_Y1) / aperture_radius) <= 1.0
+        A = self._calculate_aperture_mask(X1_Y1, Lx, Ly)
 
         # Calculate the wave number
         wavelengths = torch.tensor(self._config.wavelengths).reshape(-1, 1, 1)
@@ -152,14 +162,8 @@ class MjCambrianOpticsEye(MjCambrianEye):
         )
         r = torch.sqrt((x - pupil_Mx / 2).square() + (y - pupil_My / 2).square())
         height_map = h_r[r.to(torch.int64)]  # (n, n)
-        # phi_m = k * (self._config.refractive_index - 1.0) * height_map
-        phi_m = (
-            k
-            * (self._config.refractive_index - 1.0)
-            * convert_hmap(
-                height_map, self._config.wavelengths, self._config.refractive_index
-            )
-        )
+        height_map *= torch.max(wavelengths / (self._config.refractive_index - 1.0))
+        phi_m = k * (self._config.refractive_index - 1.0) * height_map
         pupil = A * torch.exp(phi_m)
 
         # Determine the scaled down psf size. Will resample the psf such that the conv
@@ -191,6 +195,45 @@ class MjCambrianOpticsEye(MjCambrianEye):
         self._pupil = pupil.to(self._device)
         self._height_map = height_map.to(self._device)
         self._psf_resolution = psf_resolution
+
+    def _calculate_aperture_mask(
+        self, X1_Y1: torch.Tensor, Lx: float, Ly: float
+    ) -> torch.Tensor:
+        aperture = self._config.aperture
+        if aperture.get_typename() == "MjCambrianCircularApertureConfig":
+            aperture: MjCambrianCircularApertureConfig
+            assert 0.0 <= aperture.radius <= 1.0
+            aperture_radius = min(Lx / 2, Ly / 2) * aperture.radius + 1e-7  # (m)
+            A = torch.nan_to_num(torch.sqrt(X1_Y1) / aperture_radius) <= 1.0
+        elif aperture.get_typename() == "MjCambrianMaskApertureConfig":
+            aperture: MjCambrianMaskApertureConfig
+            size = (self._config.pupil_resolution[0], self._config.pupil_resolution[1])
+
+            if aperture.mask is None:
+                assert aperture.randomize
+                temp_size = size if aperture.size is None else tuple(aperture.size)
+                mask = torch.randint(0, 2, temp_size, dtype=torch.float32)
+            else:
+                mask = torch.tensor(aperture.mask, dtype=torch.float32)
+                assert mask.shape[0] == mask.shape[1]
+                if aperture.randomize:
+                    mask = torch.randint(0, 2, mask.shape, dtype=torch.float32)
+
+            # Resize with bicupic interpolation to the size of the pupil
+            mask = (
+                torch.nn.functional.interpolate(
+                    mask.unsqueeze(0).unsqueeze(0),
+                    size=size,
+                    mode="bicubic",
+                )
+                .squeeze(0)
+                .squeeze(0)
+            )
+            A = mask > 0.5
+        else:
+            raise ValueError(f"Unknown aperture type: {aperture.get_type()}")
+
+        return A
 
     def _precompute_psfs(self):
         """This will precompute the PSFs for all depths. This is done to avoid
@@ -302,13 +345,24 @@ if __name__ == "__main__":
     from cambrian.utils.config import run_hydra, MjCambrianConfig
 
     def run(config: MjCambrianConfig, aperture: float = None):
+        agent_config = next(iter(config.env.agents.values()))
+        agent_config.perturb_init_pose = False
         if aperture is not None:
-            agent_config = next(iter(config.env.agents.values()))
             eye_name, eye_config = next(iter(agent_config.eyes.items()))
+            assert (
+                eye_config.aperture.get_typename() == "MjCambrianCircularApertureConfig"
+            )
             eye_config1 = eye_config.copy()
             eye_config1.set_readonly(False)
-            eye_config1.aperture = aperture
+            eye_config1.aperture.radius = aperture
             agent_config.eyes[eye_name] = eye_config1
+
+        eye_config = next(iter(agent_config.eyes.values()))
+        if eye_config.aperture.get_typename() == "MjCambrianCircularApertureConfig":
+            aperture = eye_config.aperture.radius
+        else:
+            aperture = "mask"
+        get_logger().info(f"Running with aperture: {aperture}")
 
         # xml = MjCambrianXML.from_string(config.env.xml)
         xml = MjCambrianXML("models/blocks.xml")
@@ -352,13 +406,7 @@ if __name__ == "__main__":
         psf = (psf - psf.min()) / (psf.max() - psf.min())
 
         # Get the height map and pupil
-        height_map = (
-            convert_hmap(
-                eye._height_map, eye.config.wavelengths, eye.config.refractive_index
-            )
-            .cpu()
-            .numpy()
-        )
+        height_map = eye._height_map.cpu().numpy()
         aperture_img: np.ndarray = eye._A.cpu().numpy()
 
         # Plot the image and depth
@@ -371,13 +419,13 @@ if __name__ == "__main__":
         imshow(ax[0, 0], rgb.transpose(1, 0, 2), "Image")
         imshow(ax[0, 1], depth.transpose(1, 0), "Depth", cmap="gray")
         imshow(ax[1, 0], obs.transpose(1, 0, 2), "Observation")
-        imshow(ax[1, 1], aperture_img, f"Aperture: {eye.config.aperture}", cmap="gray")
+        imshow(ax[1, 1], aperture_img, f"Aperture: {aperture}", cmap="gray")
         imshow(ax[2, 0], aperture_only_psf.transpose(1, 2, 0), "Aperture Only PSF")
         imshow(ax[2, 1], psf.transpose(1, 2, 0), "PSF")
         imshow(ax[3, 0], height_map, "Height Map")
 
         # Save the file to a filename with the config
-        aperture = f"aperture_{str(eye.config.aperture).replace('.', 'p')}"
+        aperture = f"aperture_{str(aperture).replace('.', 'p').replace('-', 'n')}"
         sp_res = f"sp_{eye.config.renderer.width}x{eye.config.renderer.height}"
         pp_res = f"pp_{eye.config.pupil_resolution[0]}x{eye.config.pupil_resolution[1]}"
         filename = f"{aperture}_{sp_res}_{pp_res}.png"
@@ -386,15 +434,17 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.savefig(config.expdir / filename)
 
+        get_logger().info(f"Saved to {config.expdir / filename}")
+
     def main(config: MjCambrianConfig):
         config.set_readonly(False)
         config.expdir.mkdir(parents=True, exist_ok=True)
 
         run(config)
-        run(config, 0.5)
-        run(config, 0.1)
-        run(config, 0.0)
-        run(config, 0.9)
-        run(config, 0.99)
+        # run(config, 0.5)
+        # run(config, 0.1)
+        # run(config, 0.0)
+        # run(config, 0.9)
+        # run(config, 0.99)
 
     run_hydra(main)

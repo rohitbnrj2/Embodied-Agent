@@ -1,6 +1,7 @@
 defaults:
   - eye
   - /MjCambrianOpticsEyeConfig
+  - aperture: circular
 
 instance:
   _target_: cambrian.eyes.MjCambrianOpticsEye
@@ -15,9 +16,8 @@ focal:
   - ${eval:'${..sensorsize.1} / (2 * math.tan(math.radians(${..fov.1}) / 2))'}
 
 # Set fixed for now
-pupil_resolution: [101, 101]
+pupil_resolution: [501, 501]
 
-aperture: 0.0
 noise_std: 0
 wavelengths: [610e-9, 530e-9, 470e-9]
 
@@ -30,13 +30,11 @@ height_map: ${eval:'[0.5] * ${.pupil_resolution.0}'}
 # Pre-compute the psf at specific depths. This will speed up the simulation speed at the
 # cost of accuracy of the psf at any given depth
 depths:
-  []
-  # Removing these for now...
-  # - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 5'}
-  # - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 10'}
-  # - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 100'}
-  # - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 1000'}
-  # - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 10000'}
+  - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 5'}
+  - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 10'}
+  - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 100'}
+  - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 1000'}
+  - ${eval:'sum([${..focal.0}, ${..focal.1}]) / 2 * 10000'}
 
 renderer:
   render_modes: [rgb_array, depth_array]

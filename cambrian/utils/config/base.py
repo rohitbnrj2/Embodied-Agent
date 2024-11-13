@@ -140,6 +140,11 @@ class MjCambrianContainerConfig:
             config = config.copy()
             return MjCambrianContainerConfig(content, config=config, instantiated=True)
 
+    def instantiate_here(self, **kwargs) -> Self:
+        """Instantiate the config using the structured config. Will check for missing
+        keys and raise an error if any are missing."""
+        return self.instantiate(self._content, **kwargs)
+
     @classmethod
     def compose(
         cls,
@@ -288,6 +293,15 @@ class MjCambrianContainerConfig:
     def get_type(self, **kwargs) -> Type[Any]:
         """Wrapper around OmegaConf.get_type to get the type of the config."""
         return OmegaConf.get_type(self._content, **kwargs)
+
+    def get_typename(self, **kwargs) -> str:
+        """Get's the type as a string using OmegaConf.get_type."""
+        return self.get_type(**kwargs).__name__
+
+    def isinstance(self, type_: Any, **kwargs) -> bool:
+        """Wrapper around OmegaConf.isinstance to check if the config is an instance of
+        a type."""
+        return type(type_) == self.get_type(**kwargs)
 
     def to_container(
         self, *, use_instantiated: bool = True, **kwargs
