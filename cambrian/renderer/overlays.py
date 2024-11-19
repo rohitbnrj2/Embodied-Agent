@@ -1,3 +1,5 @@
+"""Defines utilities for overlays in the Mujoco viewer."""
+
 from typing import Optional, Tuple
 from dataclasses import dataclass, replace
 
@@ -12,6 +14,8 @@ TEXT_MARGIN = 5
 
 @dataclass
 class MjCambrianCursor:
+    """This class is used to define a cursor for the overlay."""
+
     x: int
     y: int
 
@@ -23,6 +27,12 @@ class MjCambrianCursor:
 
 
 class MjCambrianViewerOverlay:
+    """This class is used to add an overlay to the viewer.
+
+    Note: 
+        This is applied only to the passed scene, so other scenes (i.e. ones for the
+        eyes) will not be affected.
+    """
     def __init__(
         self, obj: np.ndarray | str, cursor: Optional[MjCambrianCursor] = None
     ):
@@ -39,6 +49,7 @@ class MjCambrianViewerOverlay:
 
 
 class MjCambrianTextViewerOverlay(MjCambrianViewerOverlay):
+    """This class is used to add text to the viewer."""
     def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
         viewport = viewport if self._cursor is None else mj.MjrRect(*self._cursor, 1, 1)
         mj.mjr_overlay(
@@ -52,17 +63,17 @@ class MjCambrianTextViewerOverlay(MjCambrianViewerOverlay):
 
 
 class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
+    """This class is used to add an image to the viewer."""
     def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
         viewport = mj.MjrRect(*self._cursor, self._obj.shape[1], self._obj.shape[0])
         mj.mjr_drawPixels(self._obj.ravel(), None, viewport, mjr_context)
 
 
 class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
-    """TODO: make this an image overlay where the pos is converted to pixel
-    coordinates.
+    """This class is used to add a site to the viewer.
 
-    NOTE: This is applied only to the passed scene, so other scenes (i.e. ones for the
-    eyes) will not be affected.
+    Todo: 
+        Make this an image overlay where the pos is converted to pixel coordinates.
     """
 
     def __init__(

@@ -1,3 +1,5 @@
+"""Defines the configuration for the evolutionary algorithm."""
+
 try:
     import nevergrad as ng  # noqa
 

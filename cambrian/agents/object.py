@@ -1,9 +1,12 @@
+"""Defines a static agent which does not learn. This is useful for defining objects in 
+the environment."""
+
 from typing import List, TYPE_CHECKING
 
-from cambrian.agents import MjCambrianAgent2D, MjCambrianAgentConfig
+from cambrian.agents.agent import MjCambrianAgent2D, MjCambrianAgentConfig
 
 if TYPE_CHECKING:
-    from cambrian.envs import MjCambrianEnv
+    from cambrian.envs.env import MjCambrianEnv
 
 
 class MjCambrianAgentObject(MjCambrianAgent2D):

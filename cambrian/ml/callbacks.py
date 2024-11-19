@@ -1,3 +1,5 @@
+"""Callbacks used during training and/or evaluation."""
+
 from typing import Dict, Any, Iterable
 from pathlib import Path
 import numpy as np
@@ -131,7 +133,8 @@ class MjCambrianEvalCallback(EvalCallback):
     """Overwrites the default EvalCallback to support saving visualizations at the same
     time as the evaluation.
 
-    NOTE: Only the first environment is visualized
+    Note: 
+        Only the first environment is visualized
     """
 
     def _init_callback(self):

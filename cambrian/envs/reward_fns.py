@@ -1,3 +1,5 @@
+"""Reward fns. These can be used to calculate rewards for agents."""
+
 from typing import Dict, Any, List, Optional
 
 import numpy as np
@@ -419,8 +421,9 @@ def calc_delta(
 ) -> np.ndarray:
     """Calculates the delta position of the agent from a point.
 
-    NOTE: returns delta position of current pos from the previous pos to the point
-    (i.e. current - prev)
+    Returns:
+        np.ndarray: The delta position of the agent from the point 
+            (i.e. current - prev).
     """
 
     current_distance = np.linalg.norm(agent.pos - point)

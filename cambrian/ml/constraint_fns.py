@@ -1,3 +1,6 @@
+"""These are constraint functions for the optimizers. These functions are used to prune
+experiments from the search space."""
+
 from typing import Tuple, Dict, Any
 
 import numpy as np

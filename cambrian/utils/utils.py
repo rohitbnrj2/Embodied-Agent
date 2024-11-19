@@ -1,5 +1,3 @@
-"""General purpose utils for cambrian"""
-
 from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable, Dict, Generator
 from types import ModuleType
 from dataclasses import dataclass

@@ -33,7 +33,8 @@ def search_resolver(
     the config may be changed. Instead, we'll search up for a specific key to set the
     value to. Helpful for setting unique names for an object in a nested config.
 
-    NOTE: This technically uses hidden attributes (i.e. _parent).
+    Note: 
+        This technically uses hidden attributes (i.e. _parent).
 
     Args:
         key (str | None): The key to search for. Could be none (like when mode is
@@ -41,9 +42,9 @@ def search_resolver(
         mode (Optional[str]): The mode to use. Defaults to "value". Available modes:
             - "value": Will return the value of the found key. Key must be set.
             - "parent_key": Will return the parent's key. If key is None, won't do
-                any recursion and will return the parent's key.
+            any recursion and will return the parent's key.
             - "path": Will return the path to the key.
-        depth (int, optional): The depth of the search. Used internally
+        depth (Optional[int]): The depth of the search. Used internally
             in this method and unsettable from the config. Avoids checking the parent
             key.
         _parent_ (DictConfig): The parent config to search in.

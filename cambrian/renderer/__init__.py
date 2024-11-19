@@ -1,7 +1,7 @@
 from cambrian.renderer.renderer import (
-    MjCambrianRenderer,
     MjCambrianRendererConfig,
     MjCambrianRendererSaveMode,
+    MjCambrianRenderer,
 )  # noqa
 from cambrian.renderer.render_utils import (
     resize_with_aspect_fill,
@@ -24,9 +24,9 @@ if platform.system() == "Darwin":
         mj.gl_context.GLContext = GLContext
 
 __all__ = [
-    "MjCambrianRenderer",
     "MjCambrianRendererConfig",
     "MjCambrianRendererSaveMode",
+    "MjCambrianRenderer",
     "resize_with_aspect_fill",
     "convert_depth_distances",
 ]

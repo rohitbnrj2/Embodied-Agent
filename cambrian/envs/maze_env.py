@@ -60,7 +60,7 @@ class MjCambrianMapEntity(Enum):
 
 
 @config_wrapper
-class MjCambrianMazeConfig(MjCambrianBaseConfig):
+class MjCambrianMazeEnvConfig(MjCambrianBaseConfig):
     """Defines a map config. Used for type hinting.
 
     Attributes:
@@ -122,7 +122,7 @@ MjCambrianMazeSelectionFn: TypeAlias = Callable[
 @config_wrapper
 class MjCambrianMazeEnvConfig(MjCambrianEnvConfig):
     """
-    mazes (Dict[str, MjCambrianMazeConfig]): The configs for the mazes. Each
+    mazes (Dict[str, MjCambrianMazeEnvConfig]): The configs for the mazes. Each
         maze will be loaded into the scene and the agent will be placed in a maze
         at each reset.
     maze_selection_fn (MjCambrianMazeSelectionFn): The function to use to select
@@ -130,7 +130,7 @@ class MjCambrianMazeEnvConfig(MjCambrianEnvConfig):
         to use. See `MjCambrianMazeSelectionFn` and `maze.py` for more info.
     """
 
-    mazes: Dict[str, MjCambrianMazeConfig]
+    mazes: Dict[str, MjCambrianMazeEnvConfig]
     maze_selection_fn: MjCambrianMazeSelectionFn
 
 
@@ -215,7 +215,7 @@ class MjCambrianMaze:
     """The maze class. Generates a maze from a given map and provides utility
     functions for working with the maze."""
 
-    def __init__(self, config: MjCambrianMazeConfig, name: str):
+    def __init__(self, config: MjCambrianMazeEnvConfig, name: str):
         self._config = config
         self._name = name
         self._starting_x = None
@@ -522,7 +522,7 @@ class MjCambrianMaze:
     # ==================
 
     @property
-    def config(self) -> MjCambrianMazeConfig:
+    def config(self) -> MjCambrianMazeEnvConfig:
         """Returns the config."""
         return self._config
 
@@ -593,7 +593,7 @@ class MjCambrianMazeStore:
 
     def __init__(
         self,
-        maze_configs: Dict[str, MjCambrianMazeConfig],
+        maze_configs: Dict[str, MjCambrianMazeEnvConfig],
         maze_selection_fn: MjCambrianMazeSelectionFn,
     ):
         self._mazes: Dict[str, MjCambrianMaze] = {}
@@ -602,7 +602,7 @@ class MjCambrianMazeStore:
         self._current_maze: MjCambrianMaze = None
         self._maze_selection_fn = maze_selection_fn
 
-    def _create_mazes(self, maze_configs: Dict[str, MjCambrianMazeConfig]):
+    def _create_mazes(self, maze_configs: Dict[str, MjCambrianMazeEnvConfig]):
         prev_x, prev_width = 0, 0
         for name, config in maze_configs.items():
             if name in self._mazes:

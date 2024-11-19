@@ -1,3 +1,8 @@
+"""Fitness functions for evaluating the fitness of agents. These functions are used by
+the optimizers to evaluate the fitness of the agents. The fitness functions are
+responsible for loading the evaluations and monitor files and calculating the fitness
+of the agent based on the evaluations."""
+
 from typing import Tuple, TYPE_CHECKING, Dict
 from pathlib import Path
 import csv

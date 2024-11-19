@@ -41,15 +41,15 @@ def run_hydra(
 
             Example:
 
-            ```python
-            def main(config: MjCambrianConfig, *, verbose: int):
-                pass
+            .. code-block:: python
 
-            parser = argparse.ArgumentParser()
-            parser.add_argument("--verbose", type=int, default=0)
+                def main(config: MjCambrianConfig, *, verbose: int):
+                    pass
 
-            run_hydra(main_fn=main, parser=parser)
-            ```
+                parser = argparse.ArgumentParser()
+                parser.add_argument("--verbose", type=int, default=0)
+
+                run_hydra(main_fn=main, parser=parser)
 
     Keyword Args:
         parser (argparse.ArgumentParser): The parser to use for the hydra
@@ -144,11 +144,13 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
     This method works by finding all `*` in the key and then iterating over all
     subsequent keys that match the globbed pattern.
 
-    NOTE: yaml files aren't necessarily built to support globbing (like xml), so
-    this method is fairly slow and should be used sparingly.
+    Note: 
+        yaml files aren't necessarily built to support globbing (like xml), so
+        this method is fairly slow and should be used sparingly.
 
-    NOTE #2: List indexing is limited in support. To index an element in a list, you
-    must use bracket notation, so `a[0].b` is supported, but `a.0.b` is not.
+    Note: 
+        List indexing is limited in support. To index an element in a list, you
+        must use bracket notation, so `a[0].b` is supported, but `a.0.b` is not.
 
     Args:
         key (str): The key to glob. This is a dotlist key, like `a.b.*`. Multiple
@@ -262,21 +264,22 @@ def merge_with_kwargs(
 
     This is intended to be called from a yaml config file like:
 
-    ```yaml
-    config_to_merge_late:
-        _target_: <path_to>.merge_with_kwargs
-        _recursive_: False
-        config: ${...} # this is what the kwargs are merged into
-        kwarg1: value1
-        kwarg2: value2
-        ...
-    ```
+    .. code-block:: yaml
 
-    NOTE: You may want _recursive_=False (as above) to avoid instantiating the config
-    before merging the kwargs. If you want to override a config attribute in the config
-    object which is instantiated (i.e. is a partial), you won't have access to the
-    config attribute (only the partial object), so you would want _recursive_=False.
-    Simpler cases can just use _recursive_=True.
+        config_to_merge_late:
+            _target_: <path_to>.merge_with_kwargs
+            _recursive_: False
+            config: ${...} # this is what the kwargs are merged into
+            kwarg1: value1
+            kwarg2: value2
+            ...
+
+    Note: 
+        You may want _recursive_=False (as above) to avoid instantiating the config
+        before merging the kwargs. If you want to override a config attribute in the 
+        config object which is instantiated (i.e. is a partial), you won't have access 
+        to the config attribute (only the partial object), so you would want 
+        _recursive_=False. Simpler cases can just use _recursive_=True.
 
     Args:
         config (DictConfig): The config to merge the kwargs into.
@@ -367,48 +370,48 @@ def instance_wrapper(*, instance: Type[Any], **kwargs):
 
     This is intended to be called from a yaml config file like:
 
-    ```yaml
-    obj_to_instantiate:
-        _target_: <path_to>.instance_wrapper
-        instance:
-            _target_: <class>
+    .. code-block:: yaml
 
-            # these will be passed to the __init__ method
-            _args_: [arg1, arg2]
+        obj_to_instantiate:
+            _target_: <path_to>.instance_wrapper
+            instance:
+                _target_: <class>
 
-            # these will be passed to the __init__ method as kwargs
-            init_arg1: value1
-            init_arg2: value2
+                # these will be passed to the __init__ method
+                _args_: [arg1, arg2]
 
-        # these will be set as attributes after the __init__ method
-        set_arg1: value1
-        set_arg2: value2
-    ```
+                # these will be passed to the __init__ method as kwargs
+                init_arg1: value1
+                init_arg2: value2
+
+            # these will be set as attributes after the __init__ method
+            set_arg1: value1
+            set_arg2: value2
 
     At instantiate time, init args are not always known. As such, you can leverage
     hydras partial instantiation logic, as well. Under the hood, the instance_wrapper
     method will wrap the partial instance created by hydra such that when it's
     constructor is actually called, the attributes will be set.
 
-    ```yaml
-    partial_obj_to_instantiate:
-        _target_: <path_to>.instance_wrapper
-        instance:
-            _target_: <class>
-            _partial_: True
+    .. code-block:: yaml
 
-            # these will be passed to the __init__ method
-            _args_: [arg1, arg2]
+        partial_obj_to_instantiate:
+            _target_: <path_to>.instance_wrapper
+            instance:
+                _target_: <class>
+                _partial_: True
 
-            # these will be passed to the __init__ method as kwargs
-            init_arg1: value1
-            init_arg2: value2
-            init_arg3: '???' # this is unknown at instantiate time and can be set later
+                # these will be passed to the __init__ method
+                _args_: [arg1, arg2]
 
-        # these will be set as attributes after the __init__ method
-        set_arg1: value1
-        set_arg2: value2
-    ```
+                # these will be passed to the __init__ method as kwargs
+                init_arg1: value1
+                init_arg2: value2
+                init_arg3: '???' # this is unknown at instantiate time and can be set later
+
+            # these will be set as attributes after the __init__ method
+            set_arg1: value1
+            set_arg2: value2
 
     Args:
         instance (Type[Any]): The class instance to wrap.
@@ -462,30 +465,31 @@ def instance_flag_wrapper(
     This is intended to be called from a yaml config file and to be used in conjunction
     with the instance_wrapper method.
 
-    TODO: This is super ugly
+    Todo: 
+        This is super ugly
 
-    ```yaml
-    obj_to_instantiate:
-        _target_: <path_to>.instance_wrapper
-        instance:
-            _target_: <class>
+    .. code-block:: yaml
 
-        # these will be set as flags on the instance
-        flags:
-            _target_: <path_to>.instance_flag_wrapper
-            instance: ${..instance}                     # get the instance
-            key: ${parent:}                             # gets the parent key; "flags"
-            flag_type:
-                _target_: <class>                       # the class of the flag
+        obj_to_instantiate:
+            _target_: <path_to>.instance_wrapper
+            instance:
+                _target_: <class>
 
-            # These will be set like:
-            # obj_to_instantiate.key[flag1] = value1
-            # obj_to_instantiate.key[flag2] = value2
-            # ...
-            flag1: value1
-            flag2: value2
-            flag3: value3
-    ```
+            # these will be set as flags on the instance
+            flags:
+                _target_: <path_to>.instance_flag_wrapper
+                instance: ${..instance}                   # get the instance
+                key: ${parent:}                           # gets the parent key; "flags"
+                flag_type:
+                    _target_: <class>                     # the class of the flag
+
+                # These will be set like:
+                # obj_to_instantiate.key[flag1] = value1
+                # obj_to_instantiate.key[flag2] = value2
+                # ...
+                flag1: value1
+                flag2: value2
+                flag3: value3
 
     This also works for partial instances.
 

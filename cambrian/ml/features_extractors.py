@@ -1,6 +1,8 @@
-from typing import Dict, List
-import torch
+"""This module contains custom feature extractors for use in the models."""
 
+from typing import Dict, List
+
+import torch
 import gymnasium as gym
 from gymnasium import spaces
 from stable_baselines3.common.type_aliases import TensorDict
@@ -50,7 +52,8 @@ def maybe_transpose_obs(observation: torch.Tensor) -> torch.Tensor:
     images (HxWxC) and images with an additional dimension (NxHxWxC). sb3 will call
     maybe_transpose_obs on the 3D case, but not the 4D.
 
-    NOTE: in this case, there is a batch dimension, so the observation is 5D.
+    Note: 
+        In this case, there is a batch dimension, so the observation is 5D.
     """
 
     if len(observation.shape) == 5:

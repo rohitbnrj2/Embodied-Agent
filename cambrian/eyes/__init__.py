@@ -1,9 +1,9 @@
-from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
-from cambrian.eyes.optics import MjCambrianOpticsEye, MjCambrianOpticsEyeConfig
+from cambrian.eyes.eye import MjCambrianEyeConfig, MjCambrianEye
+from cambrian.eyes.optics import MjCambrianOpticsEyeConfig, MjCambrianOpticsEye
 
 __all__ = [
-    "MjCambrianEye",
     "MjCambrianEyeConfig",
-    "MjCambrianOpticsEye",
+    "MjCambrianEye",
     "MjCambrianOpticsEyeConfig",
+    "MjCambrianOpticsEye",
 ]

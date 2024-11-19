@@ -1,3 +1,7 @@
+"""Defines the `MjCambrianEye` class, which is used to define an eye for the cambrian
+environment. The eye is essentially a camera that is attached to a body in the
+environment. The eye can render images and provide observations to the agent."""
+
 from typing import Tuple, Callable, Self
 import numpy as np
 
@@ -145,7 +149,8 @@ class MjCambrianEye:
         geometry in the negative x direction. The quaternion is calculated by rotating
         the eye to face the center of the geometry.
 
-        TODO: rotations are weird. fix this.
+        Todo: 
+            rotations are weird. fix this.
         """
         lat, lon = np.deg2rad(self._config.coord)
         lon += np.pi / 2

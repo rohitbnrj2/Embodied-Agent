@@ -1,4 +1,6 @@
-from typing import List, Optional, Tuple, Callable
+"""Wrapper around the mujoco viewer for rendering scenes."""
+
+from typing import List, Optional, Tuple, Callable, Dict
 from abc import ABC, abstractmethod
 from pathlib import Path
 from enum import Flag, auto
@@ -21,6 +23,8 @@ from cambrian.utils.config import (
 
 
 class MjCambrianRendererSaveMode(Flag, metaclass=MjCambrianFlagWrapperMeta):
+    """The save modes for saving rendered images."""
+
     GIF = auto()
     MP4 = auto()
     PNG = auto()
@@ -88,6 +92,12 @@ MJR_CONTEXT: mj.MjrContext = None
 
 
 class MjCambrianViewer(ABC):
+    """The base class for the viewer. This class should not be instantiated directly.
+
+    Args:
+        config (MjCambrianRendererConfig): The config to use for the viewer.
+    """
+
     def __init__(self, config: MjCambrianRendererConfig):
         self._config = config
         self._logger = get_logger()
@@ -261,6 +271,8 @@ class MjCambrianViewer(ABC):
 
 
 class MjCambrianOffscreenViewer(MjCambrianViewer):
+    """The offscreen viewer for rendering scenes."""
+
     def get_framebuffer_option(self) -> int:
         return mj.mjtFramebuffer.mjFB_OFFSCREEN.value
 
@@ -280,6 +292,8 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
 
 
 class MjCambrianOnscreenViewer(MjCambrianViewer):
+    """The onscreen viewer for rendering scenes."""
+
     def __init__(self, config: MjCambrianRendererConfig):
         super().__init__(config)
 
@@ -470,7 +484,19 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
 
 class MjCambrianRenderer:
-    metadata = {"render.modes": ["human", "rgb_array", "depth_array"]}
+    """The renderer for rendering scenes. This is essentially a wrapper around the 
+    mujoco viewer/renderer.
+
+    Args:
+        config (MjCambrianRendererConfig): The config to use for the renderer.
+
+    Attributes:
+        metadata (Dict[str, List[str]]): The metadata for the renderer. The render modes
+            are stored here.
+    """
+
+
+    metadata: Dict[str, List[str]] = {"render.modes": ["human", "rgb_array", "depth_array"]}
 
     def __init__(self, config: MjCambrianRendererConfig):
         self._config = config

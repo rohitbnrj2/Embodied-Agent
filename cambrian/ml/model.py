@@ -1,3 +1,10 @@
+"""Custom model class for Cambrian. This class is a subclass of the PPO model from
+Stable Baselines 3. It overrides the save and load methods to only save the policy
+weights. It also adds a method to load rollout data from a previous training run. The
+predict method is then overwritten to return the next action in the rollout if the
+rollout data is loaded. This is useful for testing the evolutionary loop without
+having to train the agent each time."""
+
 from typing import List, Any, Dict
 from pathlib import Path
 import pickle

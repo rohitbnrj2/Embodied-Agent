@@ -1,10 +1,12 @@
+"""Defines agent classes."""
+
 from typing import Dict, Any, List, Tuple, Callable, Self, Optional, TYPE_CHECKING
 
 import numpy as np
 import mujoco as mj
 from gymnasium import spaces
 
-from cambrian.eyes import MjCambrianEye, MjCambrianEyeConfig
+from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.renderer.render_utils import add_white_border
 from cambrian.utils import (
     get_body_id,
@@ -197,9 +199,9 @@ class MjCambrianAgent:
         initializing mujoco (but we can't get this information until after mujoco is
         initialized and we don't want to hardcode this for extensibility).
 
-        NOTE:
-        - We can't grab the ids/adrs here because they'll be different once we load the
-        entire model
+        Note: 
+            We can't grab the ids/adrs here because they'll be different once we load 
+            the entire model
         """
 
         # Num of controls
@@ -633,8 +635,9 @@ class MjCambrianAgent:
     def pos(self) -> np.ndarray:
         """Returns the position of the agent in the environment.
 
-        NOTE: the returned value, if edited, doesn't not directly impact the simulation.
-        To set the position of the agent, use the `pos` setter.
+        Note:
+            the returned value, if edited, doesn't not directly impact the simulation.
+            To set the position of the agent, use the `pos` setter.
         """
         return self._data.xpos[self._body_id].copy()
 
@@ -644,10 +647,11 @@ class MjCambrianAgent:
         of the x, y, and z positions. If the value is None, the position is not
         updated.
 
-        NOTE: This base implementation assumes the first 3 values of the qpos are the
-        x, y, and z positions of the agent. This may not be the case and depends on
-        the joints defined in the agent, so this method should be overridden in the
-        subclass if this is not the case.
+        Note:
+            This base implementation assumes the first 3 values of the qpos are the
+            x, y, and z positions of the agent. This may not be the case and depends on
+            the joints defined in the agent, so this method should be overridden in the
+            subclass if this is not the case.
         """
         for idx, val in enumerate(value):
             if val is not None:
@@ -657,8 +661,10 @@ class MjCambrianAgent:
     def quat(self) -> np.ndarray:
         """Returns the quaternion of the agent in the environment. Fmt: `wxyz`.
 
-        NOTE: the returned value, if edited, doesn't not directly impact the simulation.
-        To set the quaternion of the agent, use the `quat` setter."""
+        Note:
+            The returned value, if edited, doesn't not directly impact the simulation. 
+            To set the quaternion of the agent, use the `quat` setter.
+        """
         return self._data.xquat[self._body_id].copy()
 
     @quat.setter
@@ -669,10 +675,11 @@ class MjCambrianAgent:
         of the x, y, z, and w values. If the value is None, the quaternion is not
         updated.
 
-        NOTE: This base implementation assumes the 3,4,5,6 indices of the qpos are the
-        x, y, z, and w values of the quaternion of the agent. This may not be the case
-        and depends on the joints defined in the agent, so this method should be
-        overridden in the subclass if this is not the case.
+        Note: 
+            This base implementation assumes the 3,4,5,6 indices of the qpos are the
+            x, y, z, and w values of the quaternion of the agent. This may not be the 
+            case and depends on the joints defined in the agent, so this method should 
+            be overridden in the subclass if this is not the case.
         """
         for idx, val in enumerate(value):
             if val is not None:

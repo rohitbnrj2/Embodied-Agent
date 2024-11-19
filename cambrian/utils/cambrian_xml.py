@@ -1,3 +1,8 @@
+"""This module provides a helper class for manipulating mujoco xml files. It provides
+some helper methods that wrap the `xml` library. This is useful for modifying mujoco xml
+files in a programmatic way. MjSpec has since provided functionality directly in
+Mujoco to support this functionality."""
+
 from typing import List, Tuple, Dict, TypeAlias, Self, Optional
 from pathlib import Path
 import tempfile
@@ -13,43 +18,43 @@ OmegaConf complains since we have a Dict inside a List
 
 We use a list here because then we can have non-unique keys.
 
-This defines a custom xml config. This can be used to define custom xmls which
+This defines a custom XML config. This can be used to define custom XMLs which
 are built from during the initialization phase of the environment. The config is
 structured as follows:
 
-```yaml
-- parent_key1:
+.. code-block:: yaml
+
+    - parent_key1:
+        - child_key1:
+            - attr1: val1
+            - attr2: val2
+        - child_key2:
+            - attr1: val1
+            - attr2: val2
     - child_key1:
-        - attr1: val1
-        - attr2: val2
+        - child_key2:
+            - attr1: ${parent_key1.child_key1.attr2}
     - child_key2:
-        - attr1: val1
-        - attr2: val2
-- child_key1:
-    - child_key2:
-        - attr1: ${parent_key1.child_key1.attr2}
-- child_key2:
-    - child_key3: ${parent_key1.child_key1}
-```
+        - child_key3: ${parent_key1.child_key1}
 
-which will construct an xml that looks like:
+which will construct an XML that looks like:
 
-```xml
-<parent_key1>
-    <child_key1 attr1="val1" attr2="val2">
-        <child_key2 attr1="val2"/>
-    </child_key1>
-    <child_key2>
-        <attr1>val1</attr1>
-        <attr2>val2</attr2>
-        <child_key3 attr1="val1" attr2="val2">
-    </child_key2>
-</parent_key1>
-```
+.. code-block:: xml
 
-This is a verbose representation for xml files. This is done
-to allow interpolation through hydra/omegaconf in the xml files and without the need
-for a complex xml parser omegaconf resolver.
+    <parent_key1>
+        <child_key1 attr1="val1" attr2="val2">
+            <child_key2 attr1="val2"/>
+        </child_key1>
+        <child_key2>
+            <attr1>val1</attr1>
+            <attr2>val2</attr2>
+            <child_key3 attr1="val1" attr2="val2">
+        </child_key2>
+    </parent_key1>
+
+This is a verbose representation for XML files. This is done
+to allow interpolation through Hydra/OmegaConf in the XML files and without the need
+for a complex XML parser OmegaConf resolver.
 """
 
 
@@ -116,25 +121,31 @@ class MjCambrianXML:
         """Adds to the xml based on the passed config.
 
         The MjCambrianXMLConfig is structured as follows:
-        - parent_key:
-            - child_key:
-                - attribute_key: attribute_value
-                - subchild_key:
+        
+        .. code-block:: yaml
+
+            - parent_key:
+                - child_key:
                     - attribute_key: attribute_value
-                    - attribute_key: attribute_value
-                - subchild_key:
-                    - subsubchild_key: attribute_value
+                    - subchild_key:
+                        - attribute_key: attribute_value
+                        - attribute_key: attribute_value
+                    - subchild_key:
+                        - subsubchild_key: attribute_value
 
         This would create the following xml:
 
-        <parent_key>
-            <child_key attribute_key="attribute_value">
-                <subchild_key attribute_key="attribute_value" attribute_key="attribute_value"/>
-                <subchild_key>
-                    <subsubchild_key attribute_key="attribute_value"/>
-                </subchild_key>
-            </child_key>
-        </parent_key>
+        .. code-block:: xml
+
+            <parent_key>
+                <child_key attribute_key="attribute_value">
+                    <subchild_key attribute_key="attribute_value" 
+                        attribute_key="attribute_value"/>
+                    <subchild_key>
+                        <subsubchild_key attribute_key="attribute_value"/>
+                    </subchild_key>
+                </child_key>
+            </parent_key>
 
         We need to walk though the XMLConfig and update it recursively.
 

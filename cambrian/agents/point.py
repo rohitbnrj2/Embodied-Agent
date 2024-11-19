@@ -1,10 +1,12 @@
+"""Point agents."""
+
 from typing import Dict, List, Any, Tuple, TYPE_CHECKING
 
 import numpy as np
 from gymnasium import spaces
 import mujoco as mj
 
-from cambrian.agents import MjCambrianAgent2D, MjCambrianAgentConfig
+from cambrian.agents.agent import MjCambrianAgent2D, MjCambrianAgentConfig
 
 if TYPE_CHECKING:
     from cambrian.envs.maze_env import MjCambrianMazeEnv
@@ -22,8 +24,9 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
     this agent has two actuators: a forward velocity and a rotational position. We will
     calculate the global velocities and rotational position from these two "actuators".
 
-    TODO: Will create an issue on mujoco and see if it's possible to implement this
-    in xml.
+    Todo: 
+        Will create an issue on mujoco and see if it's possible to implement this in
+        xml.
     """
 
     def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:

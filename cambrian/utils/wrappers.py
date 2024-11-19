@@ -1,3 +1,5 @@
+"""Wrappers for the MjCambrianEnv. Used during training."""
+
 from typing import Dict, Any, Tuple, Optional, Callable, List, Final, SupportsFloat
 from collections import deque
 from functools import singledispatch
@@ -59,7 +61,8 @@ class MjCambrianPettingZooEnvWrapper(gym.Wrapper):
     into a single space. The observation can be a dict; however, nested dicts are not
     allowed.
 
-    NOTE: All agents must be trainable
+    Note: 
+        All agents must be trainable
     """
 
     def __init__(self, env: MjCambrianEnv):

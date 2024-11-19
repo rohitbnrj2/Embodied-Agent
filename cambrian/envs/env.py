@@ -438,8 +438,8 @@ class MjCambrianEnv(ParallelEnv):
             Dict[str, np.ndarray]: The rendered image for each render mode mapped to
                 its corresponding str.
 
-        TODO:
-            - Make the cursor stuff clearer
+        Todo:
+            Make the cursor stuff clearer
         """
 
         assert self._renderer is not None, "Renderer has not been initialized! "

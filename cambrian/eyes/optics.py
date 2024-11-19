@@ -1,3 +1,6 @@
+"""This is an optics-enabled eye, which implements a height map and a PSF on top
+of the existing eye."""
+
 from typing import Tuple, List, Dict, Optional
 
 import torch

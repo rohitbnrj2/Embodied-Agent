@@ -3,15 +3,15 @@ Provides a custom logger object.
 
 Should be used like the following:
 
-```
-from cambrian.utils.logger import get_logger
+.. code-block:: python
 
-get_logger().fatal("Fatal")
-get_logger().error("Error")
-get_logger().warn("Warning")
-get_logger().info("Information")
-get_logger().debug("Debug")
-```
+    from cambrian.utils.logger import get_logger
+
+    get_logger().fatal("Fatal")
+    get_logger().error("Error")
+    get_logger().warn("Warning")
+    get_logger().info("Information")
+    get_logger().debug("Debug")
 """
 
 import logging

@@ -284,8 +284,9 @@ class MjCambrianContainerConfig:
     def select(self, key: str, *, use_instantiated: bool = False, **kwargs) -> Any:
         """This is a wrapper around OmegaConf.select to select a key from the config.
 
-        NOTE: By default, this will use the uninstantiated config object to select the
-        key. Pass `use_instantiated=True` to use the instantiated config object.
+        Note:
+            By default, this will use the uninstantiated config object to select the
+            key. Pass `use_instantiated=True` to use the instantiated config object.
         """
         config = self._content if use_instantiated else self._config
         return OmegaConf.select(config, key, **kwargs)
@@ -381,8 +382,9 @@ class MjCambrianContainerConfig:
         This method works by finding all `*` in the key and then iterating over all
         subsequent keys that match the globbed pattern.
 
-        NOTE: yaml files aren't necessarily built to support globbing (like xml), so
-        this method is fairly slow and should be used sparingly.
+        Note:
+            yaml files aren't necessarily built to support globbing (like xml), so 
+            this method is fairly slow and should be used sparingly.
 
         Args:
             key (str): The key to glob. This is a dotlist key, like `a.b.*`. Multiple
@@ -688,11 +690,12 @@ class MjCambrianDictConfig(MjCambrianContainerConfig, DictConfig):
 class MjCambrianBaseConfig(MjCambrianDictConfig):
     """Base config for all configs.
 
-    NOTE: This class inherits from MjCambrianDictConfig which is a subclass of
-    DictConfig. There are issues with inheriting from DictConfig and instantiating an
-    instance using the hydra instantiate or omegaconf.to_object methods. So these
-    classes aren't meant to be instantiated, but are used for type hinting and
-    validation of the config files.
+    Note: 
+        This class inherits from MjCambrianDictConfig which is a subclass of
+        DictConfig. There are issues with inheriting from DictConfig and instantiating an
+        instance using the hydra instantiate or omegaconf.to_object methods. So these
+        classes aren't meant to be instantiated, but are used for type hinting and
+        validation of the config files.
 
     Attributes:
         custom (Optional[Dict[Any, str]]): Custom data to use. This is useful for

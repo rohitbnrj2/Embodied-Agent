@@ -1,9 +1,9 @@
-from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
-from cambrian.envs.maze_env import MjCambrianMazeEnv, MjCambrianMazeConfig
+from cambrian.envs.env import MjCambrianEnvConfig, MjCambrianEnv
+from cambrian.envs.maze_env import MjCambrianMazeEnvConfig, MjCambrianMazeEnv
 
 __all__ = [
-    "MjCambrianEnv",
     "MjCambrianEnvConfig",
+    "MjCambrianEnv",
+    "MjCambrianMazeEnvConfig",
     "MjCambrianMazeEnv",
-    "MjCambrianMazeConfig",
 ]

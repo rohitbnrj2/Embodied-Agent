@@ -1,6 +1,7 @@
+"""Rendering utilities."""
+
 import cv2
 import numpy as np
-
 import mujoco as mj
 
 
@@ -12,6 +13,22 @@ def resize_with_aspect_fill(
     border_type: int = cv2.BORDER_CONSTANT,
     interp: int = cv2.INTER_NEAREST
 ) -> np.ndarray:
+    """Resize the image while maintaining the aspect ratio and filling the rest with
+    black.
+
+    Args:
+        image (np.ndarray): The image to resize.
+        width (int): The new width.
+        height (int): The new height.
+
+    Keyword Args:
+        border_type (int): The type of border to add. Default is cv2.BORDER_CONSTANT.
+        interp (int): The interpolation method. Default is cv2.INTER_NEAREST.
+
+    Returns:
+        np.ndarray: The resized image.
+    """
+
     # TODO: why is it height, width and not width, height?
     # original_width, original_height = image.shape[:2]
     original_height, original_width = image.shape[:2]
@@ -38,7 +55,21 @@ def resize_with_aspect_fill(
 
 
 def convert_depth_distances(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
-    """https://github.com/google-deepmind/mujoco/blob/main/python/mujoco/renderer.py"""
+    """Converts depth values from OpenGL to metric depth values.
+
+    Args:
+        model (mj.MjModel): The model.
+        depth (np.ndarray): The depth values to convert.
+
+    Returns:
+        np.ndarray: The converted depth values.
+
+    Note:
+        This function is based on 
+        [this code](https://github.com/google-deepmind/mujoco/blob/main/python/mujoco/renderer.py).
+    """
+    
+
     # Get the distances to the near and far clipping planes.
     extent = model.stat.extent
     near = model.vis.map.znear * extent
