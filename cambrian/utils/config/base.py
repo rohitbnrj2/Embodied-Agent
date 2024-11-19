@@ -383,7 +383,7 @@ class MjCambrianContainerConfig:
         subsequent keys that match the globbed pattern.
 
         Note:
-            yaml files aren't necessarily built to support globbing (like xml), so 
+            yaml files aren't necessarily built to support globbing (like xml), so
             this method is fairly slow and should be used sparingly.
 
         Args:
@@ -690,7 +690,7 @@ class MjCambrianDictConfig(MjCambrianContainerConfig, DictConfig):
 class MjCambrianBaseConfig(MjCambrianDictConfig):
     """Base config for all configs.
 
-    Note: 
+    Note:
         This class inherits from MjCambrianDictConfig which is a subclass of
         DictConfig. There are issues with inheriting from DictConfig and instantiating an
         instance using the hydra instantiate or omegaconf.to_object methods. So these

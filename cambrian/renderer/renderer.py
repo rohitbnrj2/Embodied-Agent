@@ -484,7 +484,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
 
 class MjCambrianRenderer:
-    """The renderer for rendering scenes. This is essentially a wrapper around the 
+    """The renderer for rendering scenes. This is essentially a wrapper around the
     mujoco viewer/renderer.
 
     Args:
@@ -495,8 +495,9 @@ class MjCambrianRenderer:
             are stored here.
     """
 
-
-    metadata: Dict[str, List[str]] = {"render.modes": ["human", "rgb_array", "depth_array"]}
+    metadata: Dict[str, List[str]] = {
+        "render.modes": ["human", "rgb_array", "depth_array"]
+    }
 
     def __init__(self, config: MjCambrianRendererConfig):
         self._config = config

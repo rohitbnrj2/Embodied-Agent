@@ -24,7 +24,7 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
     this agent has two actuators: a forward velocity and a rotational position. We will
     calculate the global velocities and rotational position from these two "actuators".
 
-    Todo: 
+    Todo:
         Will create an issue on mujoco and see if it's possible to implement this in
         xml.
     """

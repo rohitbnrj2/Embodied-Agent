@@ -94,6 +94,40 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
     depths: List[float]
 
 
+<<<<<<< HEAD
+=======
+# utility functions for optics
+
+
+def convert_hmap(hmap, wavelengths, refractive_index):
+    """Hydra needs the hmap to be [0,1] range but we need to convert it to the
+    correct range before calculating the pupil function.
+
+    Args:
+        hmap (torch.tensor): Height map of the lens. This is used to calculate the phase
+            shift of the light passing through the lens.
+        wavelengths (List[float]): Wavelengths of the RGB channels.
+        refractive_index (float): Refractive index of the lens material.
+
+    Returns:
+        torch.Tensor: Height map of the lens in the correct range.
+    """
+    hmap_max_height = get_max_height(wavelengths, refractive_index)
+    hmap *= hmap_max_height
+    return hmap
+
+
+def get_max_height(wavelengths, refractive_index):
+    maxs = []
+    for _lambda in wavelengths:
+        k = 2 * np.pi / _lambda
+        _max = (2 * np.pi) / (k * (refractive_index - 1.0))
+        maxs.append(_max)
+    hmap_max_height = np.max(np.array(maxs))
+    return hmap_max_height
+
+
+>>>>>>> c6b48e1 (Ran pre-commit)
 class MjCambrianOpticsEye(MjCambrianEye):
     """This class applies the depth invariant PSF to the image.
 

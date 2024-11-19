@@ -61,7 +61,7 @@ class MjCambrianPettingZooEnvWrapper(gym.Wrapper):
     into a single space. The observation can be a dict; however, nested dicts are not
     allowed.
 
-    Note: 
+    Note:
         All agents must be trainable
     """
 

@@ -9,11 +9,13 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-import cambrian
+
 from datetime import date
 from pathlib import Path
 import sys
+
+# The full version, including alpha/beta/rc tags
+from importlib.metadata import version as get_version
 
 root_path = str(Path(__file__).resolve().parent.parent)
 sys.path.insert(0, root_path)
@@ -24,9 +26,6 @@ sys.setrecursionlimit(1500)
 project = "EyesOfCambrian"
 copyright = f"{date.today().year}, Camera Culture, MIT Media Lab"
 author = "Camera Culture, MIT Media Lab"
-
-# The full version, including alpha/beta/rc tags
-from importlib.metadata import version as get_version
 
 release = get_version("cambrian")
 
@@ -93,7 +92,7 @@ todo_include_todos = True
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['env']
+exclude_patterns = ["env"]
 
 
 # -- Options for HTML output -------------------------------------------------

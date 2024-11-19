@@ -65,10 +65,9 @@ def convert_depth_distances(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
         np.ndarray: The converted depth values.
 
     Note:
-        This function is based on 
+        This function is based on
         [this code](https://github.com/google-deepmind/mujoco/blob/main/python/mujoco/renderer.py).
     """
-    
 
     # Get the distances to the near and far clipping planes.
     extent = model.stat.extent

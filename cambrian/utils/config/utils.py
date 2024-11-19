@@ -144,11 +144,11 @@ def glob(key: str, flattened: bool, _root_: DictConfig) -> Dict:
     This method works by finding all `*` in the key and then iterating over all
     subsequent keys that match the globbed pattern.
 
-    Note: 
+    Note:
         yaml files aren't necessarily built to support globbing (like xml), so
         this method is fairly slow and should be used sparingly.
 
-    Note: 
+    Note:
         List indexing is limited in support. To index an element in a list, you
         must use bracket notation, so `a[0].b` is supported, but `a.0.b` is not.
 
@@ -274,11 +274,11 @@ def merge_with_kwargs(
             kwarg2: value2
             ...
 
-    Note: 
+    Note:
         You may want _recursive_=False (as above) to avoid instantiating the config
-        before merging the kwargs. If you want to override a config attribute in the 
-        config object which is instantiated (i.e. is a partial), you won't have access 
-        to the config attribute (only the partial object), so you would want 
+        before merging the kwargs. If you want to override a config attribute in the
+        config object which is instantiated (i.e. is a partial), you won't have access
+        to the config attribute (only the partial object), so you would want
         _recursive_=False. Simpler cases can just use _recursive_=True.
 
     Args:
@@ -465,7 +465,7 @@ def instance_flag_wrapper(
     This is intended to be called from a yaml config file and to be used in conjunction
     with the instance_wrapper method.
 
-    Todo: 
+    Todo:
         This is super ugly
 
     .. code-block:: yaml

@@ -121,7 +121,7 @@ class MjCambrianXML:
         """Adds to the xml based on the passed config.
 
         The MjCambrianXMLConfig is structured as follows:
-        
+
         .. code-block:: yaml
 
             - parent_key:
@@ -139,7 +139,7 @@ class MjCambrianXML:
 
             <parent_key>
                 <child_key attribute_key="attribute_value">
-                    <subchild_key attribute_key="attribute_value" 
+                    <subchild_key attribute_key="attribute_value"
                         attribute_key="attribute_value"/>
                     <subchild_key>
                         <subsubchild_key attribute_key="attribute_value"/>

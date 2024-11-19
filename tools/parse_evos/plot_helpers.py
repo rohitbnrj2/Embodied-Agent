@@ -34,7 +34,7 @@ def plot_helper(
 ) -> plt.Figure | None:
     """This is a helper method that will be used to plot the data.
 
-    Note: 
+    Note:
         Saving the plots at the end depends on each plt figure having a unique name,
         which this method sets to the passed `title`.
 

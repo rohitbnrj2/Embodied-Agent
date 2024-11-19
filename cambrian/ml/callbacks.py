@@ -133,7 +133,7 @@ class MjCambrianEvalCallback(EvalCallback):
     """Overwrites the default EvalCallback to support saving visualizations at the same
     time as the evaluation.
 
-    Note: 
+    Note:
         Only the first environment is visualized
     """
 

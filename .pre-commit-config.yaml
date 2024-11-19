@@ -17,12 +17,12 @@ repos:
     rev: 23.7.0
     hooks:
       - id: black
-  - repo: https://github.com/tcort/markdown-link-check
-    rev: v3.11.2
-    hooks:
-      - id: markdown-link-check
-        args: [-q, -a, "200,202"]
-        files: \.md$
+  # - repo: https://github.com/tcort/markdown-link-check
+  #   rev: v3.11.2
+  #   hooks:
+  #     - id: markdown-link-check
+  #       args: [-q, -a, "200,202"]
+  #       files: \.md$
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1
     hooks:

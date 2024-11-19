@@ -52,7 +52,7 @@ def maybe_transpose_obs(observation: torch.Tensor) -> torch.Tensor:
     images (HxWxC) and images with an additional dimension (NxHxWxC). sb3 will call
     maybe_transpose_obs on the 3D case, but not the 4D.
 
-    Note: 
+    Note:
         In this case, there is a batch dimension, so the observation is 5D.
     """
 

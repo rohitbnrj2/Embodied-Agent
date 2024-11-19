@@ -33,7 +33,7 @@ def search_resolver(
     the config may be changed. Instead, we'll search up for a specific key to set the
     value to. Helpful for setting unique names for an object in a nested config.
 
-    Note: 
+    Note:
         This technically uses hidden attributes (i.e. _parent).
 
     Args:

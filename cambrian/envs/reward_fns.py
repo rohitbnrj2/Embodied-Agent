@@ -422,7 +422,7 @@ def calc_delta(
     """Calculates the delta position of the agent from a point.
 
     Returns:
-        np.ndarray: The delta position of the agent from the point 
+        np.ndarray: The delta position of the agent from the point
             (i.e. current - prev).
     """
 

@@ -149,7 +149,7 @@ class MjCambrianEye:
         geometry in the negative x direction. The quaternion is calculated by rotating
         the eye to face the center of the geometry.
 
-        Todo: 
+        Todo:
             rotations are weird. fix this.
         """
         lat, lon = np.deg2rad(self._config.coord)

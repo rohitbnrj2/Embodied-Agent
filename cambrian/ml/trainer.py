@@ -14,7 +14,11 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy
-from cambrian.utils.config.config import MjCambrianConfig, config_wrapper, MjCambrianBaseConfig
+from cambrian.utils.config.config import (
+    MjCambrianConfig,
+    config_wrapper,
+    MjCambrianBaseConfig,
+)
 from cambrian.utils.wrappers import make_wrapped_env
 from cambrian.utils.logger import get_logger
 

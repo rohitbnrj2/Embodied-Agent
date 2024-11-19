@@ -199,8 +199,8 @@ class MjCambrianAgent:
         initializing mujoco (but we can't get this information until after mujoco is
         initialized and we don't want to hardcode this for extensibility).
 
-        Note: 
-            We can't grab the ids/adrs here because they'll be different once we load 
+        Note:
+            We can't grab the ids/adrs here because they'll be different once we load
             the entire model
         """
 
@@ -662,7 +662,7 @@ class MjCambrianAgent:
         """Returns the quaternion of the agent in the environment. Fmt: `wxyz`.
 
         Note:
-            The returned value, if edited, doesn't not directly impact the simulation. 
+            The returned value, if edited, doesn't not directly impact the simulation.
             To set the quaternion of the agent, use the `quat` setter.
         """
         return self._data.xquat[self._body_id].copy()
@@ -675,10 +675,10 @@ class MjCambrianAgent:
         of the x, y, z, and w values. If the value is None, the quaternion is not
         updated.
 
-        Note: 
+        Note:
             This base implementation assumes the 3,4,5,6 indices of the qpos are the
-            x, y, z, and w values of the quaternion of the agent. This may not be the 
-            case and depends on the joints defined in the agent, so this method should 
+            x, y, z, and w values of the quaternion of the agent. This may not be the
+            case and depends on the joints defined in the agent, so this method should
             be overridden in the subclass if this is not the case.
         """
         for idx, val in enumerate(value):
