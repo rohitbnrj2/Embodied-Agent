@@ -1,14 +1,41 @@
 # Setup
 
+This page provides setup and installation information for the `ACI` repo.
+
+## Prerequisites
+
+- Python >= 3.11
+
+### Optional Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/)
+
 Clone the repo:
 
-```
-git clone https://github.com/camera-culture/EyesOfCambrian.git
+### Conda Environment
+
+You may want to create a Python environment to isolate the dependencies for this
+project. You can do this with `conda`. You will need to have `conda` installed.
+
+```bash
+conda create -n cambrian python=3.12
+conda activate cambrian
 ```
 
-Install the `cambrian` package by doing:
+## Installation
+
+First, clone the repo:
+
 ```
-pip install -e .
+git clone https://github.com/camera-culture/ACI.git
+```
+
+Then you can install the `cambrian` package by doing the following. You will first
+need to install `poetry` if you don't already have it:
+
+```
+pip install poetry
+poetry install
 ```
 
 ## TL;DR

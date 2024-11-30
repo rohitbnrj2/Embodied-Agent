@@ -10,12 +10,12 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
-from datetime import date
-from pathlib import Path
 import sys
+from datetime import date
 
 # The full version, including alpha/beta/rc tags
 from importlib.metadata import version as get_version
+from pathlib import Path
 
 root_path = str(Path(__file__).resolve().parent.parent)
 sys.path.insert(0, root_path)
@@ -23,7 +23,7 @@ sys.setrecursionlimit(1500)
 
 # -- Project information -----------------------------------------------------
 
-project = "EyesOfCambrian"
+project = "ACI"
 copyright = f"{date.today().year}, Camera Culture, MIT Media Lab"
 author = "Camera Culture, MIT Media Lab"
 
@@ -43,6 +43,7 @@ extensions = [
     "autoapi.extension",
     "myst_parser",
     "sphinxarg.ext",
+    "sphinx_copybutton",
 ]
 
 # autoapi config
@@ -61,7 +62,7 @@ autoapi_keep_files = False
 # autoapi_keep_files = True
 autoapi_generate_api_docs = True
 autoapi_add_toctree_entry = False
-autoapi_root = "usage/api/"
+autoapi_root = "reference/api/"
 # autoapi_template_dir = "_templates"
 # autoapi_member_order = "groupwise"
 
@@ -109,14 +110,19 @@ html_theme_options = {
     "announcement": """
         <a style=\"text-decoration: none; color: white;\"
            href=\"https://www.media.mit.edu/groups/camera-culture/overview/\">
-           <img src=\"/_static/cc-transparent.png\"
-                style=\"vertical-align: middle; display: inline; padding-right: 7.5px; height: 20px;\"/>
+           <img src=\"/cc-hardware/_static/cc-transparent.png\"
+                style=\"
+                    vertical-align: middle;
+                    display: inline;
+                    padding-right: 7.5px;
+                    height: 20px;
+                \"/>
            Checkout Camera Culture!
         </a>
     """,
     "sidebar_hide_name": True,
-    "light_logo": "eye.png",
-    "dark_logo": "eye.png",
+    "light_logo": "cc-transparent.png",
+    "dark_logo": "cc-transparent.png",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

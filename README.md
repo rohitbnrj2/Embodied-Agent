@@ -1,9 +1,9 @@
 # Artificial Cambrian Intelligence (ACI)
 
-This is the repo for the paper
+This is the repo/website for the paper
 
 **[A Roadmap for Generative Design of Visual Intelligence](https://mit-genai.pubpub.org/pub/bcfcb6lu/release/3)** \
-[Kushagra Tiwary](http://kushagratiwary.com/), [Tzofi Klinghoffer](https://tzofi.github.io/), [Aaron Young](https://AaronYoung5.github.io/), [Siddharth Somasundaram](https://sidsoma.github.io/), [Nikhil Behari](https://nikhilbehari.github.io/), [Akshat Dave](https://akshatdave.github.io/), [Brian Cheung](https://briancheung.github.io/), [Dan-Eric Nilsson](https://portal.research.lu.se/en/persons/dan-eric-nilsson), [Tomaso Poggio](https://mcgovern.mit.edu/profile/tomaso-poggio/), [Ramesh Raskar](https://www.media.mit.edu/people/raskar/overview/)
+[Kushagra Tiwary](http://kushagratiwary.com/), [Tzofi Klinghoffer\*](https://tzofi.github.io/), [Aaron Young\*](https://AaronYoung5.github.io/), [Siddharth Somasundaram](https://sidsoma.github.io/), [Nikhil Behari](https://nikhilbehari.github.io/), [Akshat Dave](https://akshatdave.github.io/), [Brian Cheung](https://briancheung.github.io/), [Dan-Eric Nilsson](https://portal.research.lu.se/en/persons/dan-eric-nilsson), [Tomaso Poggio](https://mcgovern.mit.edu/profile/tomaso-poggio/), [Ramesh Raskar](https://www.media.mit.edu/people/raskar/overview/)
 
 
 [Paper](https://mit-genai.pubpub.org/pub/bcfcb6lu/release/3) | [Code](https://github.com/camera-culture/ACI) | [Documentation](https://camera-culture.github.io/ACI/)

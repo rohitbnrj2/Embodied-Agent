@@ -1,29 +1,13 @@
-# API Reference
+# Usage
 
-
-Core Submodules
----------------
-
-```{toctree}
-:maxdepth: 1
-:titlesonly:
-
-api/cambrian/envs/index
-api/cambrian/agents/index
-api/cambrian/eyes/index
-api/cambrian/ml/index
+```{include} ../../examples/README.md
+:start-line: 1
 ```
 
-Utilities
----------
-
 ```{toctree}
 :maxdepth: 1
-:titlesonly:
 
-api/cambrian/renderer/index
-api/cambrian/utils/index
-api/cambrian/utils/config/index
+visualizing
 ```
 
 [myst-markdown]: https://myst-parser.readthedocs.io/en/latest/
