@@ -86,11 +86,7 @@ cambrian/
 └── __init__.py         # Package initialization file
 ```
 
-Unless given approval by the developers of the repository, there should be no need to edit the source code. The Object Oriented nature of the package means you can just inherit the base classes and add your own logic _outside_ the repo (no need to edit the source). However, bugs or nice features may be added. See [this section](#installing-a-symbolic-linked-version-for-testing) to install the repo for development purposes.
-
 #### Commenting
-
-Commenting your code is not only _required_ when contributing to this repository, but also common practice in almost every place where code is written.
 
 Please follow [Google's guidelines for Python Styling](https://google.github.io/styleguide/pyguide.html). These comments are also used to automatically generate the documentation. For Visual Studio Code users, the [Python Docstring Generator](https://github.com/NilsJPWerner/autoDocstring) package may be helpful.
 
