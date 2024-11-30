@@ -1,15 +1,15 @@
 from typing import TYPE_CHECKING
 
+import cambrian.utils.config.resolvers  # noqa: F401
 from cambrian.utils.config.base import MjCambrianBaseConfig, MjCambrianContainerConfig
 from cambrian.utils.config.utils import (
+    MjCambrianFlagWrapperMeta,
+    build_pattern,
     config_wrapper,
     instance_flag_wrapper,
     instance_wrapper,
-    MjCambrianFlagWrapperMeta,
     run_hydra,
-    build_pattern,
 )
-import cambrian.utils.config.resolvers  # noqa: F401
 
 if TYPE_CHECKING:
     from cambrian.utils.config.config import MjCambrianConfig

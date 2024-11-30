@@ -1,10 +1,10 @@
 """Point agents."""
 
-from typing import Dict, List, Any, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
+import mujoco as mj
 import numpy as np
 from gymnasium import spaces
-import mujoco as mj
 
 from cambrian.agents.agent import MjCambrianAgent2D, MjCambrianAgentConfig
 
@@ -246,7 +246,8 @@ class MjCambrianAgentPointMazeRandom(MjCambrianAgentPoint):
                     )
                 except ValueError as e:
                     raise ValueError(
-                        f"Couldn't find path for '{self.name}' from {self.pos} to {target_pos}"
+                        f"Couldn't find path for '{self.name}' "
+                        f"from {self.pos} to {target_pos}"
                     ) from e
             else:
                 self._optimal_trajectory = np.array([target_pos[:2]])

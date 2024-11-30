@@ -1,11 +1,11 @@
 """Done fns. These can be used either with termination or truncation."""
 
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from cambrian.envs import MjCambrianEnv
 from cambrian.agents import MjCambrianAgent
+from cambrian.envs import MjCambrianEnv
 from cambrian.utils import agent_selected
 
 # ======================

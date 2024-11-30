@@ -1,5 +1,5 @@
-from cambrian.eyes.eye import MjCambrianEyeConfig, MjCambrianEye
-from cambrian.eyes.optics import MjCambrianOpticsEyeConfig, MjCambrianOpticsEye
+from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
+from cambrian.eyes.optics import MjCambrianOpticsEye, MjCambrianOpticsEyeConfig
 
 __all__ = [
     "MjCambrianEyeConfig",

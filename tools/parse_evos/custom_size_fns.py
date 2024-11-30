@@ -1,12 +1,11 @@
-from typing import Dict, Callable, List
+from typing import Callable, Dict, List
 
 import numpy as np
+from parse_evos import Rank
+from parse_helpers import get_size_label
+from parse_types import ParsedAxisData, SizeData
 
 from cambrian.utils import safe_eval
-
-from parse_evos import Rank
-from parse_types import SizeData, ParsedAxisData
-from parse_helpers import get_size_label
 
 
 def select_rank(

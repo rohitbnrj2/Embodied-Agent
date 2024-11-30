@@ -1,10 +1,10 @@
 """Defines utilities for overlays in the Mujoco viewer."""
 
-from typing import Optional, Tuple
 from dataclasses import dataclass, replace
+from typing import Optional, Tuple
 
-import numpy as np
 import mujoco as mj
+import numpy as np
 
 from cambrian.utils.logger import get_logger
 

@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Any
+from typing import Any, Dict, List, Tuple
 
 from parse_types import Data, Generation, Rank
 
@@ -28,7 +28,8 @@ def filter_best_n_lineages(data: Data, *, n: int) -> Dict[int, Generation]:
         reverse=True,
     )[:n]
 
-    # Now only return the ranks from all previous generations which this rank derives from
+    # Now only return the ranks from all previous generations which this rank derives
+    # from
     for generation in sorted_generations[::-1]:
         for rank in data.generations[generation].ranks.values():
             if rank not in best_ranks:

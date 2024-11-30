@@ -1,8 +1,8 @@
 import signal
 
+import cambrian.agents  # noqa
 import cambrian.envs  # noqa
 import cambrian.eyes  # noqa
-import cambrian.agents  # noqa
 
 __author__ = "Camera Culture (a2cc@media.mit.edu)"
 """Camera Culture (a2cc@media.mit.edu)"""

@@ -1,18 +1,18 @@
-from cambrian.renderer.renderer import (
-    MjCambrianRendererConfig,
-    MjCambrianRendererSaveMode,
-    MjCambrianRenderer,
-)  # noqa
-from cambrian.renderer.render_utils import (
-    resize_with_aspect_fill,
-    convert_depth_distances,
-)  # noqa
-
 # MuJoCo supports specifying the MuJoCo OpenGL backend via the MUJOCO_GL environment
 # variable. On Mac, Only the `cgl` backend is instantiated even though glfw is
 # supported. We'll override the default backend to use glfw instead of cgl if the
 # MUJOCO_GL environment variable is set to `glfw`.
 import platform
+
+from cambrian.renderer.render_utils import (  # noqa
+    convert_depth_distances,
+    resize_with_aspect_fill,
+)
+from cambrian.renderer.renderer import (  # noqa
+    MjCambrianRenderer,
+    MjCambrianRendererConfig,
+    MjCambrianRendererSaveMode,
+)
 
 if platform.system() == "Darwin":
     import os

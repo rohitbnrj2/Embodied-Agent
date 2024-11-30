@@ -1,20 +1,13 @@
 from typing import Optional
 
-import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import Normalize, LinearSegmentedColormap
+import numpy as np
+from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.ticker import MaxNLocator
+from parse_helpers import get_color_label, get_size_label
+from parse_types import ColorData, CustomPlotFnType, PlotData, SizeData, SizeType
 
 from cambrian.utils import is_integer
-
-from parse_types import (
-    PlotData,
-    SizeData,
-    ColorData,
-    CustomPlotFnType,
-    SizeType,
-)
-from parse_helpers import get_size_label, get_color_label
 
 
 def plot_helper(

@@ -1,14 +1,14 @@
 """This is an optics-enabled eye, which implements a height map and a PSF on top
 of the existing eye."""
 
-from typing import Tuple, List, Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
-import torch
 import numpy as np
+import torch
 
-from cambrian.eyes import MjCambrianEyeConfig, MjCambrianEye
-from cambrian.utils import make_odd, get_logger
-from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
+from cambrian.eyes import MjCambrianEye, MjCambrianEyeConfig
+from cambrian.utils import get_logger, make_odd
+from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 
 
 @config_wrapper
@@ -94,40 +94,6 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
     depths: List[float]
 
 
-<<<<<<< HEAD
-=======
-# utility functions for optics
-
-
-def convert_hmap(hmap, wavelengths, refractive_index):
-    """Hydra needs the hmap to be [0,1] range but we need to convert it to the
-    correct range before calculating the pupil function.
-
-    Args:
-        hmap (torch.tensor): Height map of the lens. This is used to calculate the phase
-            shift of the light passing through the lens.
-        wavelengths (List[float]): Wavelengths of the RGB channels.
-        refractive_index (float): Refractive index of the lens material.
-
-    Returns:
-        torch.Tensor: Height map of the lens in the correct range.
-    """
-    hmap_max_height = get_max_height(wavelengths, refractive_index)
-    hmap *= hmap_max_height
-    return hmap
-
-
-def get_max_height(wavelengths, refractive_index):
-    maxs = []
-    for _lambda in wavelengths:
-        k = 2 * np.pi / _lambda
-        _max = (2 * np.pi) / (k * (refractive_index - 1.0))
-        maxs.append(_max)
-    hmap_max_height = np.max(np.array(maxs))
-    return hmap_max_height
-
-
->>>>>>> c6b48e1 (Ran pre-commit)
 class MjCambrianOpticsEye(MjCambrianEye):
     """This class applies the depth invariant PSF to the image.
 
@@ -152,8 +118,8 @@ class MjCambrianOpticsEye(MjCambrianEye):
 
     def _initialize(self):
         """This will initialize the parameters used during the PSF calculation."""
-        # pupil_Mx,pupil_My defines the number of pixels in x,y direction (i.e. width, height) of
-        # the pupil
+        # pupil_Mx,pupil_My defines the number of pixels in x,y direction
+        # (i.e. width, height) of the pupil
         pupil_Mx, pupil_My = torch.tensor(self._config.pupil_resolution)
         assert (
             pupil_Mx > 2 and pupil_My > 2
@@ -162,8 +128,9 @@ class MjCambrianOpticsEye(MjCambrianEye):
             pupil_Mx % 2 and pupil_My % 2
         ), f"Pupil resolution must be odd: {pupil_Mx=}, {pupil_My=}"
 
-        # pupil_dx/pupil_dy defines the pixel pitch (m) (i.e. distance between the centers of
-        # adjacent pixels) of the pupil and Lx/Ly defines the size of the pupil plane
+        # pupil_dx/pupil_dy defines the pixel pitch (m) (i.e. distance between the
+        # centers of adjacent pixels) of the pupil and Lx/Ly defines the size of the
+        # pupil plane
         fx, fy = self._config.focal
         Lx, Ly = fx / self._config.f_stop, fy / self._config.f_stop
         pupil_dx, pupil_dy = Lx / pupil_Mx, Ly / pupil_My
@@ -384,13 +351,13 @@ class MjCambrianOpticsEye(MjCambrianEye):
 
 
 if __name__ == "__main__":
-    import mujoco as mj
     import matplotlib.pyplot as plt
+    import mujoco as mj
     from stable_baselines3.common.utils import set_random_seed
 
     from cambrian.utils import setattrs_temporary
     from cambrian.utils.cambrian_xml import MjCambrianXML
-    from cambrian.utils.config import run_hydra, MjCambrianConfig
+    from cambrian.utils.config import MjCambrianConfig, run_hydra
 
     def run(config: MjCambrianConfig, aperture: float = None):
         set_random_seed(config.seed)

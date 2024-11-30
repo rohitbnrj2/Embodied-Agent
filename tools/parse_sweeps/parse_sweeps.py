@@ -1,18 +1,18 @@
-from typing import Dict, Any, Optional, Callable, Concatenate, List, Tuple
-from pathlib import Path
-from enum import Enum
 import re
+from enum import Enum
+from pathlib import Path
+from typing import Any, Callable, Concatenate, Dict, List, Optional, Tuple
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import tqdm.rich as tqdm
 
-from cambrian.utils import save_data, try_load_pickle, get_logger, set_matplotlib_style
+from cambrian.utils import get_logger, save_data, set_matplotlib_style, try_load_pickle
 from cambrian.utils.config import (
-    MjCambrianConfig,
     MjCambrianBaseConfig,
-    run_hydra,
+    MjCambrianConfig,
     config_wrapper,
+    run_hydra,
 )
 
 # ==================
@@ -39,8 +39,8 @@ class ParseSweepsConfig(MjCambrianBaseConfig):
     show_plots (bool): Show the plots.
     save_plots (bool): Save the plots. Will save to the output / plots folder.
 
-    load_config_fn (Callable[[Path], Optional[MjCambrianConfig]]): The function to use to
-        load the config from a folder.
+    load_config_fn (Callable[[Path], Optional[MjCambrianConfig]]): The function to use
+        to load the config from a folder.
     load_eval_fitness_fn (Callable[[Path], float]): The function to use to load the
         evaluation fitness from a folder.
     load_train_fitness_fn (Callable[[Path], float]): The function to use to load the
@@ -318,13 +318,16 @@ def plot_data(config: ParseSweepsConfig, data: Data):
 
     def sort_key(x, key: list[str] | None = config.sort_keys):
         if key:
-            # Create a concatenated sorting key based on numbers following each key in the list
+            # Create a concatenated sorting key based on numbers following each key in
+            # the list
             key_values = []
             for k in key:
-                # Find the pattern key followed by numbers, capturing all numbers after the key
+                # Find the pattern key followed by numbers, capturing all numbers after
+                # the key
                 key_match = re.search(rf"{k}_(\d+(?:_\d+)*)", x[0])
                 if key_match is not None:
-                    # Split the matched numbers by underscore and convert them to integers
+                    # Split the matched numbers by underscore and convert them to
+                    # integers
                     key_values.append(tuple(map(int, key_match.group(1).split("_"))))
                 else:
                     key_values.append((0,))

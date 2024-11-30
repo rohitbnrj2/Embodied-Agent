@@ -1,8 +1,8 @@
-from typing import Any, Dict, List, Optional
-from pathlib import Path
 import re
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from omegaconf import OmegaConf, DictConfig, Node, ListConfig
+from omegaconf import DictConfig, ListConfig, Node, OmegaConf
 from omegaconf.errors import ConfigKeyError
 
 from cambrian.utils import is_integer
@@ -238,7 +238,7 @@ def clean_overrides_resolver(
     use_seed_as_subfolder: bool = True,
 ) -> str:
     cleaned_overrides: List[str] = []
-    
+
     seed: Optional[Any] = None
     for override in overrides:
         if "=" not in override or override.count("=") > 1:

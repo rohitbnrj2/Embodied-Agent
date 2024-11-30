@@ -3,10 +3,10 @@ some helper methods that wrap the `xml` library. This is useful for modifying mu
 files in a programmatic way. MjSpec has since provided functionality directly in
 Mujoco to support this functionality."""
 
-from typing import List, Tuple, Dict, TypeAlias, Self, Optional
-from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Dict, List, Optional, Self, Tuple, TypeAlias
 
 from cambrian.utils.config import MjCambrianContainerConfig
 from cambrian.utils.logger import get_logger
@@ -176,7 +176,8 @@ class MjCambrianXML:
                 if isinstance(value, str):
                     attribs[key] = value
                 elif depth == 0 and isinstance(value, list):
-                    # If it's a list, we need to add a new element for each item in the list
+                    # If it's a list, we need to add a new element for each item in
+                    # the list
                     for sub_config in value:
                         attribs.update(get_attribs(sub_config, depth=depth + 1))
             return attribs
@@ -186,7 +187,8 @@ class MjCambrianXML:
                 if isinstance(value, list):
                     attribs = get_attribs(config)
                     for sub_config in value:
-                        # If it's a list, we need to add a new element for each item in the list
+                        # If it's a list, we need to add a new element for each item in
+                        # the list
                         element = add_element(parent, key, **attribs)
                         add_to_xml(element, sub_config)
                 else:
@@ -235,7 +237,8 @@ class MjCambrianXML:
         If any additional keyword arguments are passed, they will be used to filter the
         elements, as in the element must have the attribute and it must be equal to the
         value. In this case, `ET.iterfind` will be used. It uses the predicates
-        described here: https://docs.python.org/3/library/xml.etree.elementtree.html#supported-xpath-syntax.
+        described here: https://docs.python.org/3/library/xml.etree.elementtree.html\
+            #supported-xpath-syntax.
 
         If no keyword arguments are passed, `ET.find` will be used.
 
@@ -307,7 +310,8 @@ class MjCambrianXML:
                     return (el.tag, "")
             return (el.tag, hashabledict(el.attrib))
 
-        # Create a mapping from tag name to element, as that's what we are filtering with
+        # Create a mapping from tag name to element, as that's what we are filtering
+        # with
         mapping = {create_key(el): el for el in root}
         for el in other:
             key = create_key(el)
@@ -397,8 +401,9 @@ def convert_xml_to_yaml(
 
 
 if __name__ == "__main__":
-    import yaml
     import argparse
+
+    import yaml
 
     parser = argparse.ArgumentParser(description="MujocoXML Tester")
 

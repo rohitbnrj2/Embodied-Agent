@@ -1,26 +1,26 @@
 """This module contains the trainer class for training and evaluating agents."""
 
-from typing import Dict, Callable, Optional, Concatenate, Type
 from pathlib import Path
+from typing import Callable, Concatenate, Dict, Optional, Type
 
+from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.vec_env import (
-    VecEnv,
     DummyVecEnv,
     SubprocVecEnv,
+    VecEnv,
     VecMonitor,
 )
-from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 
 from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy
 from cambrian.utils.config.config import (
+    MjCambrianBaseConfig,
     MjCambrianConfig,
     config_wrapper,
-    MjCambrianBaseConfig,
 )
-from cambrian.utils.wrappers import make_wrapped_env
 from cambrian.utils.logger import get_logger
+from cambrian.utils.wrappers import make_wrapped_env
 
 
 @config_wrapper

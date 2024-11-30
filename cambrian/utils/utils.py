@@ -1,12 +1,12 @@
-from typing import Any, List, Tuple, TYPE_CHECKING, Optional, Callable, Dict, Generator
-from types import ModuleType
-from dataclasses import dataclass
-import contextlib
 import ast
-import re
+import contextlib
 import pickle
-from pathlib import Path
+import re
+from dataclasses import dataclass
 from fnmatch import fnmatch
+from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional, Tuple
 
 import mujoco as mj
 import numpy as np
@@ -15,8 +15,8 @@ from stable_baselines3.common.vec_env import VecEnv
 from cambrian.utils.logger import get_logger
 
 if TYPE_CHECKING:
-    from cambrian.ml.model import MjCambrianModel
     from cambrian.agents import MjCambrianAgent
+    from cambrian.ml.model import MjCambrianModel
 
 # ============
 
@@ -61,7 +61,8 @@ def evaluate_policy(
 
         if done:
             get_logger().info(
-                f"Run {run} done. Cumulative reward: {cambrian_env.stashed_cumulative_reward}"
+                f"Run {run} done. "
+                f"Cumulative reward: {cambrian_env.stashed_cumulative_reward}"
             )
 
             if not done_callback(run):
@@ -404,7 +405,8 @@ def format_string_with_obj_attributes(s, obj):
     """
 
     def get_nested_attr(obj, attr_path):
-        """Fetches the value of a nested attribute by traversing through the object attributes based on the dot-separated path."""
+        """Fetches the value of a nested attribute by traversing through the object
+        attributes based on the dot-separated path."""
         for attr in attr_path.split("."):
             obj = getattr(obj, attr, None)
             if obj is None:
@@ -412,7 +414,8 @@ def format_string_with_obj_attributes(s, obj):
         return obj
 
     def replace_attr(match):
-        """Helper function to replace each placeholder in the string with the corresponding attribute value."""
+        """Helper function to replace each placeholder in the string with the
+        corresponding attribute value."""
         path = match.group(1)
         return str(get_nested_attr(obj, path))
 
@@ -432,18 +435,20 @@ def literal_eval_with_callables(
     operators. Calls to functions specified in 'safe_callables' dictionary are allowed.
 
     This function is designed to evaluate expressions in a controlled environment,
-    preventing the execution of arbitrary code. It parses the input into an Abstract Syntax Tree (AST)
-    and recursively evaluates each node, only allowing operations and function calls
-    that are explicitly permitted.
+    preventing the execution of arbitrary code. It parses the input into an
+    Abstract Syntax Tree (AST) and recursively evaluates each node, only allowing
+    operations and function calls that are explicitly permitted.
 
     Args:
         node_or_string (Union[ast.AST, str]): The expression node or string to evaluate.
         safe_callables (Dict[str, Callable]): A dictionary mapping function names to
             callable Python objects. Only these functions can be called within the
             expression.
-        safe_methods (Dict[Tuple[type, str], Callable]): A dictionary mapping (type, method_name)
-            to callable methods. Only these methods can be called on objects within the expression.
-        _env (Dict): Internal parameter for variable and function environment. Should not be set manually.
+        safe_methods (Dict[Tuple[type, str], Callable]): A dictionary mapping
+            (type, method_name) to callable methods. Only these methods can be called
+            on objects within the expression.
+        _env (Dict): Internal parameter for variable and function environment.
+            Should not be set manually.
 
     Returns:
         Any: The result of the evaluated expression.
@@ -590,7 +595,8 @@ def literal_eval_with_callables(
                             **{kw.arg: _convert(kw.value) for kw in node.keywords},
                         )
                 raise ValueError(
-                    f"Method '{method_name}' not allowed on type '{type(obj).__name__}'."
+                    f"Method '{method_name}' not "
+                    f"allowed on type '{type(obj).__name__}'."
                 )
             elif isinstance(node.func, ast.Name):
                 # Function call (e.g., func())
@@ -655,19 +661,20 @@ def safe_eval(src: Any, additional_vars: Dict[str, Any] = {}) -> Any:
 
     This function uses `literal_eval_with_callables` to evaluate the expression,
     only allowing certain built-in functions and types, and any additional variables
-    provided. It prevents execution of arbitrary code or access to unauthorized functions
-    and methods.
+    provided. It prevents execution of arbitrary code or access to unauthorized
+    functions and methods.
 
     Args:
         src (Any): The source code (string or AST node) to evaluate.
-        additional_vars (Dict[str, Any]): A dictionary of additional variables or functions
-            to include in the evaluation environment.
+        additional_vars (Dict[str, Any]): A dictionary of additional variables or
+            functions to include in the evaluation environment.
 
     Returns:
         Any: The result of the evaluated expression.
 
     Raises:
-        ValueError: If the expression contains unsupported operations or cannot be evaluated.
+        ValueError: If the expression contains unsupported operations or cannot be
+            evaluated.
 
     Examples:
         >>> safe_eval("1 + 2")

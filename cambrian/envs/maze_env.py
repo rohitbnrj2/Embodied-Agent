@@ -1,23 +1,14 @@
-from typing import (
-    Dict,
-    Any,
-    Tuple,
-    Optional,
-    List,
-    TypeAlias,
-    Callable,
-    Concatenate,
-)
 from enum import Enum
+from typing import Any, Callable, Concatenate, Dict, List, Optional, Tuple, TypeAlias
 
 import mujoco as mj
 import numpy as np
 
-from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.agents.agent import MjCambrianAgent
+from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.utils import get_geom_id, safe_index
-from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
+from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 
 DEFAULT_ENTITY_ID: str = "default"
 
@@ -267,7 +258,7 @@ class MjCambrianMaze:
                     # Do a check for the texture
                     assert entity_id in self._config.wall_texture_map, (
                         f"Invalid texture: {entity_id}. "
-                        f"Available textures: {list(self._config.wall_texture_map.keys())}"
+                        f"Available textures: {list(self._config.wall_texture_map.keys())}"  # noqa
                     )
                     self._wall_textures.append(entity_id)
                 elif entity == MjCambrianMapEntity.RESET:
@@ -574,7 +565,8 @@ class MjCambrianMaze:
 
     @property
     def lookat(self) -> np.ndarray:
-        """Returns a point which aids in placement of a camera to visualize this maze."""
+        """Returns a point which aids in placement of a camera to visualize this
+        maze."""
         # NOTE: Negative because of convention based on BEV camera
         assert self._starting_x is not None, "Maze has not been initialized"
         return np.array([-self._starting_x + len(self._map[0]) / 4, 0, 0])

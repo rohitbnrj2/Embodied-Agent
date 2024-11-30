@@ -1,16 +1,16 @@
-from typing import List, Dict, Optional
 from pathlib import Path
+from typing import Dict, List, Optional
 
 import mujoco as mj
 
 from cambrian.renderer import MjCambrianRendererSaveMode
-from cambrian.utils.logger import get_logger
 from cambrian.utils.config import (
     MjCambrianBaseConfig,
     MjCambrianConfig,
-    run_hydra,
     config_wrapper,
+    run_hydra,
 )
+from cambrian.utils.logger import get_logger
 
 
 @config_wrapper
@@ -23,8 +23,8 @@ class AnimalShowcaseConfig(MjCambrianBaseConfig):
         outdir (Path): The directory used for saving the showcase. This is the directory
             where the showcase's data is stored. Should evaluate to
             `logdir` / `outsubdir`.
-        outsubdir (Path): The subdirectory relative to `logdir` where the showcase's data
-            is stored. This is the directory where the showcase's data is
+        outsubdir (Path): The subdirectory relative to `logdir` where the showcase's
+            data is stored. This is the directory where the showcase's data is
             actually stored.
 
         exp (str): The experiment to run. This is the path to the hydra exp file
@@ -114,7 +114,8 @@ if __name__ == "__main__":
         dest="overrides",
         action="append",
         type=str,
-        help="Global override config values. Do <config>.<key>=<value>. Used for all exps.",
+        help="Global override config values. Do <config>.<key>=<value>. "
+        "Used for all exps.",
         default=[],
     )
 

@@ -1,13 +1,12 @@
-from typing import Tuple, Callable
+from typing import Callable, Tuple
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from parse_helpers import parse_plot_data
+from parse_types import PlotData, Rank
+from utils import extract_data
 
 from cambrian.utils.logger import get_logger
-
-from utils import extract_data
-from parse_types import Rank, PlotData
-from parse_helpers import parse_plot_data
 
 
 def accumulation_line(ax: plt.Axes, accumulation_fn: Callable[[np.ndarray], float]):

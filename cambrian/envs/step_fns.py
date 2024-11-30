@@ -1,11 +1,11 @@
 """Step fns. These can be used to modify the observation and info dictionaries."""
 
-from typing import Any, Dict, Tuple, Optional, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from cambrian.envs import MjCambrianEnv, MjCambrianMazeEnv
 from cambrian.agents import MjCambrianAgent
+from cambrian.envs import MjCambrianEnv, MjCambrianMazeEnv
 
 # ======================
 # Helpers

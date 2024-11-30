@@ -1,19 +1,19 @@
+import pickle
+from pathlib import Path
 from typing import (
-    Dict,
     Any,
-    Tuple,
+    Callable,
+    Concatenate,
+    Dict,
     List,
     Optional,
-    Callable,
     Self,
+    Tuple,
     TypeAlias,
-    Concatenate,
 )
-from pathlib import Path
-import pickle
 
-import numpy as np
 import mujoco as mj
+import numpy as np
 from gymnasium import spaces
 from pettingzoo import ParallelEnv
 
@@ -25,16 +25,16 @@ from cambrian.renderer import (
     resize_with_aspect_fill,
 )
 from cambrian.renderer.overlays import (
-    MjCambrianViewerOverlay,
-    MjCambrianTextViewerOverlay,
-    MjCambrianSiteViewerOverlay,
-    MjCambrianImageViewerOverlay,
-    MjCambrianCursor,
     TEXT_HEIGHT,
     TEXT_MARGIN,
+    MjCambrianCursor,
+    MjCambrianImageViewerOverlay,
+    MjCambrianSiteViewerOverlay,
+    MjCambrianTextViewerOverlay,
+    MjCambrianViewerOverlay,
 )
-from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
+from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 from cambrian.utils.logger import get_logger
 
 MjCambrianStepFn: TypeAlias = Callable[
@@ -166,7 +166,7 @@ class MjCambrianEnv(ParallelEnv):
 
         try:
             self._model = mj.MjModel.from_xml_string(self._xml.to_string())
-        except:
+        except Exception:
             self._logger.error(
                 f"Error creating model from xml\n{self._xml.to_string()}"
             )

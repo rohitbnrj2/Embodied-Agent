@@ -1,12 +1,11 @@
 from typing import Dict, Tuple
 
 import numpy as np
+from parse_evos import Data, Generation, Rank
+from parse_helpers import get_axis_label
+from parse_types import AxisData, ParsedAxisData
 
 from cambrian.utils import safe_eval
-from parse_evos import Data, Generation, Rank
-from parse_types import AxisData, ParsedAxisData
-from parse_helpers import get_axis_label
-
 
 # ==================
 # Eye range parsing

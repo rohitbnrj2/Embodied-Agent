@@ -1,12 +1,12 @@
 """Reward fns. These can be used to calculate rewards for agents."""
 
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
-import numpy as np
 import mujoco as mj
+import numpy as np
 
-from cambrian.envs import MjCambrianEnv
 from cambrian.agents import MjCambrianAgent
+from cambrian.envs import MjCambrianEnv
 from cambrian.utils import agent_selected
 
 # =====================

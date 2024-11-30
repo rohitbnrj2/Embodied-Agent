@@ -2,17 +2,17 @@
 environment. The eye is essentially a camera that is attached to a body in the
 environment. The eye can render images and provide observations to the agent."""
 
-from typing import Tuple, Callable, Self
-import numpy as np
+from typing import Callable, Self, Tuple
 
 import mujoco as mj
+import numpy as np
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
 from cambrian.utils import MjCambrianGeometry, get_camera_id
-from cambrian.utils.config import config_wrapper, MjCambrianBaseConfig
 from cambrian.utils.cambrian_xml import MjCambrianXML
+from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 
 
 @config_wrapper
@@ -96,8 +96,8 @@ class MjCambrianEye:
         `CambrianXML` helpers for this.
 
         Args:
-            parent_xml (MjCambrianXML): The xml of the parent body. Used as a reference to
-                extract the path of the parent body.
+            parent_xml (MjCambrianXML): The xml of the parent body. Used as a reference
+                to extract the path of the parent body.
             geom (MjCambrianGeometry): The geometry of the parent body. Used to
                 calculate the pos and quat of the eye.
             parent_body_name (str): The name of the parent body. Will search for the

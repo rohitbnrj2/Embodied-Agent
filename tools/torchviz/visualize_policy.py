@@ -2,12 +2,11 @@ import argparse
 from pathlib import Path
 
 import torch
+import torchviz_new as torchviz
 
 from cambrian.ml.model import MjCambrianModel
-from cambrian.utils.wrappers import make_wrapped_env
 from cambrian.utils.config import MjCambrianConfig
-
-import torchviz_new as torchviz
+from cambrian.utils.wrappers import make_wrapped_env
 
 
 def main(model_path: Path, config_file: Path | None = None):

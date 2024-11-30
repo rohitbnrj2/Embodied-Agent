@@ -1,14 +1,14 @@
-from typing import Any, Optional, Type, Callable, Concatenate, List, Dict, TYPE_CHECKING
-from dataclasses import dataclass, fields, make_dataclass
-import enum
-from functools import partial
 import argparse
-from pathlib import Path
+import enum
 import re
+from dataclasses import dataclass, fields, make_dataclass
+from functools import partial
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Concatenate, Dict, List, Optional, Type
 
-from hydra.core.config_store import ConfigStore
 import hydra_zen as zen
-from omegaconf import OmegaConf, DictConfig
+from hydra.core.config_store import ConfigStore
+from omegaconf import DictConfig, OmegaConf
 
 if TYPE_CHECKING:
     from cambrian.utils.config import MjCambrianBaseConfig
@@ -407,7 +407,7 @@ def instance_wrapper(*, instance: Type[Any], **kwargs):
                 # these will be passed to the __init__ method as kwargs
                 init_arg1: value1
                 init_arg2: value2
-                init_arg3: '???' # this is unknown at instantiate time and can be set later
+                init_arg3: '???' # this is unknown at instantiate time and is set later
 
             # these will be set as attributes after the __init__ method
             set_arg1: value1

@@ -1,36 +1,35 @@
-from typing import Any, Dict, Tuple
-from pathlib import Path
 import os
+from pathlib import Path
+from typing import Any, Dict, Tuple
 
 import numpy as np
+from parse_types import (
+    AxisData,
+    AxisDataType,
+    Color,
+    ColorData,
+    ColorType,
+    Data,
+    Generation,
+    ParsedAxisData,
+    ParsedColorData,
+    ParsedPlotData,
+    ParseEvosConfig,
+    PlotData,
+    Rank,
+    SizeData,
+    SizeType,
+)
 from stable_baselines3.common.results_plotter import ts2xy
 
-from cambrian.utils.config import MjCambrianConfig
-from cambrian.utils import moving_average
 from cambrian.ml.fitness_fns import (
     fitness_from_evaluations,
     fitness_from_monitor,
     fitness_from_txt,
 )
+from cambrian.utils import moving_average
+from cambrian.utils.config import MjCambrianConfig
 from cambrian.utils.logger import get_logger
-
-from parse_types import (
-    ParseEvosConfig,
-    Rank,
-    Generation,
-    Data,
-    ParsedAxisData,
-    ParsedColorData,
-    ParsedPlotData,
-    AxisData,
-    ColorData,
-    SizeData,
-    Color,
-    SizeType,
-    ColorType,
-    AxisDataType,
-    PlotData,
-)
 
 
 def get_generation_file_paths(folder: Path) -> Data:

@@ -1,8 +1,8 @@
 """Rendering utilities."""
 
 import cv2
-import numpy as np
 import mujoco as mj
+import numpy as np
 
 
 def resize_with_aspect_fill(
@@ -11,7 +11,7 @@ def resize_with_aspect_fill(
     height: int,
     *,
     border_type: int = cv2.BORDER_CONSTANT,
-    interp: int = cv2.INTER_NEAREST
+    interp: int = cv2.INTER_NEAREST,
 ) -> np.ndarray:
     """Resize the image while maintaining the aspect ratio and filling the rest with
     black.
@@ -66,7 +66,8 @@ def convert_depth_distances(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
 
     Note:
         This function is based on
-        [this code](https://github.com/google-deepmind/mujoco/blob/main/python/mujoco/renderer.py).
+        [this code](https://github.com/google-deepmind/mujoco/blob/main/\
+            python/mujoco/renderer.py).
     """
 
     # Get the distances to the near and far clipping planes.

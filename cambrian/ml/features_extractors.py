@@ -2,14 +2,14 @@
 
 from typing import Dict, List
 
-import torch
 import gymnasium as gym
+import torch
 from gymnasium import spaces
-from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
     FlattenExtractor,
 )
+from stable_baselines3.common.type_aliases import TensorDict
 
 # ==================
 # Utils
@@ -89,9 +89,9 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
                     subspace = maybe_transpose_space(subspace)
                     if image_space is None:
                         image_space = subspace
-                    assert image_space.shape == subspace.shape, (
-                        "All the image spaces must have the same shape"
-                    )
+                    assert (
+                        image_space.shape == subspace.shape
+                    ), "All the image spaces must have the same shape"
             assert image_space is not None, "There must be at least one image space"
             self._image_extractor = image_extractor(image_space)
 
@@ -123,6 +123,7 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
 
         features = torch.cat(encoded_tensor_list, dim=1)
         return features
+
 
 class PermutedFlattenExtractor(FlattenExtractor):
     def forward(self, observations: torch.Tensor) -> torch.Tensor:

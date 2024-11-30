@@ -1,7 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-
-
 from parse_types import ExtractedData, PlotData
 
 
@@ -97,7 +95,8 @@ def remove_outliers(data: np.ndarray, threshold: float = 3.0) -> np.ndarray:
         threshold (float): The z-score threshold to identify outliers.
 
     Returns:
-        np.ndarray: The array with outliers replaced by the minimum value in each column.
+        np.ndarray: The array with outliers replaced by the minimum value in each
+            column.
     """
     z_scores = np.abs((data - np.mean(data, axis=0)) / np.std(data, axis=0))
     mask = z_scores >= threshold

@@ -1,41 +1,40 @@
-from typing import Dict, Optional, Any, Tuple
-from functools import partial
 import sys
+from functools import partial
+from typing import Any, Dict, Optional, Tuple
 
-import tqdm.rich as tqdm
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import tqdm.rich as tqdm
 from matplotlib.ticker import MaxNLocator
-
-from cambrian.utils import (
-    is_integer,
-    save_data,
-    try_load_pickle,
-    set_matplotlib_style,
-    get_logger,
-)
-from cambrian.utils.config.utils import clean_key
-from cambrian.utils.config import MjCambrianConfig, run_hydra
+from parse_helpers import load_data, parse_plot_data
 from parse_types import (
-    Rank,
+    AxisDataType,
+    CustomPlotFnType,
+    Data,
     Generation,
     ParseEvosConfig,
-    Data,
-    CustomPlotFnType,
-    AxisDataType,
     PlotData,
+    Rank,
 )
-from parse_helpers import parse_plot_data, load_data
 from plot_helpers import (
-    plot_helper,
-    adjust_points,
-    adjust_axes,
-    run_custom_fns,
-    add_legend,
     add_colorbar,
+    add_legend,
+    adjust_axes,
+    adjust_points,
+    plot_helper,
+    run_custom_fns,
 )
 from utils import extract_data
 
+from cambrian.utils import (
+    get_logger,
+    is_integer,
+    save_data,
+    set_matplotlib_style,
+    try_load_pickle,
+)
+from cambrian.utils.config import MjCambrianConfig, run_hydra
+from cambrian.utils.config.utils import clean_key
 
 # =======================================================
 
@@ -593,6 +592,7 @@ def plot_phylogenetic_tree(config: ParseEvosConfig, data: Data):
 
 def run_render(config: ParseEvosConfig, data: Data):
     import mujoco as mj
+
     from cambrian.renderer import MjCambrianRendererSaveMode
 
     get_logger().info("Rendering data...")
@@ -647,7 +647,6 @@ def run_eval(config: ParseEvosConfig, data: Data):
     # # features_extractors is saved in the model checkpoint
     # import sys
     # from cambrian.ml import features_extractors
-
     # sys.modules["features_extractors"] = features_extractors
 
     get_logger().info("Evaluating model...")

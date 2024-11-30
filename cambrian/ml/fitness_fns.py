@@ -3,9 +3,9 @@ the optimizers to evaluate the fitness of the agents. The fitness functions are
 responsible for loading the evaluations and monitor files and calculating the fitness
 of the agent based on the evaluations."""
 
-from typing import Tuple, TYPE_CHECKING, Dict
-from pathlib import Path
 import csv
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, Tuple
 
 import numpy as np
 
@@ -152,7 +152,7 @@ def fitness_from_monitor(
     if len(rewards) == 0:
         return -float("inf")
 
-    fitness  = top_n_percent(rewards, percent, use_outliers=False, quartiles=quartiles)
+    fitness = top_n_percent(rewards, percent, use_outliers=False, quartiles=quartiles)
     if return_data:
         return fitness, (timesteps, rewards)
     return fitness

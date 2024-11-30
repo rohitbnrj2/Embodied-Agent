@@ -1,20 +1,20 @@
 """Defines agent classes."""
 
-from typing import Dict, Any, List, Tuple, Callable, Self, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Self, Tuple
 
-import numpy as np
 import mujoco as mj
+import numpy as np
 from gymnasium import spaces
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.renderer.render_utils import add_white_border
 from cambrian.utils import (
-    get_body_id,
-    get_geom_id,
-    generate_sequence_from_range,
-    MjCambrianJoint,
     MjCambrianActuator,
     MjCambrianGeometry,
+    MjCambrianJoint,
+    generate_sequence_from_range,
+    get_body_id,
+    get_geom_id,
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
@@ -353,7 +353,8 @@ class MjCambrianAgent:
             List[float]: The action to take.
         """
         raise NotImplementedError(
-            "This method should be overridden by the subclass and should never reach here."
+            "This method should be overridden by the subclass "
+            "and should never reach here."
         )
 
     def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, Any]:

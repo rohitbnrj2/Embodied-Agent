@@ -1,25 +1,25 @@
 """Wrapper around the mujoco viewer for rendering scenes."""
 
-from typing import List, Optional, Tuple, Callable, Dict
 from abc import ABC, abstractmethod
-from pathlib import Path
-from enum import Flag, auto
 from copy import deepcopy
+from enum import Flag, auto
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Tuple
 
 import glfw
-import numpy as np
-import mujoco as mj
-import OpenGL.GL as GL
 import imageio
+import mujoco as mj
+import numpy as np
+import OpenGL.GL as GL
 
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.renderer.render_utils import convert_depth_distances
-from cambrian.utils.logger import get_logger
 from cambrian.utils.config import (
     MjCambrianBaseConfig,
-    config_wrapper,
     MjCambrianFlagWrapperMeta,
+    config_wrapper,
 )
+from cambrian.utils.logger import get_logger
 
 
 class MjCambrianRendererSaveMode(Flag, metaclass=MjCambrianFlagWrapperMeta):

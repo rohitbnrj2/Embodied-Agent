@@ -1,12 +1,11 @@
-from typing import Dict, List, Deque
 import textwrap
+from typing import Deque, Dict, List
 
 import yaml
 
 try:
     import tkinter as tk
-    from tkinter import filedialog
-    from tkinter import ttk
+    from tkinter import filedialog, ttk
 except ImportError:
     print("tkinter is not installed. Please install it to use this script.")
     exit(1)
@@ -101,20 +100,20 @@ class MazeEditor(tk.Tk):
     def create_grid_controls(self):
         # fmt: off
         # Add Row Bottom
-        tk.Button(self, text='+ Row', command=lambda: self.add_row(1)).pack(side=tk.BOTTOM, fill=tk.X)
-        tk.Button(self, text='- Row', command=lambda: self.remove_row(-1)).pack(side=tk.BOTTOM, fill=tk.X)
+        tk.Button(self, text='+ Row', command=lambda: self.add_row(1)).pack(side=tk.BOTTOM, fill=tk.X) # noqa
+        tk.Button(self, text='- Row', command=lambda: self.remove_row(-1)).pack(side=tk.BOTTOM, fill=tk.X) # noqa
 
         # Add Row Top
-        tk.Button(self, text='+ Row', command=lambda: self.add_row(2)).pack(side=tk.TOP, fill=tk.X)
-        tk.Button(self, text='- Row', command=lambda: self.remove_row(-2)).pack(side=tk.TOP, fill=tk.X)
+        tk.Button(self, text='+ Row', command=lambda: self.add_row(2)).pack(side=tk.TOP, fill=tk.X) # noqa
+        tk.Button(self, text='- Row', command=lambda: self.remove_row(-2)).pack(side=tk.TOP, fill=tk.X) # noqa
 
         # Add Column Right
-        tk.Button(self, text='+ Column', command=lambda: self.add_column(1)).pack(side=tk.RIGHT, fill=tk.Y)
-        tk.Button(self, text='- Column', command=lambda: self.remove_column(-1)).pack(side=tk.RIGHT, fill=tk.Y)
+        tk.Button(self, text='+ Column', command=lambda: self.add_column(1)).pack(side=tk.RIGHT, fill=tk.Y) # noqa
+        tk.Button(self, text='- Column', command=lambda: self.remove_column(-1)).pack(side=tk.RIGHT, fill=tk.Y) # noqa
 
         # Add Column Left
-        tk.Button(self, text='+ Column', command=lambda: self.add_column(2)).pack(side=tk.LEFT, fill=tk.Y)
-        tk.Button(self, text='- Column', command=lambda: self.remove_column(-2)).pack(side=tk.LEFT, fill=tk.Y)
+        tk.Button(self, text='+ Column', command=lambda: self.add_column(2)).pack(side=tk.LEFT, fill=tk.Y) # noqa
+        tk.Button(self, text='- Column', command=lambda: self.remove_column(-2)).pack(side=tk.LEFT, fill=tk.Y) # noqa
         # fmt: on
 
     def create_grid(self, add_row: int = 0, add_col: int = 0):

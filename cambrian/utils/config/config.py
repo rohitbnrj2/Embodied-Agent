@@ -1,8 +1,8 @@
-from typing import Optional, Any, TYPE_CHECKING
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Optional
 
-from cambrian.ml.evo import MjCambrianEvoConfig
 from cambrian.envs.env import MjCambrianEnvConfig
+from cambrian.ml.evo import MjCambrianEvoConfig
 from cambrian.utils.config import MjCambrianBaseConfig
 from cambrian.utils.config.utils import config_wrapper, run_hydra
 

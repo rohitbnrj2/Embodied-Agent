@@ -1,24 +1,24 @@
 """Callbacks used during training and/or evaluation."""
 
-from typing import Dict, Any, Iterable
-from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
+import csv
 import glob
 import shutil
-import csv
 import subprocess
+from pathlib import Path
+from typing import Any, Dict, Iterable
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
+from hydra.experimental.callbacks import Callback as HydraCallback
+from omegaconf import DictConfig
 from stable_baselines3.common.callbacks import (
     BaseCallback,
-    EvalCallback,
     CallbackList,
+    EvalCallback,
     ProgressBarCallback,
 )
 from stable_baselines3.common.results_plotter import load_results, ts2xy
-from hydra.experimental.callbacks import Callback as HydraCallback
-from omegaconf import DictConfig
 
 from cambrian.envs import MjCambrianEnv
 from cambrian.ml.model import MjCambrianModel

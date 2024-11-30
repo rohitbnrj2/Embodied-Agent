@@ -1,31 +1,31 @@
-from typing import (
-    Dict,
-    Any,
-    Optional,
-    Self,
-    Type,
-    KeysView,
-    ItemsView,
-    ValuesView,
-    List,
-    Iterator,
-    Tuple,
-)
-from dataclasses import field
-from pathlib import Path
 import enum
 from contextlib import contextmanager
+from dataclasses import field
+from pathlib import Path
+from typing import (
+    Any,
+    Dict,
+    ItemsView,
+    Iterator,
+    KeysView,
+    List,
+    Optional,
+    Self,
+    Tuple,
+    Type,
+    ValuesView,
+)
 
 import hydra_zen as zen
-from hydra.core.utils import setup_globals
 from hydra.core.hydra_config import HydraConfig
+from hydra.core.utils import setup_globals
 from omegaconf import (
-    OmegaConf,
+    MISSING,
     DictConfig,
     ListConfig,
     MissingMandatoryValue,
     Node,
-    MISSING,
+    OmegaConf,
 )
 from omegaconf.errors import ConfigKeyError
 
@@ -302,7 +302,7 @@ class MjCambrianContainerConfig:
     def isinstance(self, type_: Any, **kwargs) -> bool:
         """Wrapper around OmegaConf.isinstance to check if the config is an instance of
         a type."""
-        return type(type_) == self.get_type(**kwargs)
+        return type(type_) == self.get_type(**kwargs)  # noqa
 
     def to_container(
         self, *, use_instantiated: bool = True, **kwargs
@@ -402,7 +402,7 @@ class MjCambrianContainerConfig:
         if assume_one:
             assert (
                 len(result) == 1
-            ), f"Expected one match for {key = }, got {len(result)}."
+            ), f"Expected one match for {key = }, got {len(result)}."  # noqa: E202
             return next(iter(result.values()))[0]
         return result
 
@@ -690,10 +690,11 @@ class MjCambrianDictConfig(MjCambrianContainerConfig, DictConfig):
 class MjCambrianBaseConfig(MjCambrianDictConfig):
     """Base config for all configs.
 
-    Note:
+    .. note::
+
         This class inherits from MjCambrianDictConfig which is a subclass of
-        DictConfig. There are issues with inheriting from DictConfig and instantiating an
-        instance using the hydra instantiate or omegaconf.to_object methods. So these
+        DictConfig. There are issues with inheriting from DictConfig and instantiating
+        an instance using the hydra instantiate or omegaconf.to_object methods. So these
         classes aren't meant to be instantiated, but are used for type hinting and
         validation of the config files.
 
