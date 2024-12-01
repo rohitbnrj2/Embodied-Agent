@@ -42,7 +42,6 @@ extensions = [
     "sphinx.ext.githubpages",
     "autoapi.extension",
     "myst_parser",
-    "sphinxarg.ext",
     "sphinx_copybutton",
 ]
 
