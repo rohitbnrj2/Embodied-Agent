@@ -120,8 +120,8 @@ html_theme_options = {
         </a>
     """,
     "sidebar_hide_name": True,
-    "light_logo": "cc-transparent.png",
-    "dark_logo": "cc-transparent.png",
+    "light_logo": "eye.png",
+    "dark_logo": "eye.png",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
