@@ -19,10 +19,9 @@ class MjCambrianAgentObject(MjCambrianAgent2D):
         self,
         config: MjCambrianAgentConfig,
         name: str,
-        idx: int,
     ):
         assert not config.trainable, "Object agents cannot be trainable"
-        super().__init__(config, name, idx)
+        super().__init__(config, name)
 
     def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
         return []

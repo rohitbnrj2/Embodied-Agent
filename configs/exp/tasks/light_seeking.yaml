@@ -30,39 +30,40 @@ env:
   mazes:
     maze:
       agent_id_map:
-        default: [agent]
-        O: [goal]
+        default: ${glob:agent*,${oc.dict.keys:env.agents}}
+        O: ${glob:goal*,${oc.dict.keys:env.agents}}
 
   reward_fn:
-    reward_for_termination:
-      for_agents: [agent]
     reward_for_truncation:
-      for_agents: [agent]
+      _target_: cambrian.envs.reward_fns.reward_for_truncation
+      _partial_: true
+      reward: -1.0
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
       _partial_: true
       penalty: -1.0
-      for_agents: [agent]
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
     constant_penalty:
       _target_: cambrian.envs.reward_fns.constant_reward
       _partial_: true
       reward: -0.1
-      for_agents: [agent]
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
     reward_euclidean_delta_to_goal:
       _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
       _partial_: true
       factor: 0.25
-      to_agents: [goal]
+      to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
 
   termination_fn:
     # Terminate (i.e. succeed) if the agent is close to the goal
     terminate_if_close_to_goal:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
-      to_agents: [goal]
+      to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
 
 eval_env:
@@ -73,8 +74,8 @@ eval_env:
     respawn_goal_if_agent_close:
       _target_: cambrian.envs.step_fns.step_respawn_agents_if_close_to_agents
       _partial_: true
-      for_agents: [goal]
-      to_agents: [agent]
+      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
+      to_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
 
   reward_fn:
@@ -90,7 +91,7 @@ eval_env:
       # large positive reward for respawning the goal (which happens if the agent is
       # close to it)
       reward: 10.0
-      for_agents: [goal]
+      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
     reward_for_termination:
       # large positive reward for termination; only happens when the agent makes it to
       # the end of the eval episode w/o being close to the adversary
@@ -98,4 +99,3 @@ eval_env:
     penalize_if_has_contacts:
       # large negative reward for contacts
       penalty: -10.0
-      for_agents: [agent]

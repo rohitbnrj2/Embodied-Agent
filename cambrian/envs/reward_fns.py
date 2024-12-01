@@ -2,7 +2,6 @@
 
 from typing import Any, Dict, List, Optional
 
-import mujoco as mj
 import numpy as np
 
 from cambrian.agents import MjCambrianAgent
@@ -22,29 +21,14 @@ def reward_for_termination(
     *,
     reward: float,
     for_agents: Optional[List[str]] = None,
+    scale_by_quickness: bool = False,
 ) -> float:
     """Terminated indicates that the episode was ended early in a success.
     Returns termination_reward if terminated, else reward."""
     if not agent_selected(agent, for_agents):
         return 0.0
-    return reward if terminated else 0.0
-
-
-def reward_for_quick_termination(
-    env: MjCambrianEnv,
-    animal: MjCambrianAgent,
-    terminated: bool,
-    truncated: bool,
-    info: Dict[str, Any],
-    *,
-    reward: float,
-    for_agents: Optional[List[str]] = None,
-) -> float:
-    """Return a reward based on how early the episode was terminated."""
-    if not terminated or not agent_selected(animal, for_agents):
-        return 0.0
-
-    return reward * calc_quickness(env)
+    factor = calc_quickness(env) if scale_by_quickness else 1.0
+    return reward * factor if terminated else 0.0
 
 
 def reward_for_truncation(
@@ -56,12 +40,14 @@ def reward_for_truncation(
     *,
     reward: float,
     for_agents: Optional[List[str]] = None,
+    scale_by_quickness: bool = False,
 ) -> float:
     """Truncated indicates that the episode was ended early in a failure.
     Returns truncation_reward if truncated, else reward."""
     if not agent_selected(agent, for_agents):
         return 0.0
-    return reward if truncated else 0.0
+    factor = calc_quickness(env) if scale_by_quickness else 1.0
+    return reward * factor if truncated else 0.0
 
 
 def euclidean_delta_from_init(
@@ -72,28 +58,12 @@ def euclidean_delta_from_init(
     info: Dict[str, Any],
     *,
     factor: float = 1.0,
-    only_best: bool = False,
     for_agents: Optional[List[str]] = None,
 ) -> float:
-    """
-    Rewards the change in distance over the previous step scaled by the timestep.
+    """Rewards the change in distance over the previous step scaled by the timestep."""
 
-    `only_best` will only reward the agent has moved further from the initial position
-    than any previous position. This requires us to keep around a state of the best
-    position.
-    """
     if not agent_selected(agent, for_agents):
         return 0.0
-
-    if only_best:
-        # Only reward if the current position is further from the initial position than
-        # any previous position. This requires us to keep around a state of the best
-        # position. If the current position is closer, we'll skip this agent.
-        closest_pos = info.setdefault("best_pos", agent.init_pos.copy())
-        if check_if_larger(agent.pos, closest_pos, agent.init_pos):
-            info["best_pos"] = agent.pos.copy()
-        else:
-            return 0.0
 
     return calc_delta(agent, info, agent.init_pos) * factor
 
@@ -108,6 +78,7 @@ def reward_euclidean_delta_to_agents(
     factor: float,
     to_agents: Optional[List[str]] = None,
     for_agents: Optional[List[str]] = None,
+    scale_by_quickness: bool = False,
 ):
     """
     Rewards the change in distance to any enabled agent over the previous step.
@@ -127,7 +98,8 @@ def reward_euclidean_delta_to_agents(
         delta = -factor * calc_delta(agent, info, other_agent.pos)
         accumulated_reward = delta
 
-    return accumulated_reward
+    factor = calc_quickness(env) if scale_by_quickness else 1.0
+    return accumulated_reward * factor
 
 
 def reward_if_agents_respawned(
@@ -162,6 +134,7 @@ def reward_if_close_to_agents(
     for_agents: Optional[List[str]] = None,
     from_agents: Optional[List[str]] = None,
     to_agents: Optional[List[str]] = None,
+    scale_by_quickness: bool = False,
 ) -> float:
     """This reward function rewards the agent if it is close to another agent.
 
@@ -196,7 +169,8 @@ def reward_if_close_to_agents(
             if np.linalg.norm(agent.pos - other_agent.pos) < distance_threshold:
                 accumulated_reward += reward
 
-    return accumulated_reward
+    factor = calc_quickness(env) if scale_by_quickness else 1.0
+    return accumulated_reward * factor
 
 
 def penalize_if_has_contacts(
@@ -207,182 +181,16 @@ def penalize_if_has_contacts(
     info: Dict[str, Any],
     *,
     penalty: float,
-    reward: float = 0.0,
     for_agents: Optional[List[str]] = None,
+    scale_by_quickness: bool = False,
 ) -> float:
     """Penalizes the agent if it has contacts with the ground."""
     # Early exit if the agent is not in the for_agents list
     if for_agents is not None and agent.name not in for_agents:
         return 0
 
-    return penalty if info.get("has_contacts", False) else reward
-
-
-def reward_if_agents_in_view(
-    env: MjCambrianEnv,
-    agent: MjCambrianAgent,
-    terminated: bool,
-    truncated: bool,
-    info: Dict[str, Any],
-    *,
-    reward_in_view: float = 0.0,
-    reward_not_in_view: float = 0.0,
-    from_agents: Optional[List[str]] = None,
-    to_agents: Optional[List[str]] = None,
-    for_agents: Optional[List[str]] = None,
-    hfov: float = 45,
-    scale_by_distance: bool = False,
-) -> float:
-    """This reward function rewards the agent if it is in the view of other agents.
-
-    Keyword Args:
-        reward_in_view (float): The reward to give the agent if it is in view of
-            another agent. Default is 0.
-        reward_not_in_view (float): The reward to give the agent if it is not in view
-            of another agent. Default is 0.
-        from_agents (Optional[List[str]]): The names of the agents that the reward
-            should be calculated from. If None, the reward will be calculated from all
-            agents.
-        to_agents (Optional[List[str]]): The names of the agents that the reward
-            should be calculated to. If None, the reward will be calculated to all
-            agents.
-        for_agents (Optional[List[str]]): The names of the agents that the reward
-            should be calculated for. If None, the reward will be calculated for all
-            agents.
-        hfov (float): The horizontal fov to check whether the to agent is within view
-            of the from agent. Default is 45. This is in degrees.
-        scale_by_distance (bool): Whether to scale the reward by the distance between
-            the agents. Default is False.
-    """
-    # Early exit if the agent is not in the for_agents list
-    if for_agents is not None and agent.name not in for_agents:
-        return 0
-
-    accumulated_reward = 0
-    from_agents = from_agents or list(env.agents.keys())
-    to_agents = to_agents or list(env.agents.keys())
-    for from_agent in [env.agents[name] for name in from_agents]:
-        for to_agent in [env.agents[name] for name in to_agents]:
-            # Check if the to_agent is in view of the from_agent
-            in_view = check_in_view(
-                env.model,
-                env.data,
-                from_agent,
-                to_agent.pos,
-                to_agent.geom.id,
-                hfov=hfov,
-            )
-
-            # Add the reward to the accumulated reward. It may be scaled by the distance
-            # if scale_by_distance is True, but only if the agent is in view.
-            if in_view:
-                dist = np.linalg.norm(to_agent.pos - from_agent.pos)
-                scale = 1 / max(dist, 1) if scale_by_distance else 1
-                reward = reward_in_view * scale
-            else:
-                reward = reward_not_in_view
-            accumulated_reward += reward
-
-    return accumulated_reward
-
-
-def reward_if_facing_agents(
-    env: MjCambrianEnv,
-    agent: MjCambrianAgent,
-    terminated: bool,
-    truncated: bool,
-    info: Dict[str, Any],
-    *,
-    reward_facing: float = 0.0,
-    reward_not_facing: float = 0.0,
-    from_agents: Optional[List[str]] = None,
-    to_agents: Optional[List[str]] = None,
-    for_agents: Optional[List[str]] = None,
-    angle_threshold: float = 45,
-    scale_by_angle: bool = False,
-) -> float:
-    """This reward function rewards the agent for minimizing the angle between the
-    agent's yaw and the yaw of the vector between itself and the agent.
-
-    Keyword Args:
-        reward_facing (float): The reward to give the agent if it is facing the agent.
-            Default is 0.
-        reward_not_facing (float): The reward to give the agent if it is not facing the
-            agent. Default is 0.
-        from_agents (Optional[List[str]]): The names of the agents that the reward
-            should be calculated from. If None, the reward will be calculated from all
-            agents.
-        to_agents (Optional[List[str]]): The names of the agents that the reward
-            should be calculated to. If None, the reward will be calculated to all
-            agents.
-        for_agents (Optional[List[str]]): The names of the agents that the reward
-            should be calculated for. If None, the reward will be calculated for all
-            agents.
-    """
-    # Early exit if the agent is not in the from_agents list
-    if for_agents is not None and agent.name not in for_agents:
-        return 0
-
-    accumulated_reward = 0
-    from_agents = from_agents or list(env.agents.keys())
-    to_agents = to_agents or list(env.agents.keys())
-    for from_agent in [env.agents[name] for name in from_agents]:
-        for to_agent in [env.agents[name] for name in to_agents]:
-            vec = to_agent.pos - from_agent.pos
-            yaw = np.arctan2(agent.mat[1, 0], agent.mat[0, 0])
-            relative_yaw = np.abs(np.arctan2(vec[1], vec[0]) - yaw)
-
-            # Add the reward to the accumulated reward. If the relative yaw is within
-            # the fov of the agent, reward the agent. Otherwise, penalize it.
-            if relative_yaw < np.deg2rad(angle_threshold / 2):
-                reward = reward_facing
-            else:
-                reward = reward_not_facing
-            if scale_by_angle:
-                reward *= 1 - relative_yaw / np.pi
-            accumulated_reward += reward
-
-    return accumulated_reward
-
-
-def reward_speed(
-    env: MjCambrianEnv,
-    agent: MjCambrianAgent,
-    terminated: bool,
-    truncated: bool,
-    info: Dict[str, Any],
-    *,
-    reward: float,
-    for_agents: Optional[List[str]] = None,
-    inverse: bool = False,
-    clip: bool = True,
-) -> float:
-    """Rewards the agent for moving quickly."""
-    # Early exit if the agent is not in the for_agents list
-    if for_agents is not None and agent.name not in for_agents:
-        return 0
-
-    reward = reward * agent.speed if not inverse else reward / (agent.speed + 1e-6)
-    if clip:
-        reward = np.clip(reward, -1, 1)
-    return reward
-
-
-def constant_reward(
-    env: MjCambrianEnv,
-    agent: MjCambrianAgent,
-    terminated: bool,
-    truncated: bool,
-    info: Dict[str, Any],
-    *,
-    reward: float,
-    for_agents: Optional[List[str]] = None,
-) -> float:
-    """Returns a constant reward."""
-    # Early exit if the agent is not in the for_agents list
-    if for_agents is not None and agent.name not in for_agents:
-        return 0
-    return reward
+    factor = calc_quickness(env) if scale_by_quickness else 1.0
+    return penalty * factor if info.get("has_contacts", False) else 0.0
 
 
 def reward_combined(
@@ -442,39 +250,3 @@ def check_if_larger(
 def calc_quickness(env: MjCambrianEnv) -> float:
     """Calculates the quickness of the agent."""
     return max(env.max_episode_steps - env.episode_step, 0.0) / env.max_episode_steps
-
-
-def check_in_view(
-    model: mj.MjModel,
-    data: mj.MjData,
-    from_pos: np.ndarray,
-    from_yaw: float,
-    to_pos: np.ndarray,
-    to_geomid: int,
-    hfov: float = 45,
-    geomgroup_mask: int = 0,
-) -> bool:
-    """Checks if the to_pos is in the field of view of the agent."""
-    vec = to_pos - from_pos
-    relative_yaw = np.arctan2(vec[1], vec[0]) - from_yaw - np.pi / 2
-    relative_yaw = (relative_yaw + np.pi) % (2 * np.pi) - np.pi
-
-    # Early exit if the to_pos isn't within view of the from_pos
-    if np.abs(relative_yaw) > np.deg2rad(hfov) / 2:
-        return False
-
-    # Now we'll trace a ray between the two points to check if there are any obstacles
-    geomid = np.zeros(1, np.int32)
-    mj.mj_ray(
-        model,
-        data,
-        from_pos,
-        vec,
-        geomgroup_mask,  # can use to mask out agents to avoid self-collision
-        1,  # include static geometries
-        -1,  # include all bodies
-        geomid,
-    )
-
-    # If the ray hit the to geom, then the to_pos is in view
-    return geomid[0] == to_geomid

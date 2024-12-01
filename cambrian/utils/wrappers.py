@@ -49,7 +49,7 @@ class MjCambrianSingleAgentEnvWrapper(gym.Wrapper):
 
 class MjCambrianPettingZooEnvWrapper(gym.Wrapper):
     """Wrapper around the MjCambrianEnv that acts as if there is a single agent, where
-    in actuallity, there's multi-agents.
+    in actuality, there's multi-agents.
 
     SB3 doesn't support Dict action spaces, so this wrapper will flatten the action
     into a single space. The observation can be a dict; however, nested dicts are not
@@ -83,6 +83,7 @@ class MjCambrianPettingZooEnvWrapper(gym.Wrapper):
         action = {
             agent_name: action[:, i]
             for i, agent_name in enumerate(self.env.agents.keys())
+            if self.env.agents[agent_name].config.trainable
         }
 
         obs, reward, terminated, truncated, info = self.env.step(action)
@@ -111,6 +112,10 @@ class MjCambrianPettingZooEnvWrapper(gym.Wrapper):
         name."""
         observation_space: Dict[str, gym.Space] = {}
         for agent in self.env.agents.values():
+            # Ignore non-trainable agents
+            if not agent.config.trainable:
+                continue
+
             agent_observation_space = self.env.observation_space(agent.name)
             if isinstance(agent_observation_space, gym.spaces.Dict):
                 for key, value in agent_observation_space.spaces.items():

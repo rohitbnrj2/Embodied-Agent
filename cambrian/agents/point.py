@@ -92,12 +92,11 @@ class MjCambrianAgentPointPrey(MjCambrianAgentPoint):
         self,
         config: MjCambrianAgentConfig,
         name: str,
-        idx: int,
         *,
         predators: List[str],
         speed: float = -0.8,
     ):
-        super().__init__(config, name, idx)
+        super().__init__(config, name)
 
         self._predators = predators
         self._speed = speed
@@ -140,14 +139,13 @@ class MjCambrianAgentPointMazeOptimal(MjCambrianAgentPoint):
         self,
         config: MjCambrianAgentConfig,
         name: str,
-        idx: int,
         *,
         target: str,
         speed: float = -0.75,
         distance_threshold: float = 2.0,
-        use_optimal_trajectory: bool = True,
+        use_optimal_trajectory: bool = False,
     ):
-        super().__init__(config, name, idx)
+        super().__init__(config, name)
 
         self._target = target
         self._speed = speed
@@ -211,13 +209,12 @@ class MjCambrianAgentPointMazeRandom(MjCambrianAgentPoint):
         self,
         config: MjCambrianAgentConfig,
         name: str,
-        idx: int,
         *,
         speed: float = -0.825,
         distance_threshold: float = 4.0,
         use_optimal_trajectory: bool = True,
     ):
-        super().__init__(config, name, idx)
+        super().__init__(config, name)
 
         self._speed = speed
         self._distance_threshold = distance_threshold

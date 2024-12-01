@@ -1,8 +1,0 @@
-# @package _global_
-
-defaults:
-  - /exp/tasks/tracking
-  - /exp/tasks/mutations/groupings/numeyes1_res0_stacksize
-  - /exp/tasks/constraints/total_memory_throughput
-
-  - /exp/environmental_effects/environmental_effects

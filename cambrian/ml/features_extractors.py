@@ -91,7 +91,8 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
                         image_space = subspace
                     assert (
                         image_space.shape == subspace.shape
-                    ), "All the image spaces must have the same shape"
+                    ), "All the image spaces must have the same shape if "
+                    "using shared image extractor"
             assert image_space is not None, "There must be at least one image space"
             self._image_extractor = image_extractor(image_space)
 

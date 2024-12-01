@@ -1,0 +1,13 @@
+# @package _global_
+
+defaults:
+  - /exp/tasks/detection
+
+  # Define a second point agent with a single eye
+  - /env/agents@env.agents.agent1: point
+  - /env/agents/eyes@env.agents.agent1.eyes.eye: eye
+
+  # We also need to add a petting zoo env wrapper
+  # This enables multi-agent training in stable baselines
+  # This overrides the current single_agent_env_wrapper at wrappers1
+  - override /trainer/wrappers@trainer.wrappers.wrapper1: petting_zoo_env_wrapper

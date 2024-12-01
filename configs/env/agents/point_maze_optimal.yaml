@@ -6,4 +6,3 @@ use_privileged_action: true
 instance:
   _target_: cambrian.agents.MjCambrianAgentPointMazeOptimal
   _partial_: true
-  target: goal # assumes goal, can change via overrides

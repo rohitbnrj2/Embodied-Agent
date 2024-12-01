@@ -46,6 +46,7 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
             this attribute, as in if `trainable` is False, this attribute is ignored.
         overlay_color (Tuple[float, float, float, float]): The color to
             use in the visualization of the agent.
+        overlay_size (float): The size of the overlay in the visualization of the agent.
 
         xml (MjCambrianXMLConfig): The xml for the agent. This is the xml that will be
             used to create the agent. You should use ${parent:xml} to generate
@@ -102,6 +103,7 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
     trainable: bool
     use_privileged_action: bool
     overlay_color: Tuple[float, float, float, float]
+    overlay_size: float
 
     xml: MjCambrianXMLConfig
 
@@ -141,13 +143,11 @@ class MjCambrianAgent:
         config (MjCambrianAgentConfig): The configuration for the agent.
         name (str): The name of the agent. This is used to identify the agent in the
             environment.
-        idx (int): The index of the agent. This is used to hide geometry groups.
     """
 
-    def __init__(self, config: MjCambrianAgentConfig, name: str, idx: int):
+    def __init__(self, config: MjCambrianAgentConfig, name: str):
         self._config = self._check_config(config)
         self._name = name
-        self._idx = idx
         self._logger = get_logger()
 
         self._eyes: Dict[str, MjCambrianEye] = {}
@@ -218,12 +218,8 @@ class MjCambrianAgent:
         assert geom_id != -1, f"Could not find geom {self._config.geom_name}."
         geom_rbound = model.geom_rbound[geom_id]
         geom_pos = model.geom_pos[geom_id]
-        # Set each geom in this agent to be a certain group for rendering utils
-        # The group number is the index the agent was created + 3
-        # + 3 because the default group used in mujoco is 0 and our agent indexes start
-        # at 0 and we'll put our scene stuff on group 1 and hidden stuff on 2.
-        geom_group = self._idx + 3
-        self._geom = MjCambrianGeometry(geom_id, geom_rbound, geom_pos, geom_group)
+
+        self._geom = MjCambrianGeometry(geom_id, geom_rbound, geom_pos)
 
     def _parse_actuators(self, model: mj.MjModel):
         """Parse the current model/xml for the actuators.
@@ -316,11 +312,6 @@ class MjCambrianAgent:
         """
         xml = MjCambrianXML.from_string(self._config.xml)
 
-        # Update the geom group. See comment in _parse_geometry for more info.
-        for geom in xml.findall(f".//*[@name='{self._config.body_name}']//geom"):
-            if geom.get("group") is None:
-                geom.set("group", str(self._geom.group))
-
         # Add eyes
         for eye in self.eyes.values():
             xml += eye.generate_xml(xml, self.geom, self._config.body_name)
@@ -391,10 +382,6 @@ class MjCambrianAgent:
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
             obs[name] = eye.reset(model, data)
-
-        # Update the eyes to hide all the geometries from this agent
-        for eye in self.eyes.values():
-            eye.renderer.viewer.scene_options.geomgroup[self.geom.group] = False
 
         return self._update_obs(obs)
 
@@ -724,13 +711,9 @@ class MjCambrianAgent:
         return self._geom
 
     @property
-    def geomgroup_mask(self) -> np.ndarray:
-        """Returns the geomgroup mask for the agent. Length of the output array is
-        6. 1 indicates include, and 0 indicates ignore. This mask ignores the current
-        agents geomgroup."""
-        geomgroup = np.ones(6, np.uint8)
-        geomgroup[self.geom.group] = 0
-        return geomgroup
+    def trainable(self) -> bool:
+        """Returns whether the agent is trainable or not."""
+        return self._config.trainable
 
 
 class MjCambrianAgent2D(MjCambrianAgent):

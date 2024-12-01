@@ -1,8 +1,0 @@
-# @package _global_
-
-defaults:
-  - /exp/tasks/navigation
-  - /exp/tasks/mutations/groupings/numeyes1_res0_netarchpi
-  - /exp/tasks/constraints/total_pixels
-
-  - /exp/environmental_effects/environmental_effects

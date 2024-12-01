@@ -21,7 +21,6 @@ defaults:
 
   # Define two objects: a goal and an adversary
   - /env/agents@env.agents.adversary0: object_sphere_textured_adversary
-  - /env/agents@env.agents.adversary1: object_sphere_textured_adversary
   - /env/agents@env.agents.goal0: object_sphere_textured_goal
 
 custom:
@@ -39,30 +38,24 @@ env:
     maze:
       scale: 2.0
       agent_id_map:
-        default: [agent]
+        default: ${glob:agent*,${oc.dict.keys:env.agents}}
         O: ${glob:goal*|adversary*,${oc.dict.keys:env.agents}}
 
   reward_fn:
-    reward_for_termination:
-      reward: 0.0
-      for_agents: [agent]
     reward_for_truncation:
+      _target_: cambrian.envs.reward_fns.reward_for_truncation
+      _partial_: true
       reward: -1.0
-      for_agents: [agent]
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
     reward_if_close_to_agents:
       _target_: cambrian.envs.reward_fns.reward_if_close_to_agents
       _partial_: true
       reward: 1.0
-      for_agents: [agent]
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
       to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
-
-    reward_for_quick_termination:
-      _target_: cambrian.envs.reward_fns.reward_for_quick_termination
-      _partial_: true
-      for_agents: [agent]
-      reward: 2.0
+      scale_by_quickness: True
 
     reward_euclidean_delta_to_goal:
       _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
@@ -74,7 +67,7 @@ env:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
       _partial_: true
       penalty: -1.0
-      for_agents: [agent]
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
   truncation_fn:
     truncate_if_close_to_adversary:
@@ -100,7 +93,7 @@ eval_env:
       _target_: cambrian.envs.step_fns.step_respawn_agents_if_close_to_agents
       _partial_: true
       for_agents: ${glob:goal*|adversary*,${oc.dict.keys:env.agents}}
-      to_agents: [agent]
+      to_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
 
   reward_fn:

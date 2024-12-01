@@ -44,17 +44,21 @@ env:
       scale: 2.0
 
       agent_id_map:
-        default: [agent]
-        E: [agent]
+        default: ${glob:agent*,${oc.dict.keys:env.agents}}
+        E: ${glob:agent*,${oc.dict.keys:env.agents}}
         O: ${glob:goal*,${oc.dict.keys:env.agents}}
 
   reward_fn:
     reward_for_termination:
-      for_agents: [agent]
+      _target_: cambrian.envs.reward_fns.reward_for_termination
+      _partial_: true
       reward: 1.0
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
     reward_for_truncation:
-      for_agents: [agent]
+      _target_: cambrian.envs.reward_fns.reward_for_truncation
+      _partial_: true
       reward: -1.0
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
     euclidean_delta_from_init:
       _target_: cambrian.envs.reward_fns.euclidean_delta_from_init
@@ -65,7 +69,7 @@ env:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
       _partial_: true
       penalty: -1.0
-      for_agents: [agent]
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
   truncation_fn:
     truncate_if_low_reward:
@@ -86,8 +90,8 @@ eval_env:
       agent_id_map:
         # Update the default map such that the agent is only placed on R:E spaces
         default: []
-        E: [agent]
-        O: [goal]
+        E: ${glob:agent*,${oc.dict.keys:env.agents}}
+        O: ${glob:goal*,${oc.dict.keys:env.agents}}
 
   step_fn:
     # respawn the goal if the agent is close to it
@@ -95,7 +99,7 @@ eval_env:
       _target_: cambrian.envs.step_fns.step_respawn_agents_if_close_to_agents
       _partial_: true
       for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
-      to_agents: [agent]
+      to_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
 
   reward_fn:

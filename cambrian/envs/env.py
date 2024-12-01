@@ -14,7 +14,7 @@ from typing import (
 
 import mujoco as mj
 import numpy as np
-from gymnasium import spaces
+from gymnasium import Env, spaces
 from pettingzoo import ParallelEnv
 
 from cambrian.agents.agent import MjCambrianAgent, MjCambrianAgentConfig
@@ -86,17 +86,14 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         n_eval_episodes (int): The number of episodes to evaluate for.
 
         add_overlays (bool): Whether to add overlays or not.
-        add_position_tracking_overlay (bool): Whether to add a position tracking overlay
-            or not. This will draw the position of the agent on the screen. If
-            `add_overlays` is False, this will be ignored.
         add_debug_overlay (bool): Whether to add a debug overlay or not. This will draw
             debug information on the screen. If `add_overlays` is False, this will be
             ignored.
         clear_overlays_on_reset (bool): Whether to clear the overlays on reset or not.
-            Consequence of setting to False is that if `add_position_tracking_overlay`
-            is True and mazes change between evaluations, the sites will be drawn on top
+            Consequence of setting to False is that when drawing position overlays
+            and when mazes change between evaluations, the sites will be drawn on top
             of each other which may not be desired. When record is False, the overlays
-            are always cleared.
+            are always be cleared.
         render_agent_composite_only (Optional[bool]): If set, will only render the
             composite image all agents.
         renderer (Optional[MjCambrianViewerConfig]): The default viewer config to
@@ -126,7 +123,6 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     n_eval_episodes: int
 
     add_overlays: bool
-    add_position_tracking_overlays: bool
     add_debug_overlays: bool
     clear_overlays_on_reset: bool
     render_agent_composite_only: Optional[bool] = None
@@ -137,7 +133,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     agents: Dict[str, MjCambrianAgentConfig | Any]
 
 
-class MjCambrianEnv(ParallelEnv):
+class MjCambrianEnv(ParallelEnv, Env):
     """A MjCambrianEnv defines a gymnasium environment that's based off mujoco.
 
     NOTES:
@@ -204,9 +200,9 @@ class MjCambrianEnv(ParallelEnv):
 
     def _create_agents(self):
         """Helper method to create the agents."""
-        for i, (name, agent_config) in enumerate(self._config.agents.items()):
-            assert name not in self._agents
-            self._agents[name] = agent_config.instance(agent_config, name, i)
+        for name, agent_config in self._config.agents.items():
+            assert name not in self._agents, f"Agent {name} already exists."
+            self._agents[name] = agent_config.instance(agent_config, name)
 
     def generate_xml(self) -> MjCambrianXML:
         """Generates the xml for the environment."""
@@ -431,7 +427,7 @@ class MjCambrianEnv(ParallelEnv):
 
         return rewards
 
-    def render(self) -> Dict[str, np.ndarray]:
+    def render(self) -> np.ndarray:
         """Renders the environment.
 
         Returns:
@@ -445,50 +441,51 @@ class MjCambrianEnv(ParallelEnv):
         assert self._renderer is not None, "Renderer has not been initialized! "
         "Ensure `use_renderer` is set to True in the constructor."
 
-        renderer = self._renderer
-        renderer_width = renderer.width
-        renderer_height = renderer.height
-
         if self._config.render_agent_composite_only:
-            # NOTE: Uses the first agent
-            agent = next(iter(self._agents.values()))
-            if (composite := agent.create_composite_image()) is None:
-                composite = np.zeros((1, 1, 3), dtype=np.float32)
+            return self._render_agent_composite_only()
 
-            composite = np.flipud(composite)
-            composite = np.transpose(composite, (1, 0, 2))
-            composite = resize_with_aspect_fill(
-                composite, renderer_width, renderer_height
-            )
-            if renderer._record:
-                renderer._rgb_buffer.append(composite)
-            return composite
+        overlays = None
+        if self._config.add_overlays:
+            overlays = self._generate_overlays()
 
-        if not self._config.add_overlays:
-            return renderer.render()
+        return self._renderer.render(overlays=overlays)
 
-        if self._config.add_position_tracking_overlays:
-            # Add site overlays for each agent
-            i = self._num_resets * self._max_episode_steps + self._episode_step
-            size = self._model.stat.extent * 5e-3
-            for agent in self._agents.values():
-                # Define a unique id for the site
-                key = f"{agent.name}_pos_{i}"
+    def _render_agent_composite_only(self) -> Dict[str, np.ndarray]:
+        """Renders the composite image for the first agent only."""
+        agent = next(iter(self._agents.values()))
+        composite = agent.create_composite_image()
+        if composite is None:
+            composite = np.zeros((1, 1, 3), dtype=np.float32)
+        composite = np.flipud(composite)
+        composite = np.transpose(composite, (1, 0, 2))
+        composite = resize_with_aspect_fill(
+            composite, self._renderer.width, self._renderer.height
+        )
+        if self.record:
+            # TODO: uses hidden attribute
+            self._renderer._rgb_buffer.append(composite)
+        return composite
 
-                # If the agent is contacting an object, the color will be red; blue
-                # otherwise
-                # Flip the color if it has contacts
-                color = tuple(agent.config.overlay_color)
-                if self._info[agent.name].get("has_contacts", False):
-                    color = (1 - color[0], 1 - color[1], 1 - color[2], 1)
-
-                # Add the overlay
-                overlay = MjCambrianSiteViewerOverlay(agent.pos.copy(), color, size)
-                self._overlays[key] = overlay
-
+    def _generate_overlays(self) -> List[MjCambrianViewerOverlay]:
+        # First add site overlays for each agent
         overlays: List[MjCambrianViewerOverlay] = []
+        i = self._num_resets * self._max_episode_steps + self._episode_step
+        for agent in self._agents.values():
+            # Define a unique name so that the overlays don't get removed
+            key = f"{agent.name}_pos_{i}"
 
-        cursor = MjCambrianCursor(x=0, y=renderer_height - TEXT_MARGIN * 2)
+            # If the agent is contacting an object, the color will be flipped
+            color = tuple(agent.config.overlay_color)
+            if self._info[agent.name].get("has_contacts", False):
+                color = (1 - color[0], 1 - color[1], 1 - color[2], 1)
+
+            # Add the overlay
+            size = agent.config.overlay_size
+            overlay = MjCambrianSiteViewerOverlay(agent.pos.copy(), color, size)
+            self._overlays[key] = overlay
+
+        # Add overlays defined by the user
+        cursor = MjCambrianCursor(x=0, y=self._renderer.height - TEXT_MARGIN * 2)
         for key, value in self._overlays.items():
             if issubclass(type(value), MjCambrianViewerOverlay):
                 overlays.append(value)
@@ -496,67 +493,67 @@ class MjCambrianEnv(ParallelEnv):
                 cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
                 overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
 
-        if not self._config.add_debug_overlays:
-            return renderer.render(overlays=overlays)
+        if self._config.add_debug_overlays:
+            renderer_width = self._renderer.width
+            renderer_height = self._renderer.height
 
-        # Set the overlay size to be a fraction of the renderer size relative to
-        # the agent count. The overlay height will be set to 35% of the renderer from
-        # the bottom
-        num_agents = len([a for a in self._agents.values() if a.config.trainable])
-        overlay_width = int(renderer_width // num_agents) if num_agents > 0 else 0
-        overlay_height = int(renderer_height * 0.35)
-        overlay_size = (overlay_width, overlay_height)
+            # Set the overlay size to be a fraction of the renderer size relative to
+            # the agent count. The overlay height will be set to 35% of the renderer
+            # from the bottom
+            num_agents = len([a for a in self._agents.values() if a.trainable])
+            overlay_width = int(renderer_width // num_agents) if num_agents > 0 else 0
+            overlay_height = int(renderer_height * 0.35)
+            overlay_size = (overlay_width, overlay_height)
 
-        cursor = MjCambrianCursor(0, 0)
-        for i, (name, agent) in enumerate(self._agents.items()):
-            if not agent.config.trainable:
-                continue
+            cursor = MjCambrianCursor(0, 0)
+            trainable_agents = {n: a for n, a in self._agents.items() if a.trainable}
+            for i, (name, agent) in enumerate(trainable_agents.items()):
+                cursor.x = i * overlay_width
+                cursor.y = 0
+                if cursor.x + overlay_width > renderer_width:
+                    self._logger.warning("Renderer width is too small!!")
+                    continue
 
-            cursor.x = i * overlay_width
-            cursor.y = 0
-            if cursor.x + overlay_width > renderer_width:
-                self._logger.warning("Renderer width is too small!!")
-                continue
+                if (composite := agent.create_composite_image()) is None:
+                    # Make the composite image black so we can still render other
+                    # overlays
+                    composite = np.zeros((1, 1, 3), dtype=np.float32)
 
-            if (composite := agent.create_composite_image()) is None:
-                # Make the composite image black so we can still render other overlays
-                composite = np.zeros((1, 1, 3), dtype=np.float32)
+                # NOTE: flipud here since we always flipud when copying buffer from gpu,
+                # and when reading the buffer again after drawing the overlay, it will
+                # be flipped again. Flipping here means it will be the right side up.
+                # Do the same with transpose
+                new_composite = np.transpose(composite, (1, 0, 2))
+                new_composite = resize_with_aspect_fill(new_composite, *overlay_size)
+                new_composite = np.flipud(new_composite)
 
-            # NOTE: flipud here since we always flipud when copying buffer from gpu,
-            # and when reading the buffer again after drawing the overlay, it will be
-            # flipped again. Flipping here means it will be the right side up. Do the
-            # same with transpose
-            new_composite = np.transpose(composite, (1, 0, 2))
-            new_composite = resize_with_aspect_fill(new_composite, *overlay_size)
-            new_composite = np.flipud(new_composite)
+                overlay = MjCambrianImageViewerOverlay(new_composite * 255.0, cursor)
+                overlays.append(overlay)
 
-            overlays.append(MjCambrianImageViewerOverlay(new_composite * 255.0, cursor))
-
-            cursor.x -= TEXT_MARGIN
-            cursor.y -= TEXT_MARGIN
-            overlay_text = f"Num Eyes: {agent.num_eyes}"
-            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-            cursor.y += TEXT_HEIGHT
-            if agent.num_eyes > 0:
-                eye0 = next(iter(agent.eyes.values()))
-                overlay_text = f"Res: {tuple(eye0.config.resolution)}"
+                cursor.x -= TEXT_MARGIN
+                cursor.y -= TEXT_MARGIN
+                overlay_text = f"Num Eyes: {agent.num_eyes}"
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
                 cursor.y += TEXT_HEIGHT
-                overlay_text = f"FOV: {tuple(f'{f:.2f}' for f in eye0.config.fov)}"
+                if agent.num_eyes > 0:
+                    eye0 = next(iter(agent.eyes.values()))
+                    overlay_text = f"Res: {tuple(eye0.config.resolution)}"
+                    overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
+                    cursor.y += TEXT_HEIGHT
+                    overlay_text = f"FOV: {tuple(f'{f:.2f}' for f in eye0.config.fov)}"
+                    overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
+                    cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
+                overlay_text = f"agent: {name}"
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-                cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
-            overlay_text = f"agent: {name}"
-            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-            overlay_text = (
-                f"Action: {', '.join([f'{a: .3f}' for a in agent.last_action])}"
-            )
-            cursor.y -= TEXT_HEIGHT
-            overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
+                overlay_text = (
+                    f"Action: {', '.join([f'{a: .3f}' for a in agent.last_action])}"
+                )
+                cursor.y -= TEXT_HEIGHT
+                overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
 
-            cursor.x += overlay_width
-            cursor.y = 0
+                cursor.x += overlay_width
 
-        return renderer.render(overlays=overlays)
+        return overlays
 
     @property
     def name(self) -> str:
@@ -594,11 +591,6 @@ class MjCambrianEnv(ParallelEnv):
         return self._episode_step
 
     @property
-    def num_resets(self) -> int:
-        """Returns the number of resets."""
-        return self._num_resets
-
-    @property
     def num_timesteps(self) -> int:
         """Returns the number of timesteps."""
         return self._num_timesteps
@@ -614,11 +606,6 @@ class MjCambrianEnv(ParallelEnv):
         return self._overlays
 
     @property
-    def extent(self) -> float:
-        """Returns the extent of the environment."""
-        return self._model.stat.extent
-
-    @property
     def cumulative_reward(self) -> float:
         """Returns the cumulative reward."""
         return self._cumulative_reward
@@ -627,14 +614,6 @@ class MjCambrianEnv(ParallelEnv):
     def stashed_cumulative_reward(self) -> float:
         """Returns the previous cumulative reward."""
         return self._stashed_cumulative_reward
-
-    # @property
-    # def agents(self) -> List[str]:
-    #     """Returns the agents in the environment.
-
-    #     This is part of the PettingZoo API.
-    #     """
-    #     return list(self._agents.keys())
 
     @property
     def num_agents(self) -> int:

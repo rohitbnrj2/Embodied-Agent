@@ -1,7 +1,6 @@
 # @package _global_
 
-# Base working configuration for _most_ detection tasks (depending on frequency and
-# possibly other factors)
+# Base working configuration for _most_ navigation tasks
 
 defaults:
   - simple

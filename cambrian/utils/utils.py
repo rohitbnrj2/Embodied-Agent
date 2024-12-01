@@ -358,13 +358,11 @@ class MjCambrianGeometry:
         id (int): The Mujoco geometry ID (index into model.geom_* arrays).
         rbound (float): The radius of the geometry's bounding sphere.
         pos (np.ndarray): The position of the geometry relative to the body.
-        group (int): The geometry group the geometry belongs to.
     """
 
     id: int
     rbound: float
     pos: np.ndarray
-    group: int
 
 
 # ============
