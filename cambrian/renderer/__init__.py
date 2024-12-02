@@ -1,3 +1,5 @@
+"""This module defines the Cambrian renderer."""
+
 # MuJoCo supports specifying the MuJoCo OpenGL backend via the MUJOCO_GL environment
 # variable. On Mac, Only the `cgl` backend is instantiated even though glfw is
 # supported. We'll override the default backend to use glfw instead of cgl if the

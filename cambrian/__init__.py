@@ -1,3 +1,5 @@
+"""Cambrian package init file."""
+
 import signal
 
 import cambrian.agents  # noqa

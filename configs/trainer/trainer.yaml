@@ -10,3 +10,5 @@ defaults:
 total_timesteps: 1_000_000
 max_episode_steps: 256
 n_envs: 5
+
+prune_fn: null

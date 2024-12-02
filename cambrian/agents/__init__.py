@@ -1,3 +1,5 @@
+"""This module defines the Cambrian agents."""
+
 from cambrian.agents.agent import (
     MjCambrianAgent,
     MjCambrianAgent2D,

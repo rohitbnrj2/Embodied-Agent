@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
-from cambrian.eyes import MjCambrianEye, MjCambrianEyeConfig
+from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.utils import get_logger, make_odd
 from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 

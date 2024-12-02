@@ -1,3 +1,5 @@
+"""This module defines the Cambrian config utilities."""
+
 from typing import TYPE_CHECKING
 
 import cambrian.utils.config.resolvers  # noqa: F401

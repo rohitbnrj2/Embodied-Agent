@@ -2,7 +2,6 @@ defaults:
   # Specify the config group (i.e. the class to instantiate this config as)
   - /MjCambrianConfig
 
-
   # Ordered such that subsequent defaults override self
   # - eval_env: eval_env
   - _self_
