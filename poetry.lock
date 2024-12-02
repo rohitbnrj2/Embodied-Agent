@@ -3013,6 +3013,25 @@ standalone = ["Sphinx (>=5)"]
 test = ["pytest"]
 
 [[package]]
+name = "sphinxcontrib-video"
+version = "0.3.1"
+description = "Allows embedding of HTML5 videos in sphinx"
+optional = false
+python-versions = ">=3.6.9"
+files = [
+    {file = "sphinxcontrib_video-0.3.1-py3-none-any.whl", hash = "sha256:953450be3491241c7de889eeba15cd08fc4abab558963694154446b1167264c7"},
+    {file = "sphinxcontrib_video-0.3.1.tar.gz", hash = "sha256:d574467ebc36cb71af0326048dc96bb8dc7c73608f056de90f0df178fd80ac31"},
+]
+
+[package.dependencies]
+sphinx = "*"
+
+[package.extras]
+dev = ["mypy", "nox", "pre-commit"]
+doc = ["pydata-sphinx-theme", "sphinx-design"]
+test = ["beautifulsoup4", "defusedxml", "pytest", "pytest-cov", "pytest-regressions"]
+
+[[package]]
 name = "stable-baselines3"
 version = "2.4.0"
 description = "Pytorch version of Stable Baselines, implementations of reinforcement learning algorithms."
@@ -3549,4 +3568,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<4.0"
-content-hash = "cd0c5d86ef3bb136f1f4f4c82a23dc0466d36c45a799a2c0418f71c72eaab722"
+content-hash = "b0f97f7e934dfb164a6fc2865c903acc946fc40a5b13ca2659cdbdeef1100990"

@@ -41,6 +41,7 @@ extensions = [
     "autoapi.extension",
     "myst_parser",
     "sphinx_copybutton",
+    "sphinxcontrib.video",
 ]
 
 # autoapi config
