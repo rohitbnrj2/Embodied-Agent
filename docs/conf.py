@@ -23,11 +23,10 @@ sys.setrecursionlimit(1500)
 
 # -- Project information -----------------------------------------------------
 
-project = "ACI"
+project = "cambrian"
 copyright = f"{date.today().year}, Camera Culture, MIT Media Lab"
 author = "Camera Culture, MIT Media Lab"
-
-release = get_version("cambrian")
+release = get_version(project)
 
 # -- General configuration ---------------------------------------------------
 
@@ -35,7 +34,6 @@ release = get_version("cambrian")
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    # "rinoh.frontend.sphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
@@ -68,6 +66,7 @@ autoapi_root = "reference/api/"
 # suppress_warnings = ["autoapi"]
 
 add_module_names = False
+autodoc_typehints = "none"
 
 # Napoleon
 napoleon_google_docstring = True
