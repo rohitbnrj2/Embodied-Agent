@@ -5,4 +5,6 @@
 SCRIPT=$1
 shift
 
-MUJOCO_GL=${MUJOCO_GL:-egl} python "$SCRIPT" "$@"
+MUJOCO_GL=${MUJOCO_GL:-egl} python "$SCRIPT" \
+    hydra.sweeper.params='${clear:}' +hydra.sweeper.optim.max_batch_size=null hydra/sweeper=basic \
+    "$@"

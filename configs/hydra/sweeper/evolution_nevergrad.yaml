@@ -58,7 +58,7 @@ optim:
   # Set the max failures to be equivalent to one node's worth of workers. This is
   # because if one node fails, we want to be able to restart the job with the same
   # parameters on a different node.
-  max_failure_rate: ${eval:'${oc.select:hydra.launcher.tasks_per_node, 1} / ${evo.population_size}'}
+  max_failure_rate: ${eval:'${oc.select:hydra.launcher.tasks_per_node, 1} / ${oc.select:evo.population_size, 1}'}
 
   # Load the nevergrad pkl, if it exists. This makes resuming a failed evo possible.
   load_if_exists: ${path:${logdir},nevergrad.pkl}
