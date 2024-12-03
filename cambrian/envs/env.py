@@ -703,7 +703,7 @@ class MjCambrianEnv(ParallelEnv, Env):
         if not self.record:
             self._rollout.clear()
 
-    def save(self, path: str | Path, *, save_pkl: bool = True, **kwargs):
+    def save(self, path: str | Path, *, save_pkl: bool = False, **kwargs):
         """Saves the simulation output to the given path."""
         self._renderer.save(path, **kwargs)
 

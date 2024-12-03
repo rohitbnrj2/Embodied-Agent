@@ -36,13 +36,15 @@ def main(config: MjCambrianConfig, *, folder_path: Optional[Path] = None):
                 [
                     f"env.agents.agent.eyes.eye.num_eyes[0]={num_eyes}",
                     f"env.agents.agent.eyes.eye.resolution=[{resolution},{resolution}]",
+                    f"eval_env.agents.agent.eyes.eye.num_eyes[0]={num_eyes}",
+                    f"eval_env.agents.agent.eyes.eye.resolution=[{resolution},{resolution}]",  # noqa
                 ]
             )
         trainer = MjCambrianTrainer(config)
         start_time = time.time()
         process = psutil.Process()
         initial_ram = process.memory_info().rss
-        trainer.eval(record=False)
+        trainer.eval()
         elapsed_time = time.time() - start_time
         ram_used = process.memory_info().rss - initial_ram
         return elapsed_time, ram_used / (1024**2)  # Convert to MB

@@ -25,6 +25,7 @@ from cambrian.utils.logger import get_logger
 class MjCambrianRendererSaveMode(Flag, metaclass=MjCambrianFlagWrapperMeta):
     """The save modes for saving rendered images."""
 
+    NONE = auto()
     GIF = auto()
     MP4 = auto()
     PNG = auto()
