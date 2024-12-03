@@ -162,16 +162,17 @@ class MjCambrianEvalCallback(EvalCallback):
 
         # Set temporary attributes for the evaluation
         temp_attrs = []
-        temp_attrs.append((env, dict(record=True, maze=None)))
+        temp_attrs.append((env, dict(record=self.render, maze=None)))
 
         # Run the evaluation
         with setattrs_temporary(*temp_attrs):
             get_logger().info(f"Starting {self.n_eval_episodes} evaluation run(s)...")
             continue_training = super()._on_step()
 
-            # Save the visualization
-            filename = Path(f"vis_{self.n_evals}")
-            env.save(self.log_path / filename)
+            if self.render:
+                # Save the visualization
+                filename = Path(f"vis_{self.n_evals}")
+                env.save(self.log_path / filename)
 
         # Copy the most recent gif to latest.gif so that we can just watch this file
         for f in self.log_path.glob(str(filename.with_suffix(".*"))):

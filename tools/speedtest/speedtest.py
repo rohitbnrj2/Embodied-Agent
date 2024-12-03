@@ -1,4 +1,7 @@
+from typing import Optional
 import time
+from pathlib import Path
+
 import numpy as np
 import psutil
 import matplotlib.pyplot as plt
@@ -13,7 +16,13 @@ resolution_sweep = np.arange(1, 100, 10).tolist()
 num_samples = 5  # Number of runs per configuration
 
 
-def main(config: MjCambrianConfig):
+def main(config: MjCambrianConfig, *, folder_path: Optional[Path] = None):
+    if folder_path is not None:
+        timing_data = np.load(folder_path / "timing_data.npy", allow_pickle=True)
+        ram_usage_data = np.load(folder_path / "ram_usage_data.npy", allow_pickle=True)
+        plot_data(config, timing_data, ram_usage_data)
+        return
+
     # Data storage
     timing_data = []
     ram_usage_data = []
@@ -79,6 +88,12 @@ def main(config: MjCambrianConfig):
 
 
 def plot_data(config: MjCambrianConfig, timing_data, ram_usage_data):
+    # Delete the data from the first resolution/num_eyes since it's skewed by caching
+    timing_data = timing_data[timing_data["num_eyes"] != timing_data["num_eyes"][0]]
+    timing_data = timing_data[timing_data["resolution"] != timing_data["resolution"][0]]
+    ram_usage_data = ram_usage_data[ram_usage_data["resolution"] != ram_usage_data["resolution"][0]]
+    ram_usage_data = ram_usage_data[ram_usage_data["num_eyes"] != ram_usage_data["num_eyes"][0]]
+
     # Extract unique values for num_eyes and resolution
     num_eyes_values = np.unique(timing_data["num_eyes"])
     resolution_values = np.unique(timing_data["resolution"])
@@ -140,4 +155,14 @@ def plot_data(config: MjCambrianConfig, timing_data, ram_usage_data):
 
 
 if __name__ == "__main__":
-    run_hydra(main)
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--folder-path",
+        type=Path,
+        help="Path to the folder where the data will be saved",
+    )
+
+    run_hydra(main, parser=parser)

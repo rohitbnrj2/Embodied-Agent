@@ -245,12 +245,18 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
         # Now stitch the images together
         # full_image = project_images_to_spherical_panorama(
         #     images=images,
-        #     yaw_angles=[135, 45, -45, -135],
+        #     yaw_angles=self._lons,
         #     fov_x=90,
         #     fov_y=self._config.fov[1],
         #     total_resolution=self._total_resolution,
         # )
         full_image = np.concatenate(images, axis=0)  # Concatenate along width
+        # Save image for debugging
+        if "i" not in globals():
+            global i
+            i = 0
+        cv2.imwrite(f"logs/images/full_image_{i}.png", (np.swapaxes(full_image, 0, 1) * 255).astype(np.uint8))
+        i += 1
         obs = {}
         for name, eye in self._eyes.items():
             obs[name] = eye.step(full_image)
