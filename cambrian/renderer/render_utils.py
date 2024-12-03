@@ -5,7 +5,6 @@ from typing import Dict, List, Tuple
 import cv2
 import mujoco as mj
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 
 
 def resize_with_aspect_fill(
@@ -165,86 +164,102 @@ def project_images_to_spherical_panorama(
     Projects multiple camera images onto a spherical surface to create a panorama.
 
     Args:
-        images: List of images from the cameras.
+        images: List of images from the cameras, each with shape (width, height,
+            channels).
         yaw_angles: List of yaw angles (in degrees) corresponding to each camera image.
         fov_x: Horizontal field of view of each camera in degrees.
         fov_y: Vertical field of view of each camera in degrees.
         total_resolution: Resolution (width, height) of the resulting panorama.
 
     Returns:
-        The spherical panorama image as a NumPy array.
+        The spherical panorama image as a NumPy array with shape (width, height,
+            channels).
     """
-    total_width, total_height = total_resolution
+    import numpy as np
 
-    # Convert yaw angles to radians
-    yaw_angles_rad = [np.deg2rad(yaw) for yaw in yaw_angles]
+    # Unpack total resolution
+    pano_width, pano_height = total_resolution
+    channels = images[0].shape[2]
 
-    # Create an empty panorama image
-    panorama = np.zeros((total_width, total_height, 3), dtype=np.uint8)
+    # Initialize the panorama image
+    pano_image = np.zeros((pano_width, pano_height, channels), dtype=images[0].dtype)
 
-    # Create meshgrid for panorama image
-    phi = np.linspace(-np.pi, np.pi, total_width)
-    theta = np.linspace(-np.pi / 2, np.pi / 2, total_height)
-    phi, theta = np.meshgrid(phi, theta)
+    # Compute min_lon and max_lon based on the cameras' yaw angles and FOVs
+    half_fov_x = fov_x / 2.0
+    min_lon = min(yaw - half_fov_x for yaw in yaw_angles)
+    max_lon = max(yaw + half_fov_x for yaw in yaw_angles)
 
-    # Compute the direction vectors for each pixel in the panorama
-    x = np.cos(theta) * np.cos(phi)
-    y = np.cos(theta) * np.sin(phi)
-    z = np.sin(theta)
+    # Normalize longitudes to be within [-180, 180]
+    min_lon = ((min_lon + 180) % 360) - 180
+    max_lon = ((max_lon + 180) % 360) - 180
 
-    dirs = np.stack((x, y, z), axis=-1)  # Shape: (H, W, 3)
+    # Handle wrap-around if necessary
+    if min_lon > max_lon:
+        max_lon += 360
 
-    # Flatten the directions for easier processing
-    dirs_flat = dirs.reshape(-1, 3)  # Shape: (H*W, 3)
+    # Compute min_lat and max_lat based on FOV
+    half_fov_y = fov_y / 2.0
+    min_lat = -half_fov_y
+    max_lat = half_fov_y
 
-    # Initialize an array to keep track of which pixels have been filled
-    filled_mask = np.zeros((total_width, total_height), dtype=bool)
+    # Create coordinate grids for the panorama (note: X is width, Y is height)
+    X_pano, Y_pano = np.meshgrid(
+        np.arange(pano_width), np.arange(pano_height), indexing="ij"
+    )
 
-    for idx, (image, yaw) in enumerate(zip(images, yaw_angles_rad)):
-        h, w, _ = image.shape
+    # Compute theta (longitude) and phi (latitude) for each pixel in the panorama
+    theta = (X_pano / (pano_width - 1)) * (max_lon - min_lon) + min_lon  # Degrees
+    phi = (Y_pano / (pano_height - 1)) * (max_lat - min_lat) + min_lat  # Degrees
 
-        # Rotate the direction vectors to align with the camera orientation
-        rot = R.from_euler("y", 0) * R.from_euler("z", -yaw)
-        dirs_cam = rot.apply(dirs_flat)
+    # Ensure theta is within [-180, 180]
+    theta = ((theta + 180) % 360) - 180
 
-        # Field of view in radians
-        fov_x_rad = np.deg2rad(fov_x)
-        fov_y_rad = np.deg2rad(fov_y)
+    # Iterate over each camera image
+    for i, image_i in enumerate(images):
+        yaw = yaw_angles[i]
+        # Normalize yaw to [-180, 180]
+        yaw = ((yaw + 180) % 360) - 180
 
-        # Compute the angles in the camera coordinate system
-        phi_cam = np.arctan2(dirs_cam[:, 1], dirs_cam[:, 0])
-        theta_cam = np.arcsin(dirs_cam[:, 2] / np.linalg.norm(dirs_cam, axis=1))
+        # Handle wrap-around for delta_theta
+        delta_theta = ((theta - yaw + 180) % 360) - 180
 
-        # Mask for pixels within the camera's field of view
-        fov_mask = (
-            (phi_cam >= -fov_x_rad / 2)
-            & (phi_cam <= fov_x_rad / 2)
-            & (theta_cam >= -fov_y_rad / 2)
-            & (theta_cam <= fov_y_rad / 2)
+        # Create a mask for pixels within the camera's field of view
+        mask = (
+            (np.abs(delta_theta) <= half_fov_x)
+            & (phi >= -half_fov_y)
+            & (phi <= half_fov_y)
         )
 
-        # Map the spherical coordinates to pixel coordinates in the camera image
-        x_cam = ((phi_cam[fov_mask] + fov_x_rad / 2) / fov_x_rad) * (w - 1)
-        y_cam = ((theta_cam[fov_mask] + fov_y_rad / 2) / fov_y_rad) * (h - 1)
+        # Skip if no pixels are within the field of view
+        if not np.any(mask):
+            continue
 
-        # Panorama coordinates corresponding to these directions
-        pano_coords = np.argwhere(fov_mask.reshape(total_width, total_height))
+        # Normalize delta_theta and phi to [0, 1] within the camera's FOV
+        u = (delta_theta + half_fov_x) / fov_x
+        v = (phi + half_fov_y) / fov_y
 
-        # Sample the camera image at the computed coordinates
-        x_cam = x_cam.astype(np.float32)
-        y_cam = y_cam.astype(np.float32)
+        # Map normalized coordinates to pixel indices in the input image
+        # Images are in shape (width, height, channels)
+        x_img = u * (image_i.shape[0] - 1)
+        y_img = v * (image_i.shape[1] - 1)
 
-        sampled_pixels = cv2.remap(
-            image,
-            x_cam.reshape(-1, 1),
-            y_cam.reshape(-1, 1),
-            interpolation=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=0,
-        )
+        # Convert to integer indices
+        x_img_indices = x_img.astype(int)
+        y_img_indices = y_img.astype(int)
 
-        # Place the sampled pixels into the panorama
-        panorama[pano_coords[:, 0], pano_coords[:, 1]] = sampled_pixels.reshape(-1, 3)
-        filled_mask[pano_coords[:, 0], pano_coords[:, 1]] = True
+        # Clip indices to valid range
+        x_img_indices = np.clip(x_img_indices, 0, image_i.shape[0] - 1)
+        y_img_indices = np.clip(y_img_indices, 0, image_i.shape[1] - 1)
 
-    return panorama
+        # Flatten indices and apply mask
+        pano_indices_flat = np.where(mask)
+        x_img_indices_flat = x_img_indices[mask]
+        y_img_indices_flat = y_img_indices[mask]
+
+        # Get pixel values from the input image
+        pixel_values = image_i[x_img_indices_flat, y_img_indices_flat, :]
+
+        # Assign pixel values to the panorama image
+        pano_image[pano_indices_flat[0], pano_indices_flat[1], :] = pixel_values
+
+    return pano_image

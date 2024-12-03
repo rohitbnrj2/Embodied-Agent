@@ -174,9 +174,10 @@ class MjCambrianEvalCallback(EvalCallback):
                 filename = Path(f"vis_{self.n_evals}")
                 env.save(self.log_path / filename)
 
-        # Copy the most recent gif to latest.gif so that we can just watch this file
-        for f in self.log_path.glob(str(filename.with_suffix(".*"))):
-            shutil.copy(f, f.with_stem("latest"))
+        if self.render:
+            # Copy the most recent gif to latest.gif so that we can just watch this file
+            for f in self.log_path.glob(str(filename.with_suffix(".*"))):
+                shutil.copy(f, f.with_stem("latest"))
 
         self.n_evals += 1
         return continue_training

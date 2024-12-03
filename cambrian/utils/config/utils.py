@@ -333,6 +333,7 @@ def config_wrapper(cls=None, /, **kwargs):
 
         new_fields = []
         for f in fields(cls):
+            # Ignore non-initialized fields
             new_fields.append((f.name, zen.DefaultBuilds._sanitized_type(f.type), f))
 
         # Create the new dataclass with the sanitized types

@@ -701,7 +701,8 @@ class MjCambrianBaseConfig(MjCambrianDictConfig):
     Attributes:
         custom (Optional[Dict[Any, str]]): Custom data to use. This is useful for
             code-specific logic (i.e. not in yaml files) where you want to store
-            data that is not necessarily defined in the config.
+            data that is not necessarily defined in the config. This data is
+            temporary, as in it's not accessible from python.
     """
 
     custom: Optional[Dict[str, Any]] = field(default_factory=dict, init=False)
