@@ -51,7 +51,7 @@ class MjCambrianMapEntity(Enum):
 
 
 @config_wrapper
-class MjCambrianMazeEnvConfig(MjCambrianBaseConfig):
+class MjCambrianMazeConfig(MjCambrianBaseConfig):
     """Defines a map config. Used for type hinting.
 
     Attributes:
@@ -121,7 +121,7 @@ class MjCambrianMazeEnvConfig(MjCambrianEnvConfig):
         to use. See `MjCambrianMazeSelectionFn` and `maze.py` for more info.
     """
 
-    mazes: Dict[str, MjCambrianMazeEnvConfig]
+    mazes: Dict[str, MjCambrianMazeConfig]
     maze_selection_fn: MjCambrianMazeSelectionFn
 
 
@@ -206,7 +206,7 @@ class MjCambrianMaze:
     """The maze class. Generates a maze from a given map and provides utility
     functions for working with the maze."""
 
-    def __init__(self, config: MjCambrianMazeEnvConfig, name: str):
+    def __init__(self, config: MjCambrianMazeConfig, name: str):
         self._config = config
         self._name = name
         self._starting_x = None
