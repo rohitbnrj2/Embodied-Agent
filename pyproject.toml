@@ -19,7 +19,6 @@ fcmaes = "^1.6.11"
 tqdm = "^4.67.0"
 seaborn = "^0.13.2"
 SciencePlots = "^2.1.1"
-nevergrad = "^1.0.8"
 
 hydra_zen = { git = "https://github.com/mit-ll-responsible-ai/hydra-zen.git" }
 omegaconf = { git = "https://github.com/omry/omegaconf.git" }
@@ -46,6 +45,7 @@ sphinx-autobuild = "2024.10.3"
 sphinx-copybutton = "0.5.2"
 myst-parser = "4.0.0"
 sphinxcontrib-video = "0.3.1"
+sphinxcontrib-googleanalytics = "0.4"
 
 [tool.black]
 line-length = 88
