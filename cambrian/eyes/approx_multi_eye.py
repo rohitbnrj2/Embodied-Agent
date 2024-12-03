@@ -9,7 +9,6 @@ from scipy.spatial.transform import Rotation as R
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.eyes.multi_eye import MjCambrianMultiEye, MjCambrianMultiEyeConfig
 from cambrian.renderer import MjCambrianRenderer
-from cambrian.renderer.render_utils import project_images_to_spherical_panorama
 from cambrian.utils import MjCambrianGeometry, get_camera_id
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import config_wrapper
@@ -246,23 +245,23 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
                 image = image[0]  # Assuming RGB image is the first element
             images.append(image)
         # Now stitch the images together
-        full_image = project_images_to_spherical_panorama(
-            images=images,
-            yaw_angles=self._lons,
-            fov_x=90,
-            fov_y=self._config.fov[1],
-            total_resolution=self._total_resolution,
-        )
-        # full_image = np.concatenate(images, axis=0)  # Concatenate along width
+        # full_image = project_images_to_spherical_panorama(
+        #     images=images,
+        #     yaw_angles=self._lons,
+        #     fov_x=90,
+        #     fov_y=self._config.fov[1],
+        #     total_resolution=self._total_resolution,
+        # )
+        full_image = np.concatenate(images, axis=0)  # Concatenate along width
         # Save image for debugging
-        if "i" not in globals():
-            global i
-            i = 0
-        cv2.imwrite(
-            f"logs/images/full_image_{i}.png",
-            (np.swapaxes(full_image, 0, 1) * 255).astype(np.uint8),
-        )
-        i += 1
+        # if "i" not in globals():
+        #     global i
+        #     i = 0
+        # cv2.imwrite(
+        #     f"logs/images/full_image_{i}.png",
+        #     (np.swapaxes(full_image, 0, 1) * 255).astype(np.uint8),
+        # )
+        # i += 1
         obs = {}
         for name, eye in self._eyes.items():
             obs[name] = eye.step(full_image)
