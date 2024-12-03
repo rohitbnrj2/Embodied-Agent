@@ -18,12 +18,12 @@ def main(config: MjCambrianConfig):
     timing_data = []
     ram_usage_data = []
 
-    def run(num_eyes, resolution, config):
+    def run(num_eyes: int, resolution: int, config: MjCambrianConfig):
         with config.set_readonly_temporarily(False), config.set_struct_temporarily(False):
-            config.env.agents["agent"].eyes["eye"].num_eyes[0] = num_eyes
-            config.env.agents["agent"].eyes["eye"].resolution = [resolution, resolution]
-            config.eval_env.agents["agent"].eyes["eye"].num_eyes[0] = num_eyes
-            config.eval_env.agents["agent"].eyes["eye"].resolution = [resolution, resolution]
+            config.merge_with_dotlist([
+                f"env.agents.agent.eyes.eye.num_eyes[0]={num_eyes}",
+                f"env.agents.agent.eyes.eye.resolution=[{resolution},{resolution}]",
+            ])
         trainer = MjCambrianTrainer(config)
         start_time = time.time()
         process = psutil.Process()

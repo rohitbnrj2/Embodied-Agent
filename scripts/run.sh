@@ -11,6 +11,6 @@
 SCRIPT=$1
 shift
 
-cmd="MUJOCO_GL=egl bash $SCRIPT $@"
+cmd="python $SCRIPT $@"
 echo "Running command: $cmd" | tee /dev/stderr
 eval $cmd
