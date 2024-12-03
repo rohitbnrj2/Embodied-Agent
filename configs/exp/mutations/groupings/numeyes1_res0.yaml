@@ -1,8 +1,0 @@
-# @package _global_
-
-defaults:
-  - /exp/tasks/mutations:
-      - num_eyes1
-      - res0
-
-  - /exp/tasks/constraints/total_pixels

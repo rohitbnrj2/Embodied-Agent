@@ -1,9 +1,0 @@
-# @package _global_
-
-defaults:
-  - /exp/tasks/mutations:
-      - num_eyes1
-      - res0
-      - stacksize
-
-  - /exp/tasks/constraints/total_memory_throughput

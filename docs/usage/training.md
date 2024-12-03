@@ -10,6 +10,8 @@ To run locally, you can use the `run.sh` script. For example, you can run:
 bash scripts/run.sh cambrian/ml/trainer.py --train exp=<EXPERIMENT>
 ```
 
+`run.sh` isn't actually necessary, it just sets some default environment variables and is helpful as it's the same entrypoint for running on a cluster. You can also run the above command directly with `python cambrian/ml/trainer.py ...`.
+
 ```{tip}
 When invoked with bash, `run.sh` script will default to setting `MUJOCO_GL=egl`. Training should always be done with `MUJOCO_GL=egl` cause that runs with a headless implementation of OpenGL and is significantly faster.
 ```
@@ -22,7 +24,7 @@ You can also run `--eval` instead of `--train` to run evaluation to visualize th
 
 We have provided scripts to run on three clusters: [SuperCloud](https://supercloud.mit.edu), [OpenMind](https://mcgovern.mit.edu/tile/openmind-computing-cluster/), and [Euler](https://euler-cluster.readthedocs.io/en/latest/). Coupled with these scripts are the [Slurm-based launcher configuration](https://hydra.cc/docs/plugins/submitit_launcher/), located at `configs/hydra/launcher/`. When running on a cluster, a daemon job will always be launched to monitor the training process; this is a requirement of hydra and will simply block until the training is complete.
 
-To run, you can still use the `run.sh` script, which has some default Slurm configs set. 
+To run, you can still use the `run.sh` script, which has some default Slurm configs set.
 
 ```{literalinclude} ../../scripts/run.sh
 :language: bash
@@ -67,7 +69,7 @@ In the above examples, we are simply running a single training loop. If you want
 bash scripts/run.sh cambrian/ml/trainer.py --train exp=<EXPERIMENT> evo=evo --multirun
 ```
 
-The evolution loop utilizes the [`nevergrad` sweeper](https://hydra.cc/docs/plugins/nevergrad_sweeper/), and it's configs are located at `configs/hydra/sweeper/`. You can replace `bash` with `sbatch` to run on a cluster. 
+The evolution loop utilizes the [`nevergrad` sweeper](https://hydra.cc/docs/plugins/nevergrad_sweeper/), and it's configs are located at `configs/hydra/sweeper/`. You can replace `bash` with `sbatch` to run on a cluster.
 
 In total, you should see `min(hydra.sweeper.optim.num_workers, hydra.launcher.array_parallelism) + 1` jobs. The `+ 1` is for the daemon job that monitors the training process. See the [`evolution_nevergrad.yaml`](https://github.com/camera-culture/ACI/blob/main/configs/hydra/sweeper/evolution_nevergrad.yaml) and [`slurm.yaml`](https://github.com/camera-culture/ACI/blob/main/configs/hydra/launcher/slurm.yaml) for more info.
 
@@ -80,7 +82,7 @@ Nevergrad requires there to be optimization parameters to sweep over; see [the d
 
 ```bash
 bash scripts/run.sh cambrian/ml/trainer.py --train exp=<EXPERIMENT> evo=evo \
-    +exp/mutations/res +exp/mutations/num_eyes +exp/mutations/lon_range -m
+    +exp/mutations=[res,num_eyes,lon_range] -m
 ```
 
 This will enable the resolution, number of eyes, and placement range mutations. Alternatively, you can just specify the grouping.
@@ -88,6 +90,10 @@ This will enable the resolution, number of eyes, and placement range mutations. 
 ```bash
 bash scripts/run.sh cambrian/ml/trainer.py --train exp=<EXPERIMENT> evo=evo \
     +exp/mutations/groupings/numeyes1_res0_lon1 -m
+```
+
+```{note}
+Note the `+` before the `exp/mutations` parameter. This is required to add to the existing list of mutations as hydra will complain that the key doesn't exist before adding.
 ```
 
 ### Resuming a failed evolution
@@ -102,12 +108,9 @@ is at `<logdir>/nevergrad.pkl`. If you're resuming an evolutionary run launched 
 different day, you may need to either:
 
 1. Copy the failed evolutionary logdir to a new log directory matching the logdir
-pattern for that day (recommended).
-2. Change the logdir to the previous day
-(i.e. `... logdir=logs/<old date>/${expname}`).
-3. Change the optimizer path in the config to point to the correct path. This may cause
-issues down the line with the `parse_evos.py` script since the output log directory is
-in two places.
+   pattern for that day (recommended).
+2. Change the logdir to the previous day (i.e. `... logdir=logs/<old date>/${expname}`).
+3. Change the optimizer path in the config to point to the correct path.
 
 ## Running a training sweep
 

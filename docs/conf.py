@@ -42,6 +42,7 @@ extensions = [
     "myst_parser",
     "sphinx_copybutton",
     "sphinxcontrib.video",
+    "sphinxcontrib.googleanalytics",
 ]
 
 # autoapi config
@@ -93,6 +94,9 @@ todo_include_todos = True
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["env"]
+
+# Google Analytics
+googleanalytics_id = "G-TB8Y1XJVV1"
 
 
 # -- Options for HTML output -------------------------------------------------

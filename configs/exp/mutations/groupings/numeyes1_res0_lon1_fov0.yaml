@@ -1,8 +1,0 @@
-# @package _global_
-
-defaults:
-  - /exp/tasks/mutations:
-      - num_eyes1
-      - res0
-      - lon_range1
-      - fov0

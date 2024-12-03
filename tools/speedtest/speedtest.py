@@ -51,7 +51,6 @@ def main(config: MjCambrianConfig):
                 f"num_eyes={num_eyes}, resolution={resolution}, time={avg_time:.3f} ± {confidence_interval:.3f}, RAM={avg_ram:.2f} MB"
             )
 
-    exit()
     # Convert data to structured arrays
     timing_data = np.array(
         timing_data,
