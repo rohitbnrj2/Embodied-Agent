@@ -91,7 +91,7 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
             and when mazes change between evaluations, the sites will be drawn on top
             of each other which may not be desired. When record is False, the overlays
             are always be cleared.
-        debug_overlays_size (float): The size of the debug overlays. This is a 
+        debug_overlays_size (float): The size of the debug overlays. This is a
             percentage of the total renderer size. If 0, debug overlays are disabled.
         renderer (Optional[MjCambrianViewerConfig]): The default viewer config to
             use for the mujoco viewer. If unset, no renderer will be used. Should
@@ -331,7 +331,11 @@ class MjCambrianEnv(ParallelEnv, Env):
             self._rollout["actions"].append(list(action.values()))
             self._rollout["positions"].append([a.pos for a in self._agents.values()])
 
-        if self._config.debug_overlays_size > 0 and self.record or "human" in self._config.renderer.render_modes:
+        if (
+            self._config.debug_overlays_size > 0
+            and self.record
+            or "human" in self._config.renderer.render_modes
+        ):
             self._overlays["Name"] = self._name
             self._overlays["Total Timesteps"] = self.num_timesteps
             self._overlays["Step"] = self._episode_step
@@ -472,7 +476,7 @@ class MjCambrianEnv(ParallelEnv, Env):
             renderer_height = self._renderer.height
 
             # Set the overlay size to be a fraction of the renderer size relative to
-            # the agent count. 
+            # the agent count.
             num_agents = len([a for a in self._agents.values() if a.trainable])
             overlay_width = int(renderer_width // num_agents) if num_agents > 0 else 0
             overlay_height = int(renderer_height * self._config.debug_overlays_size)

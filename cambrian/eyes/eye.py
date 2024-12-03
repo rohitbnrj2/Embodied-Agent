@@ -2,7 +2,7 @@
 environment. The eye is essentially a camera that is attached to a body in the
 environment. The eye can render images and provide observations to the agent."""
 
-from typing import Callable, Self, Tuple, Optional
+from typing import Callable, Optional, Self, Tuple
 
 import mujoco as mj
 import numpy as np

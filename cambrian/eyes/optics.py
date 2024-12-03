@@ -1,7 +1,7 @@
 """This is an optics-enabled eye, which implements a height map and a PSF on top
 of the existing eye."""
 
-from typing import Dict, List, Optional, Tuple, Callable, Self
+from typing import Callable, Dict, List, Optional, Self, Tuple
 
 import numpy as np
 import torch

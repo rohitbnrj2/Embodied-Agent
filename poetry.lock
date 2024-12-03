@@ -109,13 +109,13 @@ dev = ["freezegun (>=1.0,<2.0)", "pytest (>=6.0)", "pytest-cov"]
 
 [[package]]
 name = "bayesian-optimization"
-version = "2.0.0"
+version = "1.5.1"
 description = "Bayesian Optimization package"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "bayesian_optimization-2.0.0-py3-none-any.whl", hash = "sha256:7dc2b1b78dadab9d38c07f3b7c5d7fe91a138bce0ec71e895085642ddf4c85b3"},
-    {file = "bayesian_optimization-2.0.0.tar.gz", hash = "sha256:434abeb87e4a59f285641fbbfd74606fa27603dd831fff7c8984e5d10391e0d0"},
+    {file = "bayesian_optimization-1.5.1-py3-none-any.whl", hash = "sha256:098946c933d6039073b7ccb0c9f1b4c73ac6e39350043b02e5243b08583c4c5c"},
+    {file = "bayesian_optimization-1.5.1.tar.gz", hash = "sha256:a83590b64b57a8e4508424629c817b1c41f89b76c9254dc60aa313505df389b0"},
 ]
 
 [package.dependencies]
@@ -3587,4 +3587,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<4.0"
-content-hash = "e76e09813fc16671601ecfc0fcb347914880842922c48e9589862d9cd0e74415"
+content-hash = "06995606e9036795777b31330e7fad0a931f4d4acf98234d80dfa3d38bd77ecb"

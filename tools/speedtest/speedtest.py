@@ -1,10 +1,10 @@
-from typing import Optional
 import time
 from pathlib import Path
+from typing import Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 import psutil
-import matplotlib.pyplot as plt
 from scipy.stats import sem, t
 
 from cambrian.ml.trainer import MjCambrianTrainer
@@ -28,11 +28,16 @@ def main(config: MjCambrianConfig, *, folder_path: Optional[Path] = None):
     ram_usage_data = []
 
     def run(num_eyes: int, resolution: int, config: MjCambrianConfig):
-        with config.set_readonly_temporarily(False), config.set_struct_temporarily(False):
-            config.merge_with_dotlist([
-                f"env.agents.agent.eyes.eye.num_eyes[0]={num_eyes}",
-                f"env.agents.agent.eyes.eye.resolution=[{resolution},{resolution}]",
-            ])
+        with (
+            config.set_readonly_temporarily(False),
+            config.set_struct_temporarily(False),
+        ):
+            config.merge_with_dotlist(
+                [
+                    f"env.agents.agent.eyes.eye.num_eyes[0]={num_eyes}",
+                    f"env.agents.agent.eyes.eye.resolution=[{resolution},{resolution}]",
+                ]
+            )
         trainer = MjCambrianTrainer(config)
         start_time = time.time()
         process = psutil.Process()
@@ -40,7 +45,7 @@ def main(config: MjCambrianConfig, *, folder_path: Optional[Path] = None):
         trainer.eval(record=False)
         elapsed_time = time.time() - start_time
         ram_used = process.memory_info().rss - initial_ram
-        return elapsed_time, ram_used / (1024 ** 2)  # Convert to MB
+        return elapsed_time, ram_used / (1024**2)  # Convert to MB
 
     # Collect timing and RAM data with multiple samples
     for num_eyes in num_eyes_sweep:
@@ -57,7 +62,8 @@ def main(config: MjCambrianConfig, *, folder_path: Optional[Path] = None):
             ram_usage_data.append((num_eyes, resolution, avg_ram))
 
             get_logger().info(
-                f"num_eyes={num_eyes}, resolution={resolution}, time={avg_time:.3f} ± {confidence_interval:.3f}, RAM={avg_ram:.2f} MB"
+                f"num_eyes={num_eyes}, resolution={resolution}, "
+                f"time={avg_time:.3f} ± {confidence_interval:.3f}, RAM={avg_ram:.2f} MB"
             )
 
     # Convert data to structured arrays
@@ -91,8 +97,12 @@ def plot_data(config: MjCambrianConfig, timing_data, ram_usage_data):
     # Delete the data from the first resolution/num_eyes since it's skewed by caching
     timing_data = timing_data[timing_data["num_eyes"] != timing_data["num_eyes"][0]]
     timing_data = timing_data[timing_data["resolution"] != timing_data["resolution"][0]]
-    ram_usage_data = ram_usage_data[ram_usage_data["resolution"] != ram_usage_data["resolution"][0]]
-    ram_usage_data = ram_usage_data[ram_usage_data["num_eyes"] != ram_usage_data["num_eyes"][0]]
+    ram_usage_data = ram_usage_data[
+        ram_usage_data["resolution"] != ram_usage_data["resolution"][0]
+    ]
+    ram_usage_data = ram_usage_data[
+        ram_usage_data["num_eyes"] != ram_usage_data["num_eyes"][0]
+    ]
 
     # Extract unique values for num_eyes and resolution
     num_eyes_values = np.unique(timing_data["num_eyes"])

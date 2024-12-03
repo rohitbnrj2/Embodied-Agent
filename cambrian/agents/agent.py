@@ -394,7 +394,7 @@ class MjCambrianAgent:
 
     def render(self) -> np.ndarray | None:
         """Renders the eyes and returns the debug image.
-        
+
         We don't know where the eyes are placed, so for simplicity, we'll just return
         the first eye's render.
         """

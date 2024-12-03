@@ -1,6 +1,6 @@
 """Rendering utilities."""
 
-from typing import Tuple, Dict, List
+from typing import Dict, List, Tuple
 
 import cv2
 import mujoco as mj
@@ -153,6 +153,7 @@ def generate_composite(
 
     return composite
 
+
 def project_images_to_spherical_panorama(
     images: List[np.ndarray],
     yaw_angles: List[float],
@@ -203,7 +204,7 @@ def project_images_to_spherical_panorama(
         h, w, _ = image.shape
 
         # Rotate the direction vectors to align with the camera orientation
-        rot = R.from_euler('y', 0) * R.from_euler('z', -yaw)
+        rot = R.from_euler("y", 0) * R.from_euler("z", -yaw)
         dirs_cam = rot.apply(dirs_flat)
 
         # Field of view in radians
@@ -216,8 +217,10 @@ def project_images_to_spherical_panorama(
 
         # Mask for pixels within the camera's field of view
         fov_mask = (
-            (phi_cam >= -fov_x_rad / 2) & (phi_cam <= fov_x_rad / 2) &
-            (theta_cam >= -fov_y_rad / 2) & (theta_cam <= fov_y_rad / 2)
+            (phi_cam >= -fov_x_rad / 2)
+            & (phi_cam <= fov_x_rad / 2)
+            & (theta_cam >= -fov_y_rad / 2)
+            & (theta_cam <= fov_y_rad / 2)
         )
 
         # Map the spherical coordinates to pixel coordinates in the camera image
@@ -237,7 +240,7 @@ def project_images_to_spherical_panorama(
             y_cam.reshape(-1, 1),
             interpolation=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_CONSTANT,
-            borderValue=0
+            borderValue=0,
         )
 
         # Place the sampled pixels into the panorama

@@ -1,13 +1,13 @@
-from typing import Callable, Dict, Self, Tuple, Any
+from typing import Any, Callable, Dict, Self, Tuple
 
 import mujoco as mj
 import numpy as np
 from gymnasium import spaces
 
+from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.utils import MjCambrianGeometry, generate_sequence_from_range
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import config_wrapper
-from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 
 
 @config_wrapper
@@ -51,7 +51,8 @@ class MjCambrianMultiEyeConfig(MjCambrianEyeConfig):
 
 
 class MjCambrianMultiEye(MjCambrianEye):
-    """Defines a multi-eye system that procedurally generates multiple eyes and manages them.
+    """Defines a multi-eye system that procedurally generates multiple eyes and manages
+    them.
 
     Inherits from MjCambrianEye but manages multiple eyes.
 
@@ -60,7 +61,9 @@ class MjCambrianMultiEye(MjCambrianEye):
         name (str): Base name for the eyes.
     """
 
-    def __init__(self, config: MjCambrianMultiEyeConfig, name: str, disable_render: bool = True):
+    def __init__(
+        self, config: MjCambrianMultiEyeConfig, name: str, disable_render: bool = True
+    ):
         super().__init__(config, name, disable_render=disable_render)
         self._config: MjCambrianMultiEyeConfig
 
@@ -114,7 +117,7 @@ class MjCambrianMultiEye(MjCambrianEye):
 
     def render(self) -> np.ndarray | None:
         """This is a debug method which renders the eye's as a composite image.
-        
+
         Will appear as a compound eye. For example, if we have a 3x3 grid of eyes:
             TL T TR
             ML M MR

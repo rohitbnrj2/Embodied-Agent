@@ -1,18 +1,18 @@
-from typing import Callable, Self, Tuple, Dict, List
+from typing import Callable, Dict, Self, Tuple
 
-import mujoco as mj
-from mujoco import MjData, MjModel
-import numpy as np
 import cv2
+import mujoco as mj
+import numpy as np
+from mujoco import MjData, MjModel
 from scipy.spatial.transform import Rotation as R
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.eyes.multi_eye import MjCambrianMultiEye, MjCambrianMultiEyeConfig
+from cambrian.renderer import MjCambrianRenderer
+from cambrian.renderer.render_utils import project_images_to_spherical_panorama
 from cambrian.utils import MjCambrianGeometry, get_camera_id
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import config_wrapper
-from cambrian.renderer import MjCambrianRenderer
-from cambrian.renderer.render_utils import project_images_to_spherical_panorama
 
 
 @config_wrapper
@@ -117,7 +117,8 @@ class MjCambrianApproxEye(MjCambrianEye):
 
 
 class MjCambrianApproxMultiEye(MjCambrianMultiEye):
-    """Defines a multi-eye system by rendering images from multiple cameras facing different directions."""
+    """Defines a multi-eye system by rendering images from multiple cameras facing
+    different directions."""
 
     def __init__(self, config: MjCambrianApproxMultiEyeConfig, name: str):
         super().__init__(config, name, disable_render=True)
@@ -209,7 +210,8 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
     def _calculate_camera_pose(
         self, geom: MjCambrianGeometry, yaw: float
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Calculates the position and quaternion for the camera facing at yaw degrees."""
+        """Calculates the position and quaternion for the camera facing at yaw
+        degrees."""
         pos = geom.pos  # Assuming camera is at the center of the geom
         default_rot = R.from_euler("z", np.pi / 2)
         quat = (R.from_euler("y", -np.deg2rad(yaw)) * default_rot).as_quat()
@@ -235,7 +237,8 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
         return self.step()
 
     def step(self) -> Dict[str, np.ndarray]:
-        """Renders the images from all cameras, stitches them, and returns observations for each eye."""
+        """Renders the images from all cameras, stitches them, and
+        returns observations for each eye."""
         images = []
         for renderer in self._renderers.values():
             image = renderer.render()
@@ -243,19 +246,22 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
                 image = image[0]  # Assuming RGB image is the first element
             images.append(image)
         # Now stitch the images together
-        # full_image = project_images_to_spherical_panorama(
-        #     images=images,
-        #     yaw_angles=self._lons,
-        #     fov_x=90,
-        #     fov_y=self._config.fov[1],
-        #     total_resolution=self._total_resolution,
-        # )
-        full_image = np.concatenate(images, axis=0)  # Concatenate along width
+        full_image = project_images_to_spherical_panorama(
+            images=images,
+            yaw_angles=self._lons,
+            fov_x=90,
+            fov_y=self._config.fov[1],
+            total_resolution=self._total_resolution,
+        )
+        # full_image = np.concatenate(images, axis=0)  # Concatenate along width
         # Save image for debugging
         if "i" not in globals():
             global i
             i = 0
-        cv2.imwrite(f"logs/images/full_image_{i}.png", (np.swapaxes(full_image, 0, 1) * 255).astype(np.uint8))
+        cv2.imwrite(
+            f"logs/images/full_image_{i}.png",
+            (np.swapaxes(full_image, 0, 1) * 255).astype(np.uint8),
+        )
         i += 1
         obs = {}
         for name, eye in self._eyes.items():
