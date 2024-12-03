@@ -1,24 +1,21 @@
 """Defines agent classes."""
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Self, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Self, Tuple
 
 import mujoco as mj
 import numpy as np
 from gymnasium import spaces
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
-from cambrian.renderer.render_utils import add_white_border
 from cambrian.utils import (
     MjCambrianActuator,
     MjCambrianGeometry,
     MjCambrianJoint,
-    generate_sequence_from_range,
     get_body_id,
     get_geom_id,
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
-from cambrian.utils.logger import get_logger
 
 if TYPE_CHECKING:
     from cambrian.envs import MjCambrianEnv
@@ -77,22 +74,6 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
             is True, then the contacts will be included in the observation space of the
             agent.
 
-        eyes_lat_range (Optional[Tuple[float, float]]): The x range of the eye. This is
-            used to determine the placement of the eye on the agent. Specified in
-            degrees. This is the latitudinal/vertical range of the evenly placed eye
-            about the agent's bounding sphere.
-        eyes_lon_range (Optional[Tuple[float, float]]): The y range of the eye. This is
-            used to determine the placement of the eye on the agent. Specified in
-            degrees. This is the longitudinal/horizontal range of the evenly placed eye
-            about the agent's bounding sphere.
-        num_eyes_to_generate (Optional[Tuple[int, int]]): The num of eyes to generate.
-            If this is specified, then the eyes will be generated on a spherical
-            grid. The first element is the number of eyes to generate latitudinally and
-            the second element is the number of eyes to generate longitudinally. The
-            eyes will be named sequentially starting from `eye_0`. Each eye will default
-            to use the first eye config in the `eyes` attribute. `eyes` must have a
-            length of 1 if this is specified. Each eye is named `eye_{lat}_{lon}` where
-            `lat` is the latitude index and `lon` is the longitude index.
         eyes (Dict[str, MjCambrianEyeConfig]): The eyes on the agent. The keys are the
             names of the eyes and the values are the configs for the eyes. The eyes will
             be placed on the agent at the specified coordinates.
@@ -118,9 +99,6 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
     use_action_obs: bool
     use_contact_obs: bool
 
-    eyes_lat_range: Optional[Tuple[float, float]] = None
-    eyes_lon_range: Optional[Tuple[float, float]] = None
-    num_eyes_to_generate: Optional[Tuple[int, int]] = None
     eyes: Dict[str, MjCambrianEyeConfig]
 
 
@@ -148,7 +126,6 @@ class MjCambrianAgent:
     def __init__(self, config: MjCambrianAgentConfig, name: str):
         self._config = self._check_config(config)
         self._name = name
-        self._logger = get_logger()
 
         self._eyes: Dict[str, MjCambrianEye] = {}
 
@@ -278,32 +255,7 @@ class MjCambrianAgent:
     def _place_eyes(self):
         """Place the eyes on the agent."""
 
-        eye_configs: Dict[str, MjCambrianEyeConfig] = {}
-        if num_eyes := self._config.num_eyes_to_generate:
-            assert len(num_eyes) == 2, "num_eyes should be a tuple of length 2."
-            assert len(self._config.eyes) == 1, "Only one eye should be specified."
-            assert self._config.eyes_lat_range is not None
-            assert self._config.eyes_lon_range is not None
-
-            base_eye_name, base_eye_config = list(self._config.eyes.items())[0]
-
-            # Place the eyes uniformly on a spherical grid. The number of latitude and
-            # longitudinally bins is defined by the two attributes in `eyes`,
-            # respectively.
-            nlat, nlon = self._config.num_eyes_to_generate
-            lat_bins = generate_sequence_from_range(self._config.eyes_lat_range, nlat)
-            lon_bins = generate_sequence_from_range(self._config.eyes_lon_range, nlon)
-            for lat_idx, lat in enumerate(lat_bins):
-                for lon_idx, lon in enumerate(lon_bins):
-                    eye_name = f"{base_eye_name}_{lat_idx}_{lon_idx}"
-                    eye_config = base_eye_config.copy()
-                    with eye_config.set_readonly_temporarily(False):
-                        eye_config.update("coord", [lat, lon])
-                    eye_configs[eye_name] = eye_config
-        else:
-            eye_configs = self._config.eyes
-
-        for name, eye_config in eye_configs.items():
+        for name, eye_config in self._config.eyes.items():
             self._eyes[name] = eye_config.instance(eye_config, f"{self._name}_{name}")
 
     def generate_xml(self) -> MjCambrianXML:
@@ -381,7 +333,11 @@ class MjCambrianAgent:
 
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
-            obs[name] = eye.reset(model, data)
+            eye_obs = eye.reset(model, data)
+            if isinstance(eye_obs, dict):
+                obs.update(eye_obs)
+            else:
+                obs[name] = eye_obs
 
         return self._update_obs(obs)
 
@@ -419,7 +375,11 @@ class MjCambrianAgent:
 
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
-            obs[name] = eye.step()
+            eye_obs = eye.step()
+            if isinstance(eye_obs, dict):
+                obs.update(eye_obs)
+            else:
+                obs[name] = eye_obs
 
         return self._update_obs(obs)
 
@@ -432,60 +392,13 @@ class MjCambrianAgent:
 
         return obs
 
-    def create_composite_image(self) -> np.ndarray | None:
-        """Creates a composite image from the eyes. If there are no eyes, then this
-        returns None.
-
-        Will appear as a compound eye. For example, if we have a 3x3 grid of eyes:
-            TL T TR
-            ML M MR
-            BL B BR
-
-        Each eye has a white border around it.
+    def render(self) -> np.ndarray | None:
+        """Renders the eyes and returns the debug image.
+        
+        We don't know where the eyes are placed, so for simplicity, we'll just return
+        the first eye's render.
         """
-        if self.num_eyes == 0:
-            return
-
-        from cambrian.renderer import resize_with_aspect_fill
-
-        max_res = (
-            max([eye.config.resolution[1] for eye in self.eyes.values()]),
-            max([eye.config.resolution[0] for eye in self.eyes.values()]),
-        )
-
-        # Sort the eyes based on their lat/lon
-        images: Dict[float, Dict[float, np.ndarray]] = {}
-        for eye in self.eyes.values():
-            lat, lon = eye.config.coord
-            if lat not in images:
-                images[lat] = {}
-            assert lon not in images[lat], f"Duplicate eye at {lat}, {lon}."
-
-            # Add the image to the dictionary
-            min_dim = min(eye.prev_obs.shape[:2])
-            obs = eye.prev_obs[:, :, :3]
-            if min_dim > 10:
-                obs = add_white_border(obs, min_dim // 10)
-            images[lat][lon] = obs
-
-        # Construct the composite image
-        # Loop through the sorted list of images based on lat/lon
-        composite = []
-        for lat in sorted(images.keys())[::-1]:
-            row = []
-            for lon in sorted(images[lat].keys())[::-1]:
-                row.append(resize_with_aspect_fill(images[lat][lon], *max_res))
-            composite.append(np.vstack(row))
-        composite = np.hstack(composite)
-
-        if composite.size == 0:
-            self._logger.warning(
-                f"agent `{self.name}` observations. "
-                "Maybe you forgot to call `render`?."
-            )
-            return None
-
-        return composite
+        return next(iter(self._eyes.values())).render()
 
     @property
     def has_contacts(self) -> bool:
@@ -528,7 +441,10 @@ class MjCambrianAgent:
         observation_space: Dict[Any, spaces.Space] = {}
 
         for name, eye in self.eyes.items():
-            observation_space[name] = eye.observation_space
+            if isinstance(eye.observation_space, spaces.Dict):
+                observation_space.update(eye.observation_space.spaces)
+            else:
+                observation_space[name] = eye.observation_space
 
         if self._config.use_action_obs:
             observation_space["action"] = self.action_space
@@ -684,16 +600,6 @@ class MjCambrianAgent:
         self._data.qpos[~mask] += np.random.normal(
             0, self.geom.rbound, len(self._qposadrs)
         )
-
-    @property
-    def mat(self) -> np.ndarray:
-        """Returns the rotation matrix of the agent in the environment."""
-        return self._data.xmat[self._body_id].reshape(3, 3).copy()
-
-    @property
-    def speed(self) -> float:
-        """Returns the speed of the agent in the environment."""
-        return np.linalg.norm(self._data.qvel[self._qposadrs])
 
     @property
     def last_action(self) -> np.ndarray:

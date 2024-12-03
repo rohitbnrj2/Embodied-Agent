@@ -1,0 +1,15 @@
+defaults:
+  - eye
+  - /MjCambrianMultiEyeConfig
+
+instance:
+  _target_: cambrian.eyes.multi_eye.MjCambrianMultiEye
+  _partial_: true
+
+eye_instance:
+  _target_: cambrian.eyes.multi_eye.MjCambrianEye
+  _partial_: true
+
+lat_range: [-5, 5]
+lon_range: [-90, 90]
+num_eyes: [1, 10]

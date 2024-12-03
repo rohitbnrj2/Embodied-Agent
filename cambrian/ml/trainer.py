@@ -72,14 +72,13 @@ class MjCambrianTrainer:
 
         self._config.expdir.mkdir(parents=True, exist_ok=True)
 
-        self._logger = get_logger()
-        self._logger.info(f"Logging to {self._config.expdir / 'logs'}...")
+        get_logger().info(f"Logging to {self._config.expdir / 'logs'}...")
 
     def train(self) -> float:
         """Train the agent."""
 
         # Set to warn so we have something output to the error log
-        self._logger.warning(f"Training the agent in {self._config.expdir}...")
+        get_logger().warning(f"Training the agent in {self._config.expdir}...")
 
         self._config.save(self._config.expdir / "config.yaml")
         self._config.pickle(self._config.expdir / "config.pkl")
@@ -108,19 +107,19 @@ class MjCambrianTrainer:
         # Start training
         total_timesteps = self._config.trainer.total_timesteps
         model.learn(total_timesteps=total_timesteps, callback=callback)
-        self._logger.info("Finished training the agent...")
+        get_logger().info("Finished training the agent...")
 
         # Save the policy
-        self._logger.info(f"Saving model to {self._config.expdir}...")
+        get_logger().info(f"Saving model to {self._config.expdir}...")
         model.save_policy(self._config.expdir)
-        self._logger.debug(f"Saved model to {self._config.expdir}...")
+        get_logger().debug(f"Saved model to {self._config.expdir}...")
 
         # The finished file indicates to the evo script that the agent is done
         Path(self._config.expdir / "finished").touch()
 
         # Calculate fitness
         fitness = self._config.trainer.fitness_fn(self._config)
-        self._logger.info(f"Final Fitness: {fitness}")
+        get_logger().info(f"Final Fitness: {fitness}")
 
         # Save the final fitness to a file
         with open(self._config.expdir / "train_fitness.txt", "w") as f:
@@ -128,13 +127,18 @@ class MjCambrianTrainer:
 
         return fitness
 
-    def eval(self, *, filename: Optional[Path | str] = None) -> float:
+    def eval(
+        self,
+        *,
+        filename: Optional[Path | str] = None,
+        record: bool = True,
+    ) -> float:
         self._config.save(self._config.expdir / "eval_config.yaml")
 
         eval_env = self._make_env(self._config.eval_env, 1, monitor="eval_monitor.csv")
         model = self._make_model(eval_env)
         if (self._config.expdir / "best_model.zip").exists():
-            self._logger.info("Loading best model...")
+            get_logger().info("Loading best model...")
             model = model.load(self._config.expdir / "best_model")
 
         # Save the eval environments xml
@@ -148,11 +152,13 @@ class MjCambrianTrainer:
             path=self._config.expdir / filename,
             save_mode=self._config.eval_env.renderer.save_mode,
         )
+        if not record:
+            record_kwargs = None
         evaluate_policy(eval_env, model, n_runs, record_kwargs=record_kwargs)
 
         # Calculate fitness
         fitness = self._config.trainer.fitness_fn(self._config)
-        self._logger.info(f"Final Fitness: {fitness}")
+        get_logger().info(f"Final Fitness: {fitness}")
 
         # Save the final fitness to a file
         with open(self._config.expdir / f"{filename}_fitness.txt", "w") as f:
@@ -169,7 +175,7 @@ class MjCambrianTrainer:
 
         # Calculate fitness
         fitness = self._config.trainer.fitness_fn(self._config)
-        self._logger.info(f"Final Fitness: {fitness}")
+        get_logger().info(f"Final Fitness: {fitness}")
 
         # Save the final fitness to a file
         with open(self._config.expdir / "test_fitness.txt", "w") as f:

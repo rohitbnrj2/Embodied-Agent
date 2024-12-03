@@ -100,7 +100,6 @@ class MjCambrianViewer(ABC):
 
     def __init__(self, config: MjCambrianRendererConfig):
         self._config = config
-        self._logger = get_logger()
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
@@ -147,7 +146,7 @@ class MjCambrianViewer(ABC):
         use_shared_context = self._config.use_shared_context
         if use_shared_context and MJR_CONTEXT:
             if MJR_CONTEXT.currentBuffer != self.get_framebuffer_option():
-                self._logger.warning(
+                get_logger().warning(
                     "Overriding use_shared_context. "
                     "First buffer and current buffer don't match."
                 )
@@ -371,10 +370,10 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
     def render(self, *, overlays: List[MjCambrianViewerOverlay] = []):
         if self._window is None:
-            self._logger.warning("Tried to render destroyed window.")
+            get_logger().warning("Tried to render destroyed window.")
             return
         elif glfw.window_should_close(self._window):
-            self._logger.warning("Tried to render closed or closing window.")
+            get_logger().warning("Tried to render closed or closing window.")
             return
 
         self.make_context_current()
@@ -396,7 +395,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
     def fullscreen(self, fullscreen: bool):
         if self._window is None:
-            self._logger.warning("Tried to set fullscreen to destroyed window.")
+            get_logger().warning("Tried to set fullscreen to destroyed window.")
             return
 
         if fullscreen:
@@ -501,7 +500,6 @@ class MjCambrianRenderer:
 
     def __init__(self, config: MjCambrianRendererConfig):
         self._config = config
-        self._logger = get_logger()
 
         assert all(
             mode in self.metadata["render.modes"] for mode in self._config.render_modes
@@ -579,7 +577,7 @@ class MjCambrianRenderer:
         assert self._record, "Cannot save without recording."
         assert len(self._rgb_buffer) > 0, "Cannot save empty buffer."
 
-        self._logger.info(f"Saving visualizations at {path}...")
+        get_logger().info(f"Saving visualizations at {path}...")
 
         path = Path(path)
         rgb_buffer = (np.array(self._rgb_buffer) * 255.0).astype(np.uint8)
@@ -589,7 +587,7 @@ class MjCambrianRenderer:
                 mp4 = path.with_suffix(".mp4")
                 imageio.mimwrite(mp4, rgb_buffer, fps=fps)
             except TypeError:
-                self._logger.error(
+                get_logger().error(
                     "imageio is not compiled with ffmpeg. "
                     "You may need to install it with `pip install imageio[ffmpeg]`."
                 )
@@ -608,7 +606,7 @@ class MjCambrianRenderer:
             imageio.mimwrite(webp, rgb_buffer, fps=fps, lossless=True)
             get_logger().debug(f"Saved visualization at {webp}")
 
-        self._logger.debug(f"Saved visualization at {path}")
+        get_logger().debug(f"Saved visualization at {path}")
 
     @property
     def record(self) -> bool:

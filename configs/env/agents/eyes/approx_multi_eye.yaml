@@ -1,0 +1,11 @@
+defaults:
+  - multi_eye
+  - /MjCambrianApproxMultiEyeConfig
+
+instance:
+  _target_: cambrian.eyes.approx_multi_eye.MjCambrianApproxMultiEye
+  _partial_: true
+
+eye_instance:
+  _target_: cambrian.eyes.approx_multi_eye.MjCambrianApproxEye
+  _partial_: true

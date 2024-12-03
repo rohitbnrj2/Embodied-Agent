@@ -12,6 +12,3 @@ xml:
 
 body_name: "${parent:}_body"
 geom_name: "${parent:}_geom"
-
-eyes_lat_range: [-5, 5]
-eyes_lon_range: [-60, 60]

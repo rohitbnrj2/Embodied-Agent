@@ -39,9 +39,12 @@ def evaluate_policy(
         num_runs (int): The number of runs to evaluate the policy on.
 
     Keyword Args:
-        record_path (Optional[Path]): The path to save the video to. If None, the video
-            is not saved. This is passed directly to MjCambrianEnv.renderer.save(), so
-            see that method for more details.
+        record_kwargs (Dict[str, Any]): The keyword arguments to pass to the save
+            method of the environment. If None, the environment will not be recorded.
+        step_callback (Callable[[], bool]): The callback function to call at each step.
+            If the function returns False, the evaluation will stop.
+        done_callback (Callable[[int], bool]): The callback function to call when a run
+            is done. If the function returns False, the evaluation will stop.
     """
     # To avoid circular imports
     from cambrian.envs import MjCambrianEnv

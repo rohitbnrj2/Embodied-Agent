@@ -2,7 +2,7 @@
 environment. The eye is essentially a camera that is attached to a body in the
 environment. The eye can render images and provide observations to the agent."""
 
-from typing import Callable, Self, Tuple
+from typing import Callable, Self, Tuple, Optional
 
 import mujoco as mj
 import numpy as np
@@ -66,9 +66,16 @@ class MjCambrianEye:
     Args:
         config (MjCambrianEyeConfig): The configuration for the eye.
         name (str): The name of the eye.
+
+    Keyword Args:
+        disable_render (bool): Whether to disable rendering. Defaults to False.
+            This is useful for derived classes which don't intend to use the default
+            rendering mechanism.
     """
 
-    def __init__(self, config: MjCambrianEyeConfig, name: str):
+    def __init__(
+        self, config: MjCambrianEyeConfig, name: str, *, disable_render: bool = False
+    ):
         self._config = config
         self._name = name
 
@@ -81,7 +88,9 @@ class MjCambrianEye:
         self._prev_obs: np.ndarray = None
         self._fixedcamid = -1
 
-        self._renderer = MjCambrianRenderer(self._config.renderer)
+        self._renderer: MjCambrianRenderer = None
+        if not disable_render:
+            self._renderer = MjCambrianRenderer(self._config.renderer)
 
     def generate_xml(
         self, parent_xml: MjCambrianXML, geom: MjCambrianGeometry, parent_body_name: str
@@ -105,6 +114,8 @@ class MjCambrianEye:
         """
 
         xml = MjCambrianXML.make_empty()
+        if self._renderer is None:
+            return xml
 
         # Get the parent body reference
         parent_body = parent_xml.find(".//body", name=parent_body_name)
@@ -169,6 +180,9 @@ class MjCambrianEye:
         self._model = model
         self._data = data
 
+        if self._renderer is None:
+            return self.step()
+
         resolution = [self._renderer.config.width, self._renderer.config.height]
         self._renderer.reset(model, data, *resolution)
 
@@ -177,34 +191,41 @@ class MjCambrianEye:
         self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
         self._renderer.viewer.camera.fixedcamid = self._fixedcamid
 
-        self._prev_obs = np.zeros(self.observation_space.shape, dtype=np.float32)
+        self._prev_obs = np.zeros((*self._config.resolution, 3), dtype=np.float32)
 
         return self.step()
 
-    def step(self) -> np.ndarray | Tuple[np.ndarray, np.ndarray]:
+    def step(
+        self, obs: Optional[np.ndarray] = None
+    ) -> np.ndarray | Tuple[np.ndarray, np.ndarray]:
         """Simply calls `render` and sets the last observation. See `render()` for more
         information.
+
+        Args:
+            obs (Optional[np.ndarray], optional): The observation to set. Defaults to
+                None. This can be used by derived classes to set the observation
+                directly.
         """
-        obs = self.render()
+        if obs is None:
+            assert self._renderer is not None, "Cannot step without a renderer."
+            obs = self._renderer.render()
+            if self._renders_depth:
+                obs = obs[0]
         np.copyto(self._prev_obs, obs)
         return obs
 
     def render(self) -> np.ndarray:
-        """Render the image from the camera. Will always only return the rgb array."""
-        obs = self._renderer.render()
-        if self._renders_depth:
-            return obs[0]
-        return obs
+        """Render the image from the camera. Will always only return the rgb array.
+
+        This differs from step in that this is a debug method. The rendered image here
+        will be used to visualize the eye in the viewer.
+        """
+        return self._prev_obs
 
     @property
     def config(self) -> MjCambrianEyeConfig:
         """The config for the eye."""
         return self._config
-
-    @property
-    def renderer(self) -> MjCambrianRenderer:
-        """The renderer for the eye."""
-        return self._renderer
 
     @property
     def name(self) -> str:
@@ -220,19 +241,6 @@ class MjCambrianEye:
         return spaces.Box(0.0, 1.0, shape=shape, dtype=np.float32)
 
     @property
-    def num_pixels(self) -> int:
-        """The number of pixels in the image."""
-        return np.prod(self._config.resolution)
-
-    @property
     def prev_obs(self) -> np.ndarray:
         """The last observation returned by `self.render()`."""
         return self._prev_obs
-
-    @property
-    def pos(self) -> np.ndarray:
-        return self._data.cam_xpos[self._fixedcamid].copy()
-
-    @property
-    def mat(self) -> np.ndarray:
-        return self._data.cam_xmat[self._fixedcamid].reshape(3, 3).copy()

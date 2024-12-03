@@ -86,16 +86,13 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
         n_eval_episodes (int): The number of episodes to evaluate for.
 
         add_overlays (bool): Whether to add overlays or not.
-        add_debug_overlay (bool): Whether to add a debug overlay or not. This will draw
-            debug information on the screen. If `add_overlays` is False, this will be
-            ignored.
         clear_overlays_on_reset (bool): Whether to clear the overlays on reset or not.
             Consequence of setting to False is that when drawing position overlays
             and when mazes change between evaluations, the sites will be drawn on top
             of each other which may not be desired. When record is False, the overlays
             are always be cleared.
-        render_agent_composite_only (Optional[bool]): If set, will only render the
-            composite image all agents.
+        debug_overlays_size (float): The size of the debug overlays. This is a 
+            percentage of the total renderer size. If 0, debug overlays are disabled.
         renderer (Optional[MjCambrianViewerConfig]): The default viewer config to
             use for the mujoco viewer. If unset, no renderer will be used. Should
             set to None if `render` will never be called. This may be useful to
@@ -123,9 +120,8 @@ class MjCambrianEnvConfig(MjCambrianBaseConfig):
     n_eval_episodes: int
 
     add_overlays: bool
-    add_debug_overlays: bool
     clear_overlays_on_reset: bool
-    render_agent_composite_only: Optional[bool] = None
+    debug_overlays_size: float
     renderer: Optional[MjCambrianRendererConfig] = None
 
     save_filename: Optional[str] = None
@@ -153,7 +149,6 @@ class MjCambrianEnv(ParallelEnv, Env):
     def __init__(self, config: MjCambrianEnvConfig, name: Optional[str] = None):
         self._config = config
         self._name = name or self.__class__.__name__
-        self._logger = get_logger()
 
         self._agents: Dict[str, MjCambrianAgent] = {}
         self._create_agents()
@@ -163,7 +158,7 @@ class MjCambrianEnv(ParallelEnv, Env):
         try:
             self._model = mj.MjModel.from_xml_string(self._xml.to_string())
         except Exception:
-            self._logger.error(
+            get_logger().error(
                 f"Error creating model from xml\n{self._xml.to_string()}"
             )
             raise
@@ -336,9 +331,7 @@ class MjCambrianEnv(ParallelEnv, Env):
             self._rollout["actions"].append(list(action.values()))
             self._rollout["positions"].append([a.pos for a in self._agents.values()])
 
-        if self._config.add_debug_overlays and (
-            self.record or "human" in self._config.renderer.render_modes
-        ):
+        if self._config.debug_overlays_size > 0 and self.record or "human" in self._config.renderer.render_modes:
             self._overlays["Name"] = self._name
             self._overlays["Total Timesteps"] = self.num_timesteps
             self._overlays["Step"] = self._episode_step
@@ -441,30 +434,11 @@ class MjCambrianEnv(ParallelEnv, Env):
         assert self._renderer is not None, "Renderer has not been initialized! "
         "Ensure `use_renderer` is set to True in the constructor."
 
-        if self._config.render_agent_composite_only:
-            return self._render_agent_composite_only()
-
         overlays = None
         if self._config.add_overlays:
             overlays = self._generate_overlays()
 
         return self._renderer.render(overlays=overlays)
-
-    def _render_agent_composite_only(self) -> Dict[str, np.ndarray]:
-        """Renders the composite image for the first agent only."""
-        agent = next(iter(self._agents.values()))
-        composite = agent.create_composite_image()
-        if composite is None:
-            composite = np.zeros((1, 1, 3), dtype=np.float32)
-        composite = np.flipud(composite)
-        composite = np.transpose(composite, (1, 0, 2))
-        composite = resize_with_aspect_fill(
-            composite, self._renderer.width, self._renderer.height
-        )
-        if self.record:
-            # TODO: uses hidden attribute
-            self._renderer._rgb_buffer.append(composite)
-        return composite
 
     def _generate_overlays(self) -> List[MjCambrianViewerOverlay]:
         # First add site overlays for each agent
@@ -493,16 +467,15 @@ class MjCambrianEnv(ParallelEnv, Env):
                 cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
                 overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
 
-        if self._config.add_debug_overlays:
+        if self._config.debug_overlays_size > 0:
             renderer_width = self._renderer.width
             renderer_height = self._renderer.height
 
             # Set the overlay size to be a fraction of the renderer size relative to
-            # the agent count. The overlay height will be set to 35% of the renderer
-            # from the bottom
+            # the agent count. 
             num_agents = len([a for a in self._agents.values() if a.trainable])
             overlay_width = int(renderer_width // num_agents) if num_agents > 0 else 0
-            overlay_height = int(renderer_height * 0.35)
+            overlay_height = int(renderer_height * self._config.debug_overlays_size)
             overlay_size = (overlay_width, overlay_height)
 
             cursor = MjCambrianCursor(0, 0)
@@ -511,10 +484,10 @@ class MjCambrianEnv(ParallelEnv, Env):
                 cursor.x = i * overlay_width
                 cursor.y = 0
                 if cursor.x + overlay_width > renderer_width:
-                    self._logger.warning("Renderer width is too small!!")
+                    get_logger().warning("Renderer width is too small!!")
                     continue
 
-                if (composite := agent.create_composite_image()) is None:
+                if (composite := agent.render()) is None:
                     # Make the composite image black so we can still render other
                     # overlays
                     composite = np.zeros((1, 1, 3), dtype=np.float32)
@@ -709,7 +682,7 @@ class MjCambrianEnv(ParallelEnv, Env):
         if seed is None:
             return
 
-        self._logger.info(f"Setting random seed to {seed}")
+        get_logger().info(f"Setting random seed to {seed}")
         set_random_seed(seed)
 
     @property
@@ -731,10 +704,10 @@ class MjCambrianEnv(ParallelEnv, Env):
         self._renderer.save(path, **kwargs)
 
         if save_pkl:
-            self._logger.info(f"Saving rollout to {path.with_suffix('.pkl')}")
+            get_logger().info(f"Saving rollout to {path.with_suffix('.pkl')}")
             with open(path.with_suffix(".pkl"), "wb") as f:
                 pickle.dump(self._rollout, f)
-            self._logger.debug(f"Saved rollout to {path.with_suffix('.pkl')}")
+            get_logger().debug(f"Saved rollout to {path.with_suffix('.pkl')}")
 
     def close(self):
         """Closes the environment."""
@@ -816,7 +789,7 @@ if __name__ == "__main__":
 
             if record:
                 for name, agent in env.agents.items():
-                    if (composite := agent.create_composite_image()) is not None:
+                    if (composite := agent.render()) is not None:
                         composite = np.transpose(composite, (1, 0, 2))
                         composite = resize_with_aspect_fill(composite, 256, 256)
                         composite = (composite * 255).astype(np.uint8)

@@ -1,7 +1,7 @@
 """This is an optics-enabled eye, which implements a height map and a PSF on top
 of the existing eye."""
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Callable, Self
 
 import numpy as np
 import torch
@@ -79,6 +79,8 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
         depths (List[float]): Depths at which the PSF is calculated. If empty, the psf
             is calculated for each render call; otherwise, the PSFs are precomputed.
     """
+
+    instance: Callable[[Self, str], "MjCambrianOpticsEye"]
 
     pupil_resolution: Tuple[int, int]
 
@@ -276,7 +278,7 @@ class MjCambrianOpticsEye(MjCambrianEye):
 
         return psf
 
-    def render(self) -> np.ndarray:
+    def step(self) -> np.ndarray:
         """Overwrites the default render method to apply the depth invariant PSF to the
         image."""
         image, depth = self._renderer.render()
@@ -310,7 +312,7 @@ class MjCambrianOpticsEye(MjCambrianEye):
         image = self._crop(image)
         image = torch.clip(image, 0, 1)
 
-        return image.cpu().numpy()
+        return super().step(obs=image.cpu().numpy())
 
     def _apply_noise(self, image: torch.Tensor, std: float) -> torch.Tensor:
         """Add Gaussian noise to the image."""
