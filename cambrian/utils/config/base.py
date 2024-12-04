@@ -268,6 +268,21 @@ class MjCambrianContainerConfig:
             OmegaConf.set_readonly(self._config, is_readonly)
 
     @contextmanager
+    def set_temporarily(
+        self, *, is_struct: bool | None = None, is_readonly: bool | None = None
+    ):
+        """Context manager to temporarily set the struct and readonly flags."""
+        if is_struct is not None:
+            self.set_struct(is_struct)
+        if is_readonly is not None:
+            self.set_readonly(is_readonly)
+        yield self._content, self._config
+        if is_struct is not None:
+            self.set_struct(not is_struct)
+        if is_readonly is not None:
+            self.set_readonly(not is_readonly)
+
+    @contextmanager
     def set_struct_temporarily(self, is_struct: bool):
         """Context manager to temporarily set the struct flag."""
         self.set_struct(is_struct)

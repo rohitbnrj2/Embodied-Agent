@@ -82,7 +82,7 @@ class MjCambrianMultiEye(MjCambrianEye):
                 eye_name = f"{self._name}_{lat_idx}_{lon_idx}"
                 eye_config = self._config.copy()
                 # Update the eye's coord to the current lat, lon
-                with eye_config.set_readonly_temporarily(False):
+                with eye_config.set_temporarily(is_readonly=False, is_struct=False):
                     eye_config.update("coord", [lat, lon])
                 # Create the eye instance
                 eye = eye_config.eye_instance(eye_config, eye_name)

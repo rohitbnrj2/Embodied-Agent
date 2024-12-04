@@ -38,8 +38,14 @@ def main(config: MjCambrianConfig, *, folder_path: Optional[Path] = None):
                     f"env.agents.agent.eyes.eye.resolution=[{resolution},{resolution}]",
                     f"eval_env.agents.agent.eyes.eye.num_eyes=[1,{num_eyes}]",
                     f"eval_env.agents.agent.eyes.eye.resolution=[{resolution},{resolution}]",  # noqa
+                    f"env.agents.agent.eyes.eye.renderer.width={resolution}",
+                    f"env.agents.agent.eyes.eye.renderer.height={resolution}",
+                    f"eval_env.agents.agent.eyes.eye.renderer.width={resolution}",
+                    f"eval_env.agents.agent.eyes.eye.renderer.height={resolution}",
+                    "trainer.n_envs=1",
                 ]
             )
+
         trainer = MjCambrianTrainer(config)
         start_time = time.time()
         process = psutil.Process()
@@ -52,7 +58,10 @@ def main(config: MjCambrianConfig, *, folder_path: Optional[Path] = None):
     # Collect timing and RAM data with multiple samples
     for num_eyes in num_eyes_sweep:
         for resolution in resolution_sweep:
-            samples = [run(num_eyes, resolution, config) for _ in range(num_samples)]
+            temp_config = config.copy()
+            samples = [
+                run(num_eyes, resolution, temp_config) for _ in range(num_samples)
+            ]
             avg_time = np.mean([s[0] for s in samples])
             avg_ram = np.mean([s[1] for s in samples])
             confidence_interval = (
