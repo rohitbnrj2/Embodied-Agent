@@ -34,9 +34,9 @@ def main(config: MjCambrianConfig, *, folder_path: Optional[Path] = None):
         ):
             config.merge_with_dotlist(
                 [
-                    f"env.agents.agent.eyes.eye.num_eyes[0]={num_eyes}",
+                    f"env.agents.agent.eyes.eye.num_eyes=[1,{num_eyes}]",
                     f"env.agents.agent.eyes.eye.resolution=[{resolution},{resolution}]",
-                    f"eval_env.agents.agent.eyes.eye.num_eyes[0]={num_eyes}",
+                    f"eval_env.agents.agent.eyes.eye.num_eyes=[1,{num_eyes}]",
                     f"eval_env.agents.agent.eyes.eye.resolution=[{resolution},{resolution}]",  # noqa
                 ]
             )
