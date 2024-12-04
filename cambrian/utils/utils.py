@@ -73,7 +73,8 @@ def evaluate_policy(
 
             run += 1
 
-        env.render()
+        if record_kwargs is not None:
+            env.render()
 
         if not step_callback():
             break
