@@ -90,6 +90,9 @@ class MjCambrianApproxEye(MjCambrianEye):
         y_start = max(0, y_start)
         y_end = min(total_res_y, y_end)
 
+        assert x_start < x_end, f"x_start={x_start}, x_end={x_end}"
+        assert y_start < y_end, f"y_start={y_start}, y_end={y_end}"
+
         self._total_fov = total_fov
         self._total_resolution = total_resolution
         self._crop_rect = (x_start, x_end, y_start, y_end)
@@ -140,7 +143,10 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
         # Compute total FOV and resolution
         lat_range = max(np.subtract(*self._config.lat_range), self._config.fov[1])
         self._total_fov = (360.0, lat_range)
-        self._total_resolution = (self._resolution[0] * 4, self._resolution[1] * 3)
+        self._total_resolution = (
+            max(self._resolution[0] * 4, 16),
+            self._resolution[1] * 3,
+        )
 
         # Set min and max lat and lon
         self._min_lon = -180.0
