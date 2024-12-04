@@ -187,6 +187,11 @@ def make_odd(num: int | float) -> int:
     return int(num) if num % 2 == 1 else int(num) + 1
 
 
+def round_half_up(n: float) -> int:
+    """Round a number to the nearest integer, rounding half up."""
+    return int(np.floor(n + 0.5))
+
+
 def safe_index(
     arr: List[Any], value: Any, *, default: Optional[int] = None
 ) -> int | None:

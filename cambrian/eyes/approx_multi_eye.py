@@ -10,7 +10,7 @@ from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.eyes.multi_eye import MjCambrianMultiEye, MjCambrianMultiEyeConfig
 from cambrian.renderer import MjCambrianRenderer
 from cambrian.renderer.render_utils import CubeToEquirectangularConverter
-from cambrian.utils import MjCambrianGeometry, get_camera_id
+from cambrian.utils import MjCambrianGeometry, get_camera_id, round_half_up
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import config_wrapper
 
@@ -79,10 +79,10 @@ class MjCambrianApproxEye(MjCambrianEye):
         eye_res_y = (eye_fovy / total_fovy) * total_res_y
 
         # Compute cropping rectangle
-        x_start = int(np.round(x_center - eye_res_x / 2))
-        x_end = int(np.round(x_center + eye_res_x / 2))
-        y_start = int(np.round(y_center - eye_res_y / 2))
-        y_end = int(np.round(y_center + eye_res_y / 2))
+        x_start = int(round_half_up(x_center - eye_res_x / 2))
+        x_end = int(round_half_up(x_center + eye_res_x / 2))
+        y_start = int(round_half_up(y_center - eye_res_y / 2))
+        y_end = int(round_half_up(y_center + eye_res_y / 2))
 
         # Ensure indices are within image bounds
         x_start = max(0, x_start)
@@ -132,8 +132,8 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
         self._lat = np.add(*self._config.lat_range) / 2.0
         self._lons = [180, 90, 0, -90]
         self._resolution = (
-            self._config.resolution[0] * self._config.num_eyes[1],
-            self._config.resolution[1] * self._config.num_eyes[0],
+            int(self._config.resolution[0] * 90 / self._config.fov[0]),
+            int(self._config.resolution[1] * 90 / self._config.fov[1]),
         )
         self._renderers: Dict[str, MjCambrianRenderer] = {}
         for i in range(4):
@@ -144,8 +144,8 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
         lat_range = max(np.subtract(*self._config.lat_range), self._config.fov[1])
         self._total_fov = (360.0, lat_range)
         self._total_resolution = (
-            max(self._resolution[0] * 4, 16),
-            self._resolution[1] * 3,
+            self._resolution[0] * 4,
+            self._resolution[1],
         )
 
         # Set min and max lat and lon
