@@ -131,6 +131,7 @@ class MjCambrianTrainer:
         self,
         *,
         filename: Optional[Path | str] = None,
+        record: bool = True,
     ) -> float:
         self._config.save(self._config.expdir / "eval_config.yaml")
 
@@ -151,6 +152,8 @@ class MjCambrianTrainer:
             path=self._config.expdir / filename,
             save_mode=self._config.eval_env.renderer.save_mode,
         )
+        if not record:
+            record_kwargs = None
         evaluate_policy(eval_env, model, n_runs, record_kwargs=record_kwargs)
 
         # Calculate fitness

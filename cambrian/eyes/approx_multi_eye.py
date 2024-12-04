@@ -9,6 +9,7 @@ from scipy.spatial.transform import Rotation as R
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.eyes.multi_eye import MjCambrianMultiEye, MjCambrianMultiEyeConfig
 from cambrian.renderer import MjCambrianRenderer
+from cambrian.renderer.render_utils import CubeToEquirectangularConverter
 from cambrian.utils import MjCambrianGeometry, get_camera_id
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import config_wrapper
@@ -126,7 +127,7 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
 
         # Create cameras for the 4 directions
         self._lat = np.add(*self._config.lat_range) / 2.0
-        self._lons = [225, 135, 45, -45]
+        self._lons = [180, 90, 0, -90]
         self._resolution = (
             self._config.resolution[0] * self._config.num_eyes[1],
             self._config.resolution[1] * self._config.num_eyes[0],
@@ -139,7 +140,7 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
         # Compute total FOV and resolution
         lat_range = max(np.subtract(*self._config.lat_range), self._config.fov[1])
         self._total_fov = (360.0, lat_range)
-        self._total_resolution = (self._resolution[0] * 4, self._resolution[1])
+        self._total_resolution = (self._resolution[0] * 4, self._resolution[1] * 3)
 
         # Set min and max lat and lon
         self._min_lon = -180.0
@@ -155,6 +156,11 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
                 (self._min_lat, self._max_lat),
                 (self._min_lon, self._max_lon),
             )
+
+        # Initialize the cube to equirectangular converter
+        self._cube_to_equirectangular = CubeToEquirectangularConverter(
+            self._total_resolution, *self._resolution
+        )
 
     def generate_xml(
         self, parent_xml: MjCambrianXML, geom: MjCambrianGeometry, parent_body_name: str
@@ -188,7 +194,7 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
             focal = self._config.focal
             sensorsize = [
                 2 * focal[0] * np.tan(np.radians(90) / 2),
-                2 * focal[1] * np.tan(np.radians(self._config.fov[1]) / 2),
+                2 * focal[1] * np.tan(np.radians(90) / 2),
             ]
             resolution = [self._config.resolution[0], self._config.resolution[1]]
 
@@ -244,24 +250,10 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
             if self._renders_depth:
                 image = image[0]  # Assuming RGB image is the first element
             images.append(image)
+
         # Now stitch the images together
-        # full_image = project_images_to_spherical_panorama(
-        #     images=images,
-        #     yaw_angles=self._lons,
-        #     fov_x=90,
-        #     fov_y=self._config.fov[1],
-        #     total_resolution=self._total_resolution,
-        # )
-        full_image = np.concatenate(images, axis=0)  # Concatenate along width
-        # Save image for debugging
-        # if "i" not in globals():
-        #     global i
-        #     i = 0
-        # cv2.imwrite(
-        #     f"logs/images/full_image_{i}.png",
-        #     (np.swapaxes(full_image, 0, 1) * 255).astype(np.uint8),
-        # )
-        # i += 1
+        full_image = self._cube_to_equirectangular.convert(images)
+
         obs = {}
         for name, eye in self._eyes.items():
             obs[name] = eye.step(full_image)

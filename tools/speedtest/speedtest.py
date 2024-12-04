@@ -44,7 +44,7 @@ def main(config: MjCambrianConfig, *, folder_path: Optional[Path] = None):
         start_time = time.time()
         process = psutil.Process()
         initial_ram = process.memory_info().rss
-        trainer.eval()
+        trainer.eval(record=False)
         elapsed_time = time.time() - start_time
         ram_used = process.memory_info().rss - initial_ram
         return elapsed_time, ram_used / (1024**2)  # Convert to MB

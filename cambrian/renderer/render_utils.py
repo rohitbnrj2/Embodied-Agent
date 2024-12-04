@@ -1,6 +1,6 @@
 """Rendering utilities."""
 
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 import cv2
 import mujoco as mj
@@ -153,113 +153,129 @@ def generate_composite(
     return composite
 
 
-def project_images_to_spherical_panorama(
-    images: List[np.ndarray],
-    yaw_angles: List[float],
-    fov_x: float,
-    fov_y: float,
-    total_resolution: Tuple[int, int],
-) -> np.ndarray:
-    """
-    Projects multiple camera images onto a spherical surface to create a panorama.
+class CubeToEquirectangularConverter:
+    def __init__(self, size, w_img, h_img):
+        """
+        Initialize the CubeToEquirectangularConverter.
 
-    Args:
-        images: List of images from the cameras, each with shape (width, height,
-            channels).
-        yaw_angles: List of yaw angles (in degrees) corresponding to each camera image.
-        fov_x: Horizontal field of view of each camera in degrees.
-        fov_y: Vertical field of view of each camera in degrees.
-        total_resolution: Resolution (width, height) of the resulting panorama.
+        Parameters:
+        - size: Tuple[int, int] -> (width, height) of the output equirectangular image
+        - w_img: int -> Width of each input cube face image
+        - h_img: int -> Height of each input cube face image
+        """
+        # Output dimensions
+        self.width, self.height = size
+        self.w_img = w_img
+        self.h_img = h_img
 
-    Returns:
-        The spherical panorama image as a NumPy array with shape (width, height,
-            channels).
-    """
-    import numpy as np
+        # Preallocate the output buffer as float32
+        self.output = np.zeros((self.height, self.width, 3), dtype=np.float32)
 
-    # Unpack total resolution
-    pano_width, pano_height = total_resolution
-    channels = images[0].shape[2]
+        # Generate coordinate grids
+        theta = (
+            np.linspace(0, 2 * np.pi, self.width, endpoint=False) - np.pi
+        )  # Longitude from -π to π
+        phi = np.linspace(
+            -np.pi / 2, np.pi / 2, self.height
+        )  # Latitude from -π/2 to π/2
+        self.theta, self.phi = np.meshgrid(theta, phi)
 
-    # Initialize the panorama image
-    pano_image = np.zeros((pano_width, pano_height, channels), dtype=images[0].dtype)
+        # Convert spherical coordinates to Cartesian coordinates
+        x = np.cos(self.phi) * np.sin(self.theta)
+        y = np.sin(self.phi)
+        z = np.cos(self.phi) * np.cos(self.theta)
 
-    # Compute min_lon and max_lon based on the cameras' yaw angles and FOVs
-    half_fov_x = fov_x / 2.0
-    min_lon = min(yaw - half_fov_x for yaw in yaw_angles)
-    max_lon = max(yaw + half_fov_x for yaw in yaw_angles)
+        # Determine which face each pixel corresponds to
+        abs_x = np.abs(x)
+        abs_y = np.abs(y)
+        abs_z = np.abs(z)
 
-    # Normalize longitudes to be within [-180, 180]
-    min_lon = ((min_lon + 180) % 360) - 180
-    max_lon = ((max_lon + 180) % 360) - 180
+        # Initialize face indices and UV coordinates
+        face_indices = np.zeros((self.height, self.width), dtype=np.int32)
+        u = np.zeros((self.height, self.width), dtype=np.float32)
+        v = np.zeros((self.height, self.width), dtype=np.float32)
 
-    # Handle wrap-around if necessary
-    if min_lon > max_lon:
-        max_lon += 360
+        # Define face indices:
+        # 0: Left, 1: Front, 2: Right, 3: Back
+        # Left face (x negative)
+        mask_left = (abs_x >= abs_y) & (abs_x >= abs_z) & (x < 0)
+        face_indices[mask_left] = 0
+        u[mask_left] = z[mask_left] / abs_x[mask_left]
+        v[mask_left] = y[mask_left] / abs_x[mask_left]
 
-    # Compute min_lat and max_lat based on FOV
-    half_fov_y = fov_y / 2.0
-    min_lat = -half_fov_y
-    max_lat = half_fov_y
+        # Front face (z positive)
+        mask_front = (abs_z >= abs_x) & (abs_z >= abs_y) & (z > 0)
+        face_indices[mask_front] = 1
+        u[mask_front] = x[mask_front] / abs_z[mask_front]
+        v[mask_front] = y[mask_front] / abs_z[mask_front]
 
-    # Create coordinate grids for the panorama (note: X is width, Y is height)
-    X_pano, Y_pano = np.meshgrid(
-        np.arange(pano_width), np.arange(pano_height), indexing="ij"
-    )
+        # Right face (x positive)
+        mask_right = (abs_x >= abs_y) & (abs_x >= abs_z) & (x > 0)
+        face_indices[mask_right] = 2
+        u[mask_right] = -z[mask_right] / abs_x[mask_right]
+        v[mask_right] = y[mask_right] / abs_x[mask_right]
 
-    # Compute theta (longitude) and phi (latitude) for each pixel in the panorama
-    theta = (X_pano / (pano_width - 1)) * (max_lon - min_lon) + min_lon  # Degrees
-    phi = (Y_pano / (pano_height - 1)) * (max_lat - min_lat) + min_lat  # Degrees
+        # Back face (z negative)
+        mask_back = (abs_z >= abs_x) & (abs_z >= abs_y) & (z < 0)
+        face_indices[mask_back] = 3
+        u[mask_back] = -x[mask_back] / abs_z[mask_back]
+        v[mask_back] = y[mask_back] / abs_z[mask_back]
 
-    # Ensure theta is within [-180, 180]
-    theta = ((theta + 180) % 360) - 180
+        # Map UV coordinates to pixel indices
+        u_img = ((u + 1) / 2) * (self.w_img - 1)
+        v_img = ((1 - (v + 1) / 2)) * (self.h_img - 1)  # Flip v-axis
 
-    # Iterate over each camera image
-    for i, image_i in enumerate(images):
-        yaw = yaw_angles[i]
-        # Normalize yaw to [-180, 180]
-        yaw = ((yaw + 180) % 360) - 180
+        # Precompute the adjusted map_x by accounting for face indices
+        # Each face is placed horizontally in the combined image
+        # Combined image width = 4 * w_img
+        self.map_x = u_img + face_indices * self.w_img
+        self.map_y = v_img
 
-        # Handle wrap-around for delta_theta
-        delta_theta = ((theta - yaw + 180) % 360) - 180
+        # Stack per-face maps
+        self.map_x = self.map_x.astype(np.float32)
+        self.map_y = self.map_y.astype(np.float32)
 
-        # Create a mask for pixels within the camera's field of view
-        mask = (
-            (np.abs(delta_theta) <= half_fov_x)
-            & (phi >= -half_fov_y)
-            & (phi <= half_fov_y)
+        # Precompute the crop indices
+        self.crop_start = (self.height - self.h_img) // 2
+        self.crop_end = self.crop_start + self.h_img
+
+    def convert(self, images):
+        """
+        Convert cube faces to an equirectangular image.
+
+        Parameters:
+        - images: list of four images [left, front, right, back]
+                  Each image should be a NumPy array of shape (h_img, w_img, 3) with
+                float32 values in [0, 1]
+
+        Returns:
+        - Equirectangular image as a NumPy array of shape (h_img, width, 3) with
+        float32 values in [0, 1]
+        """
+
+        # Ensure all input images are float32 and in the range [0, 1]
+        images = [
+            image.transpose(1, 0, 2).astype(np.float32) for image in images
+        ]  # Transpose if needed
+
+        # Combine all faces into a single image arranged horizontally: left | front |
+        # right | back
+        combined_image = np.hstack(images)  # Shape: (h_img, 4 * w_img, 3)
+
+        # Perform a single remapping operation
+        remapped = cv2.remap(
+            combined_image,
+            self.map_x,
+            self.map_y,
+            interpolation=cv2.INTER_NEAREST,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=0,
         )
 
-        # Skip if no pixels are within the field of view
-        if not np.any(mask):
-            continue
+        # Crop the vertical center portion to match the original image height
+        output_cropped = remapped[self.crop_start : self.crop_end, :, :]
 
-        # Normalize delta_theta and phi to [0, 1] within the camera's FOV
-        u = (delta_theta + half_fov_x) / fov_x
-        v = (phi + half_fov_y) / fov_y
+        # Optionally flip the image vertically if needed
+        output_final = np.flipud(output_cropped).transpose(1, 0, 2)
 
-        # Map normalized coordinates to pixel indices in the input image
-        # Images are in shape (width, height, channels)
-        x_img = u * (image_i.shape[0] - 1)
-        y_img = v * (image_i.shape[1] - 1)
-
-        # Convert to integer indices
-        x_img_indices = x_img.astype(int)
-        y_img_indices = y_img.astype(int)
-
-        # Clip indices to valid range
-        x_img_indices = np.clip(x_img_indices, 0, image_i.shape[0] - 1)
-        y_img_indices = np.clip(y_img_indices, 0, image_i.shape[1] - 1)
-
-        # Flatten indices and apply mask
-        pano_indices_flat = np.where(mask)
-        x_img_indices_flat = x_img_indices[mask]
-        y_img_indices_flat = y_img_indices[mask]
-
-        # Get pixel values from the input image
-        pixel_values = image_i[x_img_indices_flat, y_img_indices_flat, :]
-
-        # Assign pixel values to the panorama image
-        pano_image[pano_indices_flat[0], pano_indices_flat[1], :] = pixel_values
-
-    return pano_image
+        return output_final
