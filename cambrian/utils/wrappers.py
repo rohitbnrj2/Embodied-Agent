@@ -20,8 +20,20 @@ class MjCambrianSingleAgentEnvWrapper(gym.Wrapper):
             will be used.
     """
 
-    def __init__(self, env: MjCambrianEnv, *, agent_name: Optional[str] = None):
+    def __init__(
+        self,
+        env: MjCambrianEnv,
+        *,
+        agent_name: Optional[str] = None,
+        combine_rewards: bool = True,
+        combine_terminated: bool = True,
+        combine_truncated: bool = True,
+    ):
         super().__init__(env)
+
+        self._combine_rewards = combine_rewards
+        self._combine_terminated = combine_terminated
+        self._combine_truncated = combine_truncated
 
         agent_name = agent_name or next(iter(env.agents.keys()))
         assert agent_name in env.agents, f"agent {agent_name} not found."
@@ -38,13 +50,25 @@ class MjCambrianSingleAgentEnvWrapper(gym.Wrapper):
         action = {self._agent.name: action}
         obs, reward, terminated, truncated, info = self.env.step(action)
 
-        return (
-            obs[self._agent.name],
-            reward[self._agent.name],
-            terminated[self._agent.name],
-            truncated[self._agent.name],
-            info[self._agent.name],
-        )
+        obs = obs[self._agent.name]
+        info = info[self._agent.name]
+
+        if self._combine_rewards:
+            reward = np.sum(list(reward.values()))
+        else:
+            reward = reward[self._agent.name]
+
+        if self._combine_terminated:
+            terminated = any(terminated.values())
+        else:
+            terminated = terminated[self._agent.name]
+
+        if self._combine_truncated:
+            truncated = any(truncated.values())
+        else:
+            truncated = truncated[self._agent.name]
+
+        return obs, reward, terminated, truncated, info
 
 
 class MjCambrianPettingZooEnvWrapper(gym.Wrapper):

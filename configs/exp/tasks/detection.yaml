@@ -48,7 +48,7 @@ env:
       reward: -1.0
       for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
-    reward_if_close_to_agents:
+    reward_if_close_to_goal:
       _target_: cambrian.envs.reward_fns.reward_if_close_to_agents
       _partial_: true
       reward: 1.0
@@ -56,12 +56,6 @@ env:
       to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
       scale_by_quickness: True
-
-    reward_euclidean_delta_to_goal:
-      _target_: cambrian.envs.reward_fns.reward_euclidean_delta_to_agents
-      _partial_: true
-      factor: 0.25
-      to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
 
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
@@ -115,9 +109,8 @@ eval_env:
       for_agents: ${glob:adversary*,${oc.dict.keys:env.agents}}
       scale_by_quickness: true
 
-    reward_euclidean_delta_to_goal:
-      # increase reward for moving closer to the goal
-      factor: 1.5
+    reward_if_close_to_goal:
+      disable: True
     penalize_if_has_contacts:
       # large negative reward for contacts
       penalty: -2.0

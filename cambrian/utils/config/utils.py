@@ -4,11 +4,14 @@ import re
 from dataclasses import dataclass, fields, make_dataclass
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Concatenate, Dict, List, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Concatenate, Dict, List, Optional
 
 import hydra_zen as zen
 from hydra.core.config_store import ConfigStore
+from hydra.utils import get_object
 from omegaconf import DictConfig, OmegaConf
+
+from cambrian.utils import safe_eval
 
 if TYPE_CHECKING:
     from cambrian.utils.config import MjCambrianBaseConfig
@@ -361,73 +364,83 @@ def config_wrapper(cls=None, /, **kwargs):
     return wrapper(cls)
 
 
-def instance_wrapper(*, instance: Type[Any], **kwargs):
-    """This utility method will wrap a class instance to help with setting class
-    attributes after initialization.
+def instance_wrapper(
+    *,
+    instance: Any,
+    key: Optional[str] = None,
+    locate: bool = False,
+    eval: bool = False,
+    setitem: bool = False,
+    **kwargs,
+):
+    """Wraps a class instance to allow setting class attributes after initialization.
 
-    Some classes, for instance, don't include all attributes in the constructor; this
-    method will postpone setting these attributes until after __init__ is called and
-    just set the attributes directly with setattr.
-
-    This is intended to be called from a yaml config file like:
-
-    .. code-block:: yaml
-
-        obj_to_instantiate:
-            _target_: <path_to>.instance_wrapper
-            instance:
-                _target_: <class>
-
-                # these will be passed to the __init__ method
-                _args_: [arg1, arg2]
-
-                # these will be passed to the __init__ method as kwargs
-                init_arg1: value1
-                init_arg2: value2
-
-            # these will be set as attributes after the __init__ method
-            set_arg1: value1
-            set_arg2: value2
-
-    At instantiate time, init args are not always known. As such, you can leverage
-    hydras partial instantiation logic, as well. Under the hood, the instance_wrapper
-    method will wrap the partial instance created by hydra such that when it's
-    constructor is actually called, the attributes will be set.
-
-    .. code-block:: yaml
-
-        partial_obj_to_instantiate:
-            _target_: <path_to>.instance_wrapper
-            instance:
-                _target_: <class>
-                _partial_: True
-
-                # these will be passed to the __init__ method
-                _args_: [arg1, arg2]
-
-                # these will be passed to the __init__ method as kwargs
-                init_arg1: value1
-                init_arg2: value2
-                init_arg3: '???' # this is unknown at instantiate time and is set later
-
-            # these will be set as attributes after the __init__ method
-            set_arg1: value1
-            set_arg2: value2
+    This utility is useful when not all attributes are available during class
+    instantiation, allowing attributes to be set post-construction using either
+    direct assignment, item setting, or attribute modification based on optional flags.
 
     Args:
-        instance (Type[Any]): The class instance to wrap.
+        instance (Any): The class instance to wrap.
+        key (Optional[str], optional): If provided, fetches the specified attribute
+            from the instance to modify. Defaults to None.
+        locate (bool, optional): If True, attempts to resolve attribute names
+            dynamically (e.g., via object lookup). Defaults to False.
+        eval (bool, optional): If True, evaluates attribute values using safe_eval
+            before assignment. Defaults to False.
+        setitem (bool, optional): If True, uses item assignment (e.g., `instance[key]`)
+            instead of `setattr`. Defaults to False.
+        **kwargs: Key-value pairs of attributes to set on the instance.
 
-    Keyword Args:
-        kwargs: The attributes to set on the instance.
+    Returns:
+        Any: The modified instance.
+
+    Raises:
+        ValueError: If there is an error while setting an attribute.
+
+    Example Usage (via YAML):
+        .. code-block:: yaml
+
+            obj_to_instantiate:
+                _target_: <path_to>.instance_wrapper
+                instance:
+                    _target_: <class>
+                    _args_: [arg1, arg2]
+                    init_arg1: value1
+                    init_arg2: value2
+                set_arg1: value1
+                set_arg2: value2
+
+        For partial instantiation:
+        .. code-block:: yaml
+
+            partial_obj_to_instantiate:
+                _target_: <path_to>.instance_wrapper
+                instance:
+                    _target_: <class>
+                    _partial_: True
+                    _args_: [arg1, arg2]
+                    init_arg3: '???' # Set later
+                set_arg1: value1
+                set_arg2: value2
     """
 
     def setattrs(instance, **kwargs):
         try:
             for key, value in kwargs.items():
-                # Special case if value is the wrapper in flag_wrapper
                 if callable(value):
                     value = value()
-                setattr(instance, key, value)
+
+                if locate:
+                    key = get_object(key)
+                if eval:
+                    key = safe_eval(key)
+
+                if isinstance(value, dict):
+                    setattrs(getattr(instance, key), **value)
+                elif setitem:
+                    instance[key] = value
+                else:
+                    setattr(instance, key, value)
         except Exception as e:
             raise ValueError(f"Error when setting attribute {key=} to {value=}: {e}")
         return instance
@@ -440,98 +453,17 @@ def instance_wrapper(*, instance: Type[Any], **kwargs):
         config_kwargs = kwargs
 
         def wrapper(*args, **kwargs):
-            # First instantiate the partial
+            if key is not None:
+                instance = getattr(partial_instance, key)
+
             instance = partial_instance(*args, **kwargs)
-            # Then set the attributes
             return setattrs(instance, **config_kwargs)
 
         return wrapper
     else:
+        if key is not None:
+            instance = getattr(instance, key)
         return setattrs(instance, **kwargs)
-
-
-def instance_flag_wrapper(
-    *,
-    instance: Type[Any],
-    key: str,
-    flag_type: Optional[Type[Any]] = None,
-    eval_flags: Optional[bool] = False,
-    **flags,
-):
-    """This utility method will wrap a class instance to help with setting class
-    attributes after initialization. As opposed to instance_wrapper, this method will
-    set attribute flags on the instance. This is particularly useful for mujoco enums,
-    which are stored in a list.
-
-    This is intended to be called from a yaml config file and to be used in conjunction
-    with the instance_wrapper method.
-
-    Todo:
-        This is super ugly
-
-    .. code-block:: yaml
-
-        obj_to_instantiate:
-            _target_: <path_to>.instance_wrapper
-            instance:
-                _target_: <class>
-
-            # these will be set as flags on the instance
-            flags:
-                _target_: <path_to>.instance_flag_wrapper
-                instance: ${..instance}                   # get the instance
-                key: ${parent:}                           # gets the parent key; "flags"
-                flag_type:
-                    _target_: <class>                     # the class of the flag
-
-                # These will be set like:
-                # obj_to_instantiate.key[flag1] = value1
-                # obj_to_instantiate.key[flag2] = value2
-                # ...
-                flag1: value1
-                flag2: value2
-                flag3: value3
-
-    This also works for partial instances.
-
-    Args:
-        instance (Type[Any]): The class instance to wrap.
-        key (str): The key to set the flags on.
-        flag_type (Optional[Type[Any]]): The class of the flag. If unset, will use the
-            flag directly.
-        eval_flags (Optional[bool]): Whether to evaluate the flags. If True, will
-            call eval on the flags. This is helpful if you want to use slices.
-            Default: False. NOTE: this is note safe and should be used with caution.
-
-    Keyword Args:
-        flags: The flags to set on the instance.
-    """
-
-    def setattrs(instance, key, flag_type, return_instance, **flags):
-        """Set the attributes on the instance."""
-        attr = getattr(instance, key)
-        for flag, value in flags.items():
-            flag = getattr(flag_type, flag, flag)
-            if eval_flags:
-                flag = eval(flag)
-            attr[flag] = value
-        return attr if not return_instance else instance
-
-    if isinstance(instance, partial):
-        partial_instance = instance
-        config_key = key
-        config_type = flag_type
-        config_flags = flags
-
-        def wrapper(*args, **kwargs):
-            # First instantiate the partial
-            instance = partial_instance(*args, **kwargs)
-            # Then set the attributes
-            return setattrs(instance, config_key, config_type, True, **config_flags)
-
-        return wrapper
-    else:
-        return setattrs(instance, key, flag_type, False, **flags)
 
 
 class MjCambrianFlagWrapperMeta(enum.EnumMeta):

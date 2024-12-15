@@ -221,6 +221,8 @@ class MjCambrianMaze:
         self._occupied_locations: List[np.ndarray] = []
         self._agent_locations: Dict[str, int] = {}
 
+        self._agent_id_map = dict(**self._config.agent_id_map)
+
     def initialize(self, starting_x: float):
         self._starting_x = starting_x
         self._update_locations()
@@ -265,9 +267,9 @@ class MjCambrianMaze:
                     self._reset_locations.append(loc)
 
                     # Do a check for the agent id
-                    assert entity_id in list(self._config.agent_id_map.keys()), (
+                    assert entity_id in list(self._agent_id_map.keys()), (
                         f"Invalid agent id: {entity_id}. "
-                        f"Available agent ids: {list(self._config.agent_id_map.keys())}"
+                        f"Available agent ids: {list(self._agent_id_map.keys())}"
                     )
                     self._reset_agents.append(entity_id)
 
@@ -493,7 +495,7 @@ class MjCambrianMaze:
         """
         reset_locations = []
         for reset_agent, reset_pos in zip(self._reset_agents, self._reset_locations):
-            if agent in self._config.agent_id_map[reset_agent]:
+            if agent in self._agent_id_map[reset_agent]:
                 reset_locations.append(reset_pos)
         reset_locations = np.array(reset_locations)
 

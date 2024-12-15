@@ -1,59 +1,254 @@
 """Rendering utilities."""
 
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
-import cv2
 import mujoco as mj
 import numpy as np
+import torch
+import torch.nn.functional as F
+
+from cambrian.utils import device
+
+
+def resize(images: torch.Tensor, height: int, width: int) -> torch.Tensor:
+    """Resize the image to the specified height and width."""
+    squeeze = False
+    if images.ndim == 3:
+        squeeze = True
+        images = images.unsqueeze(0)
+
+    resized_images = F.interpolate(
+        images.permute(0, 3, 1, 2),
+        size=(height, width),
+        mode="nearest",
+        align_corners=None,
+    ).permute(0, 2, 3, 1)
+
+    return resized_images.squeeze(0) if squeeze else resized_images
 
 
 def resize_with_aspect_fill(
-    image: np.ndarray,
-    width: int,
+    images: torch.Tensor,
     height: int,
-    *,
-    border_type: int = cv2.BORDER_CONSTANT,
-    interp: int = cv2.INTER_NEAREST,
-) -> np.ndarray:
-    """Resize the image while maintaining the aspect ratio and filling the rest with
-    black.
+    width: int,
+) -> torch.Tensor:
+    """Resize the image while maintaining the aspect ratio and
+    filling the rest with black."""
+    squeeze = False
+    if images.ndim == 3:
+        squeeze = True
+        images = images.unsqueeze(0)
 
-    Args:
-        image (np.ndarray): The image to resize.
-        width (int): The new width.
-        height (int): The new height.
-
-    Keyword Args:
-        border_type (int): The type of border to add. Default is cv2.BORDER_CONSTANT.
-        interp (int): The interpolation method. Default is cv2.INTER_NEAREST.
-
-    Returns:
-        np.ndarray: The resized image.
-    """
-
-    # TODO: why is it height, width and not width, height?
-    # original_width, original_height = image.shape[:2]
-    original_height, original_width = image.shape[:2]
+    original_height, original_width = images.shape[1:3]
     ratio_original = original_width / original_height
     ratio_new = width / height
 
-    # Resize the image while maintaining the aspect ratio
-    if ratio_original > ratio_new:
-        # Original is wider relative to the new size
-        resize_height = max(1, round(width / ratio_original))
-        resized_image = cv2.resize(image, (width, resize_height), interpolation=interp)
-        top = (height - resize_height) // 2
-        bottom = height - resize_height - top
-        result = cv2.copyMakeBorder(resized_image, top, bottom, 0, 0, border_type)
-    else:
-        # Original is taller relative to the new size
-        resize_width = max(1, round(height * ratio_original))
-        resized_image = cv2.resize(image, (resize_width, height), interpolation=interp)
-        left = (width - resize_width) // 2
-        right = width - resize_width - left
-        result = cv2.copyMakeBorder(resized_image, 0, 0, left, right, border_type)
+    transpose = False
+    if ratio_original < ratio_new:
+        # Transpose for taller images
+        transpose = True
+        images = images.permute(0, 2, 1, 3)
+        height, width = width, height
+        ratio_new = width / height
+        ratio_original = original_height / original_width
 
-    return result
+    resize_height = max(1, round(width / ratio_original))
+    resized_images = resize(images, resize_height, width)
+
+    pad_top = (height - resize_height) // 2
+    pad_bottom = height - resize_height - pad_top
+    padded_images = F.pad(
+        resized_images.permute(0, 3, 1, 2),
+        (0, 0, pad_top, pad_bottom),
+        mode="constant",
+        value=0,
+    ).permute(0, 2, 3, 1)
+
+    if transpose:
+        # Transpose back
+        padded_images = padded_images.permute(0, 2, 1, 3)
+
+    return padded_images.squeeze(0) if squeeze else padded_images
+
+
+def add_border(
+    images: torch.Tensor,
+    border_size: int,
+    color: tuple = (0, 0, 0),
+) -> torch.Tensor:
+    squeeze = False
+    if images.ndim == 3:
+        squeeze = True
+        images = images.unsqueeze(0)
+    color = torch.tensor(color, device=images.device).unsqueeze(-1).unsqueeze(-1)
+    pad = (border_size, border_size, border_size, border_size)
+    images = images.permute(0, 3, 1, 2)
+    padded = F.pad(images, pad, value=0.0)
+    padded[..., :border_size, :] = color
+    padded[..., -border_size:, :] = color
+    padded[..., :, :border_size] = color
+    padded[..., :, -border_size:] = color
+    return padded.squeeze(0).permute(1, 2, 0) if squeeze else padded.permute(0, 2, 3, 1)
+
+
+def generate_composite(images: Dict[float, Dict[float, torch.Tensor]]) -> torch.Tensor:
+    """This is a debug method which renders the images as a composite image.
+
+    Will appear as a compound eye. For example, if we have a 3x3 grid of eyes:
+        TL T TR
+        ML M MR
+        BL B BR
+
+    Each eye has a red border around it.
+
+    Note:
+
+        This assumes that the images have the same dimensions.
+    """
+    composite = torch.stack(
+        [
+            images[lat][lon]
+            for lat in sorted(images.keys())
+            for lon in sorted(images[lat].keys())[::-1]
+        ]
+    )
+    H, W, _ = next(iter(images.values()))[0].shape
+    if H > W:
+        h = max(H, 10)
+        w = int(W * h / H)
+    else:
+        w = max(W, 10)
+        h = int(H * w / W)
+    composite = resize_with_aspect_fill(composite, h, w)
+    composite = add_border(composite, 1, color=(1, 0, 0))
+
+    # Resize the composite image while maintaining the spatial position
+    _, H, W, C = composite.shape
+    nrows, ncols = len(images), len(next(iter(images.values())))
+    composite = (
+        composite.view(nrows, ncols, H, W, C)
+        .permute(0, 2, 1, 3, 4)
+        .reshape(nrows * H, ncols * W, C)
+    )
+
+    return composite
+
+
+class CubeToEquirectangularConverter:
+    def __init__(self, size: Tuple[int, int], image_size: Tuple[int, int]):
+        self.full_size = size
+        full_height, full_width = size
+        self.image_size = image_size
+        img_height, img_width = image_size
+
+        theta = torch.linspace(-torch.pi, torch.pi, steps=full_width, device=device)
+        phi = torch.linspace(
+            -torch.pi / 2, torch.pi / 2, steps=full_height, device=device
+        )
+        theta, phi = torch.meshgrid(theta, phi, indexing="ij")
+        theta = theta.transpose(0, 1)
+        phi = phi.transpose(0, 1)
+
+        x = torch.cos(phi) * torch.sin(theta)
+        y = torch.sin(phi)
+        z = torch.cos(phi) * torch.cos(theta)
+
+        cos45 = torch.cos(torch.tensor(45.0 * torch.pi / 180, device=device))
+        sin45 = torch.sin(torch.tensor(45.0 * torch.pi / 180, device=device))
+
+        x_rot = x * cos45 + z * sin45
+        z_rot = -x * sin45 + z * cos45
+
+        abs_x_rot = x_rot.abs()
+        abs_y = y.abs()
+        abs_z_rot = z_rot.abs()
+
+        face_indices = torch.zeros((full_height, full_width), dtype=int, device=device)
+        u = torch.zeros((full_height, full_width), dtype=torch.float32, device=device)
+        v = torch.zeros((full_height, full_width), dtype=torch.float32, device=device)
+
+        mask_left = (abs_x_rot >= abs_y) & (abs_x_rot >= abs_z_rot) & (x_rot < 0)
+        face_indices[mask_left] = 0
+        u[mask_left] = z_rot[mask_left] / abs_x_rot[mask_left]
+        v[mask_left] = y[mask_left] / abs_x_rot[mask_left]
+
+        mask_front = (abs_z_rot >= abs_x_rot) & (abs_z_rot >= abs_y) & (z_rot > 0)
+        face_indices[mask_front] = 1
+        u[mask_front] = x_rot[mask_front] / abs_z_rot[mask_front]
+        v[mask_front] = y[mask_front] / abs_z_rot[mask_front]
+
+        mask_right = (abs_x_rot >= abs_y) & (abs_x_rot >= abs_z_rot) & (x_rot > 0)
+        face_indices[mask_right] = 2
+        u[mask_right] = -z_rot[mask_right] / abs_x_rot[mask_right]
+        v[mask_right] = y[mask_right] / abs_x_rot[mask_right]
+
+        mask_back = (abs_z_rot >= abs_x_rot) & (abs_z_rot >= abs_y) & (z_rot < 0)
+        face_indices[mask_back] = 3
+        u[mask_back] = -x_rot[mask_back] / abs_z_rot[mask_back]
+        v[mask_back] = y[mask_back] / abs_z_rot[mask_back]
+
+        mask_top = (abs_y >= abs_x_rot) & (abs_y >= abs_z_rot) & (y > 0)
+        face_indices[mask_top] = 4
+        u[mask_top] = x_rot[mask_top] / abs_y[mask_top]
+        v[mask_top] = -z_rot[mask_top] / abs_y[mask_top]
+
+        mask_bottom = (abs_y >= abs_x_rot) & (abs_y >= abs_z_rot) & (y < 0)
+        face_indices[mask_bottom] = 5
+        u[mask_bottom] = x_rot[mask_bottom] / abs_y[mask_bottom]
+        v[mask_bottom] = z_rot[mask_bottom] / abs_y[mask_bottom]
+
+        u_img = ((u + 1) / 2) * (img_width - 1)
+        v_img = (1 - (v + 1) / 2) * (img_height - 1)
+
+        offsets_x = torch.zeros_like(face_indices, dtype=torch.float32)
+        offsets_y = torch.zeros_like(face_indices, dtype=torch.float32)
+
+        offsets_x[face_indices == 0] = 0
+        offsets_y[face_indices == 0] = 1
+        offsets_x[face_indices == 1] = 1
+        offsets_y[face_indices == 1] = 1
+        offsets_x[face_indices == 2] = 2
+        offsets_y[face_indices == 2] = 1
+        offsets_x[face_indices == 3] = 3
+        offsets_y[face_indices == 3] = 1
+        offsets_x[face_indices == 4] = 1
+        offsets_y[face_indices == 4] = 0
+        offsets_x[face_indices == 5] = 1
+        offsets_y[face_indices == 5] = 2
+
+        map_x = u_img + offsets_x * img_width
+        map_y = v_img + offsets_y * img_height
+
+        norm_x = (map_x / (4 * img_width - 1)) * 2 - 1
+        norm_y = (map_y / (3 * img_height - 1)) * 2 - 1
+
+        grid = torch.stack((norm_x, norm_y), dim=-1).unsqueeze(0)
+        self.grid = grid.to(device)
+
+        self.combined_image = torch.zeros(
+            (3 * img_height, 4 * img_width, 3),
+            dtype=torch.float32,
+            device=device,
+        )
+
+    def convert(self, images: List[torch.Tensor]) -> torch.Tensor:
+        h, w = self.image_size
+        self.combined_image[h : 2 * h, 0:w] = images[0]
+        self.combined_image[h : 2 * h, w : 2 * w] = images[1]
+        self.combined_image[h : 2 * h, 2 * w : 3 * w] = images[2]
+        self.combined_image[h : 2 * h, 3 * w : 4 * w] = images[3]
+        self.combined_image[:h, w : 2 * w] = images[4]
+        self.combined_image[2 * h : 3 * h, w : 2 * w] = images[5]
+
+        combined_image = self.combined_image.unsqueeze(0).permute(0, 3, 1, 2)
+        remapped = F.grid_sample(
+            combined_image,
+            self.grid,
+            mode="nearest",
+            padding_mode="zeros",
+            align_corners=False,
+        )
+        return remapped.squeeze(0).permute(1, 2, 0)
 
 
 def convert_depth_distances(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
@@ -104,178 +299,3 @@ def convert_depth_distances(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
     depth[:] = out_64.astype(np.float32)
 
     return depth
-
-
-def add_border(
-    image: np.ndarray,
-    border_size: float,
-    color: Tuple[float, float, float] = (0, 0, 0),
-) -> np.ndarray:
-    """Add a white border around the image."""
-    image = cv2.copyMakeBorder(
-        image,
-        border_size,
-        border_size,
-        border_size,
-        border_size,
-        cv2.BORDER_CONSTANT,
-        value=color,
-    )
-    return image
-
-
-def generate_composite(
-    images: Dict[float, Dict[float, np.ndarray]],
-    max_res: Tuple[int, int],
-) -> np.ndarray:
-    """This is a debug method which renders the images as a composite image.
-
-    Will appear as a compound eye. For example, if we have a 3x3 grid of eyes:
-        TL T TR
-        ML M MR
-        BL B BR
-
-    Each eye has a red border around it.
-    """
-    # Construct the composite image
-    # Loop through the sorted list of images based on lat/lon
-    composite = []
-    for lat in sorted(images.keys())[::-1]:
-        row = []
-        for lon in sorted(images[lat].keys())[::-1]:
-            resized_obs = resize_with_aspect_fill(images[lat][lon], *max_res)
-            # Add a red border around the image
-            resized_obs = add_border(resized_obs, 1, color=(1, 0, 0))
-            row.append(resized_obs)
-        composite.append(np.vstack(row))
-    composite = np.hstack(composite)
-
-    return composite
-
-
-class CubeToEquirectangularConverter:
-    def __init__(self, size, w_img, h_img):
-        """
-        Initialize the CubeToEquirectangularConverter.
-
-        Parameters:
-        - size: Tuple[int, int] -> (width, height) of the output equirectangular image
-        - w_img: int -> Width of each input cube face image
-        - h_img: int -> Height of each input cube face image
-        """
-        # Output dimensions
-        self.width, self.height = size
-        self.w_img = w_img
-        self.h_img = h_img
-
-        # Preallocate the output buffer as float32
-        self.output = np.zeros((self.height, self.width, 3), dtype=np.float32)
-
-        # Generate coordinate grids
-        theta = (
-            np.linspace(0, 2 * np.pi, self.width, endpoint=False) - np.pi
-        )  # Longitude from -π to π
-        phi = np.linspace(
-            -np.pi / 2, np.pi / 2, self.height
-        )  # Latitude from -π/2 to π/2
-        self.theta, self.phi = np.meshgrid(theta, phi)
-
-        # Convert spherical coordinates to Cartesian coordinates
-        x = np.cos(self.phi) * np.sin(self.theta)
-        y = np.sin(self.phi)
-        z = np.cos(self.phi) * np.cos(self.theta)
-
-        # Determine which face each pixel corresponds to
-        abs_x = np.abs(x)
-        abs_y = np.abs(y)
-        abs_z = np.abs(z)
-
-        # Initialize face indices and UV coordinates
-        face_indices = np.zeros((self.height, self.width), dtype=np.int32)
-        u = np.zeros((self.height, self.width), dtype=np.float32)
-        v = np.zeros((self.height, self.width), dtype=np.float32)
-
-        # Define face indices:
-        # 0: Left, 1: Front, 2: Right, 3: Back
-        # Left face (x negative)
-        mask_left = (abs_x >= abs_y) & (abs_x >= abs_z) & (x < 0)
-        face_indices[mask_left] = 0
-        u[mask_left] = z[mask_left] / abs_x[mask_left]
-        v[mask_left] = y[mask_left] / abs_x[mask_left]
-
-        # Front face (z positive)
-        mask_front = (abs_z >= abs_x) & (abs_z >= abs_y) & (z > 0)
-        face_indices[mask_front] = 1
-        u[mask_front] = x[mask_front] / abs_z[mask_front]
-        v[mask_front] = y[mask_front] / abs_z[mask_front]
-
-        # Right face (x positive)
-        mask_right = (abs_x >= abs_y) & (abs_x >= abs_z) & (x > 0)
-        face_indices[mask_right] = 2
-        u[mask_right] = -z[mask_right] / abs_x[mask_right]
-        v[mask_right] = y[mask_right] / abs_x[mask_right]
-
-        # Back face (z negative)
-        mask_back = (abs_z >= abs_x) & (abs_z >= abs_y) & (z < 0)
-        face_indices[mask_back] = 3
-        u[mask_back] = -x[mask_back] / abs_z[mask_back]
-        v[mask_back] = y[mask_back] / abs_z[mask_back]
-
-        # Map UV coordinates to pixel indices
-        u_img = ((u + 1) / 2) * (self.w_img - 1)
-        v_img = ((1 - (v + 1) / 2)) * (self.h_img - 1)  # Flip v-axis
-
-        # Precompute the adjusted map_x by accounting for face indices
-        # Each face is placed horizontally in the combined image
-        # Combined image width = 4 * w_img
-        self.map_x = u_img + face_indices * self.w_img
-        self.map_y = v_img
-
-        # Stack per-face maps
-        self.map_x = self.map_x.astype(np.float32)
-        self.map_y = self.map_y.astype(np.float32)
-
-        # Precompute the crop indices
-        self.crop_start = (self.height - self.h_img) // 2
-        self.crop_end = self.crop_start + self.h_img
-
-    def convert(self, images):
-        """
-        Convert cube faces to an equirectangular image.
-
-        Parameters:
-        - images: list of four images [left, front, right, back]
-                  Each image should be a NumPy array of shape (h_img, w_img, 3) with
-                float32 values in [0, 1]
-
-        Returns:
-        - Equirectangular image as a NumPy array of shape (h_img, width, 3) with
-        float32 values in [0, 1]
-        """
-
-        # Ensure all input images are float32 and in the range [0, 1]
-        images = [
-            image.transpose(1, 0, 2).astype(np.float32) for image in images
-        ]  # Transpose if needed
-
-        # Combine all faces into a single image arranged horizontally: left | front |
-        # right | back
-        combined_image = np.hstack(images)  # Shape: (h_img, 4 * w_img, 3)
-
-        # Perform a single remapping operation
-        remapped = cv2.remap(
-            combined_image,
-            self.map_x,
-            self.map_y,
-            interpolation=cv2.INTER_NEAREST,
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=0,
-        )
-
-        # Crop the vertical center portion to match the original image height
-        output_cropped = remapped[self.crop_start : self.crop_end, :, :]
-
-        # Optionally flip the image vertically if needed
-        output_final = np.flipud(output_cropped).transpose(1, 0, 2)
-
-        return output_final

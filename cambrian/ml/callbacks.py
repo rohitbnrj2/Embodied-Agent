@@ -18,6 +18,7 @@ from stable_baselines3.common.callbacks import (
     EvalCallback,
     ProgressBarCallback,
 )
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from cambrian.envs import MjCambrianEnv
@@ -35,95 +36,84 @@ class MjCambrianPlotMonitorCallback(BaseCallback):
 
     Args:
         logdir (Path | str): The directory where the evaluation results are stored. The
-            evaluations.npz file is expected to be at `<logdir>/monitor.csv`. The
+            evaluations.npz file is expected to be at `<logdir>/<filename>.csv`. The
             resulting plot is going to be stored at
-            `<logdir>/evaluations/monitor.png`.
+            `<logdir>/evaluations/<filename>.png`.
+        filename (Path | str): The filename of the monitor file. The saved file will be
+            `<logdir>/<filename>.csv`. And the resulting plot will be saved as
+            `<logdir>/evaluations/<filename>.png`.
     """
 
     parent: EvalCallback
 
-    def __init__(self, logdir: Path | str):
+    def __init__(self, logdir: Path | str, filename: Path | str, n_episodes: int = 1):
         self.logdir = Path(logdir)
+        self.filename = Path(filename)
+        self.filename_csv = self.filename.with_suffix(".csv")
+        self.filename_png = self.filename.with_suffix(".png")
         self.evaldir = self.logdir / "evaluations"
         self.evaldir.mkdir(parents=True, exist_ok=True)
 
+        self.n_episodes = n_episodes
         self.n_calls = 0
 
     def _on_step(self) -> bool:
-        if not (self.logdir / "monitor.csv").exists():
-            get_logger().warning("No monitor.csv file found.")
+        if not (self.logdir / self.filename_csv).exists():
+            get_logger().warning(f"No {self.filename_csv} file found.")
             return
 
+        # Temporarily set the monitor ext so that the right file is read
+        old_ext = Monitor.EXT
+        Monitor.EXT = str(self.filename_csv)
         x, y = ts2xy(load_results(self.logdir), "timesteps")
-        if len(x) <= 100 or len(y) <= 100:
-            get_logger().warning("Not enough monitor data to plot.")
+        Monitor.EXT = old_ext
+        if len(x) <= 20 or len(y) <= 20:
+            get_logger().warning(f"Not enough {self.filename} data to plot.")
             return True
 
-        get_logger().info(f"Plotting monitor results at {self.evaldir}")
+        get_logger().info(f"Plotting {self.filename} results at {self.evaldir}")
 
-        def moving_average(values, window) -> np.ndarray:
-            weights = np.repeat(1.0, window) / window
-            return np.convolve(values, weights, "valid")
+        def moving_average(data, window=1, std: bool = False):
+            data_padded = np.pad(
+                data, ((window - 1) // 2, (window - 1) // 2), mode="edge"
+            )
+            if not std:
+                return np.convolve(data_padded, np.ones(window), "valid") / window
+            else:
+                # Calculate the rolling standard deviation with a moving window
+                result = np.array(
+                    [np.std(data_padded[i : i + window]) for i in range(len(data))]
+                )
+                return result
 
-        y = moving_average(y.astype(float), window=min(len(y) // 10, 1000))
-        x = x[len(x) - len(y) :]  # truncate x
+        n = min(len(y) // 10, 1000)
+        y = y.astype(float)
+
+        if self.n_episodes > 1:
+            assert len(y) % self.n_episodes == 0, (
+                "n_episodes must be a common factor of the"
+                f" number of episodes in the {self.filename} data."
+            )
+            y_std = y.reshape(-1, self.n_episodes).std(axis=1)
+            y_std = moving_average(y_std, window=n)
+
+            y = y.reshape(-1, self.n_episodes).mean(axis=1)
+        else:
+            y_std = moving_average(y, window=n, std=True)
+            y = moving_average(y, window=n)
+
+        x = moving_average(x, window=n).astype(int)
+
+        # Make sure the x, y and y_std are of the same length
+        min_len = min(len(x), len(y), len(y_std))
+        x, y, y_std = x[:min_len], y[:min_len], y_std[:min_len]
 
         plt.plot(x, y)
-        plt.fill_between(x, y - y.std() * 1.96, y + y.std() * 1.96, alpha=0.2)
+        plt.fill_between(x, y - y_std, y + y_std, alpha=0.2)
 
         plt.xlabel("Number of Timesteps")
         plt.ylabel("Rewards")
-        plt.savefig(self.evaldir / "monitor.png")
-        plt.cla()
-
-        return True
-
-
-class MjCambrianPlotEvaluationsCallback(BaseCallback):
-    """Should be used with an EvalCallback to plot the evaluation results.
-
-    This callback will take the evaluations.npz file produced by the EvalCallback and
-    plot the results and save it as an image. Should be passed as the
-    `callback_after_eval` for the EvalCallback.
-
-    Args:
-        logdir (Path | str): The directory where the evaluation results are stored. The
-            evaluations.npz file is expected to be at `<logdir>/evaluations.npz`. The
-            resulting plot is going to be stored at
-            `<logdir>/evaluations/evaluations.png`.
-    """
-
-    parent: EvalCallback
-
-    def __init__(self, logdir: Path | str):
-        self.logdir = Path(logdir)
-        self.evaldir = self.logdir / "evaluations"
-        self.evaldir.mkdir(parents=True, exist_ok=True)
-
-        self.n_calls = 0
-
-    def _on_step(self) -> bool:
-        if not (self.logdir / "evaluations.npz").exists():
-            get_logger().warning("No evaluations.npz file found.")
-            return
-
-        # Load the evaluation results
-        with np.load(self.logdir / "evaluations.npz") as data:
-            x = data["timesteps"].flatten()
-            y: np.ndarray = np.mean(data["results"], axis=1).flatten()
-        if len(x) <= 1 or len(y) <= 1:
-            get_logger().warning("Not enough evaluation data to plot.")
-            return True
-
-        get_logger().info(f"Plotting evaluation results at {self.evaldir}")
-
-        # Plot the results
-        plt.plot(x, y)
-        plt.fill_between(x, y - y.std() * 1.96, y + y.std() * 1.96, alpha=0.2)
-
-        plt.xlabel("Number of Timesteps")
-        plt.ylabel("Evaluation Results")
-        plt.savefig(self.evaldir / "evaluations.png")
+        plt.savefig(self.evaldir / self.filename.with_suffix(".png"))
         plt.cla()
 
         return True

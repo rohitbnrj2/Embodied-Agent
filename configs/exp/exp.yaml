@@ -59,12 +59,3 @@ env:
   reward_fn:
     _target_: cambrian.envs.reward_fns.reward_combined
     _partial_: true
-
-    reward_for_termination:
-      _target_: cambrian.envs.reward_fns.reward_for_termination
-      _partial_: true
-      reward: 1.0
-    reward_for_truncation:
-      _target_: cambrian.envs.reward_fns.reward_for_truncation
-      _partial_: true
-      reward: -1.0

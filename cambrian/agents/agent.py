@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Self, Tuple
 
 import mujoco as mj
 import numpy as np
+import torch
 from gymnasium import spaces
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
@@ -124,7 +125,7 @@ class MjCambrianAgent:
     """
 
     def __init__(self, config: MjCambrianAgentConfig, name: str):
-        self._config = self._check_config(config)
+        self._config = config
         self._name = name
 
         self._eyes: Dict[str, MjCambrianEye] = {}
@@ -135,17 +136,13 @@ class MjCambrianAgent:
         self._init_quat: Tuple[
             float | None, float | None, float | None, float | None
         ] = None
+        self._last_action: List[float] = None
         self._actuators: List[MjCambrianActuator] = []
         self._joints: List[MjCambrianJoint] = []
         self._geom: MjCambrianGeometry = None
         self._actadrs: List[int] = []
         self._body_id: int = None
         self._initialize()
-
-    def _check_config(self, config: MjCambrianAgentConfig) -> MjCambrianAgentConfig:
-        """Run some checks/asserts on the config to make sure everything's there."""
-
-        return config
 
     def _initialize(self):
         """Initialize the agent.
@@ -165,9 +162,6 @@ class MjCambrianAgent:
         self._init_pos = [None] * 3
         self._init_quat = [None] * 4
 
-        # Explicitly delete the model; probably not required, but just to be safe
-        del model
-
     def _parse_geometry(self, model: mj.MjModel):
         """Parse the geometry to get the root body, number of controls, joints, and
         actuators. We're going to do some preprocessing of the model here to get info
@@ -182,8 +176,8 @@ class MjCambrianAgent:
         """
 
         # Num of controls
-        if self.config.trainable:
-            assert model.nu > 0, "Trainable agent must have controllable actuators."
+        if self.trainable:
+            assert model.nu > 0, "Trainable agents must have controllable actuators."
 
         # Get number of qpos/qvel/ctrl
         # Just stored for later, like to get the observation space, etc.
@@ -235,7 +229,10 @@ class MjCambrianAgent:
             act_rootbodyid = model.body_rootid[act_bodyid]
             if act_rootbodyid == body_id:
                 ctrlrange = model.actuator_ctrlrange[actadr]
-                self._actuators.append(MjCambrianActuator(actadr, trnid, *ctrlrange))
+                ctrllimited = model.actuator_ctrllimited[actadr]
+                self._actuators.append(
+                    MjCambrianActuator(actadr, trnid, ctrlrange, ctrllimited)
+                )
 
         # Get the joints
         # We use the joints to get the qpos/qvel as observations (joint specific states)
@@ -249,7 +246,7 @@ class MjCambrianAgent:
         assert (
             len(self._joints) > 0
         ), f"Body {body_name} has no joints. Joints are required for positioning."
-        if self.config.trainable:
+        if self.trainable:
             assert len(self._actuators) > 0, f"Body {body_name} has no actuators."
 
     def _place_eyes(self):
@@ -266,7 +263,7 @@ class MjCambrianAgent:
 
         # Add eyes
         for eye in self.eyes.values():
-            xml += eye.generate_xml(xml, self.geom, self._config.body_name)
+            xml += eye.generate_xml(xml, self._geom, self._config.body_name)
 
         return xml
 
@@ -277,9 +274,13 @@ class MjCambrianAgent:
 
         It is assumed that the actions are normalized between -1 and 1.
         """
+        self._last_action = actions
+        if not actions:
+            return
+
         for action, actuator in zip(actions, self._actuators):
-            # Map from -1, 1 to ctrlrange
-            action = np.interp(action, [-1, 1], [actuator.low, actuator.high])
+            if actuator.ctrllimited:
+                action = np.interp(action, [-1, 1], actuator.ctrlrange)
             self._data.ctrl[actuator.adr] = action
 
     def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
@@ -317,6 +318,14 @@ class MjCambrianAgent:
         # Reset the init pose to the config's
         self.init_pos = self._config.init_pos
         self.init_quat = self._config.init_quat
+
+        # Set the last action to whatever the last ctrl was
+        self._last_action = []
+        for actuator in self._actuators:
+            action = self._data.ctrl[actuator.adr]
+            if actuator.ctrllimited:
+                action = np.interp(action, [-1, 1], actuator.ctrlrange)
+            self._last_action.append(action)
 
         # Update the agent's qpos
         self.pos = self._init_pos
@@ -386,18 +395,20 @@ class MjCambrianAgent:
     def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         """Add additional attributes to the observation."""
         if self._config.use_action_obs:
-            obs["action"] = self.last_action
+            obs["action"] = self._last_action
         if self._config.use_contact_obs:
             obs["contacts"] = self.has_contacts
 
         return obs
 
-    def render(self) -> np.ndarray | None:
+    def render(self) -> torch.Tensor | None:
         """Renders the eyes and returns the debug image.
 
         We don't know where the eyes are placed, so for simplicity, we'll just return
         the first eye's render.
         """
+        if len(self._eyes) == 0:
+            return None
         return next(iter(self._eyes.values())).render()
 
     @property
@@ -471,8 +482,8 @@ class MjCambrianAgent:
         return self._eyes
 
     @property
-    def num_eyes(self) -> int:
-        return len(self._eyes)
+    def last_action(self) -> List[float]:
+        return self._last_action
 
     @property
     def init_pos(self) -> np.ndarray:
@@ -598,23 +609,8 @@ class MjCambrianAgent:
 
         # Perturb at a normal distribution with a std equal to the rbound
         self._data.qpos[~mask] += np.random.normal(
-            0, self.geom.rbound, len(self._qposadrs)
+            0, self._geom.rbound, len(self._qposadrs)
         )
-
-    @property
-    def last_action(self) -> np.ndarray:
-        """Returns the last action that was applied to the agent."""
-        last_ctrl = self._data.ctrl.copy()
-        for act in self._actuators:
-            last_ctrl[act.adr] = np.interp(
-                last_ctrl[act.adr], [act.low, act.high], [-1, 1]
-            )
-        return last_ctrl[self._actadrs]
-
-    @property
-    def geom(self) -> MjCambrianGeometry:
-        """Returns the geom of the agent."""
-        return self._geom
 
     @property
     def trainable(self) -> bool:
@@ -640,3 +636,29 @@ class MjCambrianAgent2D(MjCambrianAgent):
             2 * (value[0] * value[3] + value[1] * value[2]),
             1 - 2 * (value[2] ** 2 + value[3] ** 2),
         )
+
+
+if __name__ == "__main__":
+    from cambrian.utils.config import MjCambrianConfig, run_hydra
+
+    def main(config: MjCambrianConfig):
+        agents: Dict[str, MjCambrianAgent] = {}
+        for name, agent_config in config.env.agents.items():
+            agents[name] = agent_config.instance(agent_config, name)
+
+        xml = MjCambrianXML.from_string(config.env.xml)
+        for agent in agents.values():
+            xml += agent.generate_xml()
+
+        model = mj.MjModel.from_xml_string(xml.to_string())
+        data = mj.MjData(model)
+        mj.mj_step(model, data)
+
+        for name, agent in agents.items():
+            agents[name].reset(model, data)
+
+        while True:
+            for agent in agents.values():
+                agent.step()
+
+    run_hydra(main)

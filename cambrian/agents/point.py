@@ -7,6 +7,7 @@ import numpy as np
 from gymnasium import spaces
 
 from cambrian.agents.agent import MjCambrianAgent2D, MjCambrianAgentConfig
+from cambrian.utils.cambrian_xml import MjCambrianXML
 
 if TYPE_CHECKING:
     from cambrian.envs.maze_env import MjCambrianMazeEnv
@@ -26,8 +27,30 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
 
     Todo:
         Will create an issue on mujoco and see if it's possible to implement this in
-        xml.
+        xml. The issue right now is that mujoco doesn't support relative positions for
+        hinge joints, so we have to implement the heading joint as a velocity actuator
+        which is not ideal.
     """
+
+    def __init__(
+        self,
+        config: MjCambrianAgentConfig,
+        name: str,
+        *,
+        apply_action_kwargs: Dict[str, Any] = {},
+    ):
+        super().__init__(config, name)
+
+        self._apply_action_kwargs = apply_action_kwargs
+
+        # Get the actuator type for the heading joint
+        self._heading_joint_type: str
+        act_xml = MjCambrianXML.from_string(self._config.xml).find(
+            ".//actuator/*", name=f"{self._name}_act_yaw"
+        )
+        if act_xml is None:
+            raise ValueError(f"Could not find actuator for {self._name}_act_yaw")
+        self._heading_joint_type = act_xml.tag
 
     def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         """Creates the entire obs dict."""
@@ -36,8 +59,8 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         # Update the action obs
         # Calculate the global velocities
         if self._config.use_action_obs:
-            v, theta = self._calc_v_theta(self.last_action)
-            theta = np.interp(theta, [-np.pi, np.pi], [-1, 1])
+            v, theta = self._calc_v_theta(self._last_action)
+            theta = np.interp(theta, self._actuators[2].ctrlrange, [-1, 1])
             obs["action"] = np.array([v, theta], dtype=np.float32)
 
         return obs
@@ -50,6 +73,30 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         return v, theta
 
     def apply_action(self, action: List[float]):
+        """Calls the appropriate apply action method based on the heading joint type."""
+
+        if self._heading_joint_type == "position":
+            self._apply_action_position(action)
+        elif self._heading_joint_type == "velocity":
+            self._apply_action_velocity(action, **self._apply_action_kwargs)
+        else:
+            raise ValueError(
+                f"Unsupported heading joint type: {self._heading_joint_type}"
+            )
+
+    def _apply_action_velocity(self, action: List[float], *, kp: float = 0.25):
+        """Calculate global velocities and heading velocity."""
+        assert len(action) == 2, f"Action must have two elements, got {len(action)}."
+
+        # Calculate global velocities
+        v = (action[0] + 1) / 2
+        current_heading = self.qpos[2]
+        vx = v * np.cos(current_heading)
+        vy = v * np.sin(current_heading)
+
+        super().apply_action([vx, vy, action[1]])
+
+    def _apply_action_position(self, action: List[float]):
         """This differs from the base implementation as action only has two elements,
         but the model has three actuators. Calculate the global velocities here."""
         assert len(action) == 2, f"Action must have two elements, got {len(action)}."
@@ -59,7 +106,7 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
 
         # Calculate the global velocities
         # NOTE: The third actuator is the hinge joint which defines the theta
-        theta = self._data.qpos[self._actuators[2].trnadr]
+        theta = self.qpos[2]
         new_action = [v * np.cos(theta), v * np.sin(theta), action[1]]
 
         # Call the base implementation with the new action
@@ -71,16 +118,22 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
 
 
-class MjCambrianAgentPointPrey(MjCambrianAgentPoint):
+class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
     """This is an agent which is non-trainable and defines a custom policy which
-    acts as a "prey" in the environment. This agent will attempt to avoid the predator
-    by taking actions that maximize the distance between itself and the predator.
+    acts as a 'homing' agent in the maze environment. This agent will attempt to reach
+    a target (which is either randomly placed or another specific agent) by taking
+    actions that best map to the optimal trajectory which is calculated from the maze
+    using bfs (or just by choosing the action which minimizes the distance to
+    the target).
 
-    Keyword Arguments:
-        predators (List[str]): The names of the predators in the environment. The
-            predator states will be determined from this list by querying the env.
-        speed (float): The speed of the prey. Default is 1.0. This is constant during
-            the simulation. Must be between -1 and 1, where -1 is no movement.
+    Keyword Args:
+        target (str | None): The name of the target agent to home in on. If
+            None, a random free space in the maze will be chosen as the target.
+        speed (float): The speed at which the agent moves. Defaults to -0.75.
+        distance_threshold (float): The distance threshold at which the agent will
+            consider itself to have reached the target. Defaults to 2.0.
+        use_optimal_trajectory (bool): Whether to use the optimal trajectory to the
+            target. Defaults to False.
     """
 
     def __init__(
@@ -88,55 +141,9 @@ class MjCambrianAgentPointPrey(MjCambrianAgentPoint):
         config: MjCambrianAgentConfig,
         name: str,
         *,
-        predators: List[str],
-        speed: float = -0.8,
-    ):
-        super().__init__(config, name)
-
-        self._predators = predators
-        self._speed = speed
-
-    def get_action_privileged(self, env: "MjCambrianMazeEnv") -> List[float]:
-        """This is where the prey will calculate its action based on the predator
-        states."""
-
-        # Set the action based on the vector calculated above. Add some noise to the
-        # angle to make the movement.
-        def wrap_angle(angle):
-            return (angle + np.pi) % (2 * np.pi) - np.pi
-
-        # Get the predator states
-        predator_pos = [env.agents[predator].pos for predator in self._predators]
-
-        # Calculate the distance between the prey and the closest predator
-        distances = [np.linalg.norm(self.pos - pos) for pos in predator_pos]
-
-        # Calculate the vector that maximizes the distance between the prey and the
-        # closest predator
-        max_distance_index = np.argmax(distances)
-        max_distance_vector = self.pos - predator_pos[max_distance_index]
-
-        # Calculate the delta from the current angle to the angle that maximizes the
-        # distance
-        max_distance_angle = np.arctan2(max_distance_vector[1], max_distance_vector[0])
-
-        target_theta = wrap_angle(max_distance_angle + np.random.randn())
-        return [self._speed, target_theta]
-
-
-class MjCambrianAgentPointMazeOptimal(MjCambrianAgentPoint):
-    """This is an agent which is non-trainable and defines a custom policy which
-    acts as an optimal agent in the maze environment. This agent will attempt to reach
-    the goal by taking actions that best map to the optimal trajectory which is
-    calculated from the maze using bfs."""
-
-    def __init__(
-        self,
-        config: MjCambrianAgentConfig,
-        name: str,
-        *,
-        target: str,
+        target: str | None,
         speed: float = -0.75,
+        kp: float = 0.75,
         distance_threshold: float = 2.0,
         use_optimal_trajectory: bool = False,
     ):
@@ -144,6 +151,7 @@ class MjCambrianAgentPointMazeOptimal(MjCambrianAgentPoint):
 
         self._target = target
         self._speed = speed
+        self._kp = kp
         self._distance_threshold = distance_threshold
 
         self._optimal_trajectory: np.ndarray = None
@@ -157,8 +165,16 @@ class MjCambrianAgentPointMazeOptimal(MjCambrianAgentPoint):
         return super().reset(model, data)
 
     def get_action_privileged(self, env: "MjCambrianMazeEnv") -> List[float]:
-        assert self._target in env.agents, f"Target {self._target} not found in env"
-        target_pos = env.agents[self._target].pos
+        if self._target is None:
+            # Generate a random position to navigate to
+            # Chooses one of the empty spaces in the maze
+            rows, cols = np.where(env.maze.map == "0")
+            assert rows.size > 0, "No empty spaces in the maze"
+            index = np.random.randint(rows.size)
+            target_pos = env.maze.rowcol_to_xy((rows[index], cols[index]))
+        else:
+            assert self._target in env.agents, f"Target {self._target} not found in env"
+            target_pos = env.agents[self._target].pos
 
         if self._prev_target_pos is None:
             self._prev_target_pos = target_pos
@@ -189,71 +205,22 @@ class MjCambrianAgentPointMazeOptimal(MjCambrianAgentPoint):
         # trajectory
         target = self._optimal_trajectory[0]
         target_vector = target - self.pos[:2]
-        if np.linalg.norm(target_vector) < self._distance_threshold:
+        distance = np.linalg.norm(target - self.pos[:2])
+        if distance < self._distance_threshold:
             self._optimal_trajectory = self._optimal_trajectory[1:]
 
-        # Set the action based on the vector calculated above. Add some noise to the
-        # angle to make the movement.
+        # Update the previous target position
         target_theta = np.arctan2(target_vector[1], target_vector[0])
-        target_theta = np.interp(target_theta, [-np.pi, np.pi], [-1, 1])
-        return [self._speed, target_theta]
+        current_theta = self.qpos[2]
 
+        # Wrap angles to avoid unnecessary large rotations
+        delta_heading = np.arctan2(
+            np.sin(target_theta - current_theta),
+            np.cos(target_theta - current_theta),
+        )
 
-class MjCambrianAgentPointMazeRandom(MjCambrianAgentPoint):
-    def __init__(
-        self,
-        config: MjCambrianAgentConfig,
-        name: str,
-        *,
-        speed: float = -0.825,
-        distance_threshold: float = 4.0,
-        use_optimal_trajectory: bool = True,
-    ):
-        super().__init__(config, name)
+        # Proportional control for heading velocity
+        heading_velocity = np.clip(self._kp * delta_heading, -1, 1)
+        heading_velocity = np.interp(heading_velocity, [-np.pi, np.pi], [-1, 1])
 
-        self._speed = speed
-        self._distance_threshold = distance_threshold
-
-        self._optimal_trajectory: np.ndarray = None
-        self._use_optimal_trajectory = use_optimal_trajectory
-
-    def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, Any]:
-        """Resets the optimal_trajectory."""
-        self._optimal_trajectory = None
-        return super().reset(model, data)
-
-    def get_action_privileged(self, env: "MjCambrianMazeEnv") -> List[float]:
-        if self._optimal_trajectory is None or len(self._optimal_trajectory) == 0:
-            # Generate a random position to navigate to
-            # Chooses one of the empty spaces in the maze
-            rows, cols = np.where(env.maze.map == "0")
-            assert rows.size > 0, "No empty spaces in the maze"
-            index = np.random.randint(rows.size)
-            target_pos = env.maze.rowcol_to_xy((rows[index], cols[index]))
-
-            if self._use_optimal_trajectory:
-                try:
-                    self._optimal_trajectory = env.maze.compute_optimal_path(
-                        self.pos, target_pos
-                    )
-                except ValueError as e:
-                    raise ValueError(
-                        f"Couldn't find path for '{self.name}' "
-                        f"from {self.pos} to {target_pos}"
-                    ) from e
-            else:
-                self._optimal_trajectory = np.array([target_pos[:2]])
-
-        # Get the current target. If the distance between the current position and the
-        # target is less than the threshold, then remove the target from the optimal
-        # trajectory
-        target = self._optimal_trajectory[0]
-        target_vector = target - self.pos[:2]
-        if np.linalg.norm(target_vector) < self._distance_threshold:
-            self._optimal_trajectory = self._optimal_trajectory[1:]
-
-        # Set the action based on the vector calculated above. Add some noise to the
-        # angle to make the movement.
-        target_theta = np.arctan2(target_vector[1], target_vector[0])
-        target_theta = np.interp(target_theta, [-np.pi, np.pi], [-1, 1])
-        return [self._speed, target_theta]
+        return [self._speed, heading_velocity]

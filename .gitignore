@@ -9,7 +9,6 @@ log*/
 .ipynb_checkpoints/
 out*
 *.out
-MUJOCO_LOG.TXT
 *.mp4
 *.gif
 *.webp
@@ -17,6 +16,11 @@ MUJOCO_LOG.TXT
 *.pkl
 .ruff_cache
 *.log
+*.npy
+
+MJDATA.TXT
+MJMODEL.TXT
+MUJOCO_LOG.TXT
 
 # Virtual env name
 /env/

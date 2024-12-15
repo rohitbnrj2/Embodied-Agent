@@ -74,6 +74,8 @@ class MjCambrianContainerConfig:
     _config_is_content: bool
     _instantiated: bool
 
+    VALIDATE_ON_ACCESS = False
+
     def __init__(
         self,
         content: DictConfig | ListConfig,
@@ -636,20 +638,22 @@ class MjCambrianContainerConfig:
         if not OmegaConf.is_config(config):
             config = self._config
 
-        if isinstance(self._content, DictConfig):
-            # Normalize the key. This will convert the key to allowed dictionary keys,
-            # like converts 0, 1 if the key type is bool. Basically validates the key.
-            key = self._content._validate_and_normalize_key(key)
+        if self.VALIDATE_ON_ACCESS:
+            if isinstance(self._content, DictConfig):
+                # Normalize the key. This will convert the key to allowed dictionary
+                # keys, like converts 0, 1 if the key type is bool. Basically validates
+                # the key.
+                key = self._content._validate_and_normalize_key(key)
 
-            # Check that the key exists
-            if key not in content and (not is_getattr or default_value is ...):
-                self._content._format_and_raise(
-                    key, None, ConfigKeyError(f"Key not found: {key!s}")
-                )
-        else:
-            # ListConfig only accepts integers as keys
-            if is_getattr:
-                key = self._validate_key_is_int(key)
+                # Check that the key exists
+                if key not in content and (not is_getattr or default_value is ...):
+                    self._content._format_and_raise(
+                        key, None, ConfigKeyError(f"Key not found: {key!s}")
+                    )
+            else:
+                # ListConfig only accepts integers as keys
+                if is_getattr:
+                    key = self._validate_key_is_int(key)
 
         config: DictConfig | ListConfig
         content: DictConfig | ListConfig

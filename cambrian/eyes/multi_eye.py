@@ -1,10 +1,11 @@
 from typing import Any, Callable, Dict, Self, Tuple
 
 import mujoco as mj
-import numpy as np
+import torch
 from gymnasium import spaces
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
+from cambrian.renderer.render_utils import generate_composite
 from cambrian.utils import MjCambrianGeometry, generate_sequence_from_range
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import config_wrapper
@@ -115,7 +116,7 @@ class MjCambrianMultiEye(MjCambrianEye):
             obs[name] = eye.step()
         return obs
 
-    def render(self) -> np.ndarray | None:
+    def render(self) -> torch.Tensor | None:
         """This is a debug method which renders the eye's as a composite image.
 
         Will appear as a compound eye. For example, if we have a 3x3 grid of eyes:
@@ -128,16 +129,8 @@ class MjCambrianMultiEye(MjCambrianEye):
         if self._config.num_eyes == 0:
             return
 
-        from cambrian.renderer.render_utils import generate_composite
-
-        # Calculate the max resolution; min of 10
-        max_res = (
-            max(max([eye.config.resolution[1] for eye in self.eyes.values()]), 10),
-            max(max([eye.config.resolution[0] for eye in self.eyes.values()]), 10),
-        )
-
         # Sort the eyes based on their lat/lon
-        images: Dict[float, Dict[float, np.ndarray]] = {}
+        images: Dict[float, Dict[float, torch.Tensor]] = {}
         for eye in self.eyes.values():
             lat, lon = eye.config.coord
             if lat not in images:
@@ -145,9 +138,9 @@ class MjCambrianMultiEye(MjCambrianEye):
             assert lon not in images[lat], f"Duplicate eye at {lat}, {lon}."
 
             # Add the image to the dictionary
-            images[lat][lon] = eye.prev_obs[:, :, :3]
+            images[lat][lon] = eye.render()
 
-        return generate_composite(images, max_res)
+        return generate_composite(images)
 
     @property
     def observation_space(self) -> spaces.Space:
@@ -158,7 +151,7 @@ class MjCambrianMultiEye(MjCambrianEye):
         return spaces.Dict(observation_space)
 
     @property
-    def prev_obs(self) -> Dict[str, np.ndarray]:
+    def prev_obs(self) -> Dict[str, torch.Tensor]:
         """The last observations from all eyes."""
         obs = {}
         for name, eye in self._eyes.items():

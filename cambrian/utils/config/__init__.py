@@ -8,7 +8,6 @@ from cambrian.utils.config.utils import (
     MjCambrianFlagWrapperMeta,
     build_pattern,
     config_wrapper,
-    instance_flag_wrapper,
     instance_wrapper,
     run_hydra,
 )
@@ -49,7 +48,6 @@ __all__ = [
     "MjCambrianBaseConfig",
     "MjCambrianContainerConfig",
     "config_wrapper",
-    "instance_flag_wrapper",
     "instance_wrapper",
     "MjCambrianFlagWrapperMeta",
     "run_hydra",

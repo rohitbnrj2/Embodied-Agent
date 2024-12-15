@@ -83,7 +83,7 @@ def main(config: AnimalShowcaseConfig, *, overrides: List[str]):
         get_logger().info(f"Running {config.exp}...")
         env = exp_config.env.instance(exp_config.env)
 
-        env.record = True
+        env.record()
         env.reset(seed=exp_config.seed)
         for agent in env.agents.values():
             agent.step()

@@ -1,16 +1,21 @@
 from typing import Callable, Dict, Self, Tuple
 
-import cv2
 import mujoco as mj
 import numpy as np
+import torch
 from mujoco import MjData, MjModel
-from scipy.spatial.transform import Rotation as R
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.eyes.multi_eye import MjCambrianMultiEye, MjCambrianMultiEyeConfig
 from cambrian.renderer import MjCambrianRenderer
 from cambrian.renderer.render_utils import CubeToEquirectangularConverter
-from cambrian.utils import MjCambrianGeometry, get_camera_id, round_half_up
+from cambrian.utils import (
+    MjCambrianGeometry,
+    device,
+    get_camera_id,
+    get_logger,
+    round_half_up,
+)
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import config_wrapper
 
@@ -48,14 +53,14 @@ class MjCambrianApproxEye(MjCambrianEye):
         total_resolution: Tuple[int, int],
         lat_range: Tuple[float, float],
         lon_range: Tuple[float, float],
-    ):
+    ) -> torch.Tensor:
         """Computes the cropping rectangle for the eye."""
 
-        # total_fovx is horizontal fov (width), total_fovy is vertical fov (height)
-        total_fovx, total_fovy = total_fov
-        # total_res_x is width (columns), total_res_y is height (rows)
-        total_res_x, total_res_y = total_resolution
-        eye_fovx, eye_fovy = self._config.fov
+        # total_fovx is vertical fov (height), total_fovx is horizontal fov (width)
+        total_fovy, total_fovx = total_fov
+        # total_res_x is height (rows), total_res_y is width (cols)
+        total_res_y, total_res_x = total_resolution
+        eye_fovy, eye_fovx = self._config.fov
 
         # Unpack latitude and longitude ranges
         min_lat, max_lat = lat_range
@@ -64,114 +69,173 @@ class MjCambrianApproxEye(MjCambrianEye):
         # Unpack the target coordinates (latitude, longitude)
         coord_lat, coord_lon = self._config.coord
 
-        # Map longitude to x_center
-        # Normalize longitude within the range [0, 1] and scale to image width
-        x_normalized = (max_lon - coord_lon) / (max_lon - min_lon)
-        x_center = x_normalized * total_res_x
-
         # Map latitude to y_center
         # Invert latitude because image y increases downward
         y_normalized = (max_lat - coord_lat) / (max_lat - min_lat)
         y_center = y_normalized * total_res_y
 
+        # Map longitude to x_center
+        # Normalize longitude within the range [0, 1] and scale to image width
+        x_normalized = (max_lon - coord_lon) / (max_lon - min_lon)
+        x_center = x_normalized * total_res_x
+
         # Compute eye resolution in pixels
-        eye_res_x = (eye_fovx / total_fovx) * total_res_x
         eye_res_y = (eye_fovy / total_fovy) * total_res_y
+        eye_res_x = (eye_fovx / total_fovx) * total_res_x
 
         # Compute cropping rectangle
-        x_start = int(round_half_up(x_center - eye_res_x / 2))
-        x_end = int(round_half_up(x_center + eye_res_x / 2))
         y_start = int(round_half_up(y_center - eye_res_y / 2))
         y_end = int(round_half_up(y_center + eye_res_y / 2))
+        x_start = int(round_half_up(x_center - eye_res_x / 2))
+        x_end = int(round_half_up(x_center + eye_res_x / 2))
 
         # Ensure indices are within image bounds
-        x_start = max(0, x_start)
-        x_end = min(total_res_x, x_end)
         y_start = max(0, y_start)
         y_end = min(total_res_y, y_end)
+        x_start = max(0, x_start)
+        x_end = min(total_res_x, x_end)
 
-        assert x_start < x_end, f"x_start={x_start}, x_end={x_end}"
         assert y_start < y_end, f"y_start={y_start}, y_end={y_end}"
+        assert x_start < x_end, f"x_start={x_start}, x_end={x_end}"
 
         self._total_fov = total_fov
         self._total_resolution = total_resolution
-        self._crop_rect = (x_start, x_end, y_start, y_end)
+        self._crop_rect = (y_start, y_end, x_start, x_end)
+
+        # NOTE: yy is flipped
+        yy = torch.linspace(y_end - 1, y_start, self._config.resolution[0])
+        xx = torch.linspace(x_start, x_end - 1, self._config.resolution[1])
+        yy = (yy / (total_res_y - 1)) * 2 - 1
+        xx = (xx / (total_res_x - 1)) * 2 - 1
+        grid_y, grid_x = torch.meshgrid(yy, xx, indexing="ij")
+        return torch.stack((grid_x, grid_y), dim=-1).to(device)
 
     def reset(self, model: MjModel, data: MjData):
         self._model = model
         self._data = data
 
-        self._prev_obs = np.zeros((*self._config.resolution, 3), dtype=np.float32)
-        return self.step(np.zeros((*self._total_resolution, 3)))
-
-    def step(self, full_image: np.ndarray) -> np.ndarray:
-        """Renders the image and returns the observation for the eye."""
-        # Crop and resize to eye resolution
-        x_start, x_end, y_start, y_end = self._crop_rect
-        eye_image = full_image[x_start:x_end, y_start:y_end, :]
-        resized_eye_image = self._resize_image(eye_image, *self._config.resolution)
-        return super().step(resized_eye_image)
-
-    def _resize_image(self, image: np.ndarray, width: int, height: int) -> np.ndarray:
-        """Resizes the image to the given size using bilinear interpolation."""
-        if image.shape[0] == width and image.shape[1] == height:
-            return image
-        return cv2.resize(image, (width, height), interpolation=cv2.INTER_NEAREST)
+        self._prev_obs = torch.zeros(
+            (*self._config.resolution, 3),
+            dtype=torch.float32,
+            device=device,
+        )
+        return self.step(self._prev_obs)
 
 
 class MjCambrianApproxMultiEye(MjCambrianMultiEye):
     """Defines a multi-eye system by rendering images from multiple cameras facing
     different directions."""
 
-    def __init__(self, config: MjCambrianApproxMultiEyeConfig, name: str):
-        super().__init__(config, name, disable_render=True)
+    def __init__(
+        self,
+        config: MjCambrianApproxMultiEyeConfig,
+        name: str,
+        *,
+        allow_disabling: bool = False,
+    ):
+        # If the number of total eyes is less than 10, we default to only MultiEye
+        # methods
+        self.disable = False
+        if np.prod(config.num_eyes) < 10 and allow_disabling:
+            get_logger().warning(
+                "Number of eyes is less than 10. Defaulting to MultiEye methods."
+            )
+            self.disable = True
+            with config.set_readonly_temporarily(False):
+                config.eye_instance = MjCambrianEye
+            super().__init__(config, name)
+            return
+        else:
+            super().__init__(config, name, disable_render=True)
+
         self._config: MjCambrianApproxMultiEyeConfig
         self._eyes: Dict[str, MjCambrianApproxEye]
 
-        # Create cameras for the 4 directions
-        self._lat = np.add(*self._config.lat_range) / 2.0
-        self._lons = [180, 90, 0, -90]
+        # Create cameras for the 6 faces of the cube
+        self._lats = [0, 0, 0, 0, -90, 90]
+        self._lons = [135, 45, -45, -135, 45, 45]
         self._resolution = (
-            int(self._config.resolution[0] * 90 / self._config.fov[0]),
-            int(self._config.resolution[1] * 90 / self._config.fov[1]),
+            max(int(self._config.resolution[0] * 90 / self._config.fov[0]), 3),
+            max(int(self._config.resolution[1] * 90 / self._config.fov[1]), 3),
         )
-        self._renderers: Dict[str, MjCambrianRenderer] = {}
-        for i in range(4):
-            renderer_name = f"{name}_renderer_{i}"
-            self._renderers[renderer_name] = MjCambrianRenderer(config.renderer)
 
         # Compute total FOV and resolution
-        lat_range = max(np.subtract(*self._config.lat_range), self._config.fov[1])
-        self._total_fov = (360.0, lat_range)
+        self._total_fov = (180.0, 360.0)
         self._total_resolution = (
-            self._resolution[0] * 4,
-            self._resolution[1],
+            self._resolution[0],
+            self._resolution[1] * len(self._lons),
         )
 
         # Set min and max lat and lon
         self._min_lon = -180.0
         self._max_lon = 180.0
-        self._min_lat = self._config.lat_range[0] - self._config.fov[1] / 2.0
-        self._max_lat = self._config.lat_range[1] + self._config.fov[1] / 2.0
+        self._min_lat = -90.0
+        self._max_lat = 90.0
 
         # Compute cropping rectangles for each eye
+        grids = []
         for eye in self._eyes.values():
-            eye.compute_crop_rect(
-                self._total_fov,
-                self._total_resolution,
-                (self._min_lat, self._max_lat),
-                (self._min_lon, self._max_lon),
+            grids.append(
+                eye.compute_crop_rect(
+                    self._total_fov,
+                    self._total_resolution,
+                    (self._min_lat, self._max_lat),
+                    (self._min_lon, self._max_lon),
+                )
             )
+        self.batched_grids = torch.stack(grids, dim=0).to(device)
 
         # Initialize the cube to equirectangular converter
         self._cube_to_equirectangular = CubeToEquirectangularConverter(
             self._total_resolution, *self._resolution
         )
 
+        # Above or below equator where the upward looking or downward
+        # looking cameras should be enabled
+        phi_limit = np.degrees(np.arctan(1 / np.sqrt(2)))
+
+        self._renderers: Dict[str, MjCambrianRenderer | torch.Tensor] = {}
+        for i in range(len(self._lons)):
+            renderer_name = f"{name}_renderer_{i}"
+
+            # Check that the renderer is actually needed. A renderer isn't needed if
+            # no eye is going to use any pixels from it.
+            renderer_needed = False
+            for eye in self._eyes.values():
+                _, _, x_start, x_end = eye._crop_rect
+                renderer_index_start = x_start // self._resolution[1] - 1
+                renderer_index_end = x_end // self._resolution[1] - 1
+
+                # If the eye's cropping rect overlaps this renderer, it is needed
+                if renderer_index_start <= i <= renderer_index_end:
+                    renderer_needed = True
+                    break
+
+                if i == 4:
+                    if -eye.config.fov[0] / 2 + eye.config.coord[0] < -phi_limit:
+                        get_logger().warning("Adding downward looking camera")
+                        renderer_needed = True
+                        break
+                elif i == 5:
+                    if eye.config.fov[0] / 2 + eye.config.coord[0] > phi_limit:
+                        get_logger().warning("Adding upward looking camera")
+                        renderer_needed = True
+                        break
+
+            if not renderer_needed:
+                self._renderers[renderer_name] = torch.zeros(
+                    (*self._resolution, 3), dtype=torch.float32
+                ).to(device)
+            else:
+                self._renderers[renderer_name] = MjCambrianRenderer(config.renderer)
+
     def generate_xml(
         self, parent_xml: MjCambrianXML, geom: MjCambrianGeometry, parent_body_name: str
     ) -> MjCambrianXML:
         """Generates the XML for the cameras."""
+        if self.disable:
+            return super().generate_xml(parent_xml, geom, parent_body_name)
+
         xml = MjCambrianXML.make_empty()
 
         # Get the parent body reference
@@ -192,9 +256,13 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
         assert parent is not None, f"Could not find parent for '{parent_body_name}'"
 
         # For each camera, calculate pos and quat, and add to xml
-        for lon, name in zip(self._lons, self._renderers.keys()):
+        for lat, lon, name in zip(self._lats, self._lons, self._renderers.keys()):
+            if not isinstance(self._renderers[name], MjCambrianRenderer):
+                continue
+
             # For each camera, set up pos and quat
-            pos, quat = self._calculate_camera_pose(geom, lon)
+            pos = geom.pos  # assume camera is at the center of the geom
+            _, quat = self._calculate_pos_quat(geom, (lat, lon))
 
             # Sensorsize calculation
             focal = self._config.focal
@@ -202,7 +270,7 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
                 2 * focal[0] * np.tan(np.radians(90) / 2),
                 2 * focal[1] * np.tan(np.radians(90) / 2),
             ]
-            resolution = [self._config.resolution[0], self._config.resolution[1]]
+            resolution = self._resolution
 
             xml.add(
                 parent,
@@ -218,23 +286,20 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
 
         return xml
 
-    def _calculate_camera_pose(
-        self, geom: MjCambrianGeometry, yaw: float
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """Calculates the position and quaternion for the camera facing at yaw
-        degrees."""
-        pos = geom.pos  # Assuming camera is at the center of the geom
-        default_rot = R.from_euler("z", np.pi / 2)
-        quat = (R.from_euler("y", -np.deg2rad(yaw)) * default_rot).as_quat()
-        return pos, quat
-
     def reset(self, model: MjModel, data: MjData):
+        if self.disable:
+            return super().reset(model, data)
+
         self._model = model
         self._data = data
 
         # Initialize renderers for each camera
-        for name, renderer in self._renderers.items():
-            renderer.reset(model, data, *self._resolution)
+        for name, renderer_or_image in self._renderers.items():
+            if not isinstance(renderer_or_image, MjCambrianRenderer):
+                continue
+            renderer = renderer_or_image
+
+            renderer.reset(model, data, self._resolution[1], self._resolution[0])
 
             fixedcamid = get_camera_id(model, name)
             assert fixedcamid != -1, f"Camera '{name}' not found."
@@ -248,19 +313,32 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
         return self.step()
 
     def step(self) -> Dict[str, np.ndarray]:
-        """Renders the images from all cameras, stitches them, and
-        returns observations for each eye."""
+        if self.disable:
+            return super().step()
+
         images = []
-        for renderer in self._renderers.values():
-            image = renderer.render()
-            if self._renders_depth:
-                image = image[0]  # Assuming RGB image is the first element
+        for renderer_or_image in self._renderers.values():
+            if not isinstance(renderer_or_image, MjCambrianRenderer):
+                image = renderer_or_image
+            else:
+                image = renderer_or_image.render()
+                if self._renders_depth:
+                    image = image[0]
             images.append(image)
 
-        # Now stitch the images together
         full_image = self._cube_to_equirectangular.convert(images)
+        full_image = full_image.permute(2, 0, 1).unsqueeze(0)
+
+        # Batch crop
+        batched = torch.nn.functional.grid_sample(
+            full_image.expand(len(self._eyes), -1, -1, -1),
+            self.batched_grids,
+            mode="nearest",
+            align_corners=False,
+        )
 
         obs = {}
-        for name, eye in self._eyes.items():
-            obs[name] = eye.step(full_image)
+        for i, eye in enumerate(self._eyes.values()):
+            obs[eye.name] = eye.step(batched[i].permute(1, 2, 0), copy=False)
+
         return obs

@@ -625,7 +625,7 @@ def run_render(config: ParseEvosConfig, data: Data):
                 # Involves first creating the environment and then rendering it
                 env = exp_config.env.instance(exp_config.env)
 
-                env.record = True
+                env.record()
                 env.reset(seed=exp_config.seed)
                 for _ in range(30):
                     mj.mj_step(env.model, env.data)

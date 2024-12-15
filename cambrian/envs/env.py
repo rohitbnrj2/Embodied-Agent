@@ -1,4 +1,6 @@
 import pickle
+import time
+from collections import deque
 from pathlib import Path
 from typing import (
     Any,
@@ -14,6 +16,7 @@ from typing import (
 
 import mujoco as mj
 import numpy as np
+import torch
 from gymnasium import Env, spaces
 from pettingzoo import ParallelEnv
 
@@ -33,6 +36,7 @@ from cambrian.renderer.overlays import (
     MjCambrianTextViewerOverlay,
     MjCambrianViewerOverlay,
 )
+from cambrian.utils import device
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 from cambrian.utils.logger import get_logger
@@ -178,6 +182,7 @@ class MjCambrianEnv(ParallelEnv, Env):
         self._num_timesteps = 0
         self._stashed_cumulative_reward = 0
         self._cumulative_reward = 0
+        self._timings = deque(maxlen=25)
 
         self._record: bool = False
         self._rollout: Dict[str, Any] = {}
@@ -249,15 +254,17 @@ class MjCambrianEnv(ParallelEnv, Env):
         self._stashed_cumulative_reward = self._cumulative_reward
         self._cumulative_reward = 0
         self._num_resets += 1
+        self._timings.clear()
+        self._timings.append(time.time())
 
         # Reset the caches
-        if not self.record:
+        if not self._record:
             self._rollout.clear()
             self._overlays.clear()
         elif self._config.clear_overlays_on_reset:
             self._overlays.clear()
 
-        if self.record:
+        if self._record:
             # TODO make this cleaner
             self._rollout.setdefault("actions", [])
             self._rollout["actions"].append(
@@ -297,9 +304,9 @@ class MjCambrianEnv(ParallelEnv, Env):
 
         # First, apply the actions to the agents and step the simulation
         for name, agent in self._agents.items():
-            if not agent.config.trainable or agent.config.use_privileged_action:
+            if not agent.trainable or agent.config.use_privileged_action:
                 assert (
-                    agent.config.trainable or name not in action
+                    agent.trainable or name not in action
                 ), f"Action for {name} found in action dict. "
                 "This isn't allowed for non-trainable agents."
                 action[name] = agent.get_action_privileged(self)
@@ -327,19 +334,24 @@ class MjCambrianEnv(ParallelEnv, Env):
         self._num_timesteps += 1
         self._cumulative_reward += sum(reward.values())
 
-        if self.record:
+        if self._record:
             self._rollout["actions"].append(list(action.values()))
             self._rollout["positions"].append([a.pos for a in self._agents.values()])
 
         if (
             self._config.debug_overlays_size > 0
-            and self.record
+            and self._record
             or "human" in self._config.renderer.render_modes
         ):
             self._overlays["Name"] = self._name
             self._overlays["Total Timesteps"] = self.num_timesteps
             self._overlays["Step"] = self._episode_step
             self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
+
+            self._timings.append(time.time())
+            self._overlays["FPS"] = round(
+                (len(self._timings) - 1) / (self._timings[-1] - self._timings[0]), 2
+            )
 
         return obs, reward, terminated, truncated, info
 
@@ -366,11 +378,6 @@ class MjCambrianEnv(ParallelEnv, Env):
                         # Only check for has contacts if it hasn't been set to True
                         # This reduces redundant checks
                         info[name]["has_contacts"] = agent.has_contacts
-
-        # As of MuJoCo 2.0, force-related quantities like cacc are not computed
-        # unless there's a force sensor in the model.
-        # See https://github.com/openai/gym/issues/1541
-        mj.mj_rnePostConstraint(self._model, self._data)
 
     def _compute_terminated(self, info: Dict[str, Any]) -> Dict[str, bool]:
         """Compute whether the env has terminated. Termination indicates success,
@@ -424,21 +431,33 @@ class MjCambrianEnv(ParallelEnv, Env):
 
         return rewards
 
-    def render(self) -> np.ndarray:
+    def render(self) -> torch.Tensor:
         """Renders the environment.
 
         Returns:
-            Dict[str, np.ndarray]: The rendered image for each render mode mapped to
+            Dict[str, torch.Tensor]: The rendered image for each render mode mapped to
                 its corresponding str.
 
         Todo:
             Make the cursor stuff clearer
         """
 
+        # if not hasattr(self, "exporter"):
+        #     camera_names = [
+        #         e.name for a in self._agents.values() for e in a.eyes.values()
+        #     ]
+        #     get_logger().info(f"Camera names: {camera_names}")
+        #     self.exporter = mujoco.usd.exporter.USDExporter(
+        #         self._model,
+        #         camera_names=camera_names,
+        #         verbose=False,
+        #     )
+        # self.exporter.update_scene(self._data)
+
         assert self._renderer is not None, "Renderer has not been initialized! "
         "Ensure `use_renderer` is set to True in the constructor."
 
-        overlays = None
+        overlays = []
         if self._config.add_overlays:
             overlays = self._generate_overlays()
 
@@ -449,6 +468,10 @@ class MjCambrianEnv(ParallelEnv, Env):
         overlays: List[MjCambrianViewerOverlay] = []
         i = self._num_resets * self._max_episode_steps + self._episode_step
         for agent in self._agents.values():
+            size = agent.config.overlay_size
+            if size > 0:
+                continue
+
             # Define a unique name so that the overlays don't get removed
             key = f"{agent.name}_pos_{i}"
 
@@ -458,7 +481,6 @@ class MjCambrianEnv(ParallelEnv, Env):
                 color = (1 - color[0], 1 - color[1], 1 - color[2], 1)
 
             # Add the overlay
-            size = agent.config.overlay_size
             overlay = MjCambrianSiteViewerOverlay(agent.pos.copy(), color, size)
             self._overlays[key] = overlay
 
@@ -480,7 +502,7 @@ class MjCambrianEnv(ParallelEnv, Env):
             num_agents = len([a for a in self._agents.values() if a.trainable])
             overlay_width = int(renderer_width // num_agents) if num_agents > 0 else 0
             overlay_height = int(renderer_height * self._config.debug_overlays_size)
-            overlay_size = (overlay_width, overlay_height)
+            overlay_size = (overlay_height, overlay_width)
 
             cursor = MjCambrianCursor(0, 0)
             trainable_agents = {n: a for n, a in self._agents.items() if a.trainable}
@@ -494,25 +516,20 @@ class MjCambrianEnv(ParallelEnv, Env):
                 if (composite := agent.render()) is None:
                     # Make the composite image black so we can still render other
                     # overlays
-                    composite = np.zeros((1, 1, 3), dtype=np.float32)
+                    composite = torch.zeros(
+                        (1, 1, 3), dtype=torch.float32, device=device
+                    )
+                composite = resize_with_aspect_fill(composite, *overlay_size)
 
-                # NOTE: flipud here since we always flipud when copying buffer from gpu,
-                # and when reading the buffer again after drawing the overlay, it will
-                # be flipped again. Flipping here means it will be the right side up.
-                # Do the same with transpose
-                new_composite = np.transpose(composite, (1, 0, 2))
-                new_composite = resize_with_aspect_fill(new_composite, *overlay_size)
-                new_composite = np.flipud(new_composite)
-
-                overlay = MjCambrianImageViewerOverlay(new_composite * 255.0, cursor)
+                overlay = MjCambrianImageViewerOverlay(composite * 255.0, cursor)
                 overlays.append(overlay)
 
                 cursor.x -= TEXT_MARGIN
                 cursor.y -= TEXT_MARGIN
-                overlay_text = f"Num Eyes: {agent.num_eyes}"
+                overlay_text = f"Num Eyes: {len(agent.eyes)}"
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
                 cursor.y += TEXT_HEIGHT
-                if agent.num_eyes > 0:
+                if len(agent.eyes) > 0:
                     eye0 = next(iter(agent.eyes.values()))
                     overlay_text = f"Res: {tuple(eye0.config.resolution)}"
                     overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
@@ -627,7 +644,7 @@ class MjCambrianEnv(ParallelEnv, Env):
         # Create the observation_spaces
         observation_spaces: Dict[str, spaces.Space] = {}
         for name, agent in self._agents.items():
-            if agent.config.trainable:
+            if agent.trainable:
                 observation_spaces[name] = agent.observation_space
         return spaces.Dict(observation_spaces)
 
@@ -648,7 +665,7 @@ class MjCambrianEnv(ParallelEnv, Env):
         # Create the action_spaces
         action_spaces: Dict[str, spaces.Space] = {}
         for name, agent in self._agents.items():
-            if agent.config.trainable:
+            if agent.trainable:
                 action_spaces[name] = agent.action_space
         return spaces.Dict(action_spaces)
 
@@ -689,18 +706,12 @@ class MjCambrianEnv(ParallelEnv, Env):
         get_logger().info(f"Setting random seed to {seed}")
         set_random_seed(seed)
 
-    @property
-    def record(self):
-        """Returns whether the environment is recording."""
-        return self._record
-
-    @record.setter
-    def record(self, value: bool):
+    def record(self, record: bool = True, *, path: Optional[Path] = None) -> bool:
         """Sets whether the environment is recording."""
-        self._record = value
-        self._renderer.record = value
+        self._record = record
+        self._renderer.record(record, path=path)
 
-        if not self.record:
+        if not self._record:
             self._rollout.clear()
 
     def save(self, path: str | Path, *, save_pkl: bool = False, **kwargs):
@@ -741,20 +752,16 @@ if __name__ == "__main__":
                 viewer.sync()
 
     @register_fn
-    def run_renderer(config: MjCambrianConfig, *, record: Any, no_step: bool, **__):
+    def run_renderer(config: MjCambrianConfig, *, record: bool, no_step: bool, **__):
         config.save(config.expdir / "config.yaml")
 
-        env = config.env.instance(config.env)
-
-        if max_steps := record:
-            env.record = True
+        env = config.env.instance(config.eval_env)
+        env.record(record, path=config.expdir)
 
         env.reset(seed=config.seed)
         env.xml.write(config.expdir / "env.xml")
 
-        action = {
-            name: [-1.0, -0.0] for name, a in env.agents.items() if a.config.trainable
-        }
+        action = {name: [-1.0, -0.0] for name, a in env.agents.items() if a.trainable}
         env.step(action.copy())
 
         if "human" in config.env.renderer.render_modes:
@@ -779,25 +786,31 @@ if __name__ == "__main__":
                     name = next(iter(action.keys()))
                     action[name][1] += 0.01
                     action[name][1] = min(1.0, action[name][1])
+                elif key == glfw.KEY_S:
+                    get_logger().info(f"Saving env to {config.expdir / 'env.xml'}")
+                    mj.mj_saveLastXML(str(config.expdir / "env.xml"), env.model)
 
             env.renderer.viewer.custom_key_callback = custom_key_callback
 
         composites: Dict[str, List[np.ndarray]] = {}
         while env.renderer.is_running():
-            if max_steps and env.episode_step > max_steps:
+            if env.episode_step > env.max_episode_steps:
                 break
 
             if not no_step:
                 env.step(action.copy())
+
             env.render()
 
             if record:
                 for name, agent in env.agents.items():
-                    if (composite := agent.render()) is not None:
-                        composite = np.transpose(composite, (1, 0, 2))
-                        composite = resize_with_aspect_fill(composite, 256, 256)
-                        composite = (composite * 255).astype(np.uint8)
-                        composites.setdefault(name, []).append(composite)
+                    if not agent.trainable:
+                        continue
+
+                    # if (composite := agent.render()) is not None:
+                    #     composite = resize_with_aspect_fill(composite, 256, 256)
+                    #     composite = (composite * 255).astype(np.uint8)
+                    #     composites.setdefault(name, []).append(composite)
 
         if record:
             env.save(
@@ -834,12 +847,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--record",
-        nargs="?",
-        type=int,
-        const=100,
-        help="Record the simulation. Pass an optional int to specify how many "
-        "iterations to record.",
-        default=None,
+        action="store_true",
+        help="Record the simulation.",
+        default=False,
     )
     parser.add_argument(
         "--no-step",

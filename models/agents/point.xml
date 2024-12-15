@@ -31,7 +31,7 @@
       ctrllimited="true" kv="100" />
     <velocity name="${parent:xml}_act_y" joint="${parent:xml}_joint_y" ctrlrange="-10.0 10.0"
       ctrllimited="true" kv="100" />
-    <position name="${parent:xml}_act_yaw" joint="${parent:xml}_joint_yaw" ctrlrange="-3.14 3.14"
-      ctrllimited="true" gear="1" />
+    <velocity name="${parent:xml}_act_yaw" joint="${parent:xml}_joint_yaw" ctrlrange="-10.0 10.0"
+      ctrllimited="true" kv="1.0" />
   </actuator>
 </mujoco>

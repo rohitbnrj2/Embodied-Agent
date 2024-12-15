@@ -232,6 +232,34 @@ def float_to_str_resolver(value: float) -> str:
     return str(value).replace(".", "p").replace("-", "n")
 
 
+@register_new_resolver("locate")
+def locate_resolver(fn: str) -> Any:
+    from hydra.utils import get_object
+
+    return get_object(fn)
+
+
+@register_new_resolver("resolve_key")
+def resolve_key_resolver(
+    value: Any, cast_to_int: bool = True, /, *, _parent_: DictConfig, _node_: DictConfig
+) -> Any:
+    old_key = _node_._key()
+    config = DictConfig(dict(temp=_node_._key()))
+    OmegaConf.unsafe_merge(config)
+    key = int(config.temp) if cast_to_int else config.temp
+    print(key)
+    _node_._set_key(key)
+    print(key, value)
+    _parent_._set_value(old_key, value)
+    print(_parent_.get(old_key))
+    print(_parent_.get(key))
+    exit()
+    print(_parent_)
+    print(old_key)
+    exit()
+    return value
+
+
 @register_new_resolver("clean_overrides")
 def clean_overrides_resolver(
     overrides: List[str],

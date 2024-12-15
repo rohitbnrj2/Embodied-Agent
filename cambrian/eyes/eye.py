@@ -5,12 +5,12 @@ environment. The eye can render images and provide observations to the agent."""
 from typing import Callable, Optional, Self, Tuple
 
 import mujoco as mj
-import numpy as np
+import torch
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
-from cambrian.utils import MjCambrianGeometry, get_camera_id
+from cambrian.utils import MjCambrianGeometry, device, get_camera_id, get_logger
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 
@@ -27,12 +27,12 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
         fov (Tuple[float, float]): Independent of the `fovy` field in the MJCF
             xml. Used to calculate the sensorsize field. Specified in degrees. Mutually
             exclusive with `fovy`. If `focal` is unset, it is set to 1, 1. Will override
-            `sensorsize`, if set. Fmt: fovx fovy.
+            `sensorsize`, if set. Fmt: fovy fovx.
         focal (Tuple[float, float]): The focal length of the camera.
-            Fmt: focal_x focal_y.
-        sensorsize (Tuple[float, float]): The size of the sensor. Fmt: width height.
+            Fmt: focal_y focal_x.
+        sensorsize (Tuple[float, float]): The size of the sensor. Fmt: height width.
         resolution (Tuple[int, int]): The width and height of the rendered image.
-            Fmt: width height.
+            Fmt: height width.
         coord (Tuple[float, float]): The x and y coordinates of the eye.
             This is used to determine the placement of the eye on the agent.
             Specified in degrees. This attr isn't actually used by eye, but by the
@@ -41,8 +41,7 @@ class MjCambrianEyeConfig(MjCambrianBaseConfig):
         orthographic (bool): Whether the camera is orthographic
 
         renderer (MjCambrianRendererConfig): The renderer config to use for the
-            underlying renderer. The width and height of the renderer will be set to the
-            padded resolution (resolution + int(psf_filter_size/2)) of the eye.
+            underlying renderer.
     """
 
     instance: Callable[[Self, str], "MjCambrianEye"]
@@ -85,7 +84,7 @@ class MjCambrianEye:
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
-        self._prev_obs: np.ndarray = None
+        self._prev_obs: torch.Tensor = None
         self._fixedcamid = -1
 
         self._renderer: MjCambrianRenderer = None
@@ -135,7 +134,7 @@ class MjCambrianEye:
         assert parent is not None, f"Could not find parent for '{parent_body_name}'"
 
         # Finally add the camera element at the end
-        pos, quat = self._calculate_pos_quat(geom)
+        pos, quat = self._calculate_pos_quat(geom, self._config.coord)
         resolution = [self._renderer.config.width, self._renderer.config.height]
         xml.add(
             parent,
@@ -153,8 +152,8 @@ class MjCambrianEye:
         return xml
 
     def _calculate_pos_quat(
-        self, geom: MjCambrianGeometry
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        self, geom: MjCambrianGeometry, coord: Tuple[float, float]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Calculates the position and quaternion of the eye based on the geometry of
         the parent body. The position is calculated by moving the eye to the edge of the
         geometry in the negative x direction. The quaternion is calculated by rotating
@@ -163,10 +162,10 @@ class MjCambrianEye:
         Todo:
             rotations are weird. fix this.
         """
-        lat, lon = np.deg2rad(self._config.coord)
-        lon += np.pi / 2
+        lat, lon = torch.deg2rad(torch.tensor(coord))
+        lon += torch.pi / 2
 
-        default_rot = R.from_euler("z", np.pi / 2)
+        default_rot = R.from_euler("z", torch.pi / 2)
         pos_rot = default_rot * R.from_euler("yz", [lat, lon])
         rot_rot = R.from_euler("z", lat) * R.from_euler("y", -lon) * default_rot
 
@@ -191,18 +190,28 @@ class MjCambrianEye:
         self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
         self._renderer.viewer.camera.fixedcamid = self._fixedcamid
 
-        self._prev_obs = np.zeros((*self._config.resolution, 3), dtype=np.float32)
+        self._prev_obs = torch.zeros(
+            (*self._config.resolution, 3),
+            dtype=torch.float32,
+            device=device,
+        )
 
-        return self.step()
+        obs = self.step()
+        if obs.device != self._prev_obs.device:
+            get_logger().warning(
+                "Device mismatch. obs.device: "
+                f"{obs.device}, self._prev_obs.device: {self._prev_obs.device}"
+            )
+        return obs
 
     def step(
-        self, obs: Optional[np.ndarray] = None
-    ) -> np.ndarray | Tuple[np.ndarray, np.ndarray]:
+        self, obs: Optional[torch.Tensor] = None, copy: bool = True
+    ) -> torch.Tensor | Tuple[torch.Tensor, torch.Tensor]:
         """Simply calls `render` and sets the last observation. See `render()` for more
         information.
 
         Args:
-            obs (Optional[np.ndarray], optional): The observation to set. Defaults to
+            obs (Optional[torch.Tensor]): The observation to set. Defaults to
                 None. This can be used by derived classes to set the observation
                 directly.
         """
@@ -211,10 +220,13 @@ class MjCambrianEye:
             obs = self._renderer.render()
             if self._renders_depth:
                 obs = obs[0]
-        np.copyto(self._prev_obs, obs)
+        if copy:
+            self._prev_obs.copy_(obs, non_blocking=True)
+        else:
+            self._prev_obs = obs
         return obs
 
-    def render(self) -> np.ndarray:
+    def render(self) -> torch.Tensor:
         """Render the image from the camera. Will always only return the rgb array.
 
         This differs from step in that this is a debug method. The rendered image here
@@ -238,9 +250,9 @@ class MjCambrianEye:
         `spaces.Box` with the shape of the resolution of the eye."""
 
         shape = (*self._config.resolution, 3)
-        return spaces.Box(0.0, 1.0, shape=shape, dtype=np.float32)
+        return spaces.Box(0.0, 1.0, shape=shape, dtype=torch.float32)
 
     @property
-    def prev_obs(self) -> np.ndarray:
+    def prev_obs(self) -> torch.Tensor:
         """The last observation returned by `self.render()`."""
         return self._prev_obs

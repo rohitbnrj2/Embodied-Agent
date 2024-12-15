@@ -1,7 +1,6 @@
 import ast
 import contextlib
 import pickle
-import re
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
@@ -10,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional
 
 import mujoco as mj
 import numpy as np
+import torch
 from stable_baselines3.common.vec_env import VecEnv
 
 from cambrian.utils.logger import get_logger
@@ -17,6 +17,10 @@ from cambrian.utils.logger import get_logger
 if TYPE_CHECKING:
     from cambrian.agents import MjCambrianAgent
     from cambrian.ml.model import MjCambrianModel
+
+# ============
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ============
 
@@ -29,7 +33,7 @@ def evaluate_policy(
     record_kwargs: Optional[Dict[str, Any]] = None,
     step_callback: Optional[Callable[[], bool]] = lambda: True,
     done_callback: Optional[Callable[[int], bool]] = lambda _: True,
-):
+) -> float:
     """Evaluate a policy.
 
     Args:
@@ -45,6 +49,9 @@ def evaluate_policy(
             If the function returns False, the evaluation will stop.
         done_callback (Callable[[int], bool]): The callback function to call when a run
             is done. If the function returns False, the evaluation will stop.
+
+    Returns:
+        float: The cumulative reward of the evaluation.
     """
     # To avoid circular imports
     from cambrian.envs import MjCambrianEnv
@@ -53,7 +60,7 @@ def evaluate_policy(
     cambrian_env: MjCambrianEnv = env.envs[0].unwrapped
     if record_kwargs is not None:
         # don't set to `record_path is not None` directly bc this will delete overlays
-        cambrian_env.record = True
+        cambrian_env.record()
 
     run = 0
     obs = env.reset()
@@ -81,7 +88,9 @@ def evaluate_policy(
 
     if record_kwargs is not None:
         cambrian_env.save(**record_kwargs)
-        cambrian_env.record = False
+        cambrian_env.record(False)
+
+    return cambrian_env.stashed_cumulative_reward
 
 
 def moving_average(values, window, mode="valid"):
@@ -301,14 +310,14 @@ class MjCambrianActuator:
     Attributes:
         adr (int): The Mujoco actuator ID (index into model.actuator_* arrays).
         trnadr (int): The index of the actuator's transmission in the model.
-        low (float): The lower bound of the actuator's range.
-        high (float): The upper bound of the actuator's range.
+        ctrlrange (Tuple[float, float]): The control range of the actuator.
+        ctrllimited (bool): Whether the actuator is control-limited.
     """
 
     adr: int
     trnadr: int
-    low: float
-    high: float
+    ctrlrange: Tuple[float, float]
+    ctrllimited: bool
 
 
 @dataclass
@@ -316,6 +325,7 @@ class MjCambrianJoint:
     """Helper class which stores information about a Mujoco joint.
 
     Attributes:
+        type (int): The Mujoco joint type (mj.mjtJoint).
         adr (int): The Mujoco joint ID (index into model.jnt_* arrays).
         qposadr (int): The index of the joint's position in the qpos array.
         numqpos (int): The number of positions in the joint.
@@ -323,6 +333,7 @@ class MjCambrianJoint:
         numqvel (int): The number of velocities in the joint.
     """
 
+    type: int
     adr: int
     qposadr: int
     numqpos: int
@@ -346,7 +357,7 @@ class MjCambrianJoint:
             numqpos = 1
             numqvel = 1
 
-        return MjCambrianJoint(jntadr, qposadr, numqpos, qveladr, numqvel)
+        return MjCambrianJoint(jnt_type, jntadr, qposadr, numqpos, qveladr, numqvel)
 
     @property
     def qposadrs(self) -> List[int]:
@@ -384,49 +395,6 @@ def agent_selected(agent: "MjCambrianAgent", agents: Optional[List[str]]):
 
 # =============
 # Misc utils
-
-
-def format_string_with_obj_attributes(s, obj):
-    """
-    Replaces placeholders in a string with attribute values from a provided object.
-
-    Args:
-    s (str): The string containing placeholders in the format {attr.path}.
-    obj (object): The object from which to fetch the attribute values.
-
-    Returns:
-    str: The formatted string with attribute values.
-
-    Examples:
-    >>> class Env:
-    ...     def __init__(self):
-    ...         self.test = "working"
-    ...
-    >>> class CustomPythonClass:
-    ...     def __init__(self):
-    ...         self.env = Env()
-    ...
-    >>> obj = CustomPythonClass()
-    >>> format_string_with_obj_attributes("Test: {env.test}", obj)
-    'Test: working'
-    """
-
-    def get_nested_attr(obj, attr_path):
-        """Fetches the value of a nested attribute by traversing through the object
-        attributes based on the dot-separated path."""
-        for attr in attr_path.split("."):
-            obj = getattr(obj, attr, None)
-            if obj is None:
-                return None
-        return obj
-
-    def replace_attr(match):
-        """Helper function to replace each placeholder in the string with the
-        corresponding attribute value."""
-        path = match.group(1)
-        return str(get_nested_attr(obj, path))
-
-    return re.sub(r"\{([^}]+)\}", replace_attr, s)
 
 
 def literal_eval_with_callables(
@@ -711,6 +679,7 @@ def safe_eval(src: Any, additional_vars: Dict[str, Any] = {}) -> Any:
         "float": float,
         "str": str,
         "bool": bool,
+        "slice": slice,
     }
     # Create the safe environment for evaluation
     safe_vars = {"math": math, **supported_builtins, **additional_vars}

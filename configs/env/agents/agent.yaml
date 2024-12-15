@@ -9,8 +9,9 @@ overlay_size: 0.1
 instance:
   _target_: cambrian.agents.MjCambrianAgent
   _partial_: true
+  _convert_: all
 
-check_contacts: true
+check_contacts: ${.use_contact_obs}
 
 # Default configuration is randomly placed depending on the selected environment
 init_pos: [null, null, null]

@@ -12,4 +12,4 @@ scene_options:
 
   # Don't visualize the camera frustums
   flags:
-    mjVIS_CAMERA: 0
+    mujoco.mjtVisFlag.mjVIS_CAMERA: 0

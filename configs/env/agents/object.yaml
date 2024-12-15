@@ -14,3 +14,4 @@ perturb_init_pose: False
 instance:
   _target_: cambrian.agents.MjCambrianAgentObject
   _partial_: true
+  _convert_: all

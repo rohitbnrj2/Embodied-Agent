@@ -1,10 +1,11 @@
 """Defines utilities for overlays in the Mujoco viewer."""
 
 from dataclasses import dataclass, replace
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import mujoco as mj
 import numpy as np
+import torch
 
 from cambrian.utils.logger import get_logger
 
@@ -34,9 +35,7 @@ class MjCambrianViewerOverlay:
         eyes) will not be affected.
     """
 
-    def __init__(
-        self, obj: np.ndarray | str, cursor: Optional[MjCambrianCursor] = None
-    ):
+    def __init__(self, obj: Any, cursor: Optional[MjCambrianCursor] = None):
         self._obj = obj
         self._cursor = cursor.copy() if cursor is not None else None
 
@@ -67,9 +66,12 @@ class MjCambrianTextViewerOverlay(MjCambrianViewerOverlay):
 class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
     """This class is used to add an image to the viewer."""
 
+    def __init__(self, obj: torch.Tensor, cursor: Optional[MjCambrianCursor] = None):
+        super().__init__(obj, cursor)
+
     def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
         viewport = mj.MjrRect(*self._cursor, self._obj.shape[1], self._obj.shape[0])
-        mj.mjr_drawPixels(self._obj.ravel(), None, viewport, mjr_context)
+        mj.mjr_drawPixels(self._obj.cpu().numpy().ravel(), None, viewport, mjr_context)
 
 
 class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):

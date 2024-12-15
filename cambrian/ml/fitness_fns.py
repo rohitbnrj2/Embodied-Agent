@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Tuple
 
 import numpy as np
+from scipy.stats import zscore
 
 if TYPE_CHECKING:
     from cambrian.utils.config import MjCambrianConfig
@@ -45,14 +46,16 @@ def top_n_percent(
     data: np.ndarray,
     percent: float,
     use_outliers: bool,
-    quartiles: tuple[float, float] = (25, 75),
+    max_zscore: float = 3.0,
 ) -> float:
     """Calculate the mean of the top `percent` of the data, optionally excluding
     outliers."""
     if not use_outliers:
-        q1, q3 = np.percentile(data, quartiles)
-        iqr = q3 - q1
-        data = data[(data > q1 - 1.5 * iqr) & (data < q3 + 1.5 * iqr)]
+        z_scores = zscore(data)
+        filtered_data = data[abs(z_scores) < max_zscore]
+        if len(filtered_data) == 0:
+            filtered_data = data
+        data = filtered_data
 
     n_top = int(len(data) * (percent / 100.0))
     return float(np.median(np.sort(data)[-n_top:]))
@@ -122,7 +125,7 @@ def fitness_from_monitor(
     *,
     return_data: bool = False,
     percent: float = 25.0,
-    quartiles: tuple[float, float] = (25, 75),
+    n_episodes: int = 1,
 ) -> float | Tuple[float, Tuple[np.ndarray, np.ndarray]]:
     """
     Calculate the fitness of the agent based on monitor data. The fitness is determined
@@ -137,6 +140,9 @@ def fitness_from_monitor(
             Defaults to False.
         percent (float): Defines the top 'n' percent of rewards to be used for
             calculating fitness. Defaults to 75.0 (3rd quartile).
+        n_episodes (int): The number of episodes to use sum rewards for. Defaults to 1.
+            n_episodes must be a common factor of the number of episodes in the monitor
+            data.
 
     Returns:
         float | Tuple[float, Tuple[np.ndarray, np.ndarray]]: The calculated fitness
@@ -152,7 +158,14 @@ def fitness_from_monitor(
     if len(rewards) == 0:
         return -float("inf")
 
-    fitness = top_n_percent(rewards, percent, use_outliers=False, quartiles=quartiles)
+    assert len(rewards) % n_episodes == 0, (
+        "n_episodes must be a common factor of the"
+        " number of episodes in the monitor data."
+    )
+    timesteps = timesteps.reshape(-1, n_episodes).mean(axis=1)
+    rewards = rewards.reshape(-1, n_episodes).sum(axis=1)
+
+    fitness = top_n_percent(rewards, percent, use_outliers=False)
     if return_data:
         return fitness, (timesteps, rewards)
     return fitness

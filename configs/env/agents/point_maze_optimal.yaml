@@ -4,5 +4,5 @@ defaults:
 use_privileged_action: true
 
 instance:
-  _target_: cambrian.agents.MjCambrianAgentPointMazeOptimal
+  _target_: cambrian.agents.point.MjCambrianAgentPointSeeker
   _partial_: true

@@ -1,25 +1,48 @@
 """Wrapper around the mujoco viewer for rendering scenes."""
 
+import atexit
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from enum import Flag, auto
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import glfw
 import imageio
 import mujoco as mj
+import mujoco.usd.exporter
 import numpy as np
 import OpenGL.GL as GL
+import torch
 
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.renderer.render_utils import convert_depth_distances
+from cambrian.utils import device, get_camera_name
 from cambrian.utils.config import (
     MjCambrianBaseConfig,
     MjCambrianFlagWrapperMeta,
     config_wrapper,
 )
 from cambrian.utils.logger import get_logger
+
+try:
+    import ctypes
+
+    import pycuda.autoinit  # noqa
+    import pycuda.driver as cuda
+    import pycuda.gl as cudagl
+
+    has_pycuda_gl = True
+except ImportError:
+    has_pycuda_gl = False
+    device = torch.device("cpu")  # noqa
+
+if torch.device(device) != torch.device("cuda"):
+    get_logger().warning(
+        "PyCUDA not found or not using CUDA device. "
+        "Disabling PyCUDA GL interop for rendering."
+    )
+    has_pycuda_gl = False
 
 
 class MjCambrianRendererSaveMode(Flag, metaclass=MjCambrianFlagWrapperMeta):
@@ -30,6 +53,7 @@ class MjCambrianRendererSaveMode(Flag, metaclass=MjCambrianFlagWrapperMeta):
     MP4 = auto()
     PNG = auto()
     WEBP = auto()
+    USD = auto()
 
 
 @config_wrapper
@@ -54,7 +78,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
             the width and height are ignored and the window is rendered in fullscreen.
             This is only valid for onscreen renderers.
 
-        scene (mj.MjvScene): The scene to render.
+        scene (Type[mj.MjvScene]): The scene to render.
         scene_options (mj.MjvOption): The options to use for rendering.
         camera (mj.MjvCamera): The camera to use for rendering.
 
@@ -76,7 +100,7 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
 
     fullscreen: Optional[bool] = None
 
-    scene: mj.MjvScene
+    scene: Type[mj.MjvScene]
     scene_options: mj.MjvOption
     camera: mj.MjvCamera
 
@@ -85,11 +109,40 @@ class MjCambrianRendererConfig(MjCambrianBaseConfig):
     save_mode: Optional[MjCambrianRendererSaveMode] = None
 
 
-# TODO: Remove the free method of GLContext. An annoying c-level error occurs. We don't
-# free the context unless at the end, so this shouldn't be needed, not sure...
-mj.gl_context.GLContext.free = lambda self: None
+# ===================
+
 GL_CONTEXT: mj.gl_context.GLContext = None
 MJR_CONTEXT: mj.MjrContext = None
+CUDA_CONTEXT: "cuda.Context" = None
+if has_pycuda_gl:
+    CUDA_CONTEXT = cuda.Device(0).make_context()
+
+
+def free_contexts():
+    global GL_CONTEXT, MJR_CONTEXT, CUDA_CONTEXT
+    if GL_CONTEXT is not None:
+        try:
+            GL_CONTEXT.free()
+        except Exception:
+            pass
+        GL_CONTEXT = None
+    if MJR_CONTEXT is not None:
+        try:
+            MJR_CONTEXT.free()
+        except Exception:
+            pass
+        MJR_CONTEXT = None
+    if CUDA_CONTEXT is not None:
+        try:
+            CUDA_CONTEXT.detach()
+        except Exception:
+            pass
+        CUDA_CONTEXT = None
+
+
+atexit.register(free_contexts)
+
+# ===================
 
 
 class MjCambrianViewer(ABC):
@@ -113,9 +166,19 @@ class MjCambrianViewer(ABC):
         self._mjr_context: mj.MjrContext = None
         self._font = mj.mjtFontScale.mjFONTSCALE_50
 
-        self._rgb_uint8: np.ndarray = np.array([])
-        self._rgb_float32: np.ndarray = np.array([])
-        self._depth: np.ndarray = np.array([])
+        self._rgb_float32: torch.Tensor = None
+        self._depth: torch.Tensor = None
+
+        if has_pycuda_gl:
+            self._rgb_pbo: int = None
+            self._rgb_res: cudagl.RegisteredBuffer = None
+            self._rgb_mapped_res: cuda.DeviceAllocation = None
+            self._rgb_ptr: int = None
+
+            self._depth_pbo: int = None
+            self._depth_res: cudagl.RegisteredBuffer = None
+            self._depth_mapped_res: cuda.DeviceAllocation = None
+            self._depth_ptr: int = None
 
     def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
         self._model = model
@@ -123,7 +186,7 @@ class MjCambrianViewer(ABC):
 
         # Only create the scene once
         if self._scene is None:
-            self._scene = self._config.scene(model=model)
+            self._scene = self._config.scene(model)
         self._scene_options = deepcopy(self._config.scene_options)
         self._camera = deepcopy(self._config.camera)
 
@@ -132,10 +195,19 @@ class MjCambrianViewer(ABC):
         self._viewport = mj.MjrRect(0, 0, width, height)
 
         # Initialize the buffers
-        if self._rgb_uint8.shape[0] != height or self._rgb_uint8.shape[1] != width:
-            self._rgb_uint8 = np.empty((height, width, 3), dtype=np.uint8)
-            self._rgb_float32 = np.empty((height, width, 3), dtype=np.float32)
-            self._depth = np.empty((height, width), dtype=np.float32)
+        if self._rgb_float32 is None or self._rgb_float32.shape != (height, width, 3):
+            self._rgb_uint8 = torch.zeros(
+                (height, width, 3), dtype=torch.uint8, device=device
+            )
+            self._rgb_float32 = torch.zeros(
+                (height, width, 3), dtype=torch.float32, device=device
+            )
+            self._depth = torch.zeros(
+                (height, width), dtype=torch.float32, device=device
+            )
+
+        if has_pycuda_gl:
+            self._initialize_pbo()
 
     def _initialize_contexts(self, width: int, height: int):
         global GL_CONTEXT, MJR_CONTEXT
@@ -177,6 +249,36 @@ class MjCambrianViewer(ABC):
         self._mjr_context.readDepthMap = mj.mjtDepthMap.mjDEPTH_ZEROFAR
         mj.mjr_setBuffer(self.get_framebuffer_option(), self._mjr_context)
 
+    def _initialize_pbo(self):
+        assert has_pycuda_gl and torch.device(device) == torch.device("cuda")
+
+        rgb_buffer_size = self.width * self.height * 3
+        depth_buffer_size = self.width * self.height
+
+        self._rgb_pbo = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, int(self._rgb_pbo))
+        GL.glBufferData(
+            GL.GL_PIXEL_PACK_BUFFER, rgb_buffer_size, None, GL.GL_STREAM_READ
+        )
+        GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, 0)
+        self._rgb_res = cudagl.RegisteredBuffer(
+            int(self._rgb_pbo), cuda.graphics_map_flags.READ_ONLY
+        )
+        self._rgb_mapped_res = self._rgb_res.map()
+        self._rgb_ptr = self._rgb_mapped_res.device_ptr_and_size()[0]
+
+        self._depth_pbo = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, int(self._depth_pbo))
+        GL.glBufferData(
+            GL.GL_PIXEL_PACK_BUFFER, depth_buffer_size, None, GL.GL_STREAM_READ
+        )
+        GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, 0)
+        self._depth_res = cudagl.RegisteredBuffer(
+            int(self._depth_pbo), cuda.graphics_map_flags.READ_ONLY
+        )
+        self._depth_mapped_res = self._depth_res.map()
+        self._depth_ptr = self._depth_mapped_res.device_ptr_and_size()[0]
+
     @abstractmethod
     def update(self, width: int, height: int):
         # Subclass should override this method such that this is not possible
@@ -204,28 +306,112 @@ class MjCambrianViewer(ABC):
         for overlay in overlays:
             overlay.draw_after_render(self._mjr_context, self._viewport)
 
-    def read_pixels(self, read_depth: bool = False) -> Tuple[np.ndarray, np.ndarray]:
-        rgb_uint8, depth = self._rgb_uint8, self._depth if read_depth else None
-        mj.mjr_readPixels(rgb_uint8, depth, self._viewport, self._mjr_context)
+    def read_pixels(
+        self, read_depth: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        if has_pycuda_gl:
+            out = self._read_pixels_cuda(read_depth)
+        else:
+            out = self._read_pixels(read_depth)
+        return out
 
-        # Flipud the images
-        # NOTE: If you plan to convert to a pytorch tensor, negative indices aren't
-        # supported, so you may need to copy the array later on.
-        rgb_uint8, depth = rgb_uint8[::-1, ...], (
-            depth[::-1, ...] if read_depth else None
+    def _read_pixels(
+        self, read_depth: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        rgb_uint8 = self._rgb_uint8.cpu()
+        rgb_float32 = self._rgb_float32.cpu()
+        depth = self._depth.cpu()
+
+        mj.mjr_readPixels(
+            rgb_uint8.numpy(),
+            depth.numpy() if read_depth else None,
+            self._viewport,
+            self._mjr_context,
         )
+        if rgb_uint8.device != device:
+            rgb_uint8 = rgb_uint8.to(device)
+            rgb_float32 = rgb_float32.to(device)
+            if read_depth:
+                depth = depth.to(device)
+        torch.divide(rgb_uint8, 255.0, out=rgb_float32)
 
-        # Convert to float32
-        rgb_float32 = self._rgb_float32
-        np.divide(rgb_uint8, np.array([255.0], np.float32), out=rgb_float32)
-
-        # Transpose the rgb/depth to be W x H x C
-        rgb_float32 = rgb_float32.transpose(1, 0, 2)
-        if read_depth:
-            depth = depth.transpose(1, 0)
-
-        # Return the flipped images
         return rgb_float32, depth
+
+    def _read_pixels_cuda(
+        self, read_depth: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        mask = GL.GL_COLOR_BUFFER_BIT
+        if read_depth:
+            mask |= GL.GL_DEPTH_BUFFER_BIT
+
+        if self._model.vis.quality.offsamples:
+            # Multisampling
+            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self._mjr_context.offFBO)
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self._mjr_context.offFBO_r)
+            GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
+            GL.glBlitFramebuffer(
+                self._viewport.left,
+                self._viewport.bottom,
+                self._viewport.left + self.width,
+                self._viewport.bottom + self.height,
+                self._viewport.left,
+                self._viewport.bottom,
+                self._viewport.left + self.width,
+                self._viewport.bottom + self.height,
+                mask,
+                GL.GL_NEAREST,
+            )
+            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self._mjr_context.offFBO_r)
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+        else:
+            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self._mjr_context.offFBO)
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+
+        GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, int(self._rgb_pbo))
+        GL.glReadPixels(
+            self._viewport.left,
+            self._viewport.bottom,
+            self.width,
+            self.height,
+            self._mjr_context.readPixelFormat,
+            GL.GL_UNSIGNED_BYTE,
+            ctypes.c_void_p(0),
+        )
+        GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, 0)
+
+        if read_depth:
+            GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, int(self._depth_pbo))
+            GL.glReadPixels(
+                0,
+                0,
+                self.width,
+                self.height,
+                GL.GL_DEPTH_COMPONENT,
+                GL.GL_FLOAT,
+                ctypes.c_void_p(0),
+            )
+            GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, 0)
+
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self._mjr_context.offFBO)
+        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+        GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
+
+        CUDA_CONTEXT.push()
+        cuda.memcpy_dtod(
+            int(self._rgb_uint8.data_ptr()),
+            self._rgb_ptr,
+            self.width * self.height * 3,
+        )
+        if read_depth:
+            cuda.memcpy_dtod(
+                int(self._depth.data_ptr()), self._depth_ptr, self.width * self.height
+            )
+        CUDA_CONTEXT.pop()
+
+        torch.divide(self._rgb_uint8, 255.0, out=self._rgb_float32)
+
+        return self._rgb_float32, self._depth if read_depth else None
 
     @abstractmethod
     def make_context_current(self):
@@ -268,6 +454,14 @@ class MjCambrianViewer(ABC):
     @property
     def config(self) -> MjCambrianRendererConfig:
         return self._config
+
+    @property
+    def model(self) -> mj.MjModel:
+        return self._model
+
+    @property
+    def data(self) -> mj.MjData:
+        return self._data
 
 
 class MjCambrianOffscreenViewer(MjCambrianViewer):
@@ -326,7 +520,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         glfw.set_scroll_callback(self._window, self._scroll_callback)
         glfw.set_key_callback(self._window, self._key_callback)
 
-        glfw.swap_interval(1)
+        glfw.swap_interval(0)
 
     def _initialize_window(self, width: int, height: int):
         global GL_CONTEXT, MJR_CONTEXT
@@ -377,17 +571,18 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
             get_logger().warning("Tried to render closed or closing window.")
             return
 
-        self.make_context_current()
-        width, height = glfw.get_framebuffer_size(self._window)
-        self._viewport = mj.MjrRect(0, 0, width, height)
+        while True:
+            self.make_context_current()
+            width, height = glfw.get_framebuffer_size(self._window)
+            self._viewport = mj.MjrRect(0, 0, width, height)
 
-        super().render(overlays=overlays)
+            super().render(overlays=overlays)
 
-        glfw.swap_buffers(self._window)
-        glfw.poll_events()
+            glfw.swap_buffers(self._window)
+            glfw.poll_events()
 
-        if self._is_paused:
-            self.render(overlays=overlays)
+            if not self._is_paused:
+                break
 
     def is_running(self):
         return not (self._window is None or glfw.window_should_close(self._window))
@@ -463,8 +658,9 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
             return
 
         # Close window.
-        if key == glfw.KEY_ESCAPE:
+        if key == glfw.KEY_ESCAPE or key == glfw.KEY_Q:
             glfw.set_window_should_close(window, True)
+            self._is_paused = False  # unpause so the window can close
 
         # Switch cameras
         if key == glfw.KEY_TAB:
@@ -516,9 +712,13 @@ class MjCambrianRenderer:
         else:
             self._viewer = MjCambrianOffscreenViewer(self._config)
 
-        self._rgb_buffer: List[np.ndarray] = []
-
         self._record: bool = False
+        self._rgb_buffer: List[torch.Tensor] = []
+        self._usd_exporter: Optional[mujoco.usd.exporter.USDExporter] = None
+        self._should_render: bool = any(
+            m in self._config.render_modes for m in ["rgb_array", "depth_array"]
+        )
+        self._should_render_depth: bool = "depth_array" in self._config.render_modes
 
     def reset(
         self,
@@ -526,7 +726,7 @@ class MjCambrianRenderer:
         data: mj.MjData,
         width: Optional[int] = None,
         height: Optional[int] = None,
-    ) -> np.ndarray | None:
+    ) -> torch.Tensor | None:
         width = width or self._config.width or model.vis.global_.offwidth
         height = height or self._config.height or model.vis.global_.offheight
 
@@ -541,23 +741,25 @@ class MjCambrianRenderer:
 
     def render(
         self, *, overlays: List[MjCambrianViewerOverlay] = [], resetting: bool = False
-    ) -> np.ndarray | Tuple[np.ndarray, np.ndarray] | None:
+    ) -> torch.Tensor | Tuple[torch.Tensor, torch.Tensor] | None:
         self._viewer.render(overlays=overlays)
 
-        if not any(
-            mode in self._config.render_modes for mode in ["rgb_array", "depth_array"]
-        ):
+        if not self._should_render:
             return
 
-        rgb, depth = self._viewer.read_pixels(
-            "depth_array" in self._config.render_modes
-        )
+        rgb, depth = self._viewer.read_pixels(read_depth=self._should_render_depth)
         if self._record and not resetting:
-            self._rgb_buffer.append(rgb.copy().transpose(1, 0, 2))
+            self._rgb_buffer.append(rgb.clone())
 
-        if "depth_array" in self._config.render_modes:
+        if self._should_render_depth:
             depth = convert_depth_distances(self._viewer._model, depth)
             return rgb, depth
+
+        if self._usd_exporter:
+            self._usd_exporter.update_scene(
+                self._viewer.data, self._viewer.scene_options
+            )
+
         return rgb
 
     def is_running(self):
@@ -581,7 +783,12 @@ class MjCambrianRenderer:
         get_logger().info(f"Saving visualizations at {path}...")
 
         path = Path(path)
-        rgb_buffer = (np.array(self._rgb_buffer) * 255.0).astype(np.uint8)
+        rgb_buffer = (
+            (torch.stack(self._rgb_buffer) * 255.0).to(torch.uint8).cpu().numpy()
+        )
+        # Mujoco uses OpenGL, which uses bottom-left origin, so flip the buffer
+        # since most of python uses top-left origin.
+        rgb_buffer = np.flip(rgb_buffer, axis=1)
 
         if save_mode & MjCambrianRendererSaveMode.MP4:
             try:
@@ -606,23 +813,51 @@ class MjCambrianRenderer:
             webp = path.with_suffix(".webp")
             imageio.mimwrite(webp, rgb_buffer, fps=fps, lossless=True)
             get_logger().debug(f"Saved visualization at {webp}")
+        if save_mode & MjCambrianRendererSaveMode.USD or self._usd_exporter:
+            assert self._usd_exporter, "USD exporter not initialized."
+            self._usd_exporter.save_scene("usd")
 
         get_logger().debug(f"Saved visualization at {path}")
 
-    @property
-    def record(self) -> bool:
-        return self._record
+    def record(
+        self,
+        record: bool = True,
+        *,
+        path: Optional[Path] = None,
+        save_mode: Optional[MjCambrianRendererSaveMode] = None,
+    ):
+        if record and self._record:
+            get_logger().warning("Already recording. Ignoring...")
+            return
+        elif not record and not self._record:
+            get_logger().warning("Not recording. Ignoring...")
+            return
+        elif record and "rgb_array" not in self._config.render_modes:
+            render_modes = list(self._config.render_modes)
+            get_logger().warning(
+                f"Cannot record without rgb_array mode: {render_modes}. Ignoring..."
+            )
+            return
 
-    @record.setter
-    def record(self, record: bool):
-        assert not (record and self._record), "Already recording."
-        assert (
-            "rgb_array" in self._config.render_modes
-        ), "Cannot record without rgb_array mode."
-
-        if not record:
+        save_mode = save_mode or self._config.save_mode
+        if record and MjCambrianRendererSaveMode.USD & save_mode:
+            camera_names = [
+                get_camera_name(self._viewer.model, i)
+                for i in range(self._viewer.model.ncam)
+            ]
+            self._usd_exporter = mujoco.usd.exporter.USDExporter(
+                self._viewer._model,
+                self.height,
+                self.width,
+                self._config.scene.maxgeom,
+                output_directory_root=path,
+                output_directory="usd",
+                camera_names=camera_names,  # save all cameras
+                verbose=False,
+            )
+        elif not record:
             self._rgb_buffer.clear()
-
+            self._usd_exporter = None
         self._record = record
 
     # ===================
@@ -649,12 +884,10 @@ class MjCambrianRenderer:
 
 
 if __name__ == "__main__":
-    from cambrian.utils.cambrian_xml import MjCambrianXML
     from cambrian.utils.config import MjCambrianConfig, run_hydra
 
     def main(config: MjCambrianConfig):
-        xml = MjCambrianXML.from_config(config.env.xml)
-        model = mj.MjModel.from_xml_string(xml.to_string())
+        model = mj.MjModel.from_xml_string(config.env.xml)
         data = mj.MjData(model)
         mj.mj_step(model, data)
 
@@ -665,5 +898,5 @@ if __name__ == "__main__":
             renderer.render()
 
     # Recommended to use these args:
-    # env.xml.base_xml_path=models/blocks.xml env/renderer=fixed
+    # env.xml.xml_string=${read:models/blocks.xml} env/renderer=fixed
     run_hydra(main)

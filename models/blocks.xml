@@ -1,6 +1,5 @@
 <mujoco>
-    <compiler assetdir="assets" angle="degree" coordinate="local" inertiafromgeom="true" />
-    <statistic center="0 0 0.1" extent="0.6" meansize=".05"/>
+    <include file="models/settings.xml" />
     <visual>
         <!-- <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/> -->
         <rgba haze="0.15 0.25 0.35 1"/>
@@ -25,6 +24,7 @@
 
     <worldbody>
         <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+        <camera pos="0 0 0" euler="90 90 0" fovy="80" />
         <body name="body" pos="-0.5 0 0">
             <!-- <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/> -->
             <geom name="box1" type="box" size="0.25 0.25 0.25" pos="-1 0 0.2" condim="1" material="blue" />
