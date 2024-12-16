@@ -105,7 +105,7 @@ eval_env:
       _partial_: true
       # large negative reward for respawning the adversary (which happens if the agent
       # is close to it)
-      reward: -10.0
+      reward: -20.0
       for_agents: ${glob:adversary*,${oc.dict.keys:env.agents}}
       scale_by_quickness: true
 
@@ -114,3 +114,11 @@ eval_env:
     penalize_if_has_contacts:
       # large negative reward for contacts
       penalty: -2.0
+
+  truncation_fn:
+    truncate_if_close_to_adversary:
+      disable: True
+
+  termination_fn:
+    terminate_if_close_to_goal:
+      disable: True

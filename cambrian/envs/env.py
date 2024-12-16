@@ -160,9 +160,7 @@ class MjCambrianEnv(ParallelEnv, Env):
         try:
             self._xml = self.generate_xml()
             self._spec = mj.MjSpec.from_string(self._xml.to_string())
-            # print(self._spec + self._spec)
             self._model = self._spec.compile()
-            # print(self._model + self._model)
         except Exception:
             get_logger().error(f"Error creating spec from xml\n{self._xml.to_string()}")
             raise
@@ -446,18 +444,6 @@ class MjCambrianEnv(ParallelEnv, Env):
         Todo:
             Make the cursor stuff clearer
         """
-
-        # if not hasattr(self, "exporter"):
-        #     camera_names = [
-        #         e.name for a in self._agents.values() for e in a.eyes.values()
-        #     ]
-        #     get_logger().info(f"Camera names: {camera_names}")
-        #     self.exporter = mujoco.usd.exporter.USDExporter(
-        #         self._model,
-        #         camera_names=camera_names,
-        #         verbose=False,
-        #     )
-        # self.exporter.update_scene(self._data)
 
         assert self._renderer is not None, "Renderer has not been initialized! "
         "Ensure `use_renderer` is set to True in the constructor."

@@ -5,7 +5,17 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Tuple,
+    Type,
+)
 
 import mujoco as mj
 import numpy as np
@@ -712,6 +722,39 @@ def safe_eval(src: Any, additional_vars: Dict[str, Any] = {}) -> Any:
     except ValueError as e:
         # Raise a new ValueError with additional context
         raise ValueError(f"Error evaluating expression '{src}': {e}") from e
+
+
+# =============
+
+
+class MjCambrianWrapper:
+    def __init__(self, **kwargs):
+        self.setattrs(self, **kwargs)
+
+    @staticmethod
+    def wrap(instance: Type | Any, **kwargs) -> Any:
+        if isinstance(instance, type):
+            instance = instance()
+        MjCambrianWrapper.setattrs(instance, **kwargs)
+        return instance
+
+    @staticmethod
+    def setattrs(instance, **kwargs):
+        for key, value in kwargs.items():
+            if isinstance(value, dict):
+                assert hasattr(
+                    instance, key
+                ), f"'{instance.__class__.__name__}' has no attribute '{key}'"
+                MjCambrianWrapper.setattrs(getattr(instance, key), **value)
+            else:
+                assert hasattr(
+                    instance, key
+                ), f"'{instance.__class__.__name__}' has no attribute '{key}'"
+                setattr(instance, key, value)
+
+
+def wrap(instance: Type | Any, **kwargs) -> Any:
+    return MjCambrianWrapper.wrap(instance=instance, **kwargs)
 
 
 # =============

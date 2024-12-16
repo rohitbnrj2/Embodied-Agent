@@ -23,7 +23,6 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from cambrian.envs import MjCambrianEnv
 from cambrian.ml.model import MjCambrianModel
-from cambrian.utils import setattrs_temporary
 from cambrian.utils.logger import get_logger
 
 
@@ -150,19 +149,16 @@ class MjCambrianEvalCallback(EvalCallback):
         env.overlays["Best Mean Reward"] = f"{self.best_mean_reward:.2f}"
         env.overlays["Total Timesteps"] = f"{self.num_timesteps}"
 
-        # Set temporary attributes for the evaluation
-        temp_attrs = []
-        temp_attrs.append((env, dict(record=self.render, maze=None)))
-
         # Run the evaluation
-        with setattrs_temporary(*temp_attrs):
-            get_logger().info(f"Starting {self.n_eval_episodes} evaluation run(s)...")
-            continue_training = super()._on_step()
+        get_logger().info(f"Starting {self.n_eval_episodes} evaluation run(s)...")
+        env.record(self.render)
+        continue_training = super()._on_step()
 
-            if self.render:
-                # Save the visualization
-                filename = Path(f"vis_{self.n_evals}")
-                env.save(self.log_path / filename)
+        if self.render:
+            # Save the visualization
+            filename = Path(f"vis_{self.n_evals}")
+            env.save(self.log_path / filename)
+            env.record(False)
 
         if self.render:
             # Copy the most recent gif to latest.gif so that we can just watch this file

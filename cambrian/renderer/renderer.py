@@ -828,6 +828,7 @@ class MjCambrianRenderer:
         path: Optional[Path] = None,
         save_mode: Optional[MjCambrianRendererSaveMode] = None,
     ):
+        get_logger().info(f"{'Starting' if record else 'Stopping'} recording...")
         if record and self._record:
             get_logger().warning("Already recording. Ignoring...")
             return
