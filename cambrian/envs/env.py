@@ -157,12 +157,12 @@ class MjCambrianEnv(ParallelEnv, Env):
         self._agents: Dict[str, MjCambrianAgent] = {}
         self._create_agents()
 
+        self._xml = self.generate_xml()
         try:
-            self._xml = self.generate_xml()
             self._spec = mj.MjSpec.from_string(self._xml.to_string())
             self._model = self._spec.compile()
         except Exception:
-            get_logger().error(f"Error creating spec from xml\n{self._xml.to_string()}")
+            get_logger().error(f"Error creating model\n{self._xml.to_string()}")
             raise
 
         self._data = mj.MjData(self._model)

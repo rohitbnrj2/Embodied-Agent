@@ -111,13 +111,11 @@ class MjCambrianApproxEye(MjCambrianEye):
         return torch.stack((grid_x, grid_y), dim=-1).to(device)
 
     def reset(self, model: MjModel, data: MjData):
-        self._model = model
-        self._data = data
-
+        # Device has to be cpu to make the API compatible with sb3
         self._prev_obs = torch.zeros(
             (*self._config.resolution, 3),
             dtype=torch.float32,
-            device=device,
+            device=torch.device("cpu"),
         )
         return self.step(self._prev_obs)
 
@@ -187,7 +185,7 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
 
         # Initialize the cube to equirectangular converter
         self._cube_to_equirectangular = CubeToEquirectangularConverter(
-            self._total_resolution, *self._resolution
+            self._total_resolution, self._resolution
         )
 
         # Above or below equator where the upward looking or downward
@@ -290,9 +288,6 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
         if self.disable:
             return super().reset(model, data)
 
-        self._model = model
-        self._data = data
-
         # Initialize renderers for each camera
         for name, renderer_or_image in self._renderers.items():
             if not isinstance(renderer_or_image, MjCambrianRenderer):
@@ -339,6 +334,6 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
 
         obs = {}
         for i, eye in enumerate(self._eyes.values()):
-            obs[eye.name] = eye.step(batched[i].permute(1, 2, 0), copy=False)
+            obs[eye.name] = eye.step(batched[i].permute(1, 2, 0))
 
         return obs

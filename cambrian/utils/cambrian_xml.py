@@ -8,6 +8,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Dict, List, Optional, Self, Tuple, TypeAlias
 
+import mujoco as mj
+
 from cambrian.utils.config import MjCambrianContainerConfig
 from cambrian.utils.logger import get_logger
 
@@ -369,6 +371,10 @@ class MjCambrianXML:
 
     def __str__(self) -> str:
         return self.to_string()
+
+    def to_spec(self) -> mj.MjSpec:
+        """Convert the xml to a mujoco spec."""
+        return mj.MjSpec.from_string(self.to_string())
 
 
 def load_xml(input_xml_file: str) -> MjCambrianXML:

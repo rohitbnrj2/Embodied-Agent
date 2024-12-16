@@ -1,6 +1,7 @@
 """Wrapper around the mujoco viewer for rendering scenes."""
 
 import atexit
+import ctypes
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from enum import Flag, auto
@@ -27,8 +28,6 @@ from cambrian.utils.config import (
 from cambrian.utils.logger import get_logger
 
 try:
-    import ctypes
-
     import pycuda.autoinit  # noqa
     import pycuda.driver as cuda
     import pycuda.gl as cudagl
@@ -36,7 +35,6 @@ try:
     has_pycuda_gl = True
 except ImportError:
     has_pycuda_gl = False
-cambrian.utils.device = torch.device("cpu")  # noqa
 
 device = cambrian.utils.device
 if torch.device(device) != torch.device("cuda"):

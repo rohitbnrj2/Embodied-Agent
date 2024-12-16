@@ -83,8 +83,6 @@ class MjCambrianEye:
         self._renders_depth = "depth_array" in self._config.renderer.render_modes
         assert self._renders_rgb, f"Eye ({name}): 'rgb_array' must be a render mode."
 
-        self._model: mj.MjModel = None
-        self._data: mj.MjData = None
         self._prev_obs: torch.Tensor = None
         self._fixedcamid = -1
 
@@ -150,6 +148,17 @@ class MjCambrianEye:
             orthographic=str(self._config.orthographic).lower(),
         )
 
+        # parent_spec = parent_xml.to_spec()
+        # spec = xml.to_spec()
+        # parent_spec.compile()
+        # spec.compile()
+
+        # print(spec.to_xml())
+        # print(parent_spec.to_xml())
+        # spec = parent_spec + spec
+        # print((parent_spec + spec).to_xml())
+        exit()
+
         return xml
 
     def _calculate_pos_quat(
@@ -177,8 +186,6 @@ class MjCambrianEye:
     def reset(self, model: mj.MjModel, data: mj.MjData):
         """Sets up the camera for rendering. This should be called before rendering
         the first time."""
-        self._model = model
-        self._data = data
 
         if self._renderer is None:
             return self.step()
@@ -207,7 +214,7 @@ class MjCambrianEye:
         return obs
 
     def step(
-        self, obs: Optional[torch.Tensor] = None, copy: bool = True
+        self, obs: Optional[torch.Tensor] = None
     ) -> torch.Tensor | Tuple[torch.Tensor, torch.Tensor]:
         """Simply calls `render` and sets the last observation. See `render()` for more
         information.

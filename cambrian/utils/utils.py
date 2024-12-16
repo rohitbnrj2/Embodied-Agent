@@ -30,7 +30,9 @@ if TYPE_CHECKING:
 
 # ============
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Device has to be CPU for sb3 to support
+# TODO: ideally we can keep everything on the gpu
+device = torch.device("cpu")  # noqa
 
 # ============
 
