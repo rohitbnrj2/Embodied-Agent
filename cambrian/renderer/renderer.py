@@ -15,9 +15,10 @@ import numpy as np
 import OpenGL.GL as GL
 import torch
 
+import cambrian.utils
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.renderer.render_utils import convert_depth_distances
-from cambrian.utils import device, get_camera_name
+from cambrian.utils import get_camera_name
 from cambrian.utils.config import (
     MjCambrianBaseConfig,
     MjCambrianFlagWrapperMeta,
@@ -35,8 +36,9 @@ try:
     has_pycuda_gl = True
 except ImportError:
     has_pycuda_gl = False
-    device = torch.device("cpu")  # noqa
+cambrian.utils.device = torch.device("cpu")  # noqa
 
+device = cambrian.utils.device
 if torch.device(device) != torch.device("cuda"):
     get_logger().warning(
         "PyCUDA not found or not using CUDA device. "

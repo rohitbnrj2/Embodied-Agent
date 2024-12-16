@@ -157,14 +157,14 @@ class MjCambrianEnv(ParallelEnv, Env):
         self._agents: Dict[str, MjCambrianAgent] = {}
         self._create_agents()
 
-        self._xml = self.generate_xml()
-
         try:
-            self._model = mj.MjModel.from_xml_string(self._xml.to_string())
+            self._xml = self.generate_xml()
+            self._spec = mj.MjSpec.from_string(self._xml.to_string())
+            # print(self._spec + self._spec)
+            self._model = self._spec.compile()
+            # print(self._model + self._model)
         except Exception:
-            get_logger().error(
-                f"Error creating model from xml\n{self._xml.to_string()}"
-            )
+            get_logger().error(f"Error creating spec from xml\n{self._xml.to_string()}")
             raise
 
         self._data = mj.MjData(self._model)
@@ -205,7 +205,12 @@ class MjCambrianEnv(ParallelEnv, Env):
             self._agents[name] = agent_config.instance(agent_config, name)
 
     def generate_xml(self) -> MjCambrianXML:
-        """Generates the xml for the environment."""
+        """Generates the xml for the environment.
+
+        .. todo::
+
+            Can we update to use MjSpec?
+        """
         xml = MjCambrianXML.from_string(self._config.xml)
 
         # Add the agents to the xml
@@ -570,6 +575,11 @@ class MjCambrianEnv(ParallelEnv, Env):
         return self._renderer
 
     @property
+    def spec(self) -> mj.MjSpec:
+        """Returns the mujoco spec for the environment."""
+        return self._spec
+
+    @property
     def model(self) -> mj.MjModel:
         """Returns the mujoco model for the environment."""
         return self._model
@@ -759,7 +769,7 @@ if __name__ == "__main__":
         env.record(record, path=config.expdir)
 
         env.reset(seed=config.seed)
-        env.xml.write(config.expdir / "env.xml")
+        MjCambrianXML.from_string(env.spec.to_xml()).write(config.expdir / "env.xml")
 
         action = {name: [-1.0, -0.0] for name, a in env.agents.items() if a.trainable}
         env.step(action.copy())

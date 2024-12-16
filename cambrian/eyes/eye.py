@@ -5,12 +5,13 @@ environment. The eye can render images and provide observations to the agent."""
 from typing import Callable, Optional, Self, Tuple
 
 import mujoco as mj
+import numpy as np
 import torch
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
-from cambrian.utils import MjCambrianGeometry, device, get_camera_id, get_logger
+from cambrian.utils import MjCambrianGeometry, get_camera_id, get_logger
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
 
@@ -190,10 +191,11 @@ class MjCambrianEye:
         self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
         self._renderer.viewer.camera.fixedcamid = self._fixedcamid
 
+        # Device has to be cpu to make the API compatible with sb3
         self._prev_obs = torch.zeros(
             (*self._config.resolution, 3),
             dtype=torch.float32,
-            device=device,
+            device=torch.device("cpu"),
         )
 
         obs = self.step()
@@ -220,11 +222,8 @@ class MjCambrianEye:
             obs = self._renderer.render()
             if self._renders_depth:
                 obs = obs[0]
-        if copy:
-            self._prev_obs.copy_(obs, non_blocking=True)
-        else:
-            self._prev_obs = obs
-        return obs
+        self._prev_obs.copy_(obs, non_blocking=True)
+        return self._prev_obs
 
     def render(self) -> torch.Tensor:
         """Render the image from the camera. Will always only return the rgb array.
@@ -250,7 +249,7 @@ class MjCambrianEye:
         `spaces.Box` with the shape of the resolution of the eye."""
 
         shape = (*self._config.resolution, 3)
-        return spaces.Box(0.0, 1.0, shape=shape, dtype=torch.float32)
+        return spaces.Box(0.0, 1.0, shape=shape, dtype=np.float32)
 
     @property
     def prev_obs(self) -> torch.Tensor:
