@@ -1,6 +1,5 @@
 from typing import Any, Callable, Dict, Self, Tuple
 
-import mujoco as mj
 import torch
 from gymnasium import spaces
 
@@ -83,8 +82,7 @@ class MjCambrianMultiEye(MjCambrianEye):
                 eye_name = f"{self._name}_{lat_idx}_{lon_idx}"
                 eye_config = self._config.copy()
                 # Update the eye's coord to the current lat, lon
-                with eye_config.set_temporarily(is_readonly=False, is_struct=False):
-                    eye_config.update("coord", [lat, lon])
+                eye_config.coord = [lat, lon]
                 # Create the eye instance
                 eye = eye_config.eye_instance(eye_config, eye_name)
                 self._eyes[eye_name] = eye
@@ -99,13 +97,13 @@ class MjCambrianMultiEye(MjCambrianEye):
             xml += eye_xml
         return xml
 
-    def reset(self, model: mj.MjModel, data: mj.MjData):
+    def reset(self, *args):
         """Reset all eyes."""
         obs = {}
         for name, eye in self._eyes.items():
-            obs[name] = eye.reset(model, data)
+            obs[name] = eye.reset(*args)
 
-        super().reset(model, data)
+        super().reset(*args)
 
         return obs
 

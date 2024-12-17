@@ -1,7 +1,7 @@
 """This module contains the trainer class for training and evaluating agents."""
 
 from pathlib import Path
-from typing import Callable, Concatenate, Dict, Optional, Type
+from typing import TYPE_CHECKING, Callable, Concatenate, Dict, Optional, Type
 
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.vec_env import (
@@ -14,17 +14,16 @@ from stable_baselines3.common.vec_env import (
 from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy
-from cambrian.utils.config.config import (
-    MjCambrianBaseConfig,
-    MjCambrianConfig,
-    config_wrapper,
-)
+from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
 from cambrian.utils.logger import get_logger
 from cambrian.utils.wrappers import make_wrapped_env
 
+if TYPE_CHECKING:
+    from cambrian import MjCambrianConfig
+
 
 @config_wrapper
-class MjCambrianTrainerConfig(MjCambrianBaseConfig):
+class MjCambrianTrainerConfig(MjCambrianContainerConfig):
     """Settings for the training process. Used for type hinting.
 
     Attributes:
@@ -56,8 +55,8 @@ class MjCambrianTrainerConfig(MjCambrianBaseConfig):
     callbacks: Dict[str, BaseCallback | Callable[[VecEnv], BaseCallback]]
     wrappers: Dict[str, Callable[[VecEnv], VecEnv] | None]
 
-    prune_fn: Optional[Callable[[Concatenate[MjCambrianConfig, ...]], bool]] = None
-    fitness_fn: Callable[Concatenate[MjCambrianConfig, ...], float]
+    prune_fn: Optional[Callable[[Concatenate["MjCambrianConfig", ...]], bool]] = None
+    fitness_fn: Callable[Concatenate["MjCambrianConfig", ...], float]
 
 
 class MjCambrianTrainer:
@@ -67,7 +66,7 @@ class MjCambrianTrainer:
         config (MjCambrianConfig): The config to use for training and evaluation.
     """
 
-    def __init__(self, config: MjCambrianConfig):
+    def __init__(self, config: "MjCambrianConfig"):
         self._config = config
 
         self._config.expdir.mkdir(parents=True, exist_ok=True)
@@ -81,7 +80,6 @@ class MjCambrianTrainer:
         get_logger().warning(f"Training the agent in {self._config.expdir}...")
 
         self._config.save(self._config.expdir / "config.yaml")
-        self._config.pickle(self._config.expdir / "config.pkl")
 
         # Delete an existing finished file, if it exists
         if (finished := self._config.expdir / "finished").exists():
@@ -247,7 +245,9 @@ if __name__ == "__main__":
     action.add_argument("--eval", action="store_true", help="Evaluate the model")
     action.add_argument("--test", action="store_true", help="Test the evo loop")
 
-    def main(config: MjCambrianConfig, *, train: bool, eval: bool, test: bool) -> float:
+    def main(
+        config: "MjCambrianConfig", *, train: bool, eval: bool, test: bool
+    ) -> float:
         """This method will return a float if training. The float represents the
         "fitness" of the agent that was trained. This can be used by hydra to
         determine the best hyperparameters during sweeps."""

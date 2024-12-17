@@ -5,8 +5,8 @@ import mujoco as mj
 
 from cambrian.renderer import MjCambrianRendererSaveMode
 from cambrian.utils.config import (
-    MjCambrianBaseConfig,
     MjCambrianConfig,
+    MjCambrianContainerConfig,
     config_wrapper,
     run_hydra,
 )
@@ -14,7 +14,7 @@ from cambrian.utils.logger import get_logger
 
 
 @config_wrapper
-class AnimalShowcaseConfig(MjCambrianBaseConfig):
+class AnimalShowcaseConfig(MjCambrianContainerConfig):
     """The configuration for the agent showcase.
 
     Attributes:

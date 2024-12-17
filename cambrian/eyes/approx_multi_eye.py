@@ -3,21 +3,15 @@ from typing import Callable, Dict, Self, Tuple
 import mujoco as mj
 import numpy as np
 import torch
-from mujoco import MjData, MjModel
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.eyes.multi_eye import MjCambrianMultiEye, MjCambrianMultiEyeConfig
 from cambrian.renderer import MjCambrianRenderer
 from cambrian.renderer.render_utils import CubeToEquirectangularConverter
-from cambrian.utils import (
-    MjCambrianGeometry,
-    device,
-    get_camera_id,
-    get_logger,
-    round_half_up,
-)
+from cambrian.utils import MjCambrianGeometry, device, get_logger, round_half_up
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.config import config_wrapper
+from cambrian.utils.spec import MjCambrianSpec
 
 
 @config_wrapper
@@ -110,12 +104,11 @@ class MjCambrianApproxEye(MjCambrianEye):
         grid_y, grid_x = torch.meshgrid(yy, xx, indexing="ij")
         return torch.stack((grid_x, grid_y), dim=-1).to(device)
 
-    def reset(self, model: MjModel, data: MjData):
-        # Device has to be cpu to make the API compatible with sb3
+    def reset(self, _: MjCambrianSpec):
         self._prev_obs = torch.zeros(
             (*self._config.resolution, 3),
             dtype=torch.float32,
-            device=torch.device("cpu"),
+            device=device,
         )
         return self.step(self._prev_obs)
 
@@ -284,9 +277,9 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
 
         return xml
 
-    def reset(self, model: MjModel, data: MjData):
+    def reset(self, spec: MjCambrianSpec):
         if self.disable:
-            return super().reset(model, data)
+            return super().reset(spec.model, spec.data)
 
         # Initialize renderers for each camera
         for name, renderer_or_image in self._renderers.items():
@@ -294,16 +287,16 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
                 continue
             renderer = renderer_or_image
 
-            renderer.reset(model, data, self._resolution[1], self._resolution[0])
+            renderer.reset(spec, self._resolution[1], self._resolution[0])
 
-            fixedcamid = get_camera_id(model, name)
+            fixedcamid = spec.get_camera_id(name)
             assert fixedcamid != -1, f"Camera '{name}' not found."
             renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
             renderer.viewer.camera.fixedcamid = fixedcamid
 
         # Initialize each eye
         for eye in self._eyes.values():
-            eye.reset(model, data)
+            eye.reset(spec)
 
         return self.step()
 

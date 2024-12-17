@@ -38,8 +38,11 @@ from cambrian.renderer.overlays import (
 )
 from cambrian.utils import device
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
-from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
+from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
 from cambrian.utils.logger import get_logger
+from cambrian.utils.spec import MjCambrianSpec, spec_from_xml
+
+# ======================
 
 MjCambrianStepFn: TypeAlias = Callable[
     [Concatenate["MjCambrianEnv", Dict[str, Any], Dict[str, Dict[str, Any]], ...]],
@@ -61,9 +64,11 @@ MjCambrianRewardFn: TypeAlias = Callable[
     float,
 ]
 
+# ======================
+
 
 @config_wrapper
-class MjCambrianEnvConfig(MjCambrianBaseConfig):
+class MjCambrianEnvConfig(MjCambrianContainerConfig):
     """Defines a config for the cambrian environment.
 
     Attributes:
@@ -159,13 +164,11 @@ class MjCambrianEnv(ParallelEnv, Env):
 
         self._xml = self.generate_xml()
         try:
-            self._spec = mj.MjSpec.from_string(self._xml.to_string())
-            self._model = self._spec.compile()
+            self._spec = spec_from_xml(self._xml)
+            self._spec.compile()
         except Exception:
             get_logger().error(f"Error creating model\n{self._xml.to_string()}")
             raise
-
-        self._data = mj.MjData(self._model)
 
         self.render_mode = "rgb_array"
         self._renderer: MjCambrianRenderer = None
@@ -234,7 +237,7 @@ class MjCambrianEnv(ParallelEnv, Env):
             self.set_random_seed(seed)
 
         # First, reset the mujoco simulation
-        mj.mj_resetData(self._model, self._data)
+        mj.mj_resetData(self._spec.model, self._spec.data)
 
         # Reset the info dict. We'll update the stateful info dict here, as well.
         info: Dict[str, Dict[str, Any]] = {a: {} for a in self._agents}
@@ -243,14 +246,18 @@ class MjCambrianEnv(ParallelEnv, Env):
         # Then, reset the agents
         obs: Dict[str, Dict[str, Any]] = {}
         for name, agent in self._agents.items():
-            obs[name] = agent.reset(self._model, self._data)
+            obs[name] = agent.reset(self._spec)
+        self._spec.save("env.xml")
+        # exit()
 
         # We'll step the simulation once to allow for states to propagate
+        # mj.mj_resetData(self._spec.model, self._spec.data)
+        # mj.mj_forward(self._spec.model, self._spec.data)
         self._step_mujoco_simulation(1, info)
 
         # Now update the info dict
         if self._renderer is not None:
-            self._renderer.reset(self._model, self._data)
+            self._renderer.reset(self._spec)
 
         # Update metadata variables
         self._episode_step = 0
@@ -368,14 +375,14 @@ class MjCambrianEnv(ParallelEnv, Env):
         # Check contacts at _every_ step.
         # NOTE: Doesn't process whether hits are terminal or not
         for _ in range(n_frames):
-            mj.mj_step(self._model, self._data)
+            mj.mj_step(self._spec.model, self._spec.data)
 
             # Check for contacts. We won't break here, but we'll store whether an
             # agent has contacts or not. If we didn't store during the simulation
             # step, contact checking would only occur after the frame skip, meaning
             # that, if during the course of the frame skip, the agent hits an object
             # and then moves away, the contact would not be detected.
-            if self._data.ncon > 0:
+            if self._spec.data.ncon > 0:
                 for name, agent in self._agents.items():
                     if not info[name]["has_contacts"]:
                         # Only check for has contacts if it hasn't been set to True
@@ -561,19 +568,19 @@ class MjCambrianEnv(ParallelEnv, Env):
         return self._renderer
 
     @property
-    def spec(self) -> mj.MjSpec:
+    def spec(self) -> MjCambrianSpec:
         """Returns the mujoco spec for the environment."""
         return self._spec
 
     @property
     def model(self) -> mj.MjModel:
         """Returns the mujoco model for the environment."""
-        return self._model
+        return self._spec.model
 
     @property
     def data(self) -> mj.MjData:
         """Returns the mujoco data for the environment."""
-        return self._data
+        return self._spec.data
 
     @property
     def episode_step(self) -> int:
@@ -728,7 +735,7 @@ class MjCambrianEnv(ParallelEnv, Env):
 if __name__ == "__main__":
     import argparse
 
-    from cambrian.utils.config import MjCambrianConfig, run_hydra
+    from cambrian import MjCambrianConfig, run_hydra
 
     REGISTRY = {}
 
@@ -755,7 +762,7 @@ if __name__ == "__main__":
         env.record(record, path=config.expdir)
 
         env.reset(seed=config.seed)
-        MjCambrianXML.from_string(env.spec.to_xml()).write(config.expdir / "env.xml")
+        env.spec.save(config.expdir / "env.xml")
 
         action = {name: [-1.0, -0.0] for name, a in env.agents.items() if a.trainable}
         env.step(action.copy())

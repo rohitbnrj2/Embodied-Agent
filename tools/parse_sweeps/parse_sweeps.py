@@ -9,8 +9,8 @@ import tqdm.rich as tqdm
 
 from cambrian.utils import get_logger, save_data, set_matplotlib_style, try_load_pickle
 from cambrian.utils.config import (
-    MjCambrianBaseConfig,
     MjCambrianConfig,
+    MjCambrianContainerConfig,
     config_wrapper,
     run_hydra,
 )
@@ -23,7 +23,7 @@ set_matplotlib_style()
 
 
 @config_wrapper
-class ParseSweepsConfig(MjCambrianBaseConfig):
+class ParseSweepsConfig(MjCambrianContainerConfig):
     """
     folder (Path): The folder containing the sweep data.
     output (Path): The folder to save the parsed data.

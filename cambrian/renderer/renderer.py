@@ -19,28 +19,28 @@ import torch
 import cambrian.utils
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.renderer.render_utils import convert_depth_distances
-from cambrian.utils import get_camera_name
 from cambrian.utils.config import (
-    MjCambrianBaseConfig,
+    MjCambrianContainerConfig,
     MjCambrianFlagWrapperMeta,
     config_wrapper,
 )
 from cambrian.utils.logger import get_logger
+from cambrian.utils.spec import MjCambrianSpec
 
+has_pycuda_gl = False  # disable pycuda for now
 try:
     import pycuda.autoinit  # noqa
     import pycuda.driver as cuda
     import pycuda.gl as cudagl
 
-    has_pycuda_gl = True
+    has_pycuda_gl = has_pycuda_gl
 except ImportError:
     has_pycuda_gl = False
 
 device = cambrian.utils.device
-if torch.device(device) != torch.device("cuda"):
+if has_pycuda_gl and torch.device(device) != torch.device("cuda"):
     get_logger().warning(
-        "PyCUDA not found or not using CUDA device. "
-        "Disabling PyCUDA GL interop for rendering."
+        "Not using CUDA device. Disabling PyCUDA GL interop for rendering."
     )
     has_pycuda_gl = False
 
@@ -57,7 +57,7 @@ class MjCambrianRendererSaveMode(Flag, metaclass=MjCambrianFlagWrapperMeta):
 
 
 @config_wrapper
-class MjCambrianRendererConfig(MjCambrianBaseConfig):
+class MjCambrianRendererConfig(MjCambrianContainerConfig):
     """The config for the renderer. Used for type hinting.
 
     A renderer corresponds to a single camera. The renderer can then view the scene in
@@ -155,8 +155,7 @@ class MjCambrianViewer(ABC):
     def __init__(self, config: MjCambrianRendererConfig):
         self._config = config
 
-        self._model: mj.MjModel = None
-        self._data: mj.MjData = None
+        self._spec: MjCambrianSpec = None
         self._viewport: mj.MjrRect = None
         self._scene: mj.MjvScene = None
         self._scene_options: mj.MjvOption = None
@@ -180,13 +179,12 @@ class MjCambrianViewer(ABC):
             self._depth_mapped_res: cuda.DeviceAllocation = None
             self._depth_ptr: int = None
 
-    def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
-        self._model = model
-        self._data = data
+    def reset(self, spec: MjCambrianSpec, width: int, height: int):
+        self._spec = spec
 
         # Only create the scene once
         if self._scene is None:
-            self._scene = self._config.scene(model)
+            self._scene = self._config.scene(self._spec.model)
         self._scene_options = deepcopy(self._config.scene_options)
         self._camera = deepcopy(self._config.camera)
 
@@ -231,7 +229,7 @@ class MjCambrianViewer(ABC):
             self._gl_context = GL_CONTEXT
             self.make_context_current()
 
-            MJR_CONTEXT = MJR_CONTEXT or mj.MjrContext(self._model, self._font)
+            MJR_CONTEXT = MJR_CONTEXT or mj.MjrContext(self._spec.model, self._font)
             self._mjr_context = MJR_CONTEXT
         elif self._viewport is None or width != self.width or height != self.height:
             # If the viewport is None (i.e. this is the first reset), or the window
@@ -245,7 +243,7 @@ class MjCambrianViewer(ABC):
             # Initialize the new contexts
             self._gl_context = mj.gl_context.GLContext(width, height)
             self.make_context_current()
-            self._mjr_context = mj.MjrContext(self._model, self._font)
+            self._mjr_context = mj.MjrContext(self._spec.model, self._font)
         self._mjr_context.readDepthMap = mj.mjtDepthMap.mjDEPTH_ZEROFAR
         mj.mjr_setBuffer(self.get_framebuffer_option(), self._mjr_context)
 
@@ -285,8 +283,8 @@ class MjCambrianViewer(ABC):
         assert width == self._viewport.width and height == self._viewport.height
 
         mj.mjv_updateScene(
-            self._model,
-            self._data,
+            self._spec.model,
+            self._spec.data,
             self._scene_options,
             None,  # mjvPerturb
             self._camera,
@@ -344,7 +342,7 @@ class MjCambrianViewer(ABC):
         if read_depth:
             mask |= GL.GL_DEPTH_BUFFER_BIT
 
-        if self._model.vis.quality.offsamples:
+        if self._spec.visual.quality.offsamples:
             # Multisampling
             GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self._mjr_context.offFBO)
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
@@ -455,14 +453,6 @@ class MjCambrianViewer(ABC):
     def config(self) -> MjCambrianRendererConfig:
         return self._config
 
-    @property
-    def model(self) -> mj.MjModel:
-        return self._model
-
-    @property
-    def data(self) -> mj.MjData:
-        return self._data
-
 
 class MjCambrianOffscreenViewer(MjCambrianViewer):
     """The offscreen viewer for rendering scenes."""
@@ -479,6 +469,9 @@ class MjCambrianOffscreenViewer(MjCambrianViewer):
         super().update(width, height)
 
     def make_context_current(self):
+        assert (
+            self._gl_context is not None
+        ), "GL context is not initialized, did you call reset?"
         self._gl_context.make_current()
 
     def is_running(self):
@@ -500,7 +493,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         self._is_paused: bool = None
         self.custom_key_callback: Callable = None
 
-    def reset(self, model: mj.MjModel, data: mj.MjData, width: int, height: int):
+    def reset(self, spec: MjCambrianSpec, width: int, height: int):
         self._last_mouse_x: int = 0
         self._last_mouse_y: int = 0
         self._is_paused: bool = False
@@ -510,7 +503,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         glfw.set_window_size(self._window, width, height)
         self.fullscreen(self._config.fullscreen if self._config.fullscreen else False)
 
-        super().reset(model, data, width, height)
+        super().reset(spec, width, height)
 
         window_width, _ = glfw.get_window_size(self._window)
         self._scale = width / window_width
@@ -633,7 +626,9 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         width, height = glfw.get_framebuffer_size(window)
         reldx, reldy = dx / width, dy / height
 
-        mj.mjv_moveCamera(self._model, action, reldx, reldy, self._scene, self._camera)
+        mj.mjv_moveCamera(
+            self._spec.model, action, reldx, reldy, self._scene, self._camera
+        )
 
         self._last_mouse_x = int(self._scale * xpos)
         self._last_mouse_y = int(self._scale * ypos)
@@ -645,7 +640,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
 
     def _scroll_callback(self, window, xoffset, yoffset):
         mj.mjv_moveCamera(
-            self._model,
+            self._spec.model,
             mj.mjtMouse.mjMOUSE_ZOOM,
             0,
             -0.05 * yoffset,
@@ -666,7 +661,7 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         if key == glfw.KEY_TAB:
             self._camera.fixedcamid += 1
             self._camera.type = mj.mjtCamera.mjCAMERA_FIXED
-            if self._camera.fixedcamid >= self._model.ncam:
+            if self._camera.fixedcamid >= self._spec.model.ncam:
                 self._camera.fixedcamid = -1
                 self._camera.type = mj.mjtCamera.mjCAMERA_FREE
 
@@ -697,6 +692,7 @@ class MjCambrianRenderer:
 
     def __init__(self, config: MjCambrianRendererConfig):
         self._config = config
+        self._spec: MjCambrianSpec = None
 
         assert all(
             mode in self.metadata["render.modes"] for mode in self._config.render_modes
@@ -722,20 +718,21 @@ class MjCambrianRenderer:
 
     def reset(
         self,
-        model: mj.MjModel,
-        data: mj.MjData,
+        spec: MjCambrianSpec,
         width: Optional[int] = None,
         height: Optional[int] = None,
     ) -> torch.Tensor | None:
-        width = width or self._config.width or model.vis.global_.offwidth
-        height = height or self._config.height or model.vis.global_.offheight
+        self._spec = spec
 
-        if width > model.vis.global_.offwidth:
-            model.vis.global_.offwidth = width
-        if height > model.vis.global_.offheight:
-            model.vis.global_.offheight = height
+        width = width or self._config.width or spec.model.vis.global_.offwidth
+        height = height or self._config.height or spec.model.vis.global_.offheight
 
-        self._viewer.reset(model, data, width, height)
+        if width > spec.model.vis.global_.offwidth:
+            spec.model.vis.global_.offwidth = width
+        if height > spec.model.vis.global_.offheight:
+            spec.model.vis.global_.offheight = height
+
+        self._viewer.reset(spec, width, height)
 
         return self.render(resetting=True)
 
@@ -752,13 +749,11 @@ class MjCambrianRenderer:
             self._rgb_buffer.append(rgb.clone())
 
         if self._should_render_depth:
-            depth = convert_depth_distances(self._viewer._model, depth)
+            depth = convert_depth_distances(self._spec.model, depth)
             return rgb, depth
 
         if self._usd_exporter:
-            self._usd_exporter.update_scene(
-                self._viewer.data, self._viewer.scene_options
-            )
+            self._usd_exporter.update_scene(self._spec.data, self._viewer.scene_options)
 
         return rgb
 
@@ -843,11 +838,10 @@ class MjCambrianRenderer:
         save_mode = save_mode or self._config.save_mode
         if record and MjCambrianRendererSaveMode.USD & save_mode:
             camera_names = [
-                get_camera_name(self._viewer.model, i)
-                for i in range(self._viewer.model.ncam)
+                self._spec.get_camera_name(i) for i in range(self._spec.model.ncam)
             ]
             self._usd_exporter = mujoco.usd.exporter.USDExporter(
-                self._viewer._model,
+                self._spec.model,
                 self.height,
                 self.width,
                 self._config.scene.maxgeom,

@@ -16,7 +16,7 @@ check_contacts: ${.use_contact_obs}
 # Default configuration is randomly placed depending on the selected environment
 init_pos: [null, null, null]
 init_quat: [null, null, null, null]
-perturb_init_pose: True
+perturb_init_pos: True
 
 # Defaults to using the action and contact observation
 use_action_obs: ${.trainable}

@@ -2,7 +2,6 @@
 
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
-import mujoco as mj
 import numpy as np
 from gymnasium import spaces
 
@@ -159,10 +158,10 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
 
         self._prev_target_pos: np.ndarray = None
 
-    def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, Any]:
+    def reset(self, *args) -> Dict[str, Any]:
         """Resets the optimal_trajectory."""
         self._optimal_trajectory = None
-        return super().reset(model, data)
+        return super().reset(*args)
 
     def get_action_privileged(self, env: "MjCambrianMazeEnv") -> List[float]:
         if self._target is None:

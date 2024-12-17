@@ -8,22 +8,17 @@ import torch
 from gymnasium import spaces
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
-from cambrian.utils import (
-    MjCambrianActuator,
-    MjCambrianGeometry,
-    MjCambrianJoint,
-    get_body_id,
-    get_geom_id,
-)
+from cambrian.utils import MjCambrianActuator, MjCambrianGeometry, MjCambrianJoint
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
-from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
+from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
+from cambrian.utils.spec import MjCambrianSpec, spec_from_xml_string
 
 if TYPE_CHECKING:
     from cambrian.envs import MjCambrianEnv
 
 
 @config_wrapper
-class MjCambrianAgentConfig(MjCambrianBaseConfig):
+class MjCambrianAgentConfig(MjCambrianContainerConfig):
     """Defines the config for an agent. Used for type hinting.
 
     Attributes:
@@ -64,8 +59,8 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
             indices of the quaternion are set when not None. The length of the tuple
             should be <= 4. None's are filled in at the end if the length is less than
             4.
-        perturb_init_pose (bool): Whether to perturb the initial pose of the agent or
-            not. If this is True, then the initial pose of the agent will be randomly
+        perturb_init_pos (bool): Whether to perturb the initial pos of the agent or
+            not. If this is True, then the initial pos of the agent will be randomly
             adjusted based on a normal distribution.
 
         use_action_obs (bool): Whether to use the action observation or not. NOTE: If
@@ -95,7 +90,7 @@ class MjCambrianAgentConfig(MjCambrianBaseConfig):
 
     init_pos: Tuple[float | None]
     init_quat: Tuple[float | None]
-    perturb_init_pose: bool
+    perturb_init_pos: bool
 
     use_action_obs: bool
     use_contact_obs: bool
@@ -130,8 +125,7 @@ class MjCambrianAgent:
 
         self._eyes: Dict[str, MjCambrianEye] = {}
 
-        self._model: mj.MjModel = None
-        self._data: mj.MjData = None
+        self._spec: MjCambrianSpec = None
         self._init_pos: Tuple[float | None, float | None, float | None] = None
         self._init_quat: Tuple[
             float | None, float | None, float | None, float | None
@@ -152,17 +146,17 @@ class MjCambrianAgent:
             - parse the geometry
             - place eyes at the appropriate locations
         """
-        model = mj.MjModel.from_xml_string(self._config.xml)
+        spec = spec_from_xml_string(self._config.xml)
 
-        self._parse_geometry(model)
-        self._parse_actuators(model)
+        self._parse_geometry(spec)
+        self._parse_actuators(spec)
 
         self._place_eyes()
 
         self._init_pos = [None] * 3
         self._init_quat = [None] * 4
 
-    def _parse_geometry(self, model: mj.MjModel):
+    def _parse_geometry(self, spec: MjCambrianSpec):
         """Parse the geometry to get the root body, number of controls, joints, and
         actuators. We're going to do some preprocessing of the model here to get info
         regarding num joints, num controls, etc. This is because we need to know this
@@ -174,6 +168,7 @@ class MjCambrianAgent:
             We can't grab the ids/adrs here because they'll be different once we load
             the entire model
         """
+        model = spec.model
 
         # Num of controls
         if self.trainable:
@@ -185,23 +180,25 @@ class MjCambrianAgent:
         self._numctrl = model.nu
 
         # Create the geometries we will use for eye placement
-        geom_id = get_geom_id(model, self._config.geom_name)
+        geom_id = spec.get_geom_id(self._config.geom_name)
         assert geom_id != -1, f"Could not find geom {self._config.geom_name}."
         geom_rbound = model.geom_rbound[geom_id]
         geom_pos = model.geom_pos[geom_id]
 
         self._geom = MjCambrianGeometry(geom_id, geom_rbound, geom_pos)
 
-    def _parse_actuators(self, model: mj.MjModel):
+    def _parse_actuators(self, spec: MjCambrianSpec):
         """Parse the current model/xml for the actuators.
 
         We have to do this twice: once on the initial model load to get the ctrl limits
         on the actuators (for the obs space). And then later to acquire the actual
         ids/adrs.
         """
+        model = spec.model
+
         # Root body for the agent
         body_name = self._config.body_name
-        body_id = get_body_id(model, body_name)
+        body_id = spec.get_body_id(body_name)
         assert body_id != -1, f"Could not find body with name {body_name}."
 
         # Mujoco doesn't have a neat way to grab the actuators associated with a
@@ -281,7 +278,7 @@ class MjCambrianAgent:
         for action, actuator in zip(actions, self._actuators):
             if actuator.ctrllimited:
                 action = np.interp(action, [-1, 1], actuator.ctrlrange)
-            self._data.ctrl[actuator.adr] = action
+            self._spec.data.ctrl[actuator.adr] = action
 
     def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
         """This is a deviation from the standard gym API. This method is similar to
@@ -301,48 +298,36 @@ class MjCambrianAgent:
             "and should never reach here."
         )
 
-    def reset(self, model: mj.MjModel, data: mj.MjData) -> Dict[str, Any]:
+    def reset(self, spec: MjCambrianSpec) -> Dict[str, Any]:
         """Sets up the agent in the environment. Uses the model/data to update
         positions during the simulation.
         """
-        self._model = model
-        self._data = data
+        self._spec = spec
 
         # Parse actuators; this is the second time we're doing this, but we need to
         # get the adrs of the actuators in the current model
-        self._parse_actuators(model)
+        self._parse_actuators(spec)
 
         # Accumulate the qpos/qvel/act adrs
-        self._reset_adrs(model)
+        self._reset_adrs(spec)
 
-        # Reset the init pose to the config's
-        self.init_pos = self._config.init_pos
-        self.init_quat = self._config.init_quat
+        # Reset the pose of the agent
+        self._reset_pose(spec)
 
         # Set the last action to whatever the last ctrl was
         self._last_action = []
         for actuator in self._actuators:
-            action = self._data.ctrl[actuator.adr]
+            action = self._spec.data.ctrl[actuator.adr]
             if actuator.ctrllimited:
                 action = np.interp(action, [-1, 1], actuator.ctrlrange)
             self._last_action.append(action)
 
-        # Update the agent's qpos
-        self.pos = self._init_pos
-        self.quat = self._init_quat
-
-        if self._config.perturb_init_pose:
-            self.perturb_init_pose()
-
         # step here so that the observations are updated
-        mj.mj_forward(model, data)
-
-        self.init_pos = self.pos
-        self.init_quat = self.quat
+        mj.mj_forward(spec.model, spec.data)
 
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
-            eye_obs = eye.reset(model, data)
+            eye_obs = eye.reset(spec)
             if isinstance(eye_obs, dict):
                 obs.update(eye_obs)
             else:
@@ -350,16 +335,22 @@ class MjCambrianAgent:
 
         return self._update_obs(obs)
 
-    def _reset_adrs(self, model: mj.MjModel):
-        """Resets the adrs for the agent. This is used when the model is reloaded."""
+    def _reset_adrs(self, spec: MjCambrianSpec):
+        """Resets the adrs for the agent. This is used when the model is reloaded.
+
+        .. todo::
+
+            This was before the switch to spec. Is this still necessary?
+
+        """
 
         # Root body for the agent
         body_name = self._config.body_name
-        self._body_id = get_body_id(model, body_name)
+        self._body_id = spec.get_body_id(body_name)
         assert self._body_id != -1, f"Could not find body with name {body_name}."
 
         # Geometry id
-        geom_id = get_geom_id(model, self._config.geom_name)
+        geom_id = spec.get_geom_id(self._config.geom_name)
         assert geom_id != -1, f"Could not find geom {self._config.geom_name}."
         self._geom.id = geom_id
 
@@ -378,6 +369,23 @@ class MjCambrianAgent:
             len(self._actadrs) == self._numctrl
         ), f"Mismatch in actuator adrs for agent '{self.name}': "
         f"{len(self._actadrs)} != {self._numctrl}."
+
+    def _reset_pose(self, spec: MjCambrianSpec):
+        """Resets the pose of the agent."""
+        body = spec.find_body(self._config.body_name)
+        body.pos = [
+            self._init_pos[i] if self._init_pos[i] is not None else body.pos[i]
+            for i in range(3)
+        ]
+        body.quat = [
+            self._init_quat[i] if self._init_quat[i] is not None else body.quat[i]
+            for i in range(4)
+        ]
+
+        if self._config.perturb_init_pos:
+            body.pos += np.random.normal(0, self._geom.rbound, 3)
+
+        spec.recompile()
 
     def step(self) -> Dict[str, Any]:
         """Steps the eyes and returns the observation."""
@@ -421,14 +429,17 @@ class MjCambrianAgent:
         if not self._config.check_contacts:
             return False
 
-        for contact in self._data.contact:
+        for contact in self._spec.data.contact:
+            if contact.exclude:
+                continue
+
             geom1 = int(contact.geom[0])
-            body1 = self._model.geom_bodyid[geom1]
-            rootbody1 = self._model.body_rootid[body1]
+            body1 = self._spec.model.geom_bodyid[geom1]
+            rootbody1 = self._spec.model.body_rootid[body1]
 
             geom2 = int(contact.geom[1])
-            body2 = self._model.geom_bodyid[geom2]
-            rootbody2 = self._model.body_rootid[body2]
+            body2 = self._spec.model.geom_bodyid[geom2]
+            rootbody2 = self._spec.model.body_rootid[body2]
 
             is_this_agent = rootbody1 == self._body_id or rootbody2 == self._body_id
             if not is_this_agent or contact.exclude:
@@ -486,50 +497,15 @@ class MjCambrianAgent:
         return self._last_action
 
     @property
-    def init_pos(self) -> np.ndarray:
-        """Returns the initial position of the agent."""
-        return self._init_pos
-
-    @init_pos.setter
-    def init_pos(self, value: Tuple[float | None, float | None, float | None] | None):
-        """Sets the initial position of the agent."""
-        if value is None:
-            self._init_pos = [None] * 3
-            return
-
-        for idx, val in enumerate(value):
-            if val is not None:
-                self._init_pos[idx] = val
-
-    @property
-    def init_quat(self) -> np.ndarray:
-        """Returns the initial quaternion of the agent."""
-        return self._init_quat
-
-    @init_quat.setter
-    def init_quat(
-        self,
-        value: Tuple[float | None, float | None, float | None, float | None] | None,
-    ):
-        """Sets the initial quaternion of the agent."""
-        if value is None:
-            self._init_quat = [None] * 4
-            return
-
-        for idx, val in enumerate(value):
-            if val is not None:
-                self._init_quat[idx] = val
-
-    @property
     def qpos(self) -> np.ndarray:
         """Gets the qpos of the agent. The qpos is the state of the joints defined
         in the agent's xml. This method is used to get the state of the qpos. It's
         actually a masked array where the entries are masked if the qpos adr is not
         associated with the agent. This allows the return value to be indexed
         and edited as if it were the full qpos array."""
-        mask = np.ones(self._data.qpos.shape, dtype=bool)
+        mask = np.ones(self._spec.data.qpos.shape, dtype=bool)
         mask[self._qposadrs] = False
-        return np.ma.masked_array(self._data.qpos, mask=mask)
+        return np.ma.masked_array(self._spec.data.qpos, mask=mask)
 
     @qpos.setter
     def qpos(self, value: np.ndarray[float | None]):
@@ -544,7 +520,7 @@ class MjCambrianAgent:
         """
         for idx, val in enumerate(value):
             if val is not None:
-                self._data.qpos[self._qposadrs[idx]] = val
+                self._spec.data.qpos[self._qposadrs[idx]] = val
 
     @property
     def pos(self) -> np.ndarray:
@@ -554,7 +530,7 @@ class MjCambrianAgent:
             the returned value, if edited, doesn't not directly impact the simulation.
             To set the position of the agent, use the `pos` setter.
         """
-        return self._data.xpos[self._body_id].copy()
+        return self._spec.data.xpos[self._body_id].copy()
 
     @pos.setter
     def pos(self, value: Tuple[float | None, float | None, float | None]):
@@ -570,7 +546,22 @@ class MjCambrianAgent:
         """
         for idx, val in enumerate(value):
             if val is not None:
-                self._data.qpos[self._qposadrs[idx]] = val
+                self._spec.data.qpos[self._qposadrs[idx]] = val
+
+    @property
+    def init_pos(self) -> Tuple[float | None, float | None, float | None]:
+        """Returns the initial position of the agent in the environment."""
+        return self._init_pos
+
+    @init_pos.setter
+    def init_pos(self, value: Tuple[float | None, float | None, float | None]):
+        """Sets the initial position of the agent in the environment. The value is a
+        tuple of the x, y, and z positions. If the value is None, the position is not
+        updated."""
+        self._init_pos = [
+            value[i] if i < len(value) and value[i] is not None else self._init_pos[i]
+            for i in range(3)
+        ]
 
     @property
     def quat(self) -> np.ndarray:
@@ -580,7 +571,7 @@ class MjCambrianAgent:
             The returned value, if edited, doesn't not directly impact the simulation.
             To set the quaternion of the agent, use the `quat` setter.
         """
-        return self._data.xquat[self._body_id].copy()
+        return self._spec.data.xquat[self._body_id].copy()
 
     @quat.setter
     def quat(
@@ -598,19 +589,7 @@ class MjCambrianAgent:
         """
         for idx, val in enumerate(value):
             if val is not None:
-                self._data.qpos[self._qposadrs[3 + idx]] = val
-
-    def perturb_init_pose(self):
-        """Base implementation of the pose perturbation. Doesn't make any assumptions
-        about the qpos structure. For fine tuned adjustment of perturbation behavior,
-        this method should be overridden in the subclass."""
-        mask = np.ones(self._data.qpos.shape, dtype=bool)
-        mask[self._qposadrs] = False
-
-        # Perturb at a normal distribution with a std equal to the rbound
-        self._data.qpos[~mask] += np.random.normal(
-            0, self._geom.rbound, len(self._qposadrs)
-        )
+                self._spec.data.qpos[self._qposadrs[3 + idx]] = val
 
     @property
     def trainable(self) -> bool:

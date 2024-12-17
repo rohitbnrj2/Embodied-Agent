@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 # Device has to be CPU for sb3 to support
 # TODO: ideally we can keep everything on the gpu
-device = torch.device("cpu")  # noqa
+device = torch.device("cpu")
 
 # ============
 
@@ -239,80 +239,6 @@ def suppress_stdout_stderr():
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
-
-
-# =============
-# Mujoco utils
-
-
-def get_body_id(model: mj.MjModel, body_name: str) -> int:
-    """Get the ID of a Mujoco body."""
-    return mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, body_name)
-
-
-def get_body_name(model: mj.MjModel, bodyadr: int) -> str:
-    """Get the name of a Mujoco body."""
-    return mj.mj_id2name(model, mj.mjtObj.mjOBJ_BODY, bodyadr)
-
-
-def get_geom_id(model: mj.MjModel, geom_name: str) -> int:
-    """Get the ID of a Mujoco geometry."""
-    return mj.mj_name2id(model, mj.mjtObj.mjOBJ_GEOM, geom_name)
-
-
-def get_geom_name(model: mj.MjModel, geomadr: int) -> str:
-    """Get the name of a Mujoco geometry."""
-    return mj.mj_id2name(model, mj.mjtObj.mjOBJ_GEOM, geomadr)
-
-
-def get_site_id(model: mj.MjModel, site_name: str) -> int:
-    """Get the ID of a Mujoco geometry."""
-    return mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, site_name)
-
-
-def get_site_name(model: mj.MjModel, siteadr: int) -> str:
-    """Get the name of a Mujoco geometry."""
-    return mj.mj_id2name(model, mj.mjtObj.mjOBJ_SITE, siteadr)
-
-
-def get_joint_id(model: mj.MjModel, joint_name: str) -> int:
-    """Get the ID of a Mujoco geometry."""
-    return mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, joint_name)
-
-
-def get_joint_name(model: mj.MjModel, jointadr: int) -> str:
-    """Get the name of a Mujoco geometry."""
-    return mj.mj_id2name(model, mj.mjtObj.mjOBJ_JOINT, jointadr)
-
-
-def get_camera_id(model: mj.MjModel, camera_name: str) -> int:
-    """Get the ID of a Mujoco camera."""
-    return mj.mj_name2id(model, mj.mjtObj.mjOBJ_CAMERA, camera_name)
-
-
-def get_camera_name(model: mj.MjModel, cameraadr: int) -> str:
-    """Get the name of a Mujoco camera."""
-    return mj.mj_id2name(model, mj.mjtObj.mjOBJ_CAMERA, cameraadr)
-
-
-def get_light_id(model: mj.MjModel, light_name: str) -> int:
-    """Get the ID of a Mujoco light."""
-    return mj.mj_name2id(model, mj.mjtObj.mjOBJ_LIGHT, light_name)
-
-
-def get_light_name(model: mj.MjModel, lightadr: int) -> str:
-    """Get the name of a Mujoco light."""
-    return mj.mj_id2name(model, mj.mjtObj.mjOBJ_LIGHT, lightadr)
-
-
-def get_sensor_id(model: mj.MjModel, sensor_name: str) -> int:
-    """Get the ID of a Mujoco sensor."""
-    return mj.mj_name2id(model, mj.mjtObj.mjOBJ_SENSOR, sensor_name)
-
-
-def get_sensor_name(model: mj.MjModel, sensoradr: int) -> str:
-    """Get the name of a Mujoco sensor."""
-    return mj.mj_id2name(model, mj.mjtObj.mjOBJ_SENSOR, sensoradr)
 
 
 @dataclass

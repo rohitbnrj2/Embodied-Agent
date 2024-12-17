@@ -9,7 +9,7 @@ trainable: false
 check_contacts: false
 
 # Don't perturb pose
-perturb_init_pose: False
+perturb_init_pos: False
 
 instance:
   _target_: cambrian.agents.MjCambrianAgentObject

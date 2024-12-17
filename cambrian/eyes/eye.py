@@ -11,13 +11,14 @@ from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
-from cambrian.utils import MjCambrianGeometry, get_camera_id, get_logger
+from cambrian.utils import MjCambrianGeometry, device, get_logger
 from cambrian.utils.cambrian_xml import MjCambrianXML
-from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
+from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
+from cambrian.utils.spec import MjCambrianSpec
 
 
 @config_wrapper
-class MjCambrianEyeConfig(MjCambrianBaseConfig):
+class MjCambrianEyeConfig(MjCambrianContainerConfig):
     """Defines the config for an eye. Used for type hinting.
 
     Attributes:
@@ -148,17 +149,6 @@ class MjCambrianEye:
             orthographic=str(self._config.orthographic).lower(),
         )
 
-        # parent_spec = parent_xml.to_spec()
-        # spec = xml.to_spec()
-        # parent_spec.compile()
-        # spec.compile()
-
-        # print(spec.to_xml())
-        # print(parent_spec.to_xml())
-        # spec = parent_spec + spec
-        # print((parent_spec + spec).to_xml())
-        exit()
-
         return xml
 
     def _calculate_pos_quat(
@@ -183,7 +173,7 @@ class MjCambrianEye:
         quat = rot_rot.as_quat()
         return pos, quat
 
-    def reset(self, model: mj.MjModel, data: mj.MjData):
+    def reset(self, spec: MjCambrianSpec):
         """Sets up the camera for rendering. This should be called before rendering
         the first time."""
 
@@ -191,18 +181,17 @@ class MjCambrianEye:
             return self.step()
 
         resolution = [self._renderer.config.width, self._renderer.config.height]
-        self._renderer.reset(model, data, *resolution)
+        self._renderer.reset(spec, *resolution)
 
-        self._fixedcamid = get_camera_id(model, self._name)
+        self._fixedcamid = spec.get_camera_id(self._name)
         assert self._fixedcamid != -1, f"Camera '{self._name}' not found."
         self._renderer.viewer.camera.type = mj.mjtCamera.mjCAMERA_FIXED
         self._renderer.viewer.camera.fixedcamid = self._fixedcamid
 
-        # Device has to be cpu to make the API compatible with sb3
         self._prev_obs = torch.zeros(
             (*self._config.resolution, 3),
             dtype=torch.float32,
-            device=torch.device("cpu"),
+            device=device,
         )
 
         obs = self.step()

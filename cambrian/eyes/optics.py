@@ -8,11 +8,11 @@ import torch
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.utils import get_logger, make_odd
-from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
+from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
 
 
 @config_wrapper
-class MjCambrianApertureConfig(MjCambrianBaseConfig):
+class MjCambrianApertureConfig(MjCambrianContainerConfig):
     pass
 
 
@@ -365,7 +365,7 @@ if __name__ == "__main__":
         set_random_seed(config.seed)
 
         agent_config = next(iter(config.env.agents.values()))
-        agent_config.perturb_init_pose = False
+        agent_config.perturb_init_pos = False
         if aperture is not None:
             eye_name, eye_config = next(iter(agent_config.eyes.items()))
             assert (

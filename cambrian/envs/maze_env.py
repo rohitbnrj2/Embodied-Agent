@@ -1,14 +1,14 @@
 from enum import Enum
 from typing import Any, Callable, Concatenate, Dict, List, Optional, Tuple, TypeAlias
 
-import mujoco as mj
 import numpy as np
 
 from cambrian.agents.agent import MjCambrianAgent
 from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
-from cambrian.utils import get_geom_id, safe_index
+from cambrian.utils import safe_index
 from cambrian.utils.cambrian_xml import MjCambrianXML
-from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
+from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
+from cambrian.utils.spec import MjCambrianSpec
 
 DEFAULT_ENTITY_ID: str = "default"
 
@@ -51,7 +51,7 @@ class MjCambrianMapEntity(Enum):
 
 
 @config_wrapper
-class MjCambrianMazeConfig(MjCambrianBaseConfig):
+class MjCambrianMazeConfig(MjCambrianContainerConfig):
     """Defines a map config. Used for type hinting.
 
     Attributes:
@@ -158,7 +158,7 @@ class MjCambrianMazeEnv(MjCambrianEnv):
 
         # Choose the maze
         self._maze = self._maze_store.select_maze(self)
-        self._maze_store.reset(self.model)
+        self._maze_store.reset(self.spec)
 
         # For each agent, generate an initial position
         for agent in self.agents.values():
@@ -169,9 +169,7 @@ class MjCambrianMazeEnv(MjCambrianEnv):
 
         if (renderer := self.renderer) and (viewer := renderer.viewer):
             # Update the camera positioning to match the current maze
-            # Only update if the camera lookat is not set in the config file
-            if viewer.config.select("camera.lookat") is None:
-                viewer.camera.lookat = self._maze.lookat
+            viewer.camera.lookat = self._maze.lookat
 
             # Update the camera distance to match the current maze's extent
             viewer.camera.distance = viewer.config.camera.distance
@@ -329,16 +327,16 @@ class MjCambrianMaze:
 
         return xml
 
-    def reset(self, model: mj.MjModel, *, reset_occupied: bool = True):
+    def reset(self, spec: MjCambrianSpec, *, reset_occupied: bool = True):
         """Resets the maze. Will reset the wall textures and reset the occupied
         locations, if desired."""
         if reset_occupied:
             self._occupied_locations.clear()
             self._agent_locations.clear()
 
-        self._reset_wall_textures(model)
+        self._reset_wall_textures(spec)
 
-    def _reset_wall_textures(self, model: mj.MjModel):
+    def _reset_wall_textures(self, spec: MjCambrianSpec):
         """Helper method to reset the wall textures.
 
         All like-labelled walls will have the same texture. Their textures will be
@@ -356,16 +354,12 @@ class MjCambrianMaze:
         # Now, update the wall textures
         for i, t in zip(range(len(self._wall_locations)), self._wall_textures):
             wall_name = f"wall_{self._name}_{i}"
-            geom_id = get_geom_id(model, wall_name)
+            geom_id = spec.get_geom_id(wall_name)
             assert geom_id != -1, f"`{wall_name}` geom not found"
 
-            # Randomly select a texture for the wall
-            material_name = f"wall_{self._name}_{t}_{texture_map[t]}_mat"
-            material_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_MATERIAL, material_name)
-            assert material_id != -1, f"`{material_name}` material not found"
-
             # Update the geom material
-            model.geom_matid[geom_id] = material_id
+            material_name = f"wall_{self._name}_{t}_{texture_map[t]}_mat"
+            spec.geoms[geom_id].material = material_name
 
     # ==================
 
@@ -630,10 +624,10 @@ class MjCambrianMazeStore:
 
         return xml
 
-    def reset(self, model: mj.MjModel):
+    def reset(self, spec: MjCambrianSpec):
         """Resets all mazes."""
         for maze in self._mazes.values():
-            maze.reset(model)
+            maze.reset(spec)
 
     @property
     def current_maze(self) -> MjCambrianMaze:

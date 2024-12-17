@@ -10,7 +10,7 @@ scene:
   instance:
     _target_: mujoco.MjvScene
     _partial_: true
-    maxgeom: 100000
+    maxgeom: 1000
 
   flags:
     - 0 # mjRND_SHADOW

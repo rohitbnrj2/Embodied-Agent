@@ -3,8 +3,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from cambrian.envs.env import MjCambrianEnvConfig
 from cambrian.ml.evo import MjCambrianEvoConfig
-from cambrian.utils.config import MjCambrianBaseConfig
-from cambrian.utils.config.utils import config_wrapper, run_hydra
+from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper, run_hydra
 
 if TYPE_CHECKING:
     from cambrian.ml.trainer import MjCambrianTrainerConfig
@@ -13,7 +12,7 @@ if TYPE_CHECKING:
 
 
 @config_wrapper
-class MjCambrianConfig(MjCambrianBaseConfig):
+class MjCambrianConfig(MjCambrianContainerConfig):
     """The base config for the mujoco cambrian environment. Used for type hinting.
 
     Attributes:

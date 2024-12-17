@@ -7,11 +7,11 @@ try:
 except ImportError:
     has_nevergrad = False
 
-from cambrian.utils.config import MjCambrianBaseConfig, config_wrapper
+from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
 
 
 @config_wrapper
-class MjCambrianEvoConfig(MjCambrianBaseConfig):
+class MjCambrianEvoConfig(MjCambrianContainerConfig):
     population_size: int
     num_generations: int
 

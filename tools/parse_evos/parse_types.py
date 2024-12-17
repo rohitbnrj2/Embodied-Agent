@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, List, Optional, Self, Tuple, TypeAlias
 import numpy as np
 from omegaconf import SI
 
-from cambrian.utils.config import MjCambrianBaseConfig, MjCambrianConfig
+from cambrian.utils.config import MjCambrianConfig, MjCambrianContainerConfig
 from cambrian.utils.config.utils import config_wrapper
 
 Color: TypeAlias = List[Tuple[float, float, float, float]] | List[float]
@@ -225,7 +225,7 @@ class PlotData:
 
 
 @config_wrapper
-class ParseEvosConfig(MjCambrianBaseConfig):
+class ParseEvosConfig(MjCambrianContainerConfig):
     """Config for the parse_evos script.
 
     Attributes:
