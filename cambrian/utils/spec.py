@@ -2,25 +2,15 @@ from typing import Any, Self
 
 import mujoco as mj
 
-try:
-    import mujoco.mjx as mjx
-
-    has_mjx = True
-except ImportError:
-    has_mjx = False
-
 from cambrian.utils.cambrian_xml import MjCambrianXML
 
 
 class _MjCambrianSpec:
-    def __init__(self, spec: mj.MjSpec, use_mjx: bool = False):
+    def __init__(self, spec: mj.MjSpec):
         self._spec: mj.MjSpec = spec
-        self._use_mjx: bool = use_mjx
 
         self._model: mj.MjModel = None
         self._data: mj.MjData = None
-        self._mjx_model: mjx.Model = None
-        self._mjx_data: mjx.Data = None
 
         self._model = self._spec.compile()
         self._data = mj.MjData(self._model)
@@ -31,24 +21,15 @@ class _MjCambrianSpec:
 
     def recompile(self) -> Self:
         self._model, self._data = self._spec.recompile(self._model, self._data)
-        if self._use_mjx:
-            self._mjx_model = mjx.put_model(self._model)
-            self._mjx_data = mjx.make_data(self._mjx_model)
         return self
 
     # ======================
 
     def _get_id(self, obj_type: int, obj_name: str) -> int:
-        if self._use_mjx:
-            return mjx.name2id(self.model, obj_type, obj_name)
-        else:
-            return mj.mj_name2id(self.model, obj_type, obj_name)
+        return mj.mj_name2id(self.model, obj_type, obj_name)
 
     def _get_name(self, obj_type: int, obj_adr: int) -> str:
-        if self._use_mjx:
-            return mjx.id2name(self.model, obj_type, obj_adr)
-        else:
-            return mj.mj_id2name(self.model, obj_type, obj_adr)
+        return mj.mj_id2name(self.model, obj_type, obj_adr)
 
     def get_body_id(self, body_name: str) -> int:
         """Get the ID of a Mujoco body."""
@@ -125,12 +106,12 @@ class _MjCambrianSpec:
         return getattr(self._spec, name)
 
     @property
-    def model(self) -> mj.MjModel | mjx.Model:
-        return self._mjx_model if self._use_mjx else self._model
+    def model(self) -> mj.MjModel:
+        return self._model
 
     @property
-    def data(self) -> mj.MjData | mjx.Data:
-        return self._mjx_data if self._use_mjx else self._data
+    def data(self) -> mj.MjData:
+        return self._data
 
 
 MjCambrianSpec = _MjCambrianSpec | mj.MjSpec
