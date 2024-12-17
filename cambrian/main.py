@@ -1,12 +1,10 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from cambrian.envs.env import MjCambrianEnvConfig
 from cambrian.ml.evo import MjCambrianEvoConfig
+from cambrian.ml.trainer import MjCambrianTrainerConfig
 from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper, run_hydra
-
-if TYPE_CHECKING:
-    from cambrian.ml.trainer import MjCambrianTrainerConfig
 
 # ==================
 
@@ -43,7 +41,7 @@ class MjCambrianConfig(MjCambrianContainerConfig):
 
     seed: int
 
-    trainer: "MjCambrianTrainerConfig"
+    trainer: MjCambrianTrainerConfig
     evo: Optional[MjCambrianEvoConfig] = None
     env: MjCambrianEnvConfig
     eval_env: MjCambrianEnvConfig | Any

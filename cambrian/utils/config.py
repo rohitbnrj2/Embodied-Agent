@@ -50,13 +50,13 @@ def config_wrapper(cls=None, /, **kwargs):
     default_dataclass_kw = dict(repr=False, eq=False, slots=True, kw_only=True)
     kwargs = {**default_dataclass_kw, **kwargs}
 
-    def wrapper(cls):
+    def wrapper(original_cls):
         # Preprocess the fields to convert the types to supported types
         # Only certain primitives are supported by hydra/OmegaConf, so we'll convert
         # these types to supported types using the _sanitized_type method from hydra_zen
         # We'll just include the fields that are defined in this class and not in a base
         # class.
-        cls = dataclass(cls, **kwargs)
+        cls = dataclass(original_cls, **kwargs)
 
         new_fields = []
         for f in fields(cls):
@@ -111,9 +111,30 @@ class MjCambrianContainerConfig:
     """
 
     config: Optional[DictConfig] = field(
-        default=None, init=False, metadata={"omegaconf_ignore": True}
+        default=None,
+        init=False,  # metadata={"omegaconf_ignore": True},
     )
     custom: Optional[Dict[str, Any]] = field(default_factory=dict, init=False)
+
+    def __post_instantiate__(self):
+        """Define an empty post init method to allow for custom post init methods."""
+
+        def set_config_attr(obj: Any):
+            if isinstance(obj, MjCambrianContainerConfig):
+                assert obj.config is not None
+                if not OmegaConf.is_config(obj.config):
+                    obj.config = OmegaConf.create(obj.config)
+                for k, v in obj.config.items():
+                    if hasattr(obj, k):
+                        set_config_attr(getattr(obj, k))
+            elif isinstance(obj, dict):
+                for k, v in obj.items():
+                    set_config_attr(v)
+            elif isinstance(obj, list):
+                for i, v in enumerate(obj):
+                    set_config_attr(v)
+
+        set_config_attr(self)
 
     @classmethod
     def instantiate(
@@ -121,13 +142,14 @@ class MjCambrianContainerConfig:
         config: DictConfig | ListConfig,
         **kwargs,
     ) -> Self:
-        instance = zen.instantiate(config, **kwargs, _convert_="object")
+        instance: Self = zen.instantiate(config, _convert_="object", **kwargs)
         OmegaConf.resolve(config)
 
         # Iteratively set the config attribute for all nested configs
         def set_config_attr(obj: Any, config: DictConfig | ListConfig):
             if isinstance(obj, MjCambrianContainerConfig):
-                obj.config = config
+                if obj.config is None:
+                    obj.config = config
                 for k, v in config.items():
                     if hasattr(obj, k):
                         set_config_attr(getattr(obj, k), v)
@@ -139,8 +161,11 @@ class MjCambrianContainerConfig:
                 for i, v in enumerate(obj):
                     set_config_attr(v, config[i])
 
+        # After instantiation, we'll set the config attribute for all nested configs
+        # `config` is ignored by omegaconf, so has to come after initialization
         set_config_attr(instance, config)
 
+        instance.__post_instantiate__()
         return instance
 
     @classmethod
@@ -211,6 +236,12 @@ class MjCambrianContainerConfig:
         else:
             return created
 
+    def merge_with(self, *others: DictConfig | ListConfig | Dict | List) -> Self:
+        """Wrapper around OmegaConf.merge to merge the config with another config."""
+        # Do an unsafe merge so types aren't checked
+        merged = OmegaConf.unsafe_merge(self.config, *others)
+        return self.instantiate(merged)
+
     def copy(self) -> Self:
         """Wrapper around the copy method to return a new instance of this class."""
         return deepcopy(self)
@@ -253,25 +284,28 @@ class MjCambrianContainerConfig:
         dumper.add_representer(str, str_representer)
         dumper.add_multi_representer(Path, path_representer)
         dumper.add_multi_representer(enum.Flag, flag_representer)
+        config = OmegaConf.to_container(self.config)
         return yaml.dump(
-            OmegaConf.to_container(self.config),
+            config,
             default_flow_style=False,
             allow_unicode=True,
             sort_keys=False,
             Dumper=dumper,
         )
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> DictConfig:
         """This is used to pickle the object. We'll return the config as the state."""
         return self.config
 
-    def __setstate__(self, state: Dict[str, Any]):
+    def __setstate__(self, state: DictConfig):
         """This is used to unpickle the object. We'll set the config from the state."""
         instance = self.instantiate(state)
         for field_name in self.__dataclass_fields__.keys():
             setattr(self, field_name, getattr(instance, field_name))
 
     def __str__(self) -> str:
+        if self.config is None:
+            return self.__repr__()
         return self.to_yaml()
 
 
