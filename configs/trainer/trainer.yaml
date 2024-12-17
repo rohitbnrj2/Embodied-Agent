@@ -1,6 +1,4 @@
 defaults:
-  - /MjCambrianTrainerConfig
-
   - model: model
   - callbacks: callbacks
   - fitness_fn: eval_monitor

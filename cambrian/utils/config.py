@@ -116,26 +116,6 @@ class MjCambrianContainerConfig:
     )
     custom: Optional[Dict[str, Any]] = field(default_factory=dict, init=False)
 
-    def __post_instantiate__(self):
-        """Define an empty post init method to allow for custom post init methods."""
-
-        def set_config_attr(obj: Any):
-            if isinstance(obj, MjCambrianContainerConfig):
-                assert obj.config is not None
-                if not OmegaConf.is_config(obj.config):
-                    obj.config = OmegaConf.create(obj.config)
-                for k, v in obj.config.items():
-                    if hasattr(obj, k):
-                        set_config_attr(getattr(obj, k))
-            elif isinstance(obj, dict):
-                for k, v in obj.items():
-                    set_config_attr(v)
-            elif isinstance(obj, list):
-                for i, v in enumerate(obj):
-                    set_config_attr(v)
-
-        set_config_attr(self)
-
     @classmethod
     def instantiate(
         cls,
@@ -150,7 +130,9 @@ class MjCambrianContainerConfig:
             if isinstance(obj, MjCambrianContainerConfig):
                 if obj.config is None:
                     obj.config = config
-                for k, v in config.items():
+                if not OmegaConf.is_config(obj.config):
+                    obj.config = OmegaConf.create(obj.config)
+                for k, v in obj.config.items():
                     if hasattr(obj, k):
                         set_config_attr(getattr(obj, k), v)
             elif isinstance(obj, dict):
@@ -165,7 +147,6 @@ class MjCambrianContainerConfig:
         # `config` is ignored by omegaconf, so has to come after initialization
         set_config_attr(instance, config)
 
-        instance.__post_instantiate__()
         return instance
 
     @classmethod
