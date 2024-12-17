@@ -6,7 +6,6 @@ import numpy as np
 from gymnasium import spaces
 
 from cambrian.agents.agent import MjCambrianAgent2D, MjCambrianAgentConfig
-from cambrian.utils.cambrian_xml import MjCambrianXML
 
 if TYPE_CHECKING:
     from cambrian.envs.maze_env import MjCambrianMazeEnv
@@ -35,21 +34,8 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         self,
         config: MjCambrianAgentConfig,
         name: str,
-        *,
-        apply_action_kwargs: Dict[str, Any] = {},
     ):
         super().__init__(config, name)
-
-        self._apply_action_kwargs = apply_action_kwargs
-
-        # Get the actuator type for the heading joint
-        self._heading_joint_type: str
-        act_xml = MjCambrianXML.from_string(self._config.xml).find(
-            ".//actuator/*", name=f"{self._name}_act_yaw"
-        )
-        if act_xml is None:
-            raise ValueError(f"Could not find actuator for {self._name}_act_yaw")
-        self._heading_joint_type = act_xml.tag
 
     def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         """Creates the entire obs dict."""
@@ -73,18 +59,6 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
 
     def apply_action(self, action: List[float]):
         """Calls the appropriate apply action method based on the heading joint type."""
-
-        if self._heading_joint_type == "position":
-            self._apply_action_position(action)
-        elif self._heading_joint_type == "velocity":
-            self._apply_action_velocity(action, **self._apply_action_kwargs)
-        else:
-            raise ValueError(
-                f"Unsupported heading joint type: {self._heading_joint_type}"
-            )
-
-    def _apply_action_velocity(self, action: List[float], *, kp: float = 0.25):
-        """Calculate global velocities and heading velocity."""
         assert len(action) == 2, f"Action must have two elements, got {len(action)}."
 
         # Calculate global velocities
@@ -94,22 +68,6 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         vy = v * np.sin(current_heading)
 
         super().apply_action([vx, vy, action[1]])
-
-    def _apply_action_position(self, action: List[float]):
-        """This differs from the base implementation as action only has two elements,
-        but the model has three actuators. Calculate the global velocities here."""
-        assert len(action) == 2, f"Action must have two elements, got {len(action)}."
-
-        # map the v action to be between 0 and 1
-        v = (action[0] + 1) / 2
-
-        # Calculate the global velocities
-        # NOTE: The third actuator is the hinge joint which defines the theta
-        theta = self.qpos[2]
-        new_action = [v * np.cos(theta), v * np.sin(theta), action[1]]
-
-        # Call the base implementation with the new action
-        super().apply_action(new_action)
 
     @property
     def action_space(self) -> spaces.Space:
