@@ -383,7 +383,7 @@ class MjCambrianAgent:
         ]
 
         if self._config.perturb_init_pos:
-            body.pos += np.random.normal(0, self._geom.rbound, 3)
+            body.pos += [*np.random.normal(0, self._geom.rbound / 2, 2), 0]
 
         spec.recompile()
 

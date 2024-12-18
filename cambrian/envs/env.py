@@ -247,12 +247,8 @@ class MjCambrianEnv(ParallelEnv, Env):
         obs: Dict[str, Dict[str, Any]] = {}
         for name, agent in self._agents.items():
             obs[name] = agent.reset(self._spec)
-        self._spec.save("env.xml")
-        # exit()
 
         # We'll step the simulation once to allow for states to propagate
-        # mj.mj_resetData(self._spec.model, self._spec.data)
-        # mj.mj_forward(self._spec.model, self._spec.data)
         self._step_mujoco_simulation(1, info)
 
         # Now update the info dict
@@ -795,7 +791,6 @@ if __name__ == "__main__":
 
             env.renderer.viewer.custom_key_callback = custom_key_callback
 
-        composites: Dict[str, List[np.ndarray]] = {}
         while env.renderer.is_running():
             if env.episode_step > env.max_episode_steps:
                 break
@@ -810,11 +805,6 @@ if __name__ == "__main__":
                     if not agent.trainable:
                         continue
 
-                    # if (composite := agent.render()) is not None:
-                    #     composite = resize_with_aspect_fill(composite, 256, 256)
-                    #     composite = (composite * 255).astype(np.uint8)
-                    #     composites.setdefault(name, []).append(composite)
-
         if record:
             env.save(
                 config.expdir / "eval",
@@ -823,21 +813,6 @@ if __name__ == "__main__":
                 | MjCambrianRendererSaveMode.GIF
                 | MjCambrianRendererSaveMode.PNG,
             )
-
-            # Save composites
-            for name, composites in composites.items():
-                import imageio
-
-                path = config.expdir / f"{name}_composite.mp4"
-                writer = imageio.get_writer(path, fps=30)
-                for composite in composites:
-                    writer.append_data(composite)
-                writer.close()
-
-                duration = 1000 / 30
-                imageio.mimwrite(
-                    path.with_suffix(".gif"), composites, duration=duration
-                )
 
     def main(config: MjCambrianConfig, *, fn: str, **kwargs):
         if fn not in REGISTRY:
