@@ -73,17 +73,12 @@ class MjCambrianPlotMonitorCallback(BaseCallback):
         get_logger().info(f"Plotting {self.filename} results at {self.evaldir}")
 
         def moving_average(data, window=1, std: bool = False):
-            data_padded = np.pad(
-                data, ((window - 1) // 2, (window - 1) // 2), mode="edge"
-            )
             if not std:
-                return np.convolve(data_padded, np.ones(window), "valid") / window
+                return np.convolve(data, np.ones(window), "valid") / window
             else:
                 # Calculate the rolling standard deviation with a moving window
-                result = np.array(
-                    [np.std(data_padded[i : i + window]) for i in range(len(data))]
-                )
-                return result
+                result = [np.std(data[i : i + window]) for i in range(len(data))]
+                return np.array(result)
 
         n = min(len(y) // 10, 1000)
         y = y.astype(float)

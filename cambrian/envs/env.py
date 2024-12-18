@@ -248,6 +248,9 @@ class MjCambrianEnv(ParallelEnv, Env):
         for name, agent in self._agents.items():
             obs[name] = agent.reset(self._spec)
 
+        # Recompile the model/data
+        self._spec.recompile()
+
         # We'll step the simulation once to allow for states to propagate
         self._step_mujoco_simulation(1, info)
 
