@@ -7,10 +7,10 @@
 To run locally, you can use the `run.sh` script. For example, you can run:
 
 ```bash
-bash scripts/run.sh cambrian/ml/trainer.py --train exp=<EXPERIMENT>
+bash scripts/run.sh cambrian/main.py --train exp=<EXPERIMENT>
 ```
 
-`run.sh` isn't actually necessary, it just sets some default environment variables and is helpful as it's the same entrypoint for running on a cluster. You can also run the above command directly with `python cambrian/ml/trainer.py ...`.
+`run.sh` isn't actually necessary, it just sets some default environment variables and is helpful as it's the same entrypoint for running on a cluster. You can also run the above command directly with `python cambrian/main.py ...`.
 
 ```{tip}
 When invoked with bash, `run.sh` script will default to setting `MUJOCO_GL=egl`. Training should always be done with `MUJOCO_GL=egl` cause that runs with a headless implementation of OpenGL and is significantly faster.
@@ -36,17 +36,17 @@ For example, you can run:
 ```bash
 # Note the `sbatch` command is used to submit the job to the cluster using Slurm.
 # You can change `supercloud` to `openmind`, `euler`, or a custom launcher depending on the cluster.
-sbatch scripts/run.sh cambrian/ml/trainer.py --train hydra/launcher=supercloud exp=<EXPERIMENT>
+sbatch scripts/run.sh cambrian/main.py --train hydra/launcher=supercloud exp=<EXPERIMENT>
 ```
 
 You can then add additional Slurm configuration variables directly to the above command. For example, to set the partition and qos, you can run the following. Note that this only sets the qos/partition on the daemon job, not the training job. The second command demonstrates how to set the partition and qos for the training job within the launcher config.
 
 ```bash
 # Set the partition and qos for the daemon job
-sbatch scripts/run.sh --partition=<PARTITION> --qos=<QOS> cambrian/ml/trainer.py --train hydra/launcher=supercloud exp=<EXPERIMENT>
+sbatch scripts/run.sh --partition=<PARTITION> --qos=<QOS> cambrian/main.py --train hydra/launcher=supercloud exp=<EXPERIMENT>
 
 # Set the partition and qos for the training job
-sbatch scripts/run.sh cambrian/ml/trainer.py --train hydra/launcher=supercloud exp=<EXPERIMENT> hydra.launcher.partition=<PARTITION> hydra.launcher.qos=<QOS>
+sbatch scripts/run.sh cambrian/main.py --train hydra/launcher=supercloud exp=<EXPERIMENT> hydra.launcher.partition=<PARTITION> hydra.launcher.qos=<QOS>
 ```
 
 ```{todo}
@@ -58,7 +58,7 @@ We plan to add AWS support in the future.
 During each training, a `best_model.zip` is saved in the log directory. To load this model and continue training, you can override `trainer/model=loaded_model`. By default, the loader will look at `trainer.model.path` to find the model to load. This will default to `{expdir}/best_model`, so if the day has changed or you've moved the model, you may need to update this path.
 
 ```bash
-bash scripts/run.sh cambrian/ml/trainer.py --train exp=<EXPERIMENT> trainer/model=loaded_model trainer.model.path=<MODEL_PATH>
+bash scripts/run.sh cambrian/main.py --train exp=<EXPERIMENT> trainer/model=loaded_model trainer.model.path=<MODEL_PATH>
 ```
 
 ## Running evolution
@@ -66,7 +66,7 @@ bash scripts/run.sh cambrian/ml/trainer.py --train exp=<EXPERIMENT> trainer/mode
 In the above examples, we are simply running a single training loop. If you want to run an evolutionary experiment, you can set `evo=evo`. For example, you can run:
 
 ```bash
-bash scripts/run.sh cambrian/ml/trainer.py --train exp=<EXPERIMENT> evo=evo --multirun
+bash scripts/run.sh cambrian/main.py --train exp=<EXPERIMENT> evo=evo --multirun
 ```
 
 The evolution loop utilizes the [`nevergrad` sweeper](https://hydra.cc/docs/plugins/nevergrad_sweeper/), and it's configs are located at `configs/hydra/sweeper/`. You can replace `bash` with `sbatch` to run on a cluster.
@@ -81,14 +81,14 @@ Running on a cluster can aid in parallelizing the training process. And note the
 Nevergrad requires there to be optimization parameters to sweep over; see [the docs](https://hydra.cc/docs/plugins/nevergrad_sweeper/#defining-the-parameters) for more details. In our framework, we've provided a few examples of how to set up the parameters. To use those, for example, you can run the following:
 
 ```bash
-bash scripts/run.sh cambrian/ml/trainer.py --train exp=<EXPERIMENT> evo=evo \
+bash scripts/run.sh cambrian/main.py --train exp=<EXPERIMENT> evo=evo \
     +exp/mutations=[res,num_eyes,lon_range] -m
 ```
 
 This will enable the resolution, number of eyes, and placement range mutations. Alternatively, you can just specify the grouping.
 
 ```bash
-bash scripts/run.sh cambrian/ml/trainer.py --train exp=<EXPERIMENT> evo=evo \
+bash scripts/run.sh cambrian/main.py --train exp=<EXPERIMENT> evo=evo \
     +exp/mutations/groupings/numeyes1_res0_lon1 -m
 ```
 
@@ -121,9 +121,9 @@ parameters, you can run the following:
 
 ```bash
 # If running on a slurm-enabled cluster
-sbatch scripts/run.sh cambrian/ml/trainer.py --train hydra/launcher=<CLUSTER> exp=<EXPERIMENT> <SWEEP_PARAMS> --multirun
+sbatch scripts/run.sh cambrian/main.py --train hydra/launcher=<CLUSTER> exp=<EXPERIMENT> <SWEEP_PARAMS> --multirun
 # If running locally
-bash scripts/run.sh cambrian/ml/trainer.py --train exp=<EXPERIMENT> <SWEEP_PARAMS> --multirun
+bash scripts/run.sh cambrian/main.py --train exp=<EXPERIMENT> <SWEEP_PARAMS> --multirun
 ```
 
 Running on a cluster can aid in parallelizing the training process. And note the
