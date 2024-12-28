@@ -314,10 +314,12 @@ class MjCambrianEnv(ParallelEnv, Env):
         # First, apply the actions to the agents and step the simulation
         for name, agent in self._agents.items():
             if not agent.trainable or agent.config.use_privileged_action:
-                assert (
-                    agent.trainable or name not in action
-                ), f"Action for {name} found in action dict. "
-                "This isn't allowed for non-trainable agents."
+                if not agent.trainable and name in action:
+                    get_logger().warning(
+                        f"Action for {name} found in action dict. "
+                        "This will be overridden by the agent.",
+                        extra={"once": True},
+                    )
                 action[name] = agent.get_action_privileged(self)
 
             assert name in action, f"Action for {name} not found in action dict."

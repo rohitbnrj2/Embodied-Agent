@@ -5,7 +5,7 @@ defaults:
 
   # Define a second point agent with a single eye
   - /env/agents@env.agents.agent1: point
-  - /env/agents/eyes@env.agents.agent1.eyes.eye: multi_eye
+  - /env/agents/eyes@env.agents.agent1.eyes.eye: multi_eye_approx
 
   # We also need to add a petting zoo env wrapper
   # This enables multi-agent training in stable baselines

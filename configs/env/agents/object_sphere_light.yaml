@@ -7,9 +7,9 @@ xml:
         - worldbody:
             - body:
                 - name: ${parent:xml}_body
-                - childclass: object
                 - light:
                     - name: ${parent:xml}_light
+                    - class: object
         - asset:
             - material:
                 - name: ${parent:xml}_mat

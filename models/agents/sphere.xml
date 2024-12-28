@@ -2,9 +2,8 @@
     <include file="models/agents/agent.xml" />
     <default>
         <default class="object">
-            <site type="sphere" group="1" />
             <light exponent="0.1" cutoff="180" dir="0 0 -1" diffuse="1 1 1" ambient="1 1 1"
-                specular="1 1 1" castshadow="false" attenuation="1.0 0.35 0.44"/>
+                specular="1 1 1" castshadow="false" attenuation="1.0 0.07 0.017"/>
         </default>
     </default>
     <worldbody>
@@ -15,21 +14,21 @@
 
             <inertial pos="0 0 0" mass="1" diaginertia="0.1 0.1 0.1" />
 
-            <joint name="joint_x_${parent:xml}" type="slide" pos="0 0 0" axis="1 0 0" damping="1"
-                limited="false" />
-            <joint name="joint_y_${parent:xml}" type="slide" pos="0 0 0" axis="0 1 0" damping="1"
-                limited="false" />
-            <joint name="joint_yaw_${parent:xml}" type="hinge" pos="0 0 0" axis="0 0 1" damping="1"
-                limited="false" />
+            <joint name="${parent:xml}_joint_x" type="slide" pos="0 0 0" axis="1 0 0" damping="1"
+              limited="false" />
+            <joint name="${parent:xml}_joint_y" type="slide" pos="0 0 0" axis="0 1 0" damping="1"
+              limited="false" />
+            <joint name="${parent:xml}_joint_yaw" type="hinge" pos="0 0 0" axis="0 0 1" damping="1"
+              limited="false" />
         </body>
     </worldbody>
   <actuator>
     <!-- These are just dummy actuators for providing ranges -->
-    <velocity name="act_x_${parent:xml}" joint="joint_x_${parent:xml}" ctrlrange="-10.0 10.0"
+    <velocity name="${parent:xml}_act_x" joint="${parent:xml}_joint_x" ctrlrange="-10.0 10.0"
       ctrllimited="true" kv="100" />
-    <velocity name="act_y_${parent:xml}" joint="joint_y_${parent:xml}" ctrlrange="-10.0 10.0"
+    <velocity name="${parent:xml}_act_y" joint="${parent:xml}_joint_y" ctrlrange="-10.0 10.0"
       ctrllimited="true" kv="100" />
-    <position name="act_yaw_${parent:xml}" joint="joint_yaw_${parent:xml}" ctrlrange="-3.14 3.14"
-      ctrllimited="true" gear="1" />
+    <velocity name="${parent:xml}_act_yaw" joint="${parent:xml}_joint_yaw" ctrlrange="-10.0 10.0"
+      ctrllimited="true" kv="1.0" />
   </actuator>
 </mujoco>

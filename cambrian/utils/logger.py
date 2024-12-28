@@ -53,5 +53,22 @@ class MjCambrianLoggerMaxLevelFilter(logging.Filter):
         return record.levelno <= self._max_level
 
 
+class MjCambrianOnceFilter(logging.Filter):
+    """This filter allows a message to be logged only once."""
+
+    def __init__(self):
+        super().__init__()
+        self.extra_once_used = False
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Allow one-time use of "once"
+        if getattr(record, "once", False):
+            if not self.extra_once_used:
+                self.extra_once_used = True
+                return True
+            return False  # Block subsequent "once" warnings
+        return True
+
+
 def get_logger(name: str = "cambrian") -> logging.Logger:
     return logging.getLogger(name)

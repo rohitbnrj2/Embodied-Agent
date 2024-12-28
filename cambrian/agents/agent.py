@@ -139,6 +139,7 @@ class MjCambrianAgent:
         self._actuators: List[MjCambrianActuator] = []
         self._joints: List[MjCambrianJoint] = []
         self._geom: MjCambrianGeometry = None
+        self._body: mj.MjsBody = None
         self._actadrs: List[int] = []
         self._body_id: int = None
         self._initialize()
@@ -394,6 +395,8 @@ class MjCambrianAgent:
         if self._config.perturb_init_pos:
             body.pos += [*np.random.normal(0, self._geom.rbound / 2, 2), 0]
 
+        self.body = body
+
     def step(self) -> Dict[str, Any]:
         """Steps the eyes and returns the observation."""
 
@@ -559,7 +562,8 @@ class MjCambrianAgent:
     @property
     def init_pos(self) -> Tuple[float | None, float | None, float | None]:
         """Returns the initial position of the agent in the environment."""
-        return self._init_pos
+        assert self.body is not None, "Body is not set."
+        return self.body.pos
 
     @init_pos.setter
     def init_pos(self, value: Tuple[float | None, float | None, float | None]):

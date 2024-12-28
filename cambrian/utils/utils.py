@@ -413,6 +413,8 @@ def literal_eval_with_callables(
         ast.LShift: lambda x, y: x << y,
         ast.RShift: lambda x, y: x >> y,
         ast.Invert: lambda x: ~x,
+        ast.JoinedStr: lambda *values: "".join(map(str, values)),
+        ast.FormattedValue: lambda value, _: value,
     }
 
     def _convert(node):
@@ -456,6 +458,8 @@ def literal_eval_with_callables(
                 return +operand
             elif isinstance(node.op, ast.USub):
                 return -operand
+            elif isinstance(node.op, ast.Not):
+                return not operand
             else:
                 raise ValueError(f"Unsupported unary operator: {ast.dump(node.op)}")
         elif isinstance(node, ast.BinOp) and type(node.op) in op_map:
@@ -482,6 +486,10 @@ def literal_eval_with_callables(
         elif isinstance(node, ast.IfExp):
             # Handle ternary expressions (e.g., x if condition else y)
             return _convert(node.body) if _convert(node.test) else _convert(node.orelse)
+        elif isinstance(node, ast.JoinedStr):
+            return op_map[type(node)](*[_convert(value) for value in node.values])
+        elif isinstance(node, ast.FormattedValue):
+            return op_map[type(node)](_convert(node.value), node.conversion)
         elif isinstance(node, ast.Call):
             # Handle function and method calls
             if isinstance(node.func, ast.Attribute):
@@ -618,6 +626,15 @@ def safe_eval(src: Any, additional_vars: Dict[str, Any] = {}) -> Any:
         "str": str,
         "bool": bool,
         "slice": slice,
+        "next": next,
+        "iter": iter,
+        "enumerate": enumerate,
+        "zip": zip,
+        "range": range,
+        "map": map,
+        "filter": filter,
+        "sorted": sorted,
+        "reversed": reversed,
     }
     # Create the safe environment for evaluation
     safe_vars = {"math": math, **supported_builtins, **additional_vars}

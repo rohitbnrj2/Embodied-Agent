@@ -16,10 +16,10 @@ defaults:
 
   # Define one point agent with a single eye
   - /env/agents@env.agents.agent: point
-  - /env/agents/eyes@env.agents.agent.eyes.eye: eye
+  - /env/agents/eyes@env.agents.agent.eyes.eye: multi_eye_approx
 
   # Define one goal object
-  - /env/agents@env.agents.goal: object_sphere_goal
+  - /env/agents@env.agents.goal: object_sphere
 
 env:
   agents:

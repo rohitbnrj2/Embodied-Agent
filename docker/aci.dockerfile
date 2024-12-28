@@ -7,7 +7,8 @@ INCLUDE ./docker/common/base.dockerfile
 
 # Snippets
 INCLUDE ./docker/snippets/miniconda.dockerfile
-INCLUDE ./docker/snippets/mujoco.dockerfile
+# INCLUDE ./docker/snippets/mujoco.dockerfile
+INCLUDE ./docker/snippets/madrona_mjx.dockerfile
 
 # Will copy in other common configurations for this build
 INCLUDE ./docker/common/common.dockerfile

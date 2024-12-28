@@ -8,4 +8,5 @@ This section provides information on how to use the `cambrian` package. Please r
 configuration
 training
 visualizing
+docker
 ```

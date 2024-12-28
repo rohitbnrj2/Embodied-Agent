@@ -1,5 +1,4 @@
 # syntax = devthefuture/dockerfile-x
-# Install miniconda
 
 RUN apt-get update && \
         apt-get install --no-install-recommends -y \
@@ -22,16 +21,20 @@ RUN ARCH=$(uname -m) && \
       bash ${CONDA_PATH}/miniconda.sh -b -u -p ${CONDA_PATH} && \
       rm -rf ${CONDA_PATH}/miniconda.sh
 
-
 ENV PATH "${CONDA_PATH}/bin:${PATH}"
 ARG PATH "${CONDA_PATH}/bin:${PATH}"
 
+# Create a conda environment for the project
+USER ${USERNAME}
+RUN conda init ${USERSHELL} && \
+      conda create -n ${PROJECT} -y && \
+      echo "conda activate ${PROJECT}" >> ${USERSHELLPROFILE}
 ARG CONDA_CHANNELS=""
 RUN [ -z "${CONDA_CHANNELS}" ] || \
       for channel in ${CONDA_CHANNELS}; do conda config --add channels ${channel}; done
-
 ARG CONDA_PACKAGES=""
-RUN [ -z "${CONDA_PACKAGES}" ] || conda install ${CONDA_PACKAGES}
+RUN [ -z "${CONDA_PACKAGES}" ] || conda install -n ${PROJECT} ${CONDA_PACKAGES} -y
+USER root
 
-# chown the chrono dir so that we can edit it
+# chown the conda dir so that we can edit it
 RUN chown -R ${USERNAME}:${USERNAME} ${CONDA_PATH}

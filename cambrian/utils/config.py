@@ -745,8 +745,10 @@ def search_resolver(
 
 
 @register_new_resolver("parent")
-def parent_resolver(key: str | None = None, *, _parent_: DictConfig) -> Any:
-    return search_resolver(key, mode="parent_key", _parent_=_parent_)
+def parent_resolver(
+    key: Optional[str] = None, mode: str = "parent_key", *, _parent_: DictConfig
+) -> Any:
+    return search_resolver(key, mode=mode, _parent_=_parent_)
 
 
 @register_new_resolver("eval")

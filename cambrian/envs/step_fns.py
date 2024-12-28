@@ -17,7 +17,10 @@ def respawn_agent(
 ) -> Dict[str, Any]:
     """Respawn agent at given position."""
     agent.init_pos = env.maze.generate_reset_pos(agent.name)
-    return agent.reset(env.spec)
+    obs = agent.reset(env.spec)
+    # recompile the spec to update the agent's qpos
+    env.spec.recompile()
+    return obs
 
 
 # ======================

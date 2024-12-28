@@ -7,6 +7,7 @@ handlers:
     formatter: simple
     stream: ext://sys.stderr
     level: WARNING
+    filters: [once_filter]
 loggers:
   cambrian:
     level: DEBUG

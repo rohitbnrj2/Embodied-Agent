@@ -40,8 +40,8 @@ class MjCambrianSingleAgentEnvWrapper(gym.Wrapper):
         agent_name = agent_name or next(iter(env.agents.keys()))
         assert agent_name in env.agents, f"agent {agent_name} not found."
         self._agent = env.agents[agent_name]
-        self.action_space = env.action_space(agent_name)
-        self.observation_space = env.observation_space(agent_name)
+        self.action_space = self._agent.action_space
+        self.observation_space = self._agent.observation_space
 
     def reset(self, *args, **kwargs) -> Tuple[ObsType, Dict[str, Any]]:
         obs, info = self.env.reset(*args, **kwargs)

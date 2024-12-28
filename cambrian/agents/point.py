@@ -1,6 +1,6 @@
 """Point agents."""
 
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from gymnasium import spaces
@@ -84,9 +84,10 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
     the target).
 
     Keyword Args:
-        target (str | None): The name of the target agent to home in on. If
+        target (Optional[str]): The name of the target agent to home in on. If
             None, a random free space in the maze will be chosen as the target.
         speed (float): The speed at which the agent moves. Defaults to -0.75.
+        kp (float): The proportional control constant for the heading velocity.
         distance_threshold (float): The distance threshold at which the agent will
             consider itself to have reached the target. Defaults to 2.0.
         use_optimal_trajectory (bool): Whether to use the optimal trajectory to the
@@ -98,7 +99,7 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
         config: MjCambrianAgentConfig,
         name: str,
         *,
-        target: str | None,
+        target: Optional[str],
         speed: float = -0.75,
         kp: float = 0.75,
         distance_threshold: float = 2.0,

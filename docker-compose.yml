@@ -1,22 +1,26 @@
-name: cambrian
+name: aci
 services:
-  cambrian:
-    image: "atk/${COMPOSE_PROJECT_NAME}:cambrian"
+  aci:
+    image: "atk/${COMPOSE_PROJECT_NAME}:aci"
     hostname: '${COMPOSE_PROJECT_NAME}'
-    container_name: '${COMPOSE_PROJECT_NAME}-cambrian'
+    container_name: '${COMPOSE_PROJECT_NAME}-aci'
     build:
       context: "./"
       network: "host"
-      dockerfile: "./docker/cambrian.dockerfile"
+      dockerfile: "./docker/aci.dockerfile"
       args:
         PROJECT: "${COMPOSE_PROJECT_NAME}"
         IMAGE_BASE: "nvidia/cuda"
-        IMAGE_TAG: "12.2.2-devel-ubuntu20.04"
+        # Madrona requires 12 <= CUDA_VERSION <= 12.5
+        IMAGE_TAG: "12.5.1-devel-ubuntu20.04"
         USER_GROUPS: "dialout video"
-        PIP_REQUIREMENTS_FILE: "dev-requirements.txt"
+        PIP_REQUIREMENTS: "poetry"
+        CONDA_PACKAGES: "python=3.12"
+        APT_DEPENDENCIES: ""
     volumes:
       - '/tmp/.X11-unix:/tmp/.X11-unix'
       - './:/home/${COMPOSE_PROJECT_NAME}/${COMPOSE_PROJECT_NAME}'
+      - './.bash_history:/home/${COMPOSE_PROJECT_NAME}/.bash_history'
     deploy:
       resources:
         reservations:
@@ -27,6 +31,8 @@ services:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: all
       DISPLAY: '${DISPLAY:-vnc:0.0}'
+      PROMPT_COMMAND: 'history -a'
+      HISTFILE: '/home/${COMPOSE_PROJECT_NAME}/.bash_history'
     working_dir: '/home/${COMPOSE_PROJECT_NAME}/${COMPOSE_PROJECT_NAME}'
     tty: true
   vnc:

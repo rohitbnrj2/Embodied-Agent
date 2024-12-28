@@ -1,0 +1,11 @@
+defaults:
+  - point
+
+trainable: false
+use_privileged_action: true
+
+instance:
+  _target_: cambrian.agents.point.MjCambrianAgentPointSeeker
+  _partial_: true
+  # The default target is the next agent in the list
+  target: ${eval:'next(iter(a for a in ${oc.dict.keys:env.agents} if a != "${parent:instance}"), None)'}
