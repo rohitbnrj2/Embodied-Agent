@@ -280,7 +280,7 @@ class MjCambrianAgent:
 
         It is assumed that the actions are normalized between -1 and 1.
         """
-        self._last_action = actions
+        self._last_action = np.array(actions).copy()
         if not actions:
             return
 
@@ -512,7 +512,8 @@ class MjCambrianAgent:
         and edited as if it were the full qpos array."""
         mask = np.ones(self._spec.data.qpos.shape, dtype=bool)
         mask[self._qposadrs] = False
-        return np.ma.masked_array(self._spec.data.qpos, mask=mask)
+        masked_qpos = np.ma.masked_array(self._spec.data.qpos, mask=mask)
+        return masked_qpos[np.flatnonzero(~masked_qpos.mask)]
 
     @qpos.setter
     def qpos(self, value: np.ndarray[float | None]):

@@ -9,4 +9,4 @@ defaults:
 
   # We also need to add a petting zoo env wrapper
   # This enables multi-agent training in stable baselines
-  - override /trainer/wrappers@wrappers.agent_env_wrapper: petting_zoo_env_wrapper
+  - override /trainer/wrappers@trainer.wrappers.agent_env_wrapper: petting_zoo_env_wrapper

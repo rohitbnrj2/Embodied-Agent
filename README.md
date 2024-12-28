@@ -19,7 +19,7 @@ First, clone the repo:
 git clone https://github.com/camera-culture/ACI.git
 ```
 
-Then you can install the `cambrian` package by doing the following. Note that the package was actually designed to be used with [poetry](https://python-poetry.org/docs/), and is required when [contributing](https://camera-culture.github.io/ACI/contributing.html) to the project.
+Then you can install the `cambrian` package by doing the following.
 
 ```bash
 pip install -e .
@@ -30,7 +30,7 @@ pip install -e .
 To simply train a single agent in a detection-style task, you can run the following:
 
 ```bash
-bash scripts/local.sh scripts/train.sh exp=tasks/detection
+bash scripts/run.sh cambrian/main.py --train exp=detection_all
 ```
 
 For more information on how to train, evaluate, and run experiments, see the [Documentation](https://camera-culture.github.io/ACI/usage/index.html) website.
