@@ -1,8 +1,9 @@
 """This module contains the trainer class for training and evaluating agents."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Concatenate, Dict, Optional, Type
+from typing import TYPE_CHECKING, Callable, Concatenate, Dict, List, Optional
 
+import torch
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.vec_env import (
     DummyVecEnv,
@@ -31,7 +32,8 @@ class MjCambrianTrainerConfig(MjCambrianContainerConfig):
         max_episode_steps (int): The maximum number of steps per episode.
         n_envs (int): The number of parallel environments to use for training.
 
-        model (Type[MjCambrianModel]): The model to use for training.
+        model (Callable[[MjCambrianEnv], MjCambrianModel]): The model to use for
+            training.
         callbacks (Dict[str, BaseCallback]): The callbacks to use for training.
         wrappers (Dict[str, Callable[[VecEnv], VecEnv]] | None): The wrappers to use for
             training. If None, will ignore.
@@ -51,7 +53,7 @@ class MjCambrianTrainerConfig(MjCambrianContainerConfig):
     max_episode_steps: int
     n_envs: int
 
-    model: Type[MjCambrianModel]
+    model: Callable[[MjCambrianEnv], MjCambrianModel]
     callbacks: Dict[str, BaseCallback | Callable[[VecEnv], BaseCallback]]
     wrappers: Dict[str, Callable[[VecEnv], VecEnv] | None]
 
@@ -164,6 +166,12 @@ class MjCambrianTrainer:
 
         return fitness
 
+    def eval_fast(self) -> float:
+        """This method is used to quickly evaluate the agent. It will not save any
+        videos or render the environment. This is useful for evaluating the agent
+        quickly to determine if it is worth rendering the environment."""
+        return self.eval(record=False)
+
     def test(self) -> float:
         """This is a test method which tests the evolutionary loop. It will return a
         fitness consistent with the expected performance of the agent given the config.
@@ -234,30 +242,32 @@ class MjCambrianTrainer:
         return self._config.trainer.model(env=env)
 
 
-if __name__ == "__main__":
-    import argparse
+# ===========
 
-    from cambrian.utils.config import run_hydra
 
-    parser = argparse.ArgumentParser()
-    action = parser.add_mutually_exclusive_group(required=True)
-    action.add_argument("--train", action="store_true", help="Train the model")
-    action.add_argument("--eval", action="store_true", help="Evaluate the model")
-    action.add_argument("--test", action="store_true", help="Test the evo loop")
+def get_policy_weights(
+    wrappers: Dict[str, Callable[[VecEnv], VecEnv] | None],
+    model: Callable[[VecEnv], MjCambrianModel],
+    env: MjCambrianEnvConfig = None,
+    initialization_method: str = "zero",
+) -> int:
+    wrappers = [w for w in wrappers.values() if w]
+    env = DummyVecEnv([make_wrapped_env(env, wrappers=wrappers)])
+    model: MjCambrianModel = model(env=env)
 
-    def main(
-        config: "MjCambrianConfig", *, train: bool, eval: bool, test: bool
-    ) -> float:
-        """This method will return a float if training. The float represents the
-        "fitness" of the agent that was trained. This can be used by hydra to
-        determine the best hyperparameters during sweeps."""
-        runner = MjCambrianTrainer(config)
+    policy_weights: Dict[str, List[float]] = {}
+    for name, param in model.policy.named_parameters():
+        name = name.replace(".", "__")
 
-        if train:
-            return runner.train()
-        elif eval:
-            return runner.eval()
-        elif test:
-            return runner.test()
+        weights = param.data.cpu()
+        if initialization_method == "zero":
+            weights = torch.zeros_like(weights)
+        elif initialization_method == "random":
+            weights = (torch.rand_like(weights) - 0.5) * 2
+        elif initialization_method == "default":
+            pass
+        else:
+            raise ValueError(f"Unknown initialization method: {initialization_method}")
+        policy_weights[name] = weights.tolist()
 
-    run_hydra(main, parser=parser)
+    return policy_weights

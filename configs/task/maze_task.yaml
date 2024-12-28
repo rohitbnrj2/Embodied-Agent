@@ -1,8 +1,8 @@
 # @package _global_
 
 defaults:
-  # Load the exp config as the base
-  - exp
+  # Load the task config as the base
+  - task
 
   # Override the default environment to be a maze_env. We are using mazes above, and so
   # we need to specify the environment base which corresponds to the maze environment.

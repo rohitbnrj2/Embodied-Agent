@@ -20,6 +20,14 @@ defaults:
   # it here rather than the env config.
   - /env/renderer: bev
 
+  # Optional config groups for experiments
+  # Defining here means we don't need to have a + when overriding from the command line
+  - optional /exp/constraints: null
+  - optional /exp/mutations: null
+
+  # Need to specify the task
+  - required /task: "???"
+
 trainer:
   callbacks:
     eval_callback:

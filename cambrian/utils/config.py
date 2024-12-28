@@ -274,15 +274,15 @@ class MjCambrianContainerConfig:
             Dumper=dumper,
         )
 
-    def __getstate__(self) -> DictConfig:
-        """This is used to pickle the object. We'll return the config as the state."""
-        return self.config
+    # def __getstate__(self) -> DictConfig:
+    #     """This is used to pickle the object. We'll return the config as the state."""
+    #     return self.config
 
-    def __setstate__(self, state: DictConfig):
-        """This is used to unpickle the object. We'll set the config from the state."""
-        instance = self.instantiate(state)
-        for field_name in self.__dataclass_fields__.keys():
-            setattr(self, field_name, getattr(instance, field_name))
+    # def __setstate__(self, state: DictConfig):
+    #     """This is used to unpickle the object. We'll set the config from the state."""
+    #     instance = self.instantiate(state)
+    #     for field_name in self.__dataclass_fields__.keys():
+    #         setattr(self, field_name, getattr(instance, field_name))
 
     def __str__(self) -> str:
         if self.config is None:
@@ -827,9 +827,41 @@ def locate_resolver(fn: str) -> Any:
     return get_object(fn)
 
 
+@register_new_resolver("getitem")
+def get_resolver(obj: ListConfig, key: int) -> Any:
+    return obj[key]
+
+
+@register_new_resolver("target")
+def target_resolver(target: str, /, *args) -> Dict[str, Any]:
+    """This is a resolver which serves as a proxy for the _target_ attribute used
+    in hydra. Basically `target` will be defined as `_target_` and the rest of the
+    attributes will be passed as arguments to the target. You should always default to
+    using `_target_` directly in your config, but because interpolations _may_ be
+    resolved prior to or instead of instantiate, it may be desired to resolve
+    interpolations before instantiations."""
+    return {"_target_": target, "_args_": args}
+
+
+@register_new_resolver("instantiate")
+def instantiate_resolver(target: str | DictConfig, /, *args, _root_: DictConfig) -> Any:
+    try:
+        if isinstance(target, str):
+            target = target_resolver(target, *args)
+        return MjCambrianContainerConfig.instantiate(target)
+    except Exception as e:
+        _root_._format_and_raise(
+            key=target,
+            value=target,
+            msg=f"Error instantiating target '{target}': {e}",
+            cause=e,
+        )
+
+
 @register_new_resolver("clean_overrides")
 def clean_overrides_resolver(
     overrides: List[str],
+    ignore_after_override: Optional[str] = "",
     use_seed_as_subfolder: bool = True,
 ) -> str:
     cleaned_overrides: List[str] = []
@@ -838,6 +870,8 @@ def clean_overrides_resolver(
     for override in overrides:
         if "=" not in override or override.count("=") > 1:
             continue
+        if ignore_after_override and override == ignore_after_override:
+            break
 
         key, value = override.split("=", 1)
         if key == "exp":

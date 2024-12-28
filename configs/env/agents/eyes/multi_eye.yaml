@@ -12,4 +12,4 @@ eye_instance:
 
 lat_range: [-5, 5]
 lon_range: [-90, 90]
-num_eyes: [1, 10]
+num_eyes: [1, 1]

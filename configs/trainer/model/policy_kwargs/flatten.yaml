@@ -1,5 +1,5 @@
 defaults:
-  - combined@_here_
+  - combined
 
 features_extractor_kwargs:
   image_extractor:

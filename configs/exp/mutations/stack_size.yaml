@@ -4,7 +4,7 @@ hydra:
   sweeper:
     params:
       trainer.wrappers.frame_stack_wrapper.stack_size:
-        init: 1
+        init: ${${parent:}}
         lower: 1
         step: 1
         upper: 20

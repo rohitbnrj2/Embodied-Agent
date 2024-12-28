@@ -11,6 +11,7 @@ defaults:
   - trainer: trainer
   - hydra: hydra
 
+  # We require a exp to be defined
   - required exp: "???"
 
   # Add optional overlay configs here

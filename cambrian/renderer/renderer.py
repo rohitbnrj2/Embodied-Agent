@@ -29,9 +29,10 @@ from cambrian.utils.spec import MjCambrianSpec
 
 has_pycuda_gl = False  # disable pycuda for now
 try:
-    import pycuda.autoinit  # noqa
-    import pycuda.driver as cuda
-    import pycuda.gl as cudagl
+    if has_pycuda_gl:
+        import pycuda.autoinit  # noqa
+        import pycuda.driver as cuda
+        import pycuda.gl as cudagl
 
     has_pycuda_gl = has_pycuda_gl
 except ImportError:
@@ -125,19 +126,27 @@ def free_contexts():
             GL_CONTEXT.free()
         except Exception:
             pass
-        GL_CONTEXT = None
+        finally:
+            GL_CONTEXT = None
     if MJR_CONTEXT is not None:
         try:
             MJR_CONTEXT.free()
         except Exception:
             pass
-        MJR_CONTEXT = None
+        finally:
+            MJR_CONTEXT = None
     if CUDA_CONTEXT is not None:
         try:
             CUDA_CONTEXT.detach()
         except Exception:
             pass
-        CUDA_CONTEXT = None
+        finally:
+            CUDA_CONTEXT = None
+
+
+# Remove the automatic freeing. Will error out when calling free
+# since we explicitly free the contexts in the atexit function.
+mj.gl_context.GLContext.__del__ = lambda _: None
 
 
 atexit.register(free_contexts)

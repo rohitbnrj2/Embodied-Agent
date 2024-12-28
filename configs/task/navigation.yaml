@@ -7,14 +7,12 @@
 # it reaches the goal (within a certain distance threshold).
 
 defaults:
-  - /exp/tasks/task
-
   # Use one fairly complicated maze
   - /env/mazes@env.mazes.maze: COMPLEX
   - /env/mazes@eval_env.mazes.maze: COMPLEX_LARGE
 
-  # Use the maze_exp config as the base
-  - /exp/maze_exp
+  # Use the maze_task config as the base
+  - maze_task
 
   # Define one point agent with a single eye
   - /env/agents@env.agents.agent: point
@@ -22,10 +20,6 @@ defaults:
 
   # Define one goal object
   - /env/agents@env.agents.goal: object_sphere_goal
-
-trainer:
-  total_timesteps: 500_000
-  max_episode_steps: 128
 
 env:
   agents:

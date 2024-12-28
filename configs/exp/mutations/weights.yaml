@@ -1,0 +1,9 @@
+# @package _global_
+
+hydra:
+  sweeper:
+    params:
+      trainer.model.weights.mlp_extractor__policy_net__0__weight:
+        init: ${${parent:}}
+        lower: -1
+        upper: 1

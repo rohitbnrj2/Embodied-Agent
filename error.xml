@@ -1,0 +1,30 @@
+<?xml version="1.0" ?>
+<mujoco>
+ <include file="models/agents/agent.xml"/>
+ <default>
+  <default class="object">
+   <site type="sphere" group="1"/>
+   <light exponent="0.1" cutoff="180" dir="0 0 -1" diffuse="1 1 1" ambient="1 1 1" specular="1 1 1" castshadow="false" attenuation="1.0 0.35 0.44"/>
+  </default>
+ </default>
+ <worldbody>
+  <body name="adversary0_body" childclass="object" pos="0 0 0.5">
+   <geom name="adversary0_geom" type="sphere" material="adversary0_mat" size="0.5" contype="0" conaffinity="0" condim="1" euler="None"/>
+   <site name="adversary0_top_site" material="adversary0_top_mat" pos="0 0 0.5" size="0.2" group="2"/>
+   <inertial pos="0 0 0" mass="1" diaginertia="0.1 0.1 0.1"/>
+   <joint name="joint_x_adversary0" type="slide" pos="0 0 0" axis="1 0 0" damping="1" limited="false"/>
+   <joint name="joint_y_adversary0" type="slide" pos="0 0 0" axis="0 1 0" damping="1" limited="false"/>
+   <joint name="joint_yaw_adversary0" type="hinge" pos="0 0 0" axis="0 0 1" damping="1" limited="false"/>
+  </body>
+ </worldbody>
+ <actuator>
+  <velocity name="act_x_adversary0" joint="joint_x_adversary0" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100"/>
+  <velocity name="act_y_adversary0" joint="joint_y_adversary0" ctrlrange="-10.0 10.0" ctrllimited="true" kv="100"/>
+  <position name="act_yaw_adversary0" joint="joint_yaw_adversary0" ctrlrange="-3.14 3.14" ctrllimited="true" gear="1"/>
+ </actuator>
+ <asset>
+  <texture name="adversary0_tex" file="None" type="2d"/>
+  <material name="adversary0_mat" texture="adversary0_tex" emission="2"/>
+  <material name="adversary0_top_mat" rgba="None" emission="2"/>
+ </asset>
+</mujoco>

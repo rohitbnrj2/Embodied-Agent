@@ -8,7 +8,12 @@ import torch
 from gymnasium import spaces
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
-from cambrian.utils import MjCambrianActuator, MjCambrianGeometry, MjCambrianJoint
+from cambrian.utils import (
+    MjCambrianActuator,
+    MjCambrianGeometry,
+    MjCambrianJoint,
+    get_logger,
+)
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
 from cambrian.utils.spec import MjCambrianSpec, spec_from_xml_string
@@ -146,7 +151,11 @@ class MjCambrianAgent:
             - parse the geometry
             - place eyes at the appropriate locations
         """
-        spec = spec_from_xml_string(self._config.xml)
+        try:
+            spec = spec_from_xml_string(self._config.xml)
+        except Exception:
+            get_logger().error(f"Error creating model\n{self._config.xml}")
+            raise
 
         self._parse_geometry(spec)
         self._parse_actuators(spec)

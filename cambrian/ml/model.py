@@ -83,6 +83,28 @@ class MjCambrianModel(PPO):
         with open(path, "rb") as f:
             self._rollout = pickle.load(f)["actions"]
 
+    @classmethod
+    def load_weights(cls, weights: Dict[str, List[float]], **kwargs):
+        """Load the weights for the policy. This is useful for testing the
+        evolutionary loop without having to train the agent each time."""
+        model = cls(**kwargs)
+
+        # Iteratively load the weights into the model
+        state_dict = model.policy.state_dict()
+        for name, weight in weights.items():
+            name = name.replace("__", ".")
+
+            weight = torch.tensor(weight)
+            assert name in state_dict, f"Layer {name} not found in model"
+            assert state_dict[name].shape == weight.shape, (
+                f"Shape mismatch for layer {name}: {state_dict[name].shape} != "
+                f"{weight.shape}"
+            )
+
+            state_dict[name] = weight
+
+        return model
+
     def predict(self, *args, **kwargs):
         if self._rollout is not None:
             return self._rollout.pop(0), None

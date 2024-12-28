@@ -7,24 +7,18 @@
 # env.agents.<object name>.custom.frequency directly for each object.
 
 defaults:
-  - /exp/tasks/task
-
   # Use one maze for the time being
   - /env/mazes@env.mazes.maze: OPEN
 
-  # Use the maze_exp config as the base
-  - /exp/maze_exp
+  # Use the maze_task config as the base
+  - maze_task
 
   # Define one point agent with a single eye
   - /env/agents@env.agents.agent: point
-  - /env/agents/eyes@env.agents.agent.eyes.eye: eye
+  - /env/agents/eyes@env.agents.agent.eyes.eye: multi_eye
 
   # Define one goal light object
   - /env/agents@env.agents.goal: object_sphere_light
-
-trainer:
-  total_timesteps: 300_000
-  max_episode_steps: 128 # relatively short the episode length
 
 env:
   mazes:

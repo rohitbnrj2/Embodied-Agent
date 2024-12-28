@@ -4,7 +4,8 @@
 # move.
 
 defaults:
-  - /exp/tasks/detection
+  # Inherit the config from detection
+  - detection
 
   # Override the goal and adversary, which both move around the map
   - override /env/agents@env.agents.goal0: point_maze_random_textured

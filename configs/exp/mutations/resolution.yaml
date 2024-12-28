@@ -4,7 +4,7 @@ hydra:
   sweeper:
     params:
       env.agents.agent.eyes.eye.resolution:
-        init: ${env.agents.agent.eyes.eye.resolution}
+        init: ${${parent:}}
         lower: 1
         upper: 100
         integer: true

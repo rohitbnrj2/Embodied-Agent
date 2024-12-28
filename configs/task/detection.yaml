@@ -7,17 +7,15 @@
 # env.agents.<object name>.custom.frequency directly for each object.
 
 defaults:
-  - /exp/tasks/task
-
   # Use one maze for the time being
   - /env/mazes@env.mazes.maze: OPEN
 
-  # Use the maze_exp config as the base
-  - /exp/maze_exp
+  # Use the maze_task config as the base
+  - maze_task
 
   # Define one point agent with a single eye
   - /env/agents@env.agents.agent: point
-  - /env/agents/eyes@env.agents.agent.eyes.eye: eye
+  - /env/agents/eyes@env.agents.agent.eyes.eye: multi_eye_approx
 
   # Define two objects: a goal and an adversary
   - /env/agents@env.agents.adversary0: object_sphere_textured_adversary
@@ -28,10 +26,6 @@ custom:
   # The goal and adversary textures are the same, just rotated 90 degrees relative
   # to one another
   frequency: 8
-
-trainer:
-  total_timesteps: 1_000_000
-  max_episode_steps: 128
 
 env:
   mazes:

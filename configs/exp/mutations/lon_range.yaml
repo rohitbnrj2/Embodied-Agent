@@ -3,7 +3,7 @@
 hydra:
   sweeper:
     params:
-      env.agents.agent.eyes_lon_range:
-        init: ${env.agents.agent.eyes_lon_range}
+      env.agents.agent.eyes.eye.lon_range:
+        init: ${${parent:}}
         lower: -180
         upper: 180

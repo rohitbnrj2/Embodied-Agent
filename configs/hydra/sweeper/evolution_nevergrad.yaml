@@ -57,8 +57,8 @@ optim:
 
   # Set the max failures to be equivalent to one node's worth of workers. This is
   # because if one node fails, we want to be able to restart the job with the same
-  # parameters on a different node.
-  max_failure_rate: ${eval:'${oc.select:hydra.launcher.tasks_per_node, 1} / ${oc.select:evo.population_size, 1}'}
+  # parameters on a different node. Subtract 1e-6 so that max_failure_rate is never 1.0.
+  max_failure_rate: ${eval:'${oc.select:hydra.launcher.tasks_per_node, 1} / ${oc.select:evo.population_size, 1} - 1e-6'}
 
   # Load the nevergrad pkl, if it exists. This makes resuming a failed evo possible.
   load_if_exists: ${path:${logdir},nevergrad.pkl}
@@ -66,7 +66,8 @@ optim:
   callbacks:
     # Add a parameters logger callback. We can use this to get lineage info and use
     # hiplot to make tree-like plots.
-    - name: tell
+    parameters_logger:
+      name: tell
       callback:
         _target_: nevergrad.callbacks.ParametersLogger
 
@@ -74,23 +75,26 @@ optim:
         # And note, logs will always overwrite the previous logs.
         filepath: ${path:${logdir},nevergrad.log}
         append: False
-    - name: tell
+    optimizer_dump:
+      name: tell
       callback:
         _target_: nevergrad.callbacks.OptimizerDump
 
         # The output is saved to the log directory which is the base of the evolution
         # And note, logs will always overwrite the previous logs.
         filepath: ${path:${logdir},nevergrad.pkl}
-    # Add a progress bar callback
-    - name: tell
+    progress_bar:
+      name: tell
       callback:
         _target_: nevergrad.callbacks.ProgressBar
     # This will print out the best agent after each generation
-    - name: tell
+    optimization_logger:
+      name: tell
       callback:
         _target_: nevergrad.callbacks.OptimizationLogger
     # Stop the optimization if the best agent hasn't improved in the last 10 generations
-    # - name: ask
+    # no_improvement_stopper:
+    #   name: ask
     #   callback:
     #     _target_: nevergrad.callbacks.EarlyStopping.no_improvement_stopper
     #     tolerance_window: ${eval:'${oc.select:evo.population_size, 1} * 10'}

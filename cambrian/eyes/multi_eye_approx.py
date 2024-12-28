@@ -15,14 +15,14 @@ from cambrian.utils.spec import MjCambrianSpec
 
 
 @config_wrapper
-class MjCambrianApproxMultiEyeConfig(MjCambrianMultiEyeConfig):
-    """Config for MjCambrianApproxMultiEye.
+class MjCambrianMultiEyeApproxConfig(MjCambrianMultiEyeConfig):
+    """Config for MjCambrianMultiEyeApprox.
 
     Inherits from MjCambrianApproxEyeConfig and adds additional attributes for
     an approximate multi-eye setup.
     """
 
-    instance: Callable[[Self, str], "MjCambrianApproxMultiEye"]
+    instance: Callable[[Self, str], "MjCambrianMultiEyeApprox"]
 
 
 class MjCambrianApproxEye(MjCambrianEye):
@@ -113,13 +113,13 @@ class MjCambrianApproxEye(MjCambrianEye):
         return self.step(self._prev_obs)
 
 
-class MjCambrianApproxMultiEye(MjCambrianMultiEye):
+class MjCambrianMultiEyeApprox(MjCambrianMultiEye):
     """Defines a multi-eye system by rendering images from multiple cameras facing
     different directions."""
 
     def __init__(
         self,
-        config: MjCambrianApproxMultiEyeConfig,
+        config: MjCambrianMultiEyeApproxConfig,
         name: str,
         *,
         allow_disabling: bool = False,
@@ -139,7 +139,7 @@ class MjCambrianApproxMultiEye(MjCambrianMultiEye):
         else:
             super().__init__(config, name, disable_render=True)
 
-        self._config: MjCambrianApproxMultiEyeConfig
+        self._config: MjCambrianMultiEyeApproxConfig
         self._eyes: Dict[str, MjCambrianApproxEye]
 
         # Create cameras for the 6 faces of the cube

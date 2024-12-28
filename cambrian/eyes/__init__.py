@@ -1,11 +1,11 @@
 """This module defines the Cambrian eyes."""
 
-from cambrian.eyes.approx_multi_eye import (
-    MjCambrianApproxMultiEye,
-    MjCambrianApproxMultiEyeConfig,
-)
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.eyes.multi_eye import MjCambrianMultiEye, MjCambrianMultiEyeConfig
+from cambrian.eyes.multi_eye_approx import (
+    MjCambrianMultiEyeApprox,
+    MjCambrianMultiEyeApproxConfig,
+)
 from cambrian.eyes.optics import MjCambrianOpticsEye, MjCambrianOpticsEyeConfig
 
 __all__ = [
@@ -13,8 +13,8 @@ __all__ = [
     "MjCambrianEye",
     "MjCambrianMultiEyeConfig",
     "MjCambrianMultiEye",
-    "MjCambrianApproxMultiEyeConfig",
-    "MjCambrianApproxMultiEye",
+    "MjCambrianMultiEyeApproxConfig",
+    "MjCambrianMultiEyeApprox",
     "MjCambrianOpticsEyeConfig",
     "MjCambrianOpticsEye",
 ]

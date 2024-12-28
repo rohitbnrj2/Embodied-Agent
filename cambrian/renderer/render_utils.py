@@ -112,7 +112,7 @@ def generate_composite(images: Dict[float, Dict[float, torch.Tensor]]) -> torch.
             for lon in sorted(images[lat].keys())[::-1]
         ]
     )
-    H, W, _ = next(iter(images.values()))[0].shape
+    _, H, W, _ = composite.shape
     if H > W:
         h = max(H, 10)
         w = int(W * h / H)

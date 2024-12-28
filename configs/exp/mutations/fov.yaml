@@ -4,6 +4,6 @@ hydra:
   sweeper:
     params:
       env.agents.agent.eyes.eye.fov:
-        init: ${env.agents.agent.eyes.eye.fov}
+        init: ${${parent:}}
         lower: 1
         upper: 100
