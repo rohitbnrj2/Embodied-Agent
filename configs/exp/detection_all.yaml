@@ -3,10 +3,12 @@
 defaults:
   - exp
 
-  - /exp/mutations:
+  - mutations:
       - resolution
       - num_eyes
       - lon_range
       - lat_range
       - stack_size
       - fov
+
+  - override /task: detection

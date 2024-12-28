@@ -25,9 +25,6 @@ defaults:
   - optional /exp/constraints: null
   - optional /exp/mutations: null
 
-  # Need to specify the task
-  - required /task: "???"
-
 trainer:
   callbacks:
     eval_callback:

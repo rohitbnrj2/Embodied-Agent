@@ -3,7 +3,6 @@ defaults:
   - /MjCambrianConfig
 
   # Ordered such that subsequent defaults override self
-  # - eval_env: eval_env
   - _self_
 
   - env: env
@@ -11,8 +10,10 @@ defaults:
   - trainer: trainer
   - hydra: hydra
 
-  # We require a exp to be defined
-  - required exp: "???"
+  # We require a task. Optionally can specify an exp which should define the task
+  # explicitly
+  - required task: "???"
+  - exp: exp
 
   # Add optional overlay configs here
   - optional overlays: null
