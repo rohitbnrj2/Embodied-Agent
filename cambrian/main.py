@@ -54,7 +54,6 @@ if __name__ == "__main__":
     import argparse
 
     from cambrian.ml.trainer import MjCambrianTrainer
-    from cambrian.utils.config import run_hydra
 
     parser = argparse.ArgumentParser()
     action = parser.add_mutually_exclusive_group(required=True)

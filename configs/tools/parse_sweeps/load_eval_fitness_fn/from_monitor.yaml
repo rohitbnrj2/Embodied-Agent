@@ -1,3 +1,0 @@
-_target_: parse_sweeps.load_fitness_from_monitor
-_partial_: true
-filename: "eval_monitor.csv"

@@ -1,3 +1,0 @@
-birds_eye_no_overlays:
-  - "+env/renderer=bev"
-  - "env.add_overlays=False"

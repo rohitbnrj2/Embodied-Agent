@@ -1,3 +1,0 @@
-first_person:
-  - "env.render_agent_composite_only=True"
-  - "env.add_overlays=False"

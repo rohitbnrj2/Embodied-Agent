@@ -1,5 +1,0 @@
-defaults:
-  - env_showcase
-  - _self_
-
-exp: "paper/navigation"

@@ -5,33 +5,15 @@ _target_: cambrian.ml.model.MjCambrianModel.load_weights
 _partial_: true
 
 # Set default weight to 0.0
-# res.0 * res.1 * 3 * num_eyes.0 * num_eyes.1 * stack_size + 2(action) * stack_size + 2(contacts) * stack_size
 weights:
-  mlp_extractor__policy_net__0__weight: ${eval:'[[0.0] * 100] * 4'}
+  _target_: cambrian.ml.trainer.get_policy_weights
+  _convert_: object
 
-# weights: ${oc.create:${instantiate:${oc.create:${eval:'dict(
-#   _target_="cambrian.ml.trainer.get_policy_weights",
-#   _convert_="object",
-#   wrappers=${trainer.wrappers},
-#   model=${oc.create:${eval:"dict(
-#     _target_=\"cambrian.ml.model.MjCambrianModel\",
-#     _partial_=True,
-#     _convert_=\"all\",
-#     policy=\"${trainer.model.policy}\",
-#     policy_kwargs=${trainer.model.policy_kwargs},
-#     )"}},
-#   env=${eval_env},
-#   )'}}}}
-
-# weights:
-#   _target_: cambrian.ml.trainer.get_policy_weights
-#   _convert_: object
-
-#   wrappers: ${trainer.wrappers}
-#   model:
-#     _target_: cambrian.ml.model.MjCambrianModel
-#     _partial_: true
-#     _convert_: all
-#     policy: ${trainer.model.policy}
-#     policy_kwargs: ${trainer.model.policy_kwargs}
-#   env: ${env}
+  wrappers: ${trainer.wrappers}
+  model:
+    _target_: cambrian.ml.model.MjCambrianModel
+    _partial_: true
+    _convert_: all
+    policy: ${trainer.model.policy}
+    policy_kwargs: ${trainer.model.policy_kwargs}
+  env: ${env}

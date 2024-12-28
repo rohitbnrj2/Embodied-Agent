@@ -1,3 +1,0 @@
-_target_: parse_sweeps.load_fitness_from_txt
-_partial_: true
-filename: "train_fitness.txt"

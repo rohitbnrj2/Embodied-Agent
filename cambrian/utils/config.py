@@ -274,15 +274,15 @@ class MjCambrianContainerConfig:
             Dumper=dumper,
         )
 
-    # def __getstate__(self) -> DictConfig:
-    #     """This is used to pickle the object. We'll return the config as the state."""
-    #     return self.config
+    def __getstate__(self) -> DictConfig:
+        """This is used to pickle the object. We'll return the config as the state."""
+        return self.config
 
-    # def __setstate__(self, state: DictConfig):
-    #     """This is used to unpickle the object. We'll set the config from the state."""
-    #     instance = self.instantiate(state)
-    #     for field_name in self.__dataclass_fields__.keys():
-    #         setattr(self, field_name, getattr(instance, field_name))
+    def __setstate__(self, state: DictConfig):
+        """This is used to unpickle the object. We'll set the config from the state."""
+        instance = self.instantiate(state)
+        for field_name in self.__dataclass_fields__.keys():
+            setattr(self, field_name, getattr(instance, field_name))
 
     def __str__(self) -> str:
         if self.config is None:

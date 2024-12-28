@@ -4,7 +4,6 @@ defaults:
   - exp
 
   - /exp/mutations:
-      # - weights
       - resolution
       - num_eyes
       - lon_range
