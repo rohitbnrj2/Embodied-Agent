@@ -216,7 +216,12 @@ class MjCambrianTrainer:
             envs.append(wrapped_env)
 
         # Wrap the environments
-        vec_env = DummyVecEnv(envs) if n_envs == 1 else SubprocVecEnv(envs)
+        # Explicitly set start_method to spawn to avoid using forkserver on mac
+        vec_env = (
+            DummyVecEnv(envs)
+            if n_envs == 1
+            else SubprocVecEnv(envs, start_method="spawn")
+        )
         if monitor is not None:
             vec_env = VecMonitor(vec_env, str(self._config.expdir / monitor))
 

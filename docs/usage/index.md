@@ -9,4 +9,5 @@ configuration
 training
 visualizing
 docker
+pitfalls
 ```

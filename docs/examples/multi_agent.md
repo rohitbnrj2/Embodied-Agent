@@ -11,7 +11,7 @@ Multi-agent training is not directly supported in ACI; [`stable-baselines3`](htt
 A multi-agent detection task has been provided and can be run using the following command:
 
 ```bash
-bash scripts/run.sh cambrian/main.py --train exp=all task=detection
+bash scripts/run.sh cambrian/main.py --train task=detection
 ```
 
 The config is provided below. The task itself is just the detection task, but with two agents rather than one.

@@ -12,7 +12,7 @@ pettingzoo = "^1.24.3"
 mujoco = { version = "^3.2.5", extras = ["usd"] }
 mujoco-mjx = "^3.2.6"
 brax = "^0.12.1"
-jax = { version = "^0.4.38", extras = ["cuda12_local"] }
+jax = { version = "^0.4.38" }
 pyyaml = "^6.0.2"
 scipy = "^1.14.1"
 scikit-image = "^0.24.0"
