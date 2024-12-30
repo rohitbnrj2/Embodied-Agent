@@ -113,8 +113,6 @@ class MjCambrianEye:
         """
 
         xml = MjCambrianXML.make_empty()
-        if self._renderer is None:
-            return xml
 
         # Get the parent body reference
         parent_body = parent_xml.find(".//body", name=parent_body_name)
@@ -135,7 +133,9 @@ class MjCambrianEye:
 
         # Finally add the camera element at the end
         pos, quat = self._calculate_pos_quat(geom, self._config.coord)
-        resolution = [self._renderer.config.width, self._renderer.config.height]
+        resolution = [1, 1]
+        if self._renderer is not None:
+            resolution = [self._renderer.config.width, self._renderer.config.height]
         xml.add(
             parent,
             "camera",

@@ -37,10 +37,6 @@ class MjCambrianApproxEye(MjCambrianEye):
         self._total_resolution: Tuple[int, int] = None
         self._crop_rect: Tuple[int, int, int, int] = None
 
-    def generate_xml(self, *args, **kwargs) -> MjCambrianXML:
-        """Generates an empty XML."""
-        return MjCambrianXML.make_empty()
-
     def compute_crop_rect(
         self,
         total_fov: Tuple[float, float],
@@ -245,6 +241,11 @@ class MjCambrianMultiEyeApprox(MjCambrianMultiEye):
                 continue
             parent = xml.add(parent, element.tag, **element.attrib)
         assert parent is not None, f"Could not find parent for '{parent_body_name}'"
+
+        # For each eye, add it to the xml; we won't actually render using any of the
+        # cameras it creates
+        for eye in self._eyes.values():
+            xml += eye.generate_xml(xml, geom, parent_body_name)
 
         # For each camera, calculate pos and quat, and add to xml
         for lat, lon, name in zip(self._lats, self._lons, self._renderers.keys()):
