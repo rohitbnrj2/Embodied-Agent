@@ -534,6 +534,8 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         if self._config.use_shared_context:
             from mujoco.glfw import GLContext as GLFWGLContext
 
+            GLFWGLContext.__del__ = lambda _: None
+
             GL_CONTEXT = GL_CONTEXT or GLFWGLContext(width, height)
             assert isinstance(GL_CONTEXT, GLFWGLContext), (
                 f"The mujoco gl context must be of type {GLFWGLContext} to use "
