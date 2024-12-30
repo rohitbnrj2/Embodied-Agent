@@ -145,7 +145,7 @@ the same experiment name. Ensure you set `expname` to a value which utilizes a s
 parameter to differentiate between runs, e.g.
 `expname=<EXPNAME>_\${param1}_\${param2}`.
 
-Alternatively, you can add `+overlays=sweep` to the command to automatically add the
+Alternatively, you can add `overlay=sweep` to the command to automatically add the
 sweep parameters to the experiment name.
 ```
 

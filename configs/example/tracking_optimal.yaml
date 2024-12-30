@@ -1,0 +1,7 @@
+# @package _global_
+
+defaults:
+  - tracking
+
+  # Override the agent to use an "optimal" policy
+  - override /env/agents@env.agents.agent: point_seeker

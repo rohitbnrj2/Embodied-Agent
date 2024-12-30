@@ -12,11 +12,12 @@ defaults:
 
   # We require a task. Optionally can specify an exp which should define the task
   # explicitly
-  - required task: "???"
+  - task: "???"
   - exp: exp
 
-  # Add optional overlay configs here
-  - optional overlays: null
+  # Add optional overlay or example configs here
+  - overlay: null
+  - example: null
 
   # Here we override the default launcher. Note that this only impacts
   # when multi-run is used. By default, we'll specify the local launcher (which is

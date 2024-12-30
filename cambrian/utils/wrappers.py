@@ -142,11 +142,7 @@ class MjCambrianPettingZooEnvWrapper(gym.Wrapper):
         name."""
         observation_space: Dict[str, gym.Space] = {}
         for agent in self.env.agents.values():
-            # Ignore non-trainable agents
-            if not agent.config.trainable:
-                continue
-
-            agent_observation_space = self.env.observation_space(agent.name)
+            agent_observation_space = agent.observation_space
             if isinstance(agent_observation_space, gym.spaces.Dict):
                 for key, value in agent_observation_space.spaces.items():
                     observation_space[f"{agent.name}_{key}"] = value
@@ -169,7 +165,7 @@ class MjCambrianPettingZooEnvWrapper(gym.Wrapper):
 
         # Get the first agent's action space
         first_agent_name = next(iter(self.env.agents.keys()))
-        first_agent_action_space = self.env.action_space(first_agent_name)
+        first_agent_action_space = self.env.agents[first_agent_name].action_space
 
         # Check if the action space is continuous
         assert isinstance(first_agent_action_space, gym.spaces.Box), (

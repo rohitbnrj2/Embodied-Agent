@@ -1,0 +1,8 @@
+# @package _global_
+
+defaults:
+  - detection_ma
+
+  # Override the agents to use an "optimal" policy
+  - override /env/agents@env.agents.agent: point_seeker
+  - override /env/agents@env.agents.agent1: point_seeker

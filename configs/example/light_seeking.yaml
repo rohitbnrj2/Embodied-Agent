@@ -1,9 +1,8 @@
 # @package _global_
 
 defaults:
-  - exp
-
-  - override /task: navigation
+  - example
+  - override /task: light_seeking
 
 env:
   agents:
@@ -11,5 +10,5 @@ env:
       eyes:
         eye:
           resolution: [1, 1]
-          num_eyes: [5, 5]
-          lon_range: [-135, 135]
+          num_eyes: [1, 1]
+          fov: [30, 150]

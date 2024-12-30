@@ -393,7 +393,9 @@ class MjCambrianAgent:
         ]
 
         if self._config.perturb_init_pos:
-            body.pos += [*np.random.normal(0, self._geom.rbound / 2, 2), 0]
+            pos = np.random.normal(0, self._geom.rbound / 2, 2)
+            pos = np.clip(pos, -self._geom.rbound / 2, self._geom.rbound / 2)
+            body.pos += [*pos, 0]
 
         self.body = body
 

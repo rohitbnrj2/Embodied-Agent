@@ -10,5 +10,3 @@ defaults:
       - lat_range
       - stack_size
       - fov
-
-  - override /task: detection
