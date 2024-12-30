@@ -1,0 +1,15 @@
+# @package _global_
+
+defaults:
+  - exp
+
+  - override /task: navigation
+
+env:
+  agents:
+    agent:
+      eyes:
+        eye:
+          resolution: [1, 1]
+          num_eyes: [5, 5]
+          lon_range: [-135, 135]

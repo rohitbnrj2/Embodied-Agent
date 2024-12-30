@@ -1,0 +1,15 @@
+# @package _global_
+
+defaults:
+  - exp
+
+  - override /task: detection
+
+env:
+  agents:
+    agent:
+      eyes:
+        eye:
+          resolution: [20, 20]
+          num_eyes: [1, 3]
+          lon_range: [-30, 30]
