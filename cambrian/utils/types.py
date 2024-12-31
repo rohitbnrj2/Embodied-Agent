@@ -24,7 +24,7 @@ TerminatedType: TypeAlias = bool | Dict[str, Self]
 TruncatedType: TypeAlias = bool | Dict[str, Self]
 InfoType: TypeAlias = Dict[str, Any] | Dict[str, Self]
 ActionType: TypeAlias = np.ndarray | torch.Tensor | Dict[str, Self]
-RenderType: TypeAlias = torch.Tensor | np.ndarray | Dict[str, Self] | None
+RenderFrame: TypeAlias = torch.Tensor | np.ndarray | Dict[str, Self] | None
 
 # ======================
 
@@ -64,7 +64,7 @@ __all__ = [
     "TruncatedType",
     "InfoType",
     "ActionType",
-    "RenderType",
+    "RenderFrame",
     "MjCambrianStepFn",
     "MjCambrianTerminationFn",
     "MjCambrianTruncationFn",

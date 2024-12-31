@@ -16,6 +16,7 @@ from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
 from cambrian.utils import MjCambrianGeometry, device, get_logger
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.spec import MjCambrianSpec
+from cambrian.utils.types import ObsType, RenderFrame
 
 
 @config_wrapper
@@ -184,7 +185,7 @@ class MjCambrianEye:
         quat = rot_rot.as_quat()
         return pos, quat
 
-    def reset(self, spec: MjCambrianSpec):
+    def reset(self, spec: MjCambrianSpec) -> ObsType:
         """Sets up the camera for rendering. This should be called before rendering
         the first time."""
 
@@ -213,14 +214,12 @@ class MjCambrianEye:
             )
         return obs
 
-    def step(
-        self, obs: Optional[torch.Tensor] = None
-    ) -> torch.Tensor | Tuple[torch.Tensor, torch.Tensor]:
+    def step(self, obs: ObsType = None) -> ObsType:
         """Simply calls `render` and sets the last observation. See `render()` for more
         information.
 
         Args:
-            obs (Optional[torch.Tensor]): The observation to set. Defaults to
+            obs (Optional[ObsType]): The observation to set. Defaults to
                 None. This can be used by derived classes to set the observation
                 directly.
         """
@@ -232,7 +231,7 @@ class MjCambrianEye:
         self._prev_obs.copy_(obs, non_blocking=True)
         return self._prev_obs
 
-    def render(self) -> torch.Tensor:
+    def render(self) -> RenderFrame:
         """Render the image from the camera. Will always only return the rgb array.
 
         This differs from step in that this is a debug method. The rendered image here

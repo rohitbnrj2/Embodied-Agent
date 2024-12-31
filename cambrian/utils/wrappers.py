@@ -5,12 +5,20 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import gymnasium as gym
 import numpy as np
-import torch
-from gymnasium.core import ActType, ObsType, RenderFrame
 from gymnasium.wrappers.numpy_to_torch import numpy_to_torch, torch_to_numpy
+from stable_baselines3.common.env_checker import check_env
 
 from cambrian.envs import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.utils import device, is_integer
+from cambrian.utils.types import (
+    ActionType,
+    InfoType,
+    ObsType,
+    RenderFrame,
+    RewardType,
+    TerminatedType,
+    TruncatedType,
+)
 
 
 class MjCambrianSingleAgentEnvWrapper(gym.Wrapper):
@@ -44,14 +52,14 @@ class MjCambrianSingleAgentEnvWrapper(gym.Wrapper):
         self.action_space = self._agent.action_space
         self.observation_space = self._agent.observation_space
 
-    def reset(self, *args, **kwargs) -> Tuple[ObsType, Dict[str, Any]]:
+    def reset(self, *args, **kwargs) -> Tuple[ObsType, InfoType]:
         obs, info = self.env.reset(*args, **kwargs)
 
         return obs[self._agent.name], info[self._agent.name]
 
     def step(
-        self, action: ActType
-    ) -> Tuple[ObsType, float, bool, bool, Dict[str, Any]]:
+        self, action: ActionType
+    ) -> Tuple[ObsType, RewardType, TerminatedType, TruncatedType, InfoType]:
         action = {self._agent.name: action}
         obs, reward, terminated, truncated, info = self.env.step(action)
 
@@ -59,7 +67,7 @@ class MjCambrianSingleAgentEnvWrapper(gym.Wrapper):
         info = info[self._agent.name]
 
         if self._combine_rewards:
-            reward = torch.sum(torch.tensor(list(reward.values()), device=device))
+            reward = sum(list(reward.values()))
         else:
             reward = reward[self._agent.name]
 
@@ -67,13 +75,11 @@ class MjCambrianSingleAgentEnvWrapper(gym.Wrapper):
             terminated = any(terminated.values())
         else:
             terminated = terminated[self._agent.name]
-        terminated = torch.tensor(terminated, device=device)
 
         if self._combine_truncated:
             truncated = any(truncated.values())
         else:
             truncated = truncated[self._agent.name]
-        truncated = torch.tensor(truncated, device=device)
 
         return obs, reward, terminated, truncated, info
 
@@ -85,16 +91,13 @@ class MjCambrianPettingZooEnvWrapper(gym.Wrapper):
     SB3 doesn't support Dict action spaces, so this wrapper will flatten the action
     into a single space. The observation can be a dict; however, nested dicts are not
     allowed.
-
-    Note:
-        All agents must be trainable
     """
 
     def __init__(self, env: MjCambrianEnv):
         super().__init__(env)
         self.env: MjCambrianEnv
 
-    def reset(self, *args, **kwargs) -> Tuple[ObsType, Dict[str, Any]]:
+    def reset(self, *args, **kwargs) -> Tuple[ObsType, InfoType]:
         obs, info = self.env.reset(*args, **kwargs)
 
         # Flatten the observations
@@ -109,8 +112,8 @@ class MjCambrianPettingZooEnvWrapper(gym.Wrapper):
         return flattened_obs, info
 
     def step(
-        self, action: ActType
-    ) -> Tuple[ObsType, float, bool, bool, Dict[str, Any]]:
+        self, action: ActionType
+    ) -> Tuple[ObsType, RewardType, TerminatedType, TruncatedType, InfoType]:
         # Convert the action back to a dict
         action = action.reshape(-1, len(self.env.agents))
         action = {
@@ -235,8 +238,8 @@ class MjCambrianConstantActionWrapper(gym.Wrapper):
         self._constant_action_values = list(constant_actions.values())
 
     def step(
-        self, action: ActType
-    ) -> Tuple[ObsType, float, bool, bool, Dict[str, Any]]:
+        self, action: ActionType
+    ) -> Tuple[ObsType, RewardType, TerminatedType, TruncatedType, InfoType]:
         if isinstance(action, dict):
             assert all(idx in action for idx in self._constant_action_indices), (
                 "The constant action indices must be in the action space."
@@ -274,8 +277,8 @@ class MjCambrianTorchToNumpyWrapper(gym.Wrapper):
         self._convert_action = convert_action
 
     def step(
-        self, actions: ActType
-    ) -> Tuple[ObsType, float, bool, bool, Dict[str, Any]]:
+        self, actions: ActionType
+    ) -> Tuple[ObsType, RewardType, TerminatedType, TruncatedType, InfoType]:
         """Using a numpy-based action that is converted to torch to be used by the
         environment.
 
@@ -292,9 +295,9 @@ class MjCambrianTorchToNumpyWrapper(gym.Wrapper):
 
         return (
             torch_to_numpy(obs),
-            torch_to_numpy(reward),
-            torch_to_numpy(terminated),
-            torch_to_numpy(truncated),
+            reward,
+            terminated,
+            truncated,
             torch_to_numpy(info),
         )
 
@@ -303,7 +306,7 @@ class MjCambrianTorchToNumpyWrapper(gym.Wrapper):
         *,
         seed: int | list[int] | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[ObsType, dict[str, Any]]:
+    ) -> Tuple[ObsType, InfoType]:
         """Resets the environment returning numpy-based observations and info.
 
         Args:
@@ -341,7 +344,7 @@ def make_wrapped_env(
         for wrapper in wrappers:
             env = wrapper(env)
         # check_env will call reset and set the seed to 0; call set_random_seed after
-        # check_env(env, warn=False)
+        check_env(env, warn=False)
         env.unwrapped.set_random_seed(seed)
         return env
 

@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Self, Tuple
 
 import mujoco as mj
 import numpy as np
-import torch
 from gymnasium import spaces
 from hydra_config import HydraContainerConfig, config_wrapper
 
@@ -13,11 +12,11 @@ from cambrian.utils import (
     MjCambrianActuator,
     MjCambrianGeometry,
     MjCambrianJoint,
-    device,
     get_logger,
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.spec import MjCambrianSpec, spec_from_xml_string
+from cambrian.utils.types import ActionType, ObsType, RenderFrame
 
 if TYPE_CHECKING:
     from cambrian.envs import MjCambrianEnv
@@ -275,21 +274,20 @@ class MjCambrianAgent:
 
         return xml
 
-    def apply_action(self, actions: List[float]):
+    def apply_action(self, actions: ActionType):
         """Applies the action to the agent. This probably happens before step
         so that the observations reflect the state of the agent after the new action
         is applied.
 
         It is assumed that the actions are normalized between -1 and 1.
         """
-        self._last_action = torch.tensor(actions).numpy(force=True)
+        self._last_action = actions
         if not actions:
             return
 
-        for action, actuator in zip(self._last_action, self._actuators):
+        for action, actuator in zip(actions, self._actuators):
             if actuator.ctrllimited:
-                ctrlrange = actuator.ctrlrange
-                action = (action - ctrlrange[0]) / (ctrlrange[1] - ctrlrange[0]) * 2 - 1
+                action = np.interp(action, [-1, 1], actuator.ctrlrange)
             self._spec.data.ctrl[actuator.adr] = action
 
     def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
@@ -310,7 +308,7 @@ class MjCambrianAgent:
             "and should never reach here."
         )
 
-    def reset(self, spec: MjCambrianSpec) -> Dict[str, Any]:
+    def reset(self, spec: MjCambrianSpec) -> ObsType:
         """Sets up the agent in the environment. Uses the model/data to update
         positions during the simulation.
         """
@@ -401,10 +399,10 @@ class MjCambrianAgent:
 
         self.body = body
 
-    def step(self) -> Dict[str, Any]:
+    def step(self) -> ObsType:
         """Steps the eyes and returns the observation."""
 
-        obs: Dict[str, Any] = {}
+        obs: ObsType = {}
         for name, eye in self.eyes.items():
             eye_obs = eye.step()
             if isinstance(eye_obs, dict):
@@ -414,20 +412,16 @@ class MjCambrianAgent:
 
         return self._update_obs(obs)
 
-    def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
+    def _update_obs(self, obs: ObsType) -> ObsType:
         """Add additional attributes to the observation."""
         if self._config.use_action_obs:
-            obs["action"] = torch.tensor(
-                self._last_action, device=device, dtype=torch.float32
-            )
+            obs["action"] = self._last_action
         if self._config.use_contact_obs:
-            obs["contacts"] = torch.tensor(
-                [self.has_contacts], device=device, dtype=torch.int32
-            )
+            obs["contacts"] = [self.has_contacts]
 
         return obs
 
-    def render(self) -> torch.Tensor | None:
+    def render(self) -> RenderFrame:
         """Renders the eyes and returns the debug image.
 
         We don't know where the eyes are placed, so for simplicity, we'll just return

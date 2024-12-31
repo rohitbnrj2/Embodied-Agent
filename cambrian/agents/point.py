@@ -1,14 +1,13 @@
 """Point agents."""
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 from gymnasium import spaces
 
 from cambrian.agents.agent import MjCambrianAgent2D, MjCambrianAgentConfig
-
-if TYPE_CHECKING:
-    from cambrian.envs.maze_env import MjCambrianMazeEnv
+from cambrian.envs.maze_env import MjCambrianMazeEnv
+from cambrian.utils.types import ActionType, ObsType
 
 
 class MjCambrianAgentPoint(MjCambrianAgent2D):
@@ -37,7 +36,7 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
     ):
         super().__init__(config, name)
 
-    def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
+    def _update_obs(self, obs: ObsType) -> ObsType:
         """Creates the entire obs dict."""
         obs = super()._update_obs(obs)
 
@@ -57,7 +56,7 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         theta = np.arctan2(vy, vx) - self.qpos[2]
         return v, theta
 
-    def apply_action(self, action: List[float]):
+    def apply_action(self, action: ActionType):
         """Calls the appropriate apply action method based on the heading joint type."""
         assert len(action) == 2, f"Action must have two elements, got {len(action)}."
 
@@ -117,12 +116,12 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
 
         self._prev_target_pos: np.ndarray = None
 
-    def reset(self, *args) -> Dict[str, Any]:
+    def reset(self, *args) -> ObsType:
         """Resets the optimal_trajectory."""
         self._optimal_trajectory = None
         return super().reset(*args)
 
-    def get_action_privileged(self, env: "MjCambrianMazeEnv") -> List[float]:
+    def get_action_privileged(self, env: MjCambrianMazeEnv) -> ActionType:
         if self._target is None:
             # Generate a random position to navigate to
             # Chooses one of the empty spaces in the maze

@@ -39,7 +39,7 @@ from cambrian.utils.types import (
     MjCambrianTerminationFn,
     MjCambrianTruncationFn,
     ObsType,
-    RenderType,
+    RenderFrame,
     RewardType,
     TerminatedType,
     TruncatedType,
@@ -416,11 +416,11 @@ class MjCambrianEnv(ParallelEnv, Env):
 
         return rewards
 
-    def render(self) -> RenderType:
+    def render(self) -> RenderFrame:
         """Renders the environment.
 
         Returns:
-            Dict[str, RenderType]: The rendered image for each render mode mapped to
+            Dict[str, RenderFrame]: The rendered image for each render mode mapped to
                 its corresponding str.
 
         Todo:
