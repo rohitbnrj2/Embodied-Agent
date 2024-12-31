@@ -7,6 +7,7 @@ from gymnasium import spaces
 
 from cambrian.agents.agent import MjCambrianAgent2D, MjCambrianAgentConfig
 from cambrian.envs.maze_env import MjCambrianMazeEnv
+from cambrian.utils import get_logger
 from cambrian.utils.types import ActionType, ObsType
 
 
@@ -119,6 +120,7 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
     def reset(self, *args) -> ObsType:
         """Resets the optimal_trajectory."""
         self._optimal_trajectory = None
+        self._prev_target_pos = None
         return super().reset(*args)
 
     def get_action_privileged(self, env: MjCambrianMazeEnv) -> ActionType:
@@ -146,9 +148,16 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
                 for agent_name, agent in env.agents.items():
                     if agent_name != self._target:
                         obstacles.append(tuple(env.maze.xy_to_rowcol(agent.pos)))
-                self._optimal_trajectory = env.maze.compute_optimal_path(
-                    self.pos, target_pos, obstacles=obstacles
-                )
+                try:
+                    self._optimal_trajectory = env.maze.compute_optimal_path(
+                        self.pos, target_pos, obstacles=obstacles
+                    )
+                except IndexError:
+                    # Happens if there's no path to the target
+                    get_logger().warning(
+                        f"No path to target {target_pos} from {self.pos}"
+                    )
+                    self._optimal_trajectory = np.array([target_pos[:2]])
             else:
                 self._optimal_trajectory = np.array([target_pos[:2]])
 

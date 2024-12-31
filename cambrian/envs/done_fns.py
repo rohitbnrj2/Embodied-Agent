@@ -22,7 +22,7 @@ def done_if_exceeds_max_episode_steps(
     env: MjCambrianEnv, agent: MjCambrianAgent, info: Dict[str, Any]
 ) -> bool:
     """Done if episode step exceeds max episode steps."""
-    return env.episode_step >= (env.max_episode_steps - 1)
+    return env.episode_step >= env.max_episode_steps - 1
 
 
 def done_if_low_reward(
@@ -31,8 +31,12 @@ def done_if_low_reward(
     info: Dict[str, Any],
     *,
     threshold: float,
+    disable: bool = False,
 ) -> bool:
     """Done if agent has low reward."""
+    if disable:
+        return False
+
     return env.cumulative_reward < threshold
 
 

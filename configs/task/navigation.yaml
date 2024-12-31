@@ -9,7 +9,7 @@
 defaults:
   # Use one fairly complicated maze
   - /env/mazes@env.mazes.maze: COMPLEX
-  - /env/mazes@eval_env.mazes.maze: COMPLEX_LARGE
+  # - /env/mazes@eval_env.mazes.maze: COMPLEX_LARGE
 
   # Use the maze_task config as the base
   - maze_task
@@ -47,7 +47,9 @@ env:
       _target_: cambrian.envs.reward_fns.reward_for_termination
       _partial_: true
       reward: 1.0
+      disable_on_max_episode_steps: true
       for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
+
     reward_for_truncation:
       _target_: cambrian.envs.reward_fns.reward_for_truncation
       _partial_: true
@@ -57,7 +59,7 @@ env:
     euclidean_delta_from_init:
       _target_: cambrian.envs.reward_fns.euclidean_delta_from_init
       _partial_: true
-      factor: 1.0
+      factor: 0.25
 
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
@@ -75,7 +77,8 @@ env:
     terminate_if_close_to_goal:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
-      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
+      to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
 
 eval_env:
@@ -87,24 +90,10 @@ eval_env:
         E: ${glob:agent*,${oc.dict.keys:env.agents}}
         O: ${glob:goal*,${oc.dict.keys:env.agents}}
 
-  step_fn:
-    # respawn the goal if the agent is close to it
-    respawn_objects_if_agent_close:
-      _target_: cambrian.envs.step_fns.step_respawn_agents_if_close_to_agents
-      _partial_: true
-      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
-      to_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
-      distance_threshold: 1.0
-
   reward_fn:
-    reward_if_goal_respawned:
-      _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
-      _partial_: true
-      # large positive reward for respawning the goal (which happens if the agent is
-      # close to it)
-      reward: ${env.reward_fn.reward_for_termination.reward}
-      for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
+    reward_for_termination:
+      reward: 10.0
 
   truncation_fn:
     truncate_if_low_reward:
-      threshold: -.inf
+      disable: true

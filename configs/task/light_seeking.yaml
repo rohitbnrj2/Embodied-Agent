@@ -23,20 +23,18 @@ env:
         O: ${glob:goal*,${oc.dict.keys:env.agents}}
 
   reward_fn:
+    reward_for_termination:
+      _target_: cambrian.envs.reward_fns.reward_for_termination
+      _partial_: true
+      reward: 1.0
+      disable_on_max_episode_steps: true
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
+
     reward_for_truncation:
       _target_: cambrian.envs.reward_fns.reward_for_truncation
       _partial_: true
       reward: -1.0
       for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
-
-    reward_if_close_to_goal:
-      _target_: cambrian.envs.reward_fns.reward_if_close_to_agents
-      _partial_: true
-      reward: 1.0
-      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
-      to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
-      distance_threshold: 1.0
-      scale_by_quickness: True
 
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
@@ -45,12 +43,13 @@ env:
       for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
   termination_fn:
-    # Terminate (i.e. succeed) if the agent is close to the goal
     terminate_if_close_to_goal:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents
       _partial_: true
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
       to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
+
 
 eval_env:
   step_fn:
@@ -72,8 +71,6 @@ eval_env:
       for_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
       scale_by_quickness: true
 
-    reward_if_close_to_goal:
-      disable: True
     penalize_if_has_contacts:
       # large negative reward for contacts
       penalty: -2.0

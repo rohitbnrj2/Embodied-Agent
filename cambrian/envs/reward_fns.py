@@ -50,9 +50,12 @@ def apply_reward_fn(
     for_agents: Optional[List[str]] = None,
     scale_by_quickness: bool = False,
     disable: bool = False,
+    disable_on_max_episode_steps: bool = False,
 ) -> float:
     """Applies the reward function to the agent if it is in the for_agents list."""
     if disable or not agent_selected(agent, for_agents):
+        return 0.0
+    if disable_on_max_episode_steps and env.episode_step >= env.max_episode_steps - 1:
         return 0.0
     factor = calc_quickness(env) if scale_by_quickness else 1.0
     return reward_fn() * factor
