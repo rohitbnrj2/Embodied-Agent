@@ -6,7 +6,7 @@ camera:
   type: 2 # mjCAMERA_FIXED
 
 scene_options:
-  _target_: cambrian.utils.config.instance_wrapper
+  _target_: hydra_config.utils.instance_wrapper
   instance:
     _target_: mujoco.MjvOption
 

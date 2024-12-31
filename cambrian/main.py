@@ -1,60 +1,10 @@
-from pathlib import Path
-from typing import Any, Optional
+import argparse
 
-from cambrian.envs.env import MjCambrianEnvConfig
-from cambrian.ml.evo import MjCambrianEvoConfig
-from cambrian.ml.trainer import MjCambrianTrainerConfig
-from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper, run_hydra
+from hydra_config import run_hydra
 
-# ==================
-
-
-@config_wrapper
-class MjCambrianConfig(MjCambrianContainerConfig):
-    """The base config for the mujoco cambrian environment. Used for type hinting.
-
-    Attributes:
-        logdir (Path): The primary directory which simulation data is stored in. This is
-            the highest level directory used for the experiment. `expdir` is the
-            subdirectory used for a specific experiment.
-        expdir (Path): The directory used for a specific experiment. This is the
-            directory where the experiment's data is stored. Should evaluate to
-            `logdir / `expsubdir`
-        expsubdir (Path): The subdirectory relative to logdir where the experiment's
-            data is stored. This is the directory where the experiment's data is stored.
-        expname (str): The name of the experiment. Used to name the logging
-            subdirectory.
-
-        seed (int): The base seed used when initializing the default thread/process.
-            Launched processes should use this seed value to calculate their own seed
-            values. This is used to ensure that each process has a unique seed.
-
-        training (MjCambrianTrainingConfig): The config for the training process.
-        env (MjCambrianEnvConfig): The config for the environment.
-        eval_env (MjCambrianEnvConfig): The config for the evaluation environment.
-    """
-
-    logdir: Path
-    expdir: Path
-    expsubdir: Path
-    expname: Any
-
-    seed: int
-
-    trainer: MjCambrianTrainerConfig
-    evo: Optional[MjCambrianEvoConfig] = None
-    env: MjCambrianEnvConfig
-    eval_env: MjCambrianEnvConfig | Any
-
-
-# =============
-
+from cambrian import MjCambrianConfig, MjCambrianTrainer
 
 if __name__ == "__main__":
-    import argparse
-
-    from cambrian.ml.trainer import MjCambrianTrainer
-
     parser = argparse.ArgumentParser()
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--train", action="store_true", help="Train the model")
@@ -65,7 +15,7 @@ if __name__ == "__main__":
     action.add_argument("--test", action="store_true", help="Test the evo loop")
 
     def main(
-        config: "MjCambrianConfig",
+        config: MjCambrianConfig,
         *,
         train: bool,
         eval: bool,

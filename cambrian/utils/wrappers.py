@@ -1,12 +1,13 @@
 """Wrappers for the MjCambrianEnv. Used during training."""
 
+from types import NoneType
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import gymnasium as gym
 import numpy as np
+import torch
 from gymnasium.core import ActType, ObsType, RenderFrame
 from gymnasium.wrappers.numpy_to_torch import numpy_to_torch, torch_to_numpy
-from stable_baselines3.common.env_checker import check_env
 
 from cambrian.envs import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.utils import device, is_integer
@@ -58,7 +59,7 @@ class MjCambrianSingleAgentEnvWrapper(gym.Wrapper):
         info = info[self._agent.name]
 
         if self._combine_rewards:
-            reward = np.sum(list(reward.values()))
+            reward = torch.sum(torch.tensor(list(reward.values()), device=device))
         else:
             reward = reward[self._agent.name]
 
@@ -66,11 +67,13 @@ class MjCambrianSingleAgentEnvWrapper(gym.Wrapper):
             terminated = any(terminated.values())
         else:
             terminated = terminated[self._agent.name]
+        terminated = torch.tensor(terminated, device=device)
 
         if self._combine_truncated:
             truncated = any(truncated.values())
         else:
             truncated = truncated[self._agent.name]
+        truncated = torch.tensor(truncated, device=device)
 
         return obs, reward, terminated, truncated, info
 
@@ -245,7 +248,12 @@ class MjCambrianConstantActionWrapper(gym.Wrapper):
 
 
 @torch_to_numpy.register(np.ndarray)
-def _iterable_torch_to_numpy(value: np.ndarray) -> np.ndarray:
+def _(value: np.ndarray) -> np.ndarray:
+    return value
+
+
+@torch_to_numpy.register(NoneType)
+def _(value: NoneType) -> NoneType:
     return value
 
 
@@ -284,9 +292,9 @@ class MjCambrianTorchToNumpyWrapper(gym.Wrapper):
 
         return (
             torch_to_numpy(obs),
-            float(reward),
-            bool(terminated),
-            bool(truncated),
+            torch_to_numpy(reward),
+            torch_to_numpy(terminated),
+            torch_to_numpy(truncated),
             torch_to_numpy(info),
         )
 
@@ -333,7 +341,7 @@ def make_wrapped_env(
         for wrapper in wrappers:
             env = wrapper(env)
         # check_env will call reset and set the seed to 0; call set_random_seed after
-        check_env(env, warn=False)
+        # check_env(env, warn=False)
         env.unwrapped.set_random_seed(seed)
         return env
 

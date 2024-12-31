@@ -2,23 +2,24 @@
 environment. The eye is essentially a camera that is attached to a body in the
 environment. The eye can render images and provide observations to the agent."""
 
-from typing import Callable, Optional, Self, Tuple
+from typing import Callable, List, Optional, Self, Tuple
+from xml.etree.ElementTree import Element
 
 import mujoco as mj
 import numpy as np
 import torch
 from gymnasium import spaces
+from hydra_config import HydraContainerConfig, config_wrapper
 from scipy.spatial.transform import Rotation as R
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
 from cambrian.utils import MjCambrianGeometry, device, get_logger
 from cambrian.utils.cambrian_xml import MjCambrianXML
-from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
 from cambrian.utils.spec import MjCambrianSpec
 
 
 @config_wrapper
-class MjCambrianEyeConfig(MjCambrianContainerConfig):
+class MjCambrianEyeConfig(HydraContainerConfig):
     """Defines the config for an eye. Used for type hinting.
 
     Attributes:
@@ -92,7 +93,11 @@ class MjCambrianEye:
             self._renderer = MjCambrianRenderer(self._config.renderer)
 
     def generate_xml(
-        self, parent_xml: MjCambrianXML, geom: MjCambrianGeometry, parent_body_name: str
+        self,
+        parent_xml: MjCambrianXML,
+        geom: MjCambrianGeometry,
+        parent_body_name: Optional[str] = None,
+        parent: Optional[List[Element] | Element] = None,
     ) -> MjCambrianXML:
         """Generate the xml for the eye.
 
@@ -108,28 +113,34 @@ class MjCambrianEye:
                 to extract the path of the parent body.
             geom (MjCambrianGeometry): The geometry of the parent body. Used to
                 calculate the pos and quat of the eye.
-            parent_body_name (str): The name of the parent body. Will search for the
-                body tag with this name, i.e. <body name="<parent_body_name>" ...>.
+            parent_body_name (Optional[str]): The name of the parent body. Will
+                search for the body tag with this name, i.e.
+                <body name="<parent_body_name>" ...>. Either this or `parent` must be
+                set.
+            parent (Optional[List[Element] | Element]): The parent element to attach
+                the eye to. If set, `parent_body_name` will be ignored. Either this or
+                `parent_body_name` must be set.
         """
 
         xml = MjCambrianXML.make_empty()
 
-        # Get the parent body reference
-        parent_body = parent_xml.find(".//body", name=parent_body_name)
-        assert parent_body is not None, f"Could not find body '{parent_body_name}'."
+        if parent is None:
+            # Get the parent body reference
+            parent_body = parent_xml.find(".//body", name=parent_body_name)
+            assert parent_body is not None, f"Could not find body '{parent_body_name}'."
 
-        # Iterate through the path and add the parent elements to the new xml
-        parent = None
-        elements, _ = parent_xml.get_path(parent_body)
-        for element in elements:
-            if (
-                temp_parent := xml.find(f".//{element.tag}", **element.attrib)
-            ) is not None:
-                # If the element already exists, then we'll use that as the parent
-                parent = temp_parent
-                continue
-            parent = xml.add(parent, element.tag, **element.attrib)
-        assert parent is not None, f"Could not find parent for '{parent_body_name}'"
+            # Iterate through the path and add the parent elements to the new xml
+            parent = None
+            elements, _ = parent_xml.get_path(parent_body)
+            for element in elements:
+                if (
+                    temp_parent := xml.find(f".//{element.tag}", **element.attrib)
+                ) is not None:
+                    # If the element already exists, then we'll use that as the parent
+                    parent = temp_parent
+                    continue
+                parent = xml.add(parent, element.tag, **element.attrib)
+            assert parent is not None, f"Could not find parent for '{parent_body_name}'"
 
         # Finally add the camera element at the end
         pos, quat = self._calculate_pos_quat(geom, self._config.coord)

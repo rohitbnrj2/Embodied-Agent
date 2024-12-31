@@ -3,6 +3,7 @@ from typing import Callable, Dict, Self, Tuple
 import mujoco as mj
 import numpy as np
 import torch
+from hydra_config import config_wrapper
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.eyes.multi_eye import MjCambrianMultiEye, MjCambrianMultiEyeConfig
@@ -10,7 +11,6 @@ from cambrian.renderer import MjCambrianRenderer
 from cambrian.renderer.render_utils import CubeToEquirectangularConverter
 from cambrian.utils import MjCambrianGeometry, device, get_logger, round_half_up
 from cambrian.utils.cambrian_xml import MjCambrianXML
-from cambrian.utils.config import config_wrapper
 from cambrian.utils.spec import MjCambrianSpec
 
 
@@ -142,8 +142,8 @@ class MjCambrianMultiEyeApprox(MjCambrianMultiEye):
         self._lats = [0, 0, 0, 0, -90, 90]
         self._lons = [135, 45, -45, -135, 45, 45]
         self._resolution = (
-            max(int(self._config.resolution[0] * 90 / self._config.fov[0]), 3),
-            max(int(self._config.resolution[1] * 90 / self._config.fov[1]), 3),
+            max(int(360.0 / self._config.fov[0] * self._config.resolution[0]), 10),
+            max(int(180.0 / self._config.fov[1] * self._config.resolution[1]), 10),
         )
 
         # Compute total FOV and resolution
@@ -245,7 +245,7 @@ class MjCambrianMultiEyeApprox(MjCambrianMultiEye):
         # For each eye, add it to the xml; we won't actually render using any of the
         # cameras it creates
         for eye in self._eyes.values():
-            xml += eye.generate_xml(xml, geom, parent_body_name)
+            xml += eye.generate_xml(xml, geom, parent=parent)
 
         # For each camera, calculate pos and quat, and add to xml
         for lat, lon, name in zip(self._lats, self._lons, self._renderers.keys()):

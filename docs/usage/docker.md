@@ -41,7 +41,7 @@ poetry install
 You can then run the code as you would on your local machine. For example, to run the training script:
 
 ```bash
-python cambrian/main.py --eval task=detection env.renderer.render_modes='[human]' env.renderer.save_mode=NONE trainer.max_episode_steps=10000 eval_env.n_eval_episodes=1 env/agents@env.agents.agent=point_seeker
+python cambrian/main.py --eval example=detection_optimal env.renderer.render_modes='[human]' env.renderer.save_mode=NONE trainer.max_episode_steps=10000 eval_env.n_eval_episodes=1
 ```
 
 The display window should then be visible from within the `vnc` container. You can connect to the VNC server in your browser. It's likely the server will be located at `http://localhost:8080`.

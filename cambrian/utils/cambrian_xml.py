@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Self, Tuple, TypeAlias
 
 import mujoco as mj
+from hydra_config import HydraContainerConfig
 
-from cambrian.utils.config import MjCambrianContainerConfig
 from cambrian.utils.logger import get_logger
 
-MjCambrianXMLConfig: TypeAlias = MjCambrianContainerConfig | List[Dict[str, Self]]
+MjCambrianXMLConfig: TypeAlias = HydraContainerConfig | List[Dict[str, Self]]
 """
 Actual type: List[Dict[str, Self]]
 OmegaConf complains since we have a Dict inside a List

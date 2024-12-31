@@ -43,7 +43,7 @@ seed: 0
 # Therefore, we need to specify _recursive_: false so `config` isn't instantiated early.
 # Then, in merge_with_kwargs, we instantiate the config.
 eval_env:
-  _target_: cambrian.utils.config.merge_with_kwargs
+  _target_: hydra_config.utils.merge_with_kwargs
   _recursive_: false
   config: ${env}
 

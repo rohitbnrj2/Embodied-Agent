@@ -2,12 +2,12 @@ from typing import Any, Callable, Dict, Self, Tuple
 
 import torch
 from gymnasium import spaces
+from hydra_config import config_wrapper
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.renderer.render_utils import generate_composite
 from cambrian.utils import MjCambrianGeometry, generate_sequence_from_range
 from cambrian.utils.cambrian_xml import MjCambrianXML
-from cambrian.utils.config import config_wrapper
 
 
 @config_wrapper
@@ -165,3 +165,8 @@ class MjCambrianMultiEye(MjCambrianEye):
     def name(self) -> str:
         """Returns the base name of the multi-eye system."""
         return self._name
+
+    @property
+    def num_eyes(self) -> int:
+        """Returns the number of eyes."""
+        return len(self._eyes)

@@ -57,7 +57,7 @@ def maybe_transpose_obs(observation: torch.Tensor) -> torch.Tensor:
     """
 
     if len(observation.shape) == 5:
-        observation = observation.permute(0, 1, 4, 2, 3)
+        observation = observation.permute(0, 1, 4, 2, 3)  # [B, T, N, H, W]
 
     return observation
 
@@ -81,6 +81,7 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
         # something there.
         super().__init__(observation_space, features_dim=1)
 
+        self._image_extractor = None
         if share_image_extractor:
             # Verify all the image spaces have the same shape
             image_space = None
@@ -117,13 +118,46 @@ class MjCambrianCombinedExtractor(BaseFeaturesExtractor):
         self._features_dim = total_concat_size
 
     def forward(self, observations: TensorDict) -> torch.Tensor:
-        encoded_tensor_list = []
-        for key, extractor in self.extractors.items():
-            observation = maybe_transpose_obs(observations[key])
-            encoded_tensor_list.append(extractor(observation))
+        if self._image_extractor is not None:
+            # Separate out image vs. non-image keys
+            image_keys = [
+                k
+                for k in self.extractors
+                if self.extractors[k] is self._image_extractor
+            ]
+            non_image_keys = [
+                k
+                for k in self.extractors
+                if self.extractors[k] is not self._image_extractor
+            ]
 
-        features = torch.cat(encoded_tensor_list, dim=1)
-        return features
+            # Concatenate just once
+            batch_extracted = None
+            if image_keys:
+                batch_images = maybe_transpose_obs(
+                    torch.cat([observations[k] for k in image_keys], dim=0)
+                )
+                batch_extracted = self._image_extractor(batch_images)
+                # Reshape to [num_image_keys, batch_size, feature_dim]
+                batch_extracted = batch_extracted.reshape(
+                    len(image_keys), -1, batch_extracted.shape[-1]
+                )
+
+            # Build the outputs
+            encoded_tensor_list = []
+            if batch_extracted is not None:
+                for i, k in enumerate(image_keys):
+                    encoded_tensor_list.append(batch_extracted[i])
+            for k in non_image_keys:
+                encoded_tensor_list.append(self.extractors[k](observations[k]))
+            return torch.cat(encoded_tensor_list, dim=1)
+        else:
+            # Fallback if not using shared image extractor
+            encoded_tensor_list = []
+            for key, extractor in self.extractors.items():
+                obs = maybe_transpose_obs(observations[key])
+                encoded_tensor_list.append(extractor(obs))
+            return torch.cat(encoded_tensor_list, dim=1)
 
 
 class PermutedFlattenExtractor(FlattenExtractor):
@@ -145,12 +179,14 @@ class MjCambrianImageFeaturesExtractor(BaseFeaturesExtractor):
     ):
         super().__init__(observation_space, features_dim)
 
-        n_channels = observation_space.shape[1]
-        height = observation_space.shape[2]
-        width = observation_space.shape[3]
+        if len(observation_space.shape) == 4:
+            _, height, width, n_channels = observation_space.shape
+            self._queue_size = observation_space.shape[0]
+        else:
+            height, width, n_channels = observation_space.shape
+            self._queue_size = 1
         self._num_pixels = n_channels * height * width
 
-        self._queue_size = observation_space.shape[0]
         self.temporal_linear = torch.nn.Sequential(
             torch.nn.Linear(features_dim * self._queue_size, features_dim),
             activation(),

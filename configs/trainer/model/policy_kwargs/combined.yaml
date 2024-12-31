@@ -5,6 +5,6 @@ features_extractor_kwargs:
   normalized_image: True
 net_arch:
   pi:
-    - 16
+    - 64
     - ${.0}
   vf: ${.pi}

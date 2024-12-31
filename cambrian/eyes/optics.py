@@ -5,14 +5,14 @@ from typing import Callable, Dict, List, Optional, Self, Tuple
 
 import numpy as np
 import torch
+from hydra_config import HydraContainerConfig, config_wrapper
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
-from cambrian.utils import get_logger, make_odd
-from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
+from cambrian.utils import make_odd
 
 
 @config_wrapper
-class MjCambrianApertureConfig(MjCambrianContainerConfig):
+class MjCambrianApertureConfig(HydraContainerConfig):
     pass
 
 
@@ -350,127 +350,3 @@ class MjCambrianOpticsEye(MjCambrianEye):
             mode="bilinear",
             align_corners=False,
         ).squeeze(0)
-
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    import mujoco as mj
-    from stable_baselines3.common.utils import set_random_seed
-
-    from cambrian.utils import setattrs_temporary
-    from cambrian.utils.cambrian_xml import MjCambrianXML
-    from cambrian.utils.config import MjCambrianConfig, run_hydra
-
-    def run(config: MjCambrianConfig, aperture: float = None):
-        set_random_seed(config.seed)
-
-        agent_config = next(iter(config.env.agents.values()))
-        agent_config.perturb_init_pos = False
-        if aperture is not None:
-            eye_name, eye_config = next(iter(agent_config.eyes.items()))
-            assert (
-                eye_config.aperture.get_typename() == "MjCambrianCircularApertureConfig"
-            )
-            eye_config1 = eye_config.copy()
-            eye_config1.set_readonly(False)
-            eye_config1.aperture.radius = aperture
-            agent_config.eyes[eye_name] = eye_config1
-
-        eye_config = next(iter(agent_config.eyes.values()))
-        if eye_config.aperture.get_typename() == "MjCambrianCircularApertureConfig":
-            aperture = eye_config.aperture.radius
-        else:
-            aperture = "mask"
-        get_logger().info(f"Running with aperture: {aperture}")
-
-        # xml = MjCambrianXML.from_string(config.env.xml)
-        xml = MjCambrianXML("models/blocks.xml")
-
-        # NOTE: Only uses the first agent
-        agent_config = next(iter(config.env.agents.values()))
-        agent = agent_config.instance(agent_config, "agent", 0)
-        xml += agent.generate_xml()
-
-        # Load the model and data
-        model = mj.MjModel.from_xml_string(xml.to_string())
-        data = mj.MjData(model)
-        mj.mj_step(model, data)
-
-        # Reset the agent
-        agent.reset(model, data)
-
-        # Set initial state
-        agent.quat = [np.cos(np.pi / 2), 0, 0, np.sin(np.pi / 2)]
-        mj.mj_step(model, data)
-
-        # Get the first eye
-        eye: MjCambrianOpticsEye = next(iter(agent.eyes.values()))
-        eye._renderer.viewer._scene.flags[mj.mjtRndFlag.mjRND_SKYBOX] = 1
-        rgb, depth = eye._renderer.render()
-        obs = eye.render()
-
-        # Get the PSFs
-        filtered_depth = depth[depth < np.max(depth)]
-        filtered_depth = np.clip(filtered_depth, 5 * max(eye.config.focal), np.inf)
-        mean_depth = torch.tensor(filtered_depth.mean(), device=eye._device)
-
-        with eye.config.set_readonly_temporarily(False), setattrs_temporary(
-            (eye.config, dict(refractive_index=1))
-        ):
-            aperture_only_psf: np.ndarray = eye._get_psf(mean_depth).cpu().numpy()
-            aperture_only_psf = (aperture_only_psf - aperture_only_psf.min()) / (
-                aperture_only_psf.max() - aperture_only_psf.min()
-            )
-        psf: np.ndarray = eye._get_psf(mean_depth).cpu().numpy()
-        psf = (psf - psf.min()) / (psf.max() - psf.min())
-
-        # Get the height map and pupil
-        height_map = eye._height_map.cpu().numpy()
-        aperture_img: np.ndarray = eye._A.cpu().numpy()
-
-        # Plot the image and depth
-        def imshow(ax, image: np.ndarray, title: str, **kwargs):
-            ax.imshow(image, **kwargs)
-            ax.set_title(title)
-            ax.axis("off")
-
-        fig, ax = plt.subplots(4, 2, figsize=(20, 30))  # r, c
-        imshow(ax[0, 0], rgb.transpose(1, 0, 2), "Image")
-        imshow(ax[0, 1], depth.transpose(1, 0), "Depth", cmap="gray")
-        imshow(ax[1, 0], obs.transpose(1, 0, 2), "Observation")
-        imshow(ax[1, 1], aperture_img, f"Aperture: {aperture}", cmap="gray")
-        imshow(ax[2, 0], aperture_only_psf.transpose(1, 2, 0), "Aperture Only PSF")
-        imshow(ax[2, 1], psf.transpose(1, 2, 0), "PSF")
-        imshow(ax[3, 0], height_map, "Height Map")
-
-        # Save the file to a filename with the config
-        aperture = f"aperture_{str(aperture).replace('.', 'p').replace('-', 'n')}"
-        sp_res = f"sp_{eye.config.renderer.width}x{eye.config.renderer.height}"
-        pp_res = f"pp_{eye.config.pupil_resolution[0]}x{eye.config.pupil_resolution[1]}"
-        filename = f"{aperture}_{sp_res}_{pp_res}.png"
-
-        plt.suptitle(filename.replace(".png", ""))
-        plt.tight_layout()
-        plt.savefig(config.expdir / filename)
-
-        # Save the observation as a separate image
-        filename = f"obs_{filename}"
-        plt.figure()
-        plt.imshow(obs.transpose(1, 0, 2))
-        plt.gca().set_axis_off()
-        plt.savefig(config.expdir / filename, bbox_inches="tight", pad_inches=0)
-
-        get_logger().info(f"Saved to {config.expdir / filename}")
-
-    def main(config: MjCambrianConfig):
-        config.set_readonly(False)
-        config.expdir.mkdir(parents=True, exist_ok=True)
-
-        run(config)
-        # run(config, 0.5)
-        # run(config, 0.1)
-        # run(config, 0.0)
-        # run(config, 0.9)
-        # run(config, 0.99)
-
-    run_hydra(main)

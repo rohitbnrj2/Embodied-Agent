@@ -2,22 +2,13 @@ import pickle
 import time
 from collections import deque
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Concatenate,
-    Dict,
-    List,
-    Optional,
-    Self,
-    Tuple,
-    TypeAlias,
-)
+from typing import Any, Callable, Dict, List, Optional, Self, Tuple
 
 import mujoco as mj
 import numpy as np
 import torch
 from gymnasium import Env, spaces
+from hydra_config import HydraContainerConfig, config_wrapper
 from pettingzoo import ParallelEnv
 
 from cambrian.agents.agent import MjCambrianAgent, MjCambrianAgentConfig
@@ -38,37 +29,27 @@ from cambrian.renderer.overlays import (
 )
 from cambrian.utils import device
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
-from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
 from cambrian.utils.logger import get_logger
 from cambrian.utils.spec import MjCambrianSpec, spec_from_xml
-
-# ======================
-
-MjCambrianStepFn: TypeAlias = Callable[
-    [Concatenate["MjCambrianEnv", Dict[str, Any], Dict[str, Dict[str, Any]], ...]],
-    Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]],
-]
-
-MjCambrianTerminationFn: TypeAlias = Callable[
-    Concatenate["MjCambrianEnv", MjCambrianAgent, Dict[str, Any], ...],
-    bool,
-]
-
-MjCambrianTruncationFn: TypeAlias = Callable[
-    Concatenate["MjCambrianEnv", MjCambrianAgent, Dict[str, Any], ...],
-    bool,
-]
-
-MjCambrianRewardFn: TypeAlias = Callable[
-    Concatenate["MjCambrianEnv", MjCambrianAgent, bool, bool, Dict[str, Any], ...],
-    float,
-]
+from cambrian.utils.types import (
+    ActionType,
+    InfoType,
+    MjCambrianRewardFn,
+    MjCambrianStepFn,
+    MjCambrianTerminationFn,
+    MjCambrianTruncationFn,
+    ObsType,
+    RenderType,
+    RewardType,
+    TerminatedType,
+    TruncatedType,
+)
 
 # ======================
 
 
 @config_wrapper
-class MjCambrianEnvConfig(MjCambrianContainerConfig):
+class MjCambrianEnvConfig(HydraContainerConfig):
     """Defines a config for the cambrian environment.
 
     Attributes:
@@ -222,7 +203,7 @@ class MjCambrianEnv(ParallelEnv, Env):
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[Any, Any]] = None
-    ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
+    ) -> Tuple[ObsType, InfoType]:
         """Reset the environment.
 
         Will reset all underlying components (the maze, the agents, etc.). The
@@ -230,7 +211,7 @@ class MjCambrianEnv(ParallelEnv, Env):
         up-to-date.
 
         Returns:
-            Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]: The observations for each
+            Tuple[ObsType, InfoType]: The observations for each
                 agent and the info dict for each agent.
         """
         if seed is not None and self._num_resets == 0:
@@ -285,14 +266,8 @@ class MjCambrianEnv(ParallelEnv, Env):
         return self._config.step_fn(self, obs, info)
 
     def step(
-        self, action: Dict[str, Any]
-    ) -> Tuple[
-        Dict[str, Any],
-        Dict[str, float],
-        Dict[str, bool],
-        Dict[str, bool],
-        Dict[str, Dict[str, Any]],
-    ]:
+        self, action: ActionType
+    ) -> Tuple[ObsType, RewardType, TerminatedType, TruncatedType, InfoType,]:
         """Step the environment.
 
         The dynamics is updated through the `_step_mujoco_simulation` method.
@@ -360,13 +335,12 @@ class MjCambrianEnv(ParallelEnv, Env):
             self._overlays["Cumulative Reward"] = round(self._cumulative_reward, 2)
 
             self._timings.append(time.time())
-            self._overlays["FPS"] = round(
-                (len(self._timings) - 1) / (self._timings[-1] - self._timings[0]), 2
-            )
+            fps = (len(self._timings) - 1) / (self._timings[-1] - self._timings[0])
+            self._overlays["FPS"] = round(fps, 2)
 
         return obs, reward, terminated, truncated, info
 
-    def _step_mujoco_simulation(self, n_frames: int, info: Dict[str, Dict[str, Any]]):
+    def _step_mujoco_simulation(self, n_frames: int, info: InfoType):
         """Sets the mujoco simulation. Will step the simulation `n_frames` times, each
         time checking if the agent has contacts."""
         # Initially set has_contacts to False for all agents
@@ -390,7 +364,7 @@ class MjCambrianEnv(ParallelEnv, Env):
                         # This reduces redundant checks
                         info[name]["has_contacts"] = agent.has_contacts
 
-    def _compute_terminated(self, info: Dict[str, Any]) -> Dict[str, bool]:
+    def _compute_terminated(self, info: InfoType) -> TerminatedType:
         """Compute whether the env has terminated. Termination indicates success,
         whereas truncated indicates failure.
 
@@ -404,7 +378,7 @@ class MjCambrianEnv(ParallelEnv, Env):
 
         return terminated
 
-    def _compute_truncated(self, info: Dict[str, Any]) -> bool:
+    def _compute_truncated(self, info: InfoType) -> TruncatedType:
         """Compute whether the env has terminated. Termination indicates success,
         whereas truncated indicates failure.
 
@@ -420,18 +394,18 @@ class MjCambrianEnv(ParallelEnv, Env):
 
     def _compute_reward(
         self,
-        terminated: Dict[str, bool],
-        truncated: Dict[str, bool],
-        info: Dict[str, Any],
-    ) -> Dict[str, float]:
+        terminated: TerminatedType,
+        truncated: TruncatedType,
+        info: InfoType,
+    ) -> RewardType:
         """Computes the reward for the environment.
 
         Args:
-            terminated (Dict[str, bool]): Whether each agent has terminated.
+            terminated (TerminatedType): Whether each agent has terminated.
                 Termination indicates success (agent has reached the goal).
-            truncated (Dict[str, bool]): Whether each agent has truncated.
+            truncated (TruncatedType): Whether each agent has truncated.
                 Truncation indicates failure (agent has hit the wall or something).
-            info (Dict[str, bool]): The info dict for each agent.
+            info (InfoType): The info dict for each agent.
         """
 
         rewards: Dict[str, float] = {}
@@ -442,11 +416,11 @@ class MjCambrianEnv(ParallelEnv, Env):
 
         return rewards
 
-    def render(self) -> torch.Tensor:
+    def render(self) -> RenderType:
         """Renders the environment.
 
         Returns:
-            Dict[str, torch.Tensor]: The rendered image for each render mode mapped to
+            Dict[str, RenderType]: The rendered image for each render mode mapped to
                 its corresponding str.
 
         Todo:
@@ -498,13 +472,13 @@ class MjCambrianEnv(ParallelEnv, Env):
 
             # Set the overlay size to be a fraction of the renderer size relative to
             # the agent count.
-            num_agents = len([a for a in self._agents.values() if a.trainable])
+            trainable_agents = {n: a for n, a in self._agents.items() if a.trainable}
+            num_agents = len(trainable_agents)
             overlay_width = int(renderer_width // num_agents) if num_agents > 0 else 0
             overlay_height = int(renderer_height * self._config.debug_overlays_size)
             overlay_size = (overlay_height, overlay_width)
 
             cursor = MjCambrianCursor(0, 0)
-            trainable_agents = {n: a for n, a in self._agents.items() if a.trainable}
             for i, (name, agent) in enumerate(trainable_agents.items()):
                 cursor.x = i * overlay_width
                 cursor.y = 0
@@ -525,7 +499,7 @@ class MjCambrianEnv(ParallelEnv, Env):
 
                 cursor.x -= TEXT_MARGIN
                 cursor.y -= TEXT_MARGIN
-                overlay_text = f"Num Eyes: {len(agent.eyes)}"
+                overlay_text = f"Num Eyes: {agent.num_eyes}"
                 overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
                 cursor.y += TEXT_HEIGHT
                 if len(agent.eyes) > 0:

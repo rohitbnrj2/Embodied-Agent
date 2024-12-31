@@ -11,7 +11,7 @@ import numpy as np
 from scipy.stats import zscore
 
 if TYPE_CHECKING:
-    from cambrian.utils.config import MjCambrianConfig
+    from cambrian.config import MjCambrianConfig
 
 # ========================
 # Utils

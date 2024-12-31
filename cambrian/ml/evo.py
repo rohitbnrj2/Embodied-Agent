@@ -7,11 +7,11 @@ try:
 except ImportError:
     has_nevergrad = False
 
-from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
+from hydra_config import HydraContainerConfig, config_wrapper
 
 
 @config_wrapper
-class MjCambrianEvoConfig(MjCambrianContainerConfig):
+class MjCambrianEvoConfig(HydraContainerConfig):
     population_size: int
     num_generations: int
 

@@ -68,10 +68,12 @@ class MjCambrianImageViewerOverlay(MjCambrianViewerOverlay):
 
     def __init__(self, obj: torch.Tensor, cursor: Optional[MjCambrianCursor] = None):
         super().__init__(obj, cursor)
+        self._obj_cpu = obj.cpu()
 
     def draw_after_render(self, mjr_context: mj.MjrContext, viewport: mj.MjrRect):
+        self._obj_cpu.copy_(self._obj, non_blocking=True)
         viewport = mj.MjrRect(*self._cursor, self._obj.shape[1], self._obj.shape[0])
-        mj.mjr_drawPixels(self._obj.cpu().numpy().ravel(), None, viewport, mjr_context)
+        mj.mjr_drawPixels(self._obj_cpu.numpy().ravel(), None, viewport, mjr_context)
 
 
 class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):

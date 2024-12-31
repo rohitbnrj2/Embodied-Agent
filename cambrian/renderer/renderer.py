@@ -15,15 +15,11 @@ import mujoco.usd.exporter
 import numpy as np
 import OpenGL.GL as GL
 import torch
+from hydra_config import HydraContainerConfig, HydraFlagWrapperMeta, config_wrapper
 
 import cambrian.utils
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.renderer.render_utils import convert_depth_distances
-from cambrian.utils.config import (
-    MjCambrianContainerConfig,
-    MjCambrianFlagWrapperMeta,
-    config_wrapper,
-)
 from cambrian.utils.logger import get_logger
 from cambrian.utils.spec import MjCambrianSpec
 
@@ -46,7 +42,7 @@ if has_pycuda_gl and torch.device(device) != torch.device("cuda"):
     has_pycuda_gl = False
 
 
-class MjCambrianRendererSaveMode(Flag, metaclass=MjCambrianFlagWrapperMeta):
+class MjCambrianRendererSaveMode(Flag, metaclass=HydraFlagWrapperMeta):
     """The save modes for saving rendered images."""
 
     NONE = auto()
@@ -58,7 +54,7 @@ class MjCambrianRendererSaveMode(Flag, metaclass=MjCambrianFlagWrapperMeta):
 
 
 @config_wrapper
-class MjCambrianRendererConfig(MjCambrianContainerConfig):
+class MjCambrianRendererConfig(HydraContainerConfig):
     """The config for the renderer. Used for type hinting.
 
     A renderer corresponds to a single camera. The renderer can then view the scene in
@@ -173,6 +169,7 @@ class MjCambrianViewer(ABC):
         self._gl_context: mj.gl_context.GLContext = None
         self._mjr_context: mj.MjrContext = None
         self._font = mj.mjtFontScale.mjFONTSCALE_50
+        self._pixel_bytes = 3
 
         self._rgb_float32: torch.Tensor = None
         self._depth: torch.Tensor = None
@@ -202,16 +199,28 @@ class MjCambrianViewer(ABC):
         self._viewport = mj.MjrRect(0, 0, width, height)
 
         # Initialize the buffers
-        if self._rgb_float32 is None or self._rgb_float32.shape != (height, width, 3):
+        if self._rgb_float32 is None or self._rgb_float32.shape != (
+            height,
+            width,
+            self._pixel_bytes,
+        ):
             self._rgb_uint8 = torch.zeros(
-                (height, width, 3), dtype=torch.uint8, device=device
+                (height, width, self._pixel_bytes),
+                dtype=torch.uint8,
+                device=device,
             )
+            self._rgb_uint8_cpu = self._rgb_uint8.cpu()
             self._rgb_float32 = torch.zeros(
-                (height, width, 3), dtype=torch.float32, device=device
+                (height, width, self._pixel_bytes),
+                dtype=torch.float32,
+                device=device,
             )
             self._depth = torch.zeros(
-                (height, width), dtype=torch.float32, device=device
+                (height, width),
+                dtype=torch.float32,
+                device=device,
             )
+            self._depth_cpu = self._depth.cpu()
 
         if has_pycuda_gl:
             self._initialize_pbo()
@@ -259,7 +268,7 @@ class MjCambrianViewer(ABC):
     def _initialize_pbo(self):
         assert has_pycuda_gl and torch.device(device) == torch.device("cuda")
 
-        rgb_buffer_size = self.width * self.height * 3
+        rgb_buffer_size = self.width * self.height * self._pixel_bytes
         depth_buffer_size = self.width * self.height
 
         self._rgb_pbo = GL.glGenBuffers(1)
@@ -325,24 +334,19 @@ class MjCambrianViewer(ABC):
     def _read_pixels(
         self, read_depth: bool = False
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        rgb_uint8 = self._rgb_uint8.cpu()
-        rgb_float32 = self._rgb_float32.cpu()
-        depth = self._depth.cpu()
-
         mj.mjr_readPixels(
-            rgb_uint8.numpy(),
-            depth.numpy() if read_depth else None,
+            self._rgb_uint8_cpu,
+            self._depth_cpu if read_depth else None,
             self._viewport,
             self._mjr_context,
         )
-        if rgb_uint8.device != device:
-            rgb_uint8 = rgb_uint8.to(device)
-            rgb_float32 = rgb_float32.to(device)
-            if read_depth:
-                depth = depth.to(device)
-        torch.divide(rgb_uint8, 255.0, out=rgb_float32)
 
-        return rgb_float32, depth
+        self._rgb_uint8.copy_(self._rgb_uint8_cpu, non_blocking=True)
+        torch.divide(self._rgb_uint8, 255.0, out=self._rgb_float32)
+        if read_depth:
+            self._depth.copy_(self._depth_cpu, non_blocking=True)
+
+        return self._rgb_float32, self._depth
 
     def _read_pixels_cuda(
         self, read_depth: bool = False
@@ -408,7 +412,7 @@ class MjCambrianViewer(ABC):
         cuda.memcpy_dtod(
             int(self._rgb_uint8.data_ptr()),
             self._rgb_ptr,
-            self.width * self.height * 3,
+            self.width * self.height * self._pixel_bytes,
         )
         if read_depth:
             cuda.memcpy_dtod(
@@ -757,7 +761,8 @@ class MjCambrianRenderer:
 
         rgb, depth = self._viewer.read_pixels(read_depth=self._should_render_depth)
         if self._record and not resetting:
-            self._rgb_buffer.append(rgb.clone())
+            rgb_to_record = rgb.clone() if rgb.device == "cpu" else rgb.cpu().clone()
+            self._rgb_buffer.append(rgb_to_record)
 
         if self._should_render_depth:
             depth = convert_depth_distances(self._spec.model, depth)
@@ -783,7 +788,12 @@ class MjCambrianRenderer:
         save_mode = save_mode or self._config.save_mode
         duration = 1000 / fps
 
-        assert self._record, "Cannot save without recording."
+        if not self._record:
+            get_logger().warning(
+                "Not recording. Check if you called record() "
+                "or `rgb_array` is in render_modes. Ignoring save..."
+            )
+            return
         assert len(self._rgb_buffer) > 0, "Cannot save empty buffer."
 
         get_logger().info(f"Saving visualizations at {path}...")
@@ -887,22 +897,3 @@ class MjCambrianRenderer:
     @property
     def ratio(self) -> float:
         return self.width / self.height
-
-
-if __name__ == "__main__":
-    from cambrian.utils.config import MjCambrianConfig, run_hydra
-
-    def main(config: MjCambrianConfig):
-        model = mj.MjModel.from_xml_string(config.env.xml)
-        data = mj.MjData(model)
-        mj.mj_step(model, data)
-
-        renderer = MjCambrianRenderer(config.env.renderer)
-        renderer.reset(model, data)
-
-        while renderer.is_running():
-            renderer.render()
-
-    # Recommended to use these args:
-    # env.xml.xml_string=${read:models/blocks.xml} env/renderer=fixed
-    run_hydra(main)

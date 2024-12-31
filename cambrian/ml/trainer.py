@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Concatenate, Dict, List, Optional
 
 import torch
+from hydra_config import HydraContainerConfig, config_wrapper
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.vec_env import (
     DummyVecEnv,
@@ -15,7 +16,6 @@ from stable_baselines3.common.vec_env import (
 from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.ml.model import MjCambrianModel
 from cambrian.utils import evaluate_policy
-from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
 from cambrian.utils.logger import get_logger
 from cambrian.utils.wrappers import make_wrapped_env
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 
 @config_wrapper
-class MjCambrianTrainerConfig(MjCambrianContainerConfig):
+class MjCambrianTrainerConfig(HydraContainerConfig):
     """Settings for the training process. Used for type hinting.
 
     Attributes:

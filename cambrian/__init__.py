@@ -3,8 +3,8 @@
 import cambrian.agents  # noqa
 import cambrian.envs  # noqa
 import cambrian.eyes  # noqa
-from cambrian.main import MjCambrianConfig  # noqa
-from cambrian.utils.config import config_wrapper, run_hydra  # noqa
+from cambrian.config import MjCambrianConfig  # noqa
+from cambrian.ml.trainer import MjCambrianTrainer  # noqa
 
 __author__ = "Camera Culture (a2cc@media.mit.edu)"
 """Camera Culture (a2cc@media.mit.edu)"""

@@ -1,10 +1,8 @@
-import ast
 import contextlib
 import pickle
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
-from types import ModuleType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -19,7 +17,7 @@ from typing import (
 
 import mujoco as mj
 import numpy as np
-import torch
+from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import VecEnv
 
 from cambrian.utils.logger import get_logger
@@ -30,9 +28,7 @@ if TYPE_CHECKING:
 
 # ============
 
-# Device has to be CPU for sb3 to support
-# TODO: ideally we can keep everything on the gpu
-device = torch.device("cpu")
+device = get_device("auto")
 
 # ============
 
@@ -78,6 +74,7 @@ def evaluate_policy(
     obs = env.reset()
     get_logger().info(f"Starting {num_runs} evaluation run(s)...")
     while run < num_runs:
+        # get number of parameters
         action, _ = model.predict(obs, deterministic=True)
         obs, _, done, _ = env.step(action)
 
@@ -335,338 +332,45 @@ def agent_selected(agent: "MjCambrianAgent", agents: Optional[List[str]]):
 # Misc utils
 
 
-def literal_eval_with_callables(
-    node_or_string,
-    safe_callables: Dict[str, Callable] = {},
-    safe_methods: Dict[Tuple[type, str], Callable] = {},
-    *,
-    _env={},
-):
-    """
-    Safely evaluate an expression node or a string containing a Python expression.
-    The expression can contain literals, lists, tuples, dicts, unary and binary
-    operators. Calls to functions specified in 'safe_callables' dictionary are allowed.
-
-    This function is designed to evaluate expressions in a controlled environment,
-    preventing the execution of arbitrary code. It parses the input into an
-    Abstract Syntax Tree (AST) and recursively evaluates each node, only allowing
-    operations and function calls that are explicitly permitted.
-
-    Args:
-        node_or_string (Union[ast.AST, str]): The expression node or string to evaluate.
-        safe_callables (Dict[str, Callable]): A dictionary mapping function names to
-            callable Python objects. Only these functions can be called within the
-            expression.
-        safe_methods (Dict[Tuple[type, str], Callable]): A dictionary mapping
-            (type, method_name) to callable methods. Only these methods can be called
-            on objects within the expression.
-        _env (Dict): Internal parameter for variable and function environment.
-            Should not be set manually.
-
-    Returns:
-        Any: The result of the evaluated expression.
-
-    Raises:
-        ValueError: If the expression contains unsupported or malformed nodes or tries
-            to execute unsupported operations.
-
-    Examples:
-        >>> literal_eval_with_callables("1 + 2")
-        3
-        >>> literal_eval_with_callables("sqrt(4)", {'sqrt': math.sqrt})
-        2.0
-    """
-    if isinstance(node_or_string, str):
-        # Parse the string expression into an AST node
-        node = ast.parse(node_or_string, mode="eval").body
-    else:
-        node = node_or_string
-
-    # Copy safe_callables into _env to allow names to evaluate to callables,
-    # such as modules specified in safe_callables with their attributes/constants.
-    _env = {**safe_callables, **_env}
-
-    # Mapping of AST operator nodes to corresponding Python operations
-    op_map = {
-        ast.Add: lambda x, y: x + y,
-        ast.Sub: lambda x, y: x - y,
-        ast.Mult: lambda x, y: x * y,
-        ast.Div: lambda x, y: x / y,
-        ast.Mod: lambda x, y: x % y,
-        ast.Pow: lambda x, y: x**y,
-        ast.FloorDiv: lambda x, y: x // y,
-        ast.And: lambda x, y: x and y,
-        ast.Or: lambda x, y: x or y,
-        ast.Eq: lambda x, y: x == y,
-        ast.NotEq: lambda x, y: x != y,
-        ast.Lt: lambda x, y: x < y,
-        ast.LtE: lambda x, y: x <= y,
-        ast.Gt: lambda x, y: x > y,
-        ast.GtE: lambda x, y: x >= y,
-        ast.Is: lambda x, y: x is y,
-        ast.IsNot: lambda x, y: x is not y,
-        ast.In: lambda x, y: x in y,
-        ast.NotIn: lambda x, y: x not in y,
-        ast.BitAnd: lambda x, y: x & y,
-        ast.BitOr: lambda x, y: x | y,
-        ast.BitXor: lambda x, y: x ^ y,
-        ast.LShift: lambda x, y: x << y,
-        ast.RShift: lambda x, y: x >> y,
-        ast.Invert: lambda x: ~x,
-        ast.JoinedStr: lambda *values: "".join(map(str, values)),
-        ast.FormattedValue: lambda value, _: value,
-    }
-
-    def _convert(node):
-        if isinstance(node, ast.Constant):
-            # Return the value of constants (e.g., numbers, strings)
-            return node.value
-        elif isinstance(node, ast.Name):
-            # Handle variable names by looking them up in the environment
-            if node.id in _env:
-                return _env[node.id]
-            else:
-                raise ValueError(f"Name '{node.id}' is not defined.")
-        elif isinstance(node, ast.Attribute):
-            # Handle attribute access (e.g., obj.attr)
-            obj = _convert(node.value)
-            if isinstance(obj, ModuleType) and hasattr(obj, node.attr):
-                attribute = getattr(obj, node.attr)
-                return attribute if callable(attribute) else attribute
-            else:
-                raise ValueError(
-                    f"Attribute '{node.attr}' not found on object '{obj}'."
-                )
-        elif isinstance(node, (ast.Tuple, ast.List)):
-            # Handle tuple and list literals
-            elements = []
-            for elt in node.elts:
-                if isinstance(elt, ast.Starred):
-                    # Handle starred expressions (e.g., *args)
-                    elements.extend(_convert(elt.value))
-                else:
-                    elements.append(_convert(elt))
-            # Return the appropriate type (tuple or list)
-            return tuple(elements) if isinstance(node, ast.Tuple) else elements
-        elif isinstance(node, ast.Dict):
-            # Handle dictionary literals
-            return {_convert(k): _convert(v) for k, v in zip(node.keys, node.values)}
-        elif isinstance(node, ast.UnaryOp):
-            # Handle unary operations (e.g., +x, -x)
-            operand = _convert(node.operand)
-            if isinstance(node.op, ast.UAdd):
-                return +operand
-            elif isinstance(node.op, ast.USub):
-                return -operand
-            elif isinstance(node.op, ast.Not):
-                return not operand
-            else:
-                raise ValueError(f"Unsupported unary operator: {ast.dump(node.op)}")
-        elif isinstance(node, ast.BinOp) and type(node.op) in op_map:
-            # Handle binary operations (e.g., x + y)
-            left = _convert(node.left)
-            right = _convert(node.right)
-            return op_map[type(node.op)](left, right)
-        elif isinstance(node, ast.BoolOp) and type(node.op) in op_map:
-            # Handle boolean operations (e.g., x and y)
-            values = [_convert(v) for v in node.values]
-            result = values[0]
-            for value in values[1:]:
-                result = op_map[type(node.op)](result, value)
-            return result
-        elif isinstance(node, ast.Compare) and type(node.ops[0]) in op_map:
-            # Handle comparison operations (e.g., x < y)
-            left = _convert(node.left)
-            for op, comparator in zip(node.ops, node.comparators):
-                right = _convert(comparator)
-                if not op_map[type(op)](left, right):
-                    return False
-                left = right
-            return True
-        elif isinstance(node, ast.IfExp):
-            # Handle ternary expressions (e.g., x if condition else y)
-            return _convert(node.body) if _convert(node.test) else _convert(node.orelse)
-        elif isinstance(node, ast.JoinedStr):
-            return op_map[type(node)](*[_convert(value) for value in node.values])
-        elif isinstance(node, ast.FormattedValue):
-            return op_map[type(node)](_convert(node.value), node.conversion)
-        elif isinstance(node, ast.Call):
-            # Handle function and method calls
-            if isinstance(node.func, ast.Attribute):
-                # Method call (e.g., obj.method())
-                obj = _convert(node.func.value)
-                method_name = node.func.attr
-                if isinstance(obj, ModuleType):
-                    method_key = (obj, method_name)
-                    if method_key in safe_methods:
-                        method = safe_methods[method_key]
-                        return method(
-                            *map(_convert, node.args),
-                            **{kw.arg: _convert(kw.value) for kw in node.keywords},
-                        )
-                else:
-                    method_key = (type(obj), method_name)
-                    if method_key in safe_methods:
-                        method = safe_methods[method_key]
-                        # If the method is a callable, call it with the arguments and
-                        # pass the object as the first argument
-                        return method(
-                            obj,
-                            *map(_convert, node.args),
-                            **{kw.arg: _convert(kw.value) for kw in node.keywords},
-                        )
-                raise ValueError(
-                    f"Method '{method_name}' not "
-                    f"allowed on type '{type(obj).__name__}'."
-                )
-            elif isinstance(node.func, ast.Name):
-                # Function call (e.g., func())
-                func_name = node.func.id
-                if func_name in safe_callables:
-                    func = safe_callables[func_name]
-                    if callable(func):
-                        return func(
-                            *map(_convert, node.args),
-                            **{kw.arg: _convert(kw.value) for kw in node.keywords},
-                        )
-                    else:
-                        raise ValueError(f"Name '{func_name}' is not callable.")
-                else:
-                    raise ValueError(f"Function '{func_name}' is not allowed.")
-            else:
-                raise ValueError(f"Unsupported function call: {ast.dump(node.func)}")
-        elif isinstance(node, ast.GeneratorExp):
-            # Handle generator expressions (e.g., (x for x in iterable))
-            iter_node = node.elt
-            results = []
-
-            for comprehension in node.generators:
-                iter_list = _convert(comprehension.iter)
-                for item in iter_list:
-                    # Assign the item to the target variable in the environment
-                    _env[comprehension.target.id] = item
-                    # Check if all conditions in the comprehension are True
-                    if all(_convert(cond) for cond in comprehension.ifs):
-                        results.append(_convert(iter_node))
-
-            return results
-        elif isinstance(node, ast.ListComp):
-            # Handle list comprehensions by converting them to generator expressions
-            return _convert(ast.GeneratorExp(node.elt, node.generators))
-        elif isinstance(node, ast.Subscript):
-            # Handle subscription (e.g., obj[index])
-            obj = _convert(node.value)
-            index = _convert(node.slice)
-            return obj[index]
-        elif isinstance(node, ast.Slice):
-            # Handle slicing (e.g., start:stop:step)
-            start = _convert(node.lower) if node.lower else None
-            stop = _convert(node.upper) if node.upper else None
-            step = _convert(node.step) if node.step else None
-            return slice(start, stop, step)
-        elif isinstance(node, ast.Starred):
-            # Handle starred expressions in function calls or assignments
-            return _convert(node.value)
-        else:
-            raise ValueError(f"Unsupported node type: {type(node).__name__}")
-
-        # If none of the above cases matched, raise an error
-        raise ValueError(f"Couldn't parse node ({type(node)}): {ast.dump(node)}")
-
-    return _convert(node)
-
-
-def safe_eval(src: Any, additional_vars: Dict[str, Any] = {}) -> Any:
+def safe_eval(src: str, additional_vars: Dict[str, Any] = {}) -> Any:
     """
     Evaluate a string containing a Python expression in a safe manner.
 
-    This function uses `literal_eval_with_callables` to evaluate the expression,
+    This function uses ``RestrictedPython`` to evaluate the expression,
     only allowing certain built-in functions and types, and any additional variables
     provided. It prevents execution of arbitrary code or access to unauthorized
     functions and methods.
 
     Args:
-        src (Any): The source code (string or AST node) to evaluate.
+        src (str): The source code to evaluate.
         additional_vars (Dict[str, Any]): A dictionary of additional variables or
             functions to include in the evaluation environment.
 
     Returns:
         Any: The result of the evaluated expression.
 
-    Raises:
-        ValueError: If the expression contains unsupported operations or cannot be
-            evaluated.
-
     Examples:
         >>> safe_eval("1 + 2")
         3
         >>> safe_eval("max([1, 2, 3])")
         3
-        >>> safe_eval("math.sqrt(16)", {'math': math})
+        >>> safe_eval("math.sqrt(a)", {'a': 1})
         4.0
     """
-    import math
+    from RestrictedPython import (
+        compile_restricted,
+        limited_builtins,
+        safe_builtins,
+        utility_builtins,
+    )
 
-    # Define supported built-in functions and types
-    supported_builtins = {
-        "abs": abs,
-        "all": all,
-        "any": any,
-        "min": min,
-        "max": max,
-        "sum": sum,
-        "len": len,
-        "round": round,
-        "tuple": tuple,
-        "set": set,
-        "dict": dict,
-        "list": list,
-        "int": int,
-        "float": float,
-        "str": str,
-        "bool": bool,
-        "slice": slice,
-        "next": next,
-        "iter": iter,
-        "enumerate": enumerate,
-        "zip": zip,
-        "range": range,
-        "map": map,
-        "filter": filter,
-        "sorted": sorted,
-        "reversed": reversed,
+    safe_globals = {
+        **utility_builtins,
+        **safe_builtins,
+        **limited_builtins,
     }
-    # Create the safe environment for evaluation
-    safe_vars = {"math": math, **supported_builtins, **additional_vars}
-
-    # Define method names that are considered unsafe
-    unsafe_method_names = {
-        "format",
-        "format_map",
-        "eval",
-        "exec",
-        "compile",
-        "open",
-        "read",
-        "write",
-        "input",
-    }
-    # Build the dictionary of safe methods for supported built-in types
-    safe_methods = {
-        (safe_var, method_name): method
-        for safe_var in safe_vars.values()
-        if hasattr(safe_var, "__dict__")
-        for method_name, method in safe_var.__dict__.items()
-        if callable(method)
-        and not method_name.startswith("_")
-        and method_name not in unsafe_method_names
-    }
-    try:
-        # Evaluate the expression using the safe environment
-        return literal_eval_with_callables(src, safe_vars, safe_methods)
-    except ValueError as e:
-        # Raise a new ValueError with additional context
-        raise ValueError(f"Error evaluating expression '{src}': {e}") from e
+    byte_code = compile_restricted(src, filename="<inline code>", mode="eval")
+    return eval(byte_code, safe_globals, additional_vars)
 
 
 # =============

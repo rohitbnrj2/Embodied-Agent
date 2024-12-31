@@ -6,16 +6,17 @@ import mujoco as mj
 import numpy as np
 import torch
 from gymnasium import spaces
+from hydra_config import HydraContainerConfig, config_wrapper
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.utils import (
     MjCambrianActuator,
     MjCambrianGeometry,
     MjCambrianJoint,
+    device,
     get_logger,
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
-from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
 from cambrian.utils.spec import MjCambrianSpec, spec_from_xml_string
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
 
 
 @config_wrapper
-class MjCambrianAgentConfig(MjCambrianContainerConfig):
+class MjCambrianAgentConfig(HydraContainerConfig):
     """Defines the config for an agent. Used for type hinting.
 
     Attributes:
@@ -281,13 +282,14 @@ class MjCambrianAgent:
 
         It is assumed that the actions are normalized between -1 and 1.
         """
-        self._last_action = np.array(actions).copy()
+        self._last_action = torch.tensor(actions).numpy(force=True)
         if not actions:
             return
 
-        for action, actuator in zip(actions, self._actuators):
+        for action, actuator in zip(self._last_action, self._actuators):
             if actuator.ctrllimited:
-                action = np.interp(action, [-1, 1], actuator.ctrlrange)
+                ctrlrange = actuator.ctrlrange
+                action = (action - ctrlrange[0]) / (ctrlrange[1] - ctrlrange[0]) * 2 - 1
             self._spec.data.ctrl[actuator.adr] = action
 
     def get_action_privileged(self, env: "MjCambrianEnv") -> List[float]:
@@ -415,9 +417,13 @@ class MjCambrianAgent:
     def _update_obs(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         """Add additional attributes to the observation."""
         if self._config.use_action_obs:
-            obs["action"] = self._last_action
+            obs["action"] = torch.tensor(
+                self._last_action, device=device, dtype=torch.float32
+            )
         if self._config.use_contact_obs:
-            obs["contacts"] = self.has_contacts
+            obs["contacts"] = torch.tensor(
+                [self.has_contacts], device=device, dtype=torch.int32
+            )
 
         return obs
 
@@ -483,7 +489,9 @@ class MjCambrianAgent:
         if self._config.use_action_obs:
             observation_space["action"] = self.action_space
         if self._config.use_contact_obs:
-            observation_space["contacts"] = spaces.Discrete(2)
+            observation_space["contacts"] = spaces.Box(
+                low=0, high=1, shape=(1,), dtype=np.int32
+            )
 
         return spaces.Dict(observation_space)
 
@@ -610,6 +618,14 @@ class MjCambrianAgent:
         """Returns whether the agent is trainable or not."""
         return self._config.trainable
 
+    @property
+    def num_eyes(self) -> int:
+        """Returns the number of eyes on the agent."""
+        num_eyes = 0
+        for eye in self.eyes.values():
+            num_eyes += getattr(eye, "num_eyes", 1)
+        return num_eyes
+
 
 class MjCambrianAgent2D(MjCambrianAgent):
     """Assumes the agent is moving on 2D plane and has a yaw hinge joint which is used
@@ -629,29 +645,3 @@ class MjCambrianAgent2D(MjCambrianAgent):
             2 * (value[0] * value[3] + value[1] * value[2]),
             1 - 2 * (value[2] ** 2 + value[3] ** 2),
         )
-
-
-if __name__ == "__main__":
-    from cambrian.utils.config import MjCambrianConfig, run_hydra
-
-    def main(config: MjCambrianConfig):
-        agents: Dict[str, MjCambrianAgent] = {}
-        for name, agent_config in config.env.agents.items():
-            agents[name] = agent_config.instance(agent_config, name)
-
-        xml = MjCambrianXML.from_string(config.env.xml)
-        for agent in agents.values():
-            xml += agent.generate_xml()
-
-        model = mj.MjModel.from_xml_string(xml.to_string())
-        data = mj.MjData(model)
-        mj.mj_step(model, data)
-
-        for name, agent in agents.items():
-            agents[name].reset(model, data)
-
-        while True:
-            for agent in agents.values():
-                agent.step()
-
-    run_hydra(main)

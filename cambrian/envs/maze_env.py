@@ -2,12 +2,12 @@ from enum import Enum
 from typing import Any, Callable, Concatenate, Dict, List, Optional, Tuple, TypeAlias
 
 import numpy as np
+from hydra_config import HydraContainerConfig, config_wrapper
 
 from cambrian.agents.agent import MjCambrianAgent
 from cambrian.envs.env import MjCambrianEnv, MjCambrianEnvConfig
 from cambrian.utils import safe_index
 from cambrian.utils.cambrian_xml import MjCambrianXML
-from cambrian.utils.config import MjCambrianContainerConfig, config_wrapper
 from cambrian.utils.spec import MjCambrianSpec
 
 DEFAULT_ENTITY_ID: str = "default"
@@ -51,7 +51,7 @@ class MjCambrianMapEntity(Enum):
 
 
 @config_wrapper
-class MjCambrianMazeConfig(MjCambrianContainerConfig):
+class MjCambrianMazeConfig(HydraContainerConfig):
     """Defines a map config. Used for type hinting.
 
     Attributes:

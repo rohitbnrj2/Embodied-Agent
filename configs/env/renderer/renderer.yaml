@@ -1,12 +1,12 @@
 render_modes: [rgb_array]
 
 camera:
-  _target_: cambrian.utils.config.instance_wrapper
+  _target_: hydra_config.utils.instance_wrapper
   instance:
     _target_: mujoco.MjvCamera
 
 scene:
-  _target_: cambrian.utils.config.instance_wrapper
+  _target_: hydra_config.utils.instance_wrapper
   instance:
     _target_: mujoco.MjvScene
     _partial_: true
@@ -25,13 +25,13 @@ scene:
     - 1 # mjRND_CULL_FACE
 
 scene_options:
-  _target_: cambrian.utils.config.instance_wrapper
+  _target_: hydra_config.utils.instance_wrapper
   instance:
     _target_: mujoco.MjvOption
 
   # Visualize the camera frustums
   flags:
-    _target_: cambrian.utils.config.instance_wrapper
+    _target_: hydra_config.utils.instance_wrapper
     instance: ${..instance}
     key: ${parent:}
     setitem: true
@@ -41,7 +41,7 @@ scene_options:
   # The env renderer can see all sites and geoms
   # This is done by setting the _all_ sitegroups and geomgroups to True
   geomgroup:
-    _target_: cambrian.utils.config.instance_wrapper
+    _target_: hydra_config.utils.instance_wrapper
     instance: ${..instance}
     key: ${parent:}
     setitem: true
