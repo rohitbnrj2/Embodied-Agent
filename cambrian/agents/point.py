@@ -1,5 +1,6 @@
 """Point agents."""
 
+from functools import cached_property
 from typing import Optional, Tuple
 
 import numpy as np
@@ -69,7 +70,7 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
 
         super().apply_action([vx, vy, action[1]])
 
-    @property
+    @cached_property
     def action_space(self) -> spaces.Space:
         """Overrides the base implementation to only have two elements."""
         return spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)

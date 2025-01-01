@@ -238,6 +238,10 @@ def suppress_stdout_stderr():
             sys.stderr = old_stderr
 
 
+# =============
+# Mujoco utils
+
+
 @dataclass
 class MjCambrianActuator:
     """Helper class which stores information about a Mujoco actuator.
@@ -320,108 +324,42 @@ class MjCambrianGeometry:
     pos: np.ndarray
 
 
+def pickle_unpickleable_object(source: Any):
+    """Return a reduce tuple: (unpickle_callable, (args,))"""
+    attributes = {
+        attr: getattr(source, attr)
+        for attr in dir(source)
+        if not callable(getattr(source, attr)) and not attr.startswith("__")
+    }
+    # Return *our* unpickle function + arguments
+    return unpickle_unpickleable_object, (source.__class__, attributes)
+
+
+def unpickle_unpickleable_object(cls: Type[Any], attributes: Dict[str, Any]) -> Any:
+    """This will be called automatically by Python when unpickling."""
+    obj = cls()  # MjvOption() with no args
+    for attr, value in attributes.items():
+        setattr(obj, attr, value)
+    return obj
+
+
+def register_pickle_unpickleable_object(cls: Type[Any]):
+    import copyreg
+
+    copyreg.pickle(
+        cls,
+        pickle_unpickleable_object,
+        lambda source: unpickle_unpickleable_object(cls, source),
+    )
+
+
+register_pickle_unpickleable_object(mj.MjvOption)
+register_pickle_unpickleable_object(mj.MjvCamera)
+
+
 # ============
 
 
 def agent_selected(agent: "MjCambrianAgent", agents: Optional[List[str]]):
     """Check if the agent is selected."""
     return agents is None or any(fnmatch(agent.name, pattern) for pattern in agents)
-
-
-# =============
-# Misc utils
-
-
-def safe_eval(src: str, additional_vars: Dict[str, Any] = {}) -> Any:
-    """
-    Evaluate a string containing a Python expression in a safe manner.
-
-    This function uses ``RestrictedPython`` to evaluate the expression,
-    only allowing certain built-in functions and types, and any additional variables
-    provided. It prevents execution of arbitrary code or access to unauthorized
-    functions and methods.
-
-    Args:
-        src (str): The source code to evaluate.
-        additional_vars (Dict[str, Any]): A dictionary of additional variables or
-            functions to include in the evaluation environment.
-
-    Returns:
-        Any: The result of the evaluated expression.
-
-    Examples:
-        >>> safe_eval("1 + 2")
-        3
-        >>> safe_eval("max([1, 2, 3])")
-        3
-        >>> safe_eval("math.sqrt(a)", {'a': 1})
-        4.0
-    """
-    from RestrictedPython import (
-        compile_restricted,
-        limited_builtins,
-        safe_builtins,
-        utility_builtins,
-    )
-
-    safe_globals = {
-        **utility_builtins,
-        **safe_builtins,
-        **limited_builtins,
-    }
-    byte_code = compile_restricted(src, filename="<inline code>", mode="eval")
-    return eval(byte_code, safe_globals, additional_vars)
-
-
-# =============
-
-
-class MjCambrianWrapper:
-    def __init__(self, **kwargs):
-        self.setattrs(self, **kwargs)
-
-    @staticmethod
-    def wrap(instance: Type | Any, **kwargs) -> Any:
-        if isinstance(instance, type):
-            instance = instance()
-        MjCambrianWrapper.setattrs(instance, **kwargs)
-        return instance
-
-    @staticmethod
-    def setattrs(instance, **kwargs):
-        for key, value in kwargs.items():
-            if isinstance(value, dict):
-                assert hasattr(
-                    instance, key
-                ), f"'{instance.__class__.__name__}' has no attribute '{key}'"
-                MjCambrianWrapper.setattrs(getattr(instance, key), **value)
-            else:
-                assert hasattr(
-                    instance, key
-                ), f"'{instance.__class__.__name__}' has no attribute '{key}'"
-                setattr(instance, key, value)
-
-
-def wrap(instance: Type | Any, **kwargs) -> Any:
-    return MjCambrianWrapper.wrap(instance=instance, **kwargs)
-
-
-# =============
-
-
-def set_matplotlib_style(*, use_scienceplots: bool = True):
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-
-    sns.set_theme("paper", font_scale=1.5)
-    sns.set_style("ticks")
-
-    if use_scienceplots:
-        try:
-            import scienceplots  # noqa
-
-            plt.style.use(["science", "nature"])
-        except ImportError:
-            get_logger().warning(
-                "SciencePlots not found. Using default matplotlib style."
-            )

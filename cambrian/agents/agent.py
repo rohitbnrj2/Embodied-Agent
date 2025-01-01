@@ -1,5 +1,6 @@
 """Defines agent classes."""
 
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Self, Tuple
 
 import mujoco as mj
@@ -462,7 +463,7 @@ class MjCambrianAgent:
 
         return False
 
-    @property
+    @cached_property
     def observation_space(self) -> spaces.Space:
         """The observation space is defined on an agent basis. the `env` should combine
         the observation spaces such that it's supported by stable_baselines3/pettingzoo.
@@ -489,7 +490,7 @@ class MjCambrianAgent:
 
         return spaces.Dict(observation_space)
 
-    @property
+    @cached_property
     def action_space(self) -> spaces.Space:
         """The action space is simply the controllable actuators of the agent."""
         return spaces.Box(low=-1, high=1, shape=(self._numctrl,), dtype=np.float32)

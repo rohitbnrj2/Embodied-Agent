@@ -1,5 +1,8 @@
 # @package _global_
 
+# This task requires the agent to move towards a goal. In this case, the goal is a
+# light.
+
 defaults:
   # Use one maze for the time being
   - /env/mazes@env.mazes.maze: OPEN
@@ -12,7 +15,7 @@ defaults:
   - /env/agents/eyes@env.agents.agent.eyes.eye: multi_eye_approx
 
   # Define two objects: a goal
-  - /env/agents@env.agents.goal: object_sphere_light
+  - /env/agents@env.agents.goal0: object_sphere_light
 
 env:
   mazes:
@@ -23,23 +26,18 @@ env:
         O: ${glob:goal*,${oc.dict.keys:env.agents}}
 
   reward_fn:
-    reward_for_termination:
-      _target_: cambrian.envs.reward_fns.reward_for_termination
+    reward_if_done:
+      _target_: cambrian.envs.reward_fns.reward_fn_done
       _partial_: true
-      reward: 1.0
+      termination_reward: 1.0
+      truncation_reward: ${eval:'-${.termination_reward}'}
       disable_on_max_episode_steps: true
       for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
-    reward_for_truncation:
-      _target_: cambrian.envs.reward_fns.reward_for_truncation
+    penalize_if_has_contacts:
+      _target_: cambrian.envs.reward_fns.reward_fn_has_contacts
       _partial_: true
       reward: -1.0
-      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
-
-    penalize_if_has_contacts:
-      _target_: cambrian.envs.reward_fns.penalize_if_has_contacts
-      _partial_: true
-      penalty: -1.0
       for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
   termination_fn:
@@ -63,7 +61,7 @@ eval_env:
 
   reward_fn:
     reward_if_goal_respawned:
-      _target_: cambrian.envs.reward_fns.reward_if_agents_respawned
+      _target_: cambrian.envs.reward_fns.reward_fn_agent_respawned
       _partial_: true
       # large positive reward for respawning the goal (which happens if the agent is
       # close to it)

@@ -267,7 +267,7 @@ class MjCambrianEnv(ParallelEnv, Env):
 
     def step(
         self, action: ActionType
-    ) -> Tuple[ObsType, RewardType, TerminatedType, TruncatedType, InfoType,]:
+    ) -> Tuple[ObsType, RewardType, TerminatedType, TruncatedType, InfoType]:
         """Step the environment.
 
         The dynamics is updated through the `_step_mujoco_simulation` method.

@@ -1,5 +1,6 @@
-from typing import Any, Callable, Dict, Self, Tuple
+from typing import Callable, Dict, Self, Tuple
 
+import numpy as np
 import torch
 from gymnasium import spaces
 from hydra_config import config_wrapper
@@ -8,6 +9,7 @@ from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.renderer.render_utils import generate_composite
 from cambrian.utils import MjCambrianGeometry, generate_sequence_from_range
 from cambrian.utils.cambrian_xml import MjCambrianXML
+from cambrian.utils.types import ObsType
 
 
 @config_wrapper
@@ -40,6 +42,12 @@ class MjCambrianMultiEyeConfig(MjCambrianEyeConfig):
             to use the first eye config in the `eyes` attribute. `eyes` must have a
             length of 1 if this is specified. Each eye is named `eye_{lat}_{lon}` where
             `lat` is the latitude index and `lon` is the longitude index.
+
+        flatten_observation (Optional[bool]): Whether to flatten the observation space
+            of the multi-eye system. If True, the observation space will be a Box space
+            with the shape `(num_eyes * eye_observation_space,)`. If False, the
+            observation space will be a Dict space with the keys as the eye names and
+            the values as the eye observation spaces. Defaults to False.
     """
 
     instance: Callable[[Self, str], "MjCambrianMultiEye"]
@@ -48,6 +56,8 @@ class MjCambrianMultiEyeConfig(MjCambrianEyeConfig):
     lat_range: Tuple[float, float]
     lon_range: Tuple[float, float]
     num_eyes: Tuple[int, int]
+
+    flatten_observations: bool
 
 
 class MjCambrianMultiEye(MjCambrianEye):
@@ -97,7 +107,7 @@ class MjCambrianMultiEye(MjCambrianEye):
             xml += eye_xml
         return xml
 
-    def reset(self, *args):
+    def reset(self, *args) -> ObsType:
         """Reset all eyes."""
         obs = {}
         for name, eye in self._eyes.items():
@@ -105,13 +115,20 @@ class MjCambrianMultiEye(MjCambrianEye):
 
         super().reset(*args)
 
-        return obs
+        return self._update_obs(obs)
 
-    def step(self) -> Dict[str, Any]:
+    def step(self, obs: ObsType | None = None) -> ObsType:
         """Step all eyes and collect observations."""
-        obs = {}
-        for name, eye in self._eyes.items():
-            obs[name] = eye.step()
+        if obs is None:
+            obs = {}
+            for name, eye in self._eyes.items():
+                obs[name] = eye.step()
+        return self._update_obs(obs)
+
+    def _update_obs(self, obs: ObsType) -> ObsType:
+        """Update the observation space."""
+        if self._config.flatten_observations:
+            obs = torch.cat(list(obs.values()), dim=0)
         return obs
 
     def render(self) -> torch.Tensor | None:
@@ -143,13 +160,22 @@ class MjCambrianMultiEye(MjCambrianEye):
     @property
     def observation_space(self) -> spaces.Space:
         """Constructs the observation space for the multi-eye."""
-        observation_space = {}
-        for name, eye in self._eyes.items():
-            observation_space[name] = eye.observation_space
-        return spaces.Dict(observation_space)
+        if self._config.flatten_observations:
+            shape = (
+                self._config.resolution[0] * self.num_eyes,
+                self._config.resolution[1],
+                3,
+            )
+            observation_space = spaces.Box(low=0, high=1, shape=shape, dtype=np.float32)
+        else:
+            observation_space = {}
+            for name, eye in self._eyes.items():
+                observation_space[name] = eye.observation_space
+            observation_space = spaces.Dict(observation_space)
+        return observation_space
 
     @property
-    def prev_obs(self) -> Dict[str, torch.Tensor]:
+    def prev_obs(self) -> ObsType:
         """The last observations from all eyes."""
         obs = {}
         for name, eye in self._eyes.items():

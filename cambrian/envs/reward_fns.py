@@ -2,6 +2,7 @@
 
 from typing import Any, Callable, Dict, List, Optional
 
+import gymnasium as gym
 import numpy as np
 
 from cambrian.agents import MjCambrianAgent
@@ -25,14 +26,6 @@ def calc_delta(
     current_distance = np.linalg.norm(agent.pos - point)
     prev_distance = np.linalg.norm(info["prev_pos"] - point)
     return current_distance - prev_distance
-
-
-def check_if_larger(
-    p1: np.ndarray, p2: np.ndarray, point: np.ndarray = np.array([0, 0])
-) -> bool:
-    """Checks if the distance from point to p1 is larger than the distance from point
-    to p2."""
-    return np.linalg.norm(p1 - point) > np.linalg.norm(p2 - point)
 
 
 def calc_quickness(env: MjCambrianEnv) -> float:
@@ -65,7 +58,7 @@ def apply_reward_fn(
 # Reward functions
 
 
-def constant_reward(
+def reward_fn_constant(
     env: MjCambrianEnv,
     agent: MjCambrianAgent,
     terminated: bool,
@@ -79,67 +72,72 @@ def constant_reward(
     return apply_reward_fn(env, agent, reward_fn=lambda: reward, **kwargs)
 
 
-def reward_for_termination(
+def reward_fn_done(
     env: MjCambrianEnv,
     agent: MjCambrianAgent,
     terminated: bool,
     truncated: bool,
     info: Dict[str, Any],
     *,
-    reward: float,
+    termination_reward: float = 0.0,
+    truncation_reward: float = 0.0,
     **kwargs,
 ) -> float:
-    """Terminated indicates that the episode was ended early in a success.
-    Returns termination_reward if terminated, else reward."""
+    """Rewards the agent if the episode is done. Termination indicates a successful
+    episode, while truncation indicates an unsuccessful episode. If the time limit is
+    reached, this is considered a termination. Applying a reward in this case can be
+    disabled with the ``disable_on_max_episode_steps`` keyword argument.
+
+    Keyword Args:
+        termination_reward (float): The reward to give the agent if the episode is
+            terminated. Defaults to 0.
+        truncation_reward (float): The reward to give the agent if the episode is
+            truncated. Defaults to 0.
+    """
+
+    def calc_reward():
+        reward = 0.0
+        if terminated:
+            reward += termination_reward
+        if truncated:
+            reward += truncation_reward
+        return reward
+
     return apply_reward_fn(
-        env, agent, reward_fn=lambda: reward if terminated else 0.0, **kwargs
+        env,
+        agent,
+        reward_fn=calc_reward,
+        **kwargs,
     )
 
 
-def reward_for_truncation(
+def reward_fn_euclidean_delta_from_init(
     env: MjCambrianEnv,
     agent: MjCambrianAgent,
     terminated: bool,
     truncated: bool,
     info: Dict[str, Any],
     *,
-    reward: float,
-    **kwargs,
-) -> float:
-    """Truncated indicates that the episode was ended early in a failure.
-    Returns truncation_reward if truncated, else reward."""
-    return apply_reward_fn(
-        env, agent, reward_fn=lambda: reward if truncated else 0.0, **kwargs
-    )
-
-
-def euclidean_delta_from_init(
-    env: MjCambrianEnv,
-    agent: MjCambrianAgent,
-    terminated: bool,
-    truncated: bool,
-    info: Dict[str, Any],
-    *,
-    factor: float = 1.0,
+    reward: float = 1.0,
     **kwargs,
 ) -> float:
     """Rewards the change in distance over the previous step."""
     return apply_reward_fn(
         env,
         agent,
-        reward_fn=lambda: calc_delta(agent, info, agent.init_pos) * factor,
+        reward_fn=lambda: calc_delta(agent, info, agent.init_pos) * reward,
         **kwargs,
     )
 
 
-def reward_euclidean_delta_to_agents(
+def reward_fn_euclidean_delta_to_agent(
     env: MjCambrianEnv,
     agent: MjCambrianAgent,
     terminated: bool,
     truncated: bool,
     info: Dict[str, Any],
     *,
-    factor: float,
+    reward: float,
     to_agents: Optional[List[str]] = None,
     **kwargs,
 ):
@@ -156,7 +154,7 @@ def reward_euclidean_delta_to_agents(
 
             # NOTE: calc_delta returns a positive value if the agent moves away from the
             # agent. We'll multiple by -1 to flip the convention.
-            delta = -factor * calc_delta(agent, info, other_agent.pos)
+            delta = -reward * calc_delta(agent, info, other_agent.pos)
             accumulated_reward = delta
 
         return accumulated_reward
@@ -164,7 +162,7 @@ def reward_euclidean_delta_to_agents(
     return apply_reward_fn(env, agent, reward_fn=calc_deltas, **kwargs)
 
 
-def reward_if_agents_respawned(
+def reward_fn_agent_respawned(
     env: MjCambrianEnv,
     agent: MjCambrianAgent,
     terminated: bool,
@@ -183,7 +181,7 @@ def reward_if_agents_respawned(
     )
 
 
-def reward_if_close_to_agents(
+def reward_fn_close_to_agent(
     env: MjCambrianEnv,
     agent: MjCambrianAgent,
     terminated: bool,
@@ -203,9 +201,6 @@ def reward_if_close_to_agents(
             Default is 0.
         distance_threshold (float): The distance threshold to check if the agent is
             close to another agent.
-        for_agents (Optional[List[str]]): The names of the agents that the reward
-            should be calculated for. If None, the reward will be calculated for all
-            agents.
         from_agents (Optional[List[str]]): The names of the agents that the reward
             should be calculated from. If None, the reward will be calculated from all
             agents.
@@ -233,22 +228,76 @@ def reward_if_close_to_agents(
     return apply_reward_fn(env, agent, reward_fn=calc_deltas, **kwargs)
 
 
-def penalize_if_has_contacts(
+def reward_fn_has_contacts(
     env: MjCambrianEnv,
     agent: MjCambrianAgent,
     terminated: bool,
     truncated: bool,
     info: Dict[str, Any],
     *,
-    penalty: float,
+    reward: float,
     **kwargs,
 ) -> float:
-    """Penalizes the agent if it has contacts with the ground."""
+    """Rewards the agent if it has contacts."""
     return apply_reward_fn(
         env,
         agent,
-        reward_fn=lambda: penalty if info.get("has_contacts", False) else 0.0,
+        reward_fn=lambda: reward if info.get("has_contacts", False) else 0.0,
     )
+
+
+def reward_fn_action(
+    env: MjCambrianEnv,
+    agent: MjCambrianAgent,
+    terminated: bool,
+    truncated: bool,
+    info: Dict[str, Any],
+    *,
+    reward: float,
+    index: int | None = None,
+    normalize: bool = False,
+    absolute: bool = False,
+    **kwargs,
+) -> float:
+    """Rewards the agent based on the action taken.
+
+    Keyword Args:
+        reward (float): The reward to give the agent if the action is taken.
+        index (Optional[int]): The index of the action to use for the reward. If None,
+            the sum of the action is used.
+        normalize (bool): Whether to normalize the action to be in the range [0, 1).
+        absolute (bool): Whether to use the absolute value of the action.
+    """
+
+    def calc_reward():
+        nonlocal reward
+
+        action = info.get("action")
+        if action is None or len(action) == 0:
+            return 0.0
+
+        if normalize:
+            action_space = agent.action_space
+            assert isinstance(
+                action_space, gym.spaces.Box
+            ), "Action space must be a Box space"
+            action = (action - action_space.low) / (
+                action_space.high - action_space.low
+            )
+        if absolute:
+            action = np.abs(action)
+
+        if index is None:
+            reward *= sum(action)
+        else:
+            assert (
+                0 <= index < len(action)
+            ), f"Invalid index {index} for action {action}"
+            reward *= action[index]
+
+        return reward
+
+    return apply_reward_fn(env, agent, reward_fn=calc_reward, **kwargs)
 
 
 def reward_combined(

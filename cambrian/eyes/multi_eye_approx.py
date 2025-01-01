@@ -111,7 +111,16 @@ class MjCambrianApproxEye(MjCambrianEye):
 
 class MjCambrianMultiEyeApprox(MjCambrianMultiEye):
     """Defines a multi-eye system by rendering images from multiple cameras facing
-    different directions."""
+    different directions.
+
+    Args:
+        config (MjCambrianMultiEyeApproxConfig): Configuration for the multi-eye system.
+        name (str): Base name for the eyes.
+
+    Keyword Args:
+        allow_disabling (bool): If True, the system will default to MultiEye methods if
+            the number of total eyes is less than 10. Defaults to False.
+    """
 
     def __init__(
         self,
@@ -121,7 +130,7 @@ class MjCambrianMultiEyeApprox(MjCambrianMultiEye):
         allow_disabling: bool = False,
     ):
         # If the number of total eyes is less than 10, we default to only MultiEye
-        # methods
+        # methods if allow_disabling is True
         self.disable = False
         if np.prod(config.num_eyes) < 10 and allow_disabling:
             get_logger().warning(
@@ -330,4 +339,4 @@ class MjCambrianMultiEyeApprox(MjCambrianMultiEye):
         for i, eye in enumerate(self._eyes.values()):
             obs[eye.name] = eye.step(batched[i].permute(1, 2, 0))
 
-        return obs
+        return super().step(obs)
