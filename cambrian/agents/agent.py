@@ -282,7 +282,7 @@ class MjCambrianAgent:
 
         It is assumed that the actions are normalized between -1 and 1.
         """
-        self._last_action = actions
+        self._last_action = actions.copy()
         if not actions:
             return
 

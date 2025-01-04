@@ -1,5 +1,5 @@
 defaults:
-  - policy_kwargs: cnn_shared
+  - policy_kwargs: mlp_shared
 
 _target_: cambrian.ml.model.MjCambrianModel
 _partial_: true

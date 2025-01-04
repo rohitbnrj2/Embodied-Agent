@@ -1,5 +1,15 @@
 from enum import Enum
-from typing import Any, Callable, Concatenate, Dict, List, Optional, Tuple, TypeAlias
+from typing import (
+    Any,
+    Callable,
+    Concatenate,
+    Dict,
+    List,
+    Optional,
+    Self,
+    Tuple,
+    TypeAlias,
+)
 
 import numpy as np
 from hydra_config import HydraContainerConfig, config_wrapper
@@ -30,7 +40,7 @@ class MjCambrianMapEntity(Enum):
     EMPTY = "0"
 
     @staticmethod
-    def parse(value: str) -> Tuple[Enum, str]:
+    def parse(value: str) -> Tuple[Self, str]:
         """
         Parse a value to handle special formats like "1:<texture id>".
 
@@ -38,7 +48,8 @@ class MjCambrianMapEntity(Enum):
             value (str): The value to parse.
 
         Returns:
-            Tuple[Enum, str]: The parsed entity and the texture id if applicable.
+            Tuple[Self, str]: The parsed entity and the texture id if
+                applicable.
         """
         if value.startswith("1:"):
             return MjCambrianMapEntity.WALL, value[2:]

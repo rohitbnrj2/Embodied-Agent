@@ -35,8 +35,19 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         self,
         config: MjCambrianAgentConfig,
         name: str,
+        *,
+        kp: float = 0.25,
     ):
         super().__init__(config, name)
+
+        self._kp = kp
+
+        assert np.all(self._actuators[0].ctrlrange == self._actuators[1].ctrlrange), (
+            f"Forward velocity and lateral velocity must have the same control range, "
+            f"got {self._actuators[0].ctrlrange} and {self._actuators[1].ctrlrange}"
+        )
+        self._v_ctrlrange = np.array([0, 1])
+        self._theta_ctrlrange = self._actuators[2].ctrlrange
 
     def _update_obs(self, obs: ObsType) -> ObsType:
         """Creates the entire obs dict."""
@@ -46,7 +57,8 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         # Calculate the global velocities
         if self._config.use_action_obs:
             v, theta = self._calc_v_theta(self._last_action)
-            theta = np.interp(theta, self._actuators[2].ctrlrange, [-1, 1])
+            v = np.interp(v, self._v_ctrlrange, [-1, 1])
+            theta = np.interp(theta, self._theta_ctrlrange, [-1, 1])
             obs["action"] = np.array([v, theta], dtype=np.float32)
 
         return obs
@@ -63,12 +75,20 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         assert len(action) == 2, f"Action must have two elements, got {len(action)}."
 
         # Calculate global velocities
-        v = (action[0] + 1) / 2
+        v = np.interp(action[0], [-1, 1], self._v_ctrlrange)
         current_heading = self.qpos[2]
         vx = v * np.cos(current_heading)
         vy = v * np.sin(current_heading)
 
-        super().apply_action([vx, vy, action[1]])
+        # Calculate the heading velocity from input theta
+        target_heading = np.interp(action[1], [-1, 1], [-np.pi, np.pi])
+        delta_heading = np.arctan2(
+            np.sin(target_heading - current_heading),
+            np.cos(target_heading - current_heading),
+        )
+        heading_velocity = np.clip(self._kp * delta_heading, -1, 1)
+
+        super().apply_action([vx, vy, heading_velocity])
 
     @cached_property
     def action_space(self) -> spaces.Space:
@@ -88,7 +108,6 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
         target (Optional[str]): The name of the target agent to home in on. If
             None, a random free space in the maze will be chosen as the target.
         speed (float): The speed at which the agent moves. Defaults to -0.75.
-        kp (float): The proportional control constant for the heading velocity.
         distance_threshold (float): The distance threshold at which the agent will
             consider itself to have reached the target. Defaults to 2.0.
         use_optimal_trajectory (bool): Whether to use the optimal trajectory to the
@@ -102,7 +121,6 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
         *,
         target: Optional[str],
         speed: float = -0.75,
-        kp: float = 0.75,
         distance_threshold: float = 2.0,
         use_optimal_trajectory: bool = False,
     ):
@@ -110,7 +128,6 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
 
         self._target = target
         self._speed = speed
-        self._kp = kp
         self._distance_threshold = distance_threshold
 
         self._optimal_trajectory: np.ndarray = None
@@ -178,16 +195,5 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
 
         # Update the previous target position
         target_theta = np.arctan2(target_vector[1], target_vector[0])
-        current_theta = self.qpos[2]
 
-        # Wrap angles to avoid unnecessary large rotations
-        delta_heading = np.arctan2(
-            np.sin(target_theta - current_theta),
-            np.cos(target_theta - current_theta),
-        )
-
-        # Proportional control for heading velocity
-        heading_velocity = np.clip(self._kp * delta_heading, -1, 1)
-        heading_velocity = np.interp(heading_velocity, [-np.pi, np.pi], [-1, 1])
-
-        return [self._speed, heading_velocity]
+        return [self._speed, np.interp(target_theta, [-np.pi, np.pi], [-1, 1])]
