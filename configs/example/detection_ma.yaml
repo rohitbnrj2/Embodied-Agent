@@ -2,11 +2,16 @@
 
 defaults:
   - example
-  - override /task: detection_ma
+  - override /task:
+      - detection
+      - multi_agent
 
 env:
   agents:
     agent:
+      instance:
+        target: goal0
+
       eyes:
         eye:
           resolution: [20, 20]
@@ -14,6 +19,9 @@ env:
           lon_range: [-30, 30]
 
     agent1:
+      instance:
+        target: goal0
+
       eyes:
         eye:
           resolution: [20, 20]

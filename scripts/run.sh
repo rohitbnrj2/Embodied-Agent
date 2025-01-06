@@ -11,6 +11,15 @@
 SCRIPT=$1
 shift
 
-cmd="MUJOCO_GL=${MUJOCO_GL:-egl} python $SCRIPT $@"
+# Set mujoco gl depending on system
+# Mac will be cgl
+# all else will be egl
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    MUJOCO_GL=${MUJOCO_GL:-cgl}
+else
+    MUJOCO_GL=${MUJOCO_GL:-egl}
+fi
+
+cmd="MUJOCO_GL=${MUJOCO_GL} python $SCRIPT $@"
 echo "Running command: $cmd" | tee /dev/stderr
 eval $cmd

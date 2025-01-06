@@ -106,3 +106,10 @@ def clean_overrides_resolver(
         cleaned_overrides.append(f"{key}_{value}")
 
     return "_".join(cleaned_overrides) + (f"/seed_{seed}" if seed is not None else "")
+
+
+@register_new_resolver("num_cpus")
+def num_cpus_resolver() -> int:
+    import multiprocessing
+
+    return multiprocessing.cpu_count()

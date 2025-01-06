@@ -36,7 +36,7 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         config: MjCambrianAgentConfig,
         name: str,
         *,
-        kp: float = 0.25,
+        kp: float = 0.75,
     ):
         super().__init__(config, name)
 

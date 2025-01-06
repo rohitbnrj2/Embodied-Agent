@@ -1,8 +1,14 @@
 # @package _global_
 
-defaults:
-  - detection
+# NOTE: This task won't work as a standalone task. To use it, you must specify the
+# task like the following:
+# defaults:
+#  ...
+#  - override /task:
+#    - detection
+#    - two_agents
 
+defaults:
   # Define a second point agent with a single eye
   - /env/agents@env.agents.agent1: point
   - /env/agents/eyes@env.agents.agent1.eyes.eye: multi_eye_approx

@@ -27,13 +27,43 @@ pip install -e .
 
 ## Usage
 
-To simply train a single agent in a detection-style task, you can run the following:
+For more detailed information on how to train, evaluate, and run experiments, see the [Documentation](https://camera-culture.github.io/ACI/usage/index.html) website.
+
+### Test
+
+To test the setup and verify you can visualize the environment, you can run the following:
 
 ```bash
-bash scripts/run.sh cambrian/main.py --train exp=detection_all
+# Setting frame_skip slows down the agent's movements to make it easier to see, the default is 10.
+python cambrian/main.py --eval example=detection_optimal env.renderer.render_modes='[human]' env.frame_skip=5
 ```
 
-For more information on how to train, evaluate, and run experiments, see the [Documentation](https://camera-culture.github.io/ACI/usage/index.html) website.
+This command should open a window showing an agent moving towards a target. It uses an "optimal" policy which just tries to minimize the distance to the target always.
+
+Currently, the available examples are:
+
+- `light_seeking`: An agent moving towards a single light source.
+- `navigation`: A single agent navigating a large maze.
+- `navigation_ma`: `navigation`, but with multiple agents.
+- `detection`: A single agent moving towards a target while avoiding an obstacle.
+- `detection_ma`: `detection`, but with multiple agents.
+- `tracking`: Similar to `detection`, but the target and obstacle move.
+
+Any of the commands which show `example=<example>` can use any of the above examples, including `<example>_optimal` for the optimal policy.
+
+### Train
+
+To train a single agent in a detection-style task, you can run the following:
+
+```bash
+bash scripts/run.sh cambrian/main.py --train example=detection
+```
+
+After training, you can evaluate the agent using the following:
+
+```bash
+python cambrian/main.py --eval example=detection env.renderer.render_modes='[human]' trainer/model=loaded_model
+```
 
 ## Citation
 

@@ -1,0 +1,25 @@
+# @package _global_
+
+defaults:
+  - example
+  - override /task:
+      - navigation
+      - multi_agent
+
+env:
+  agents:
+    agent:
+      eyes:
+        eye:
+          resolution: [1, 1]
+          num_eyes: [1, 50]
+          lon_range: [-135, 135]
+          fov: [5, 5]
+
+    agent1:
+      eyes:
+        eye:
+          resolution: [1, 1]
+          num_eyes: [1, 50]
+          lon_range: [-135, 135]
+          fov: [5, 5]

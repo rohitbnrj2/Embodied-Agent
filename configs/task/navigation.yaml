@@ -50,16 +50,19 @@ env:
       truncation_reward: ${eval:'-${.termination_reward}'}
       disable_on_max_episode_steps: true
       for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
+      scale_by_quickness: true
 
     euclidean_delta_from_init:
       _target_: cambrian.envs.reward_fns.reward_fn_euclidean_delta_from_init
       _partial_: true
       reward: 1.0
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
+      scale_by_quickness: true
 
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.reward_fn_has_contacts
       _partial_: true
-      reward: -0.1
+      reward: -1.0
       for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
 
   truncation_fn:
