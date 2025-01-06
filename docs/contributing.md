@@ -24,8 +24,7 @@ A symbolic link or symlink is a file that references another. The advantages of 
 
 ```bash
 # You need the dev requirements to build the documentation
-pip install poetry
-poetry install --with dev
+pip install -e '.[doc,dev]'
 ```
 
 ### Deploy your Changes
@@ -122,9 +121,6 @@ Markdown files are converted to reStructuredText by `myst_parser` which is used 
 There are multiple ways to build sphinx documentation. The easiest is using the `Makefile` or `make.bat` file provided directly in this repository. You will need to install all the necessary dependencies and build the html pages. To do that, run the following commands:
 
 ```bash
-cd ACI
-poetry install --with docs # Install the necessary dependencies
-
 cd docs
 make clean html
 ```

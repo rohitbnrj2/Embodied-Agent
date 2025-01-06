@@ -27,8 +27,6 @@ pip install -e .
 
 ## Usage
 
-For more detailed information on how to train, evaluate, and run experiments, see the [Documentation](https://camera-culture.github.io/ACI/usage/index.html) website.
-
 ### Test
 
 To test the setup and verify you can visualize the environment, you can run the following:
@@ -53,7 +51,7 @@ Any of the commands which show `example=<example>` can use any of the above exam
 
 ### Train
 
-To train a single agent in a detection-style task, you can run the following:
+To train a single agent in a detection-style task, you can run the following command. You will find the trained model and output files at `log/<today's date>/exp_detection`. This should take like 10 minutes to an hour depending on your computer.
 
 ```bash
 bash scripts/run.sh cambrian/main.py --train example=detection
@@ -64,6 +62,27 @@ After training, you can evaluate the agent using the following:
 ```bash
 python cambrian/main.py --eval example=detection env.renderer.render_modes='[human]' trainer/model=loaded_model
 ```
+
+## Documentation
+
+For more detailed information on how to train, evaluate, and run experiments, see the [Documentation](https://camera-culture.github.io/ACI/usage/index.html) website.
+
+### Compiling the Documentation
+
+First install the dev/doc dependencies.
+
+```bash
+pip install -e '.[doc,dev]'
+```
+
+Then to install, run the following:
+
+```bash
+cd docs
+make clean html
+```
+
+To view the build, go to your browser, and open the `index.html` file located inside `docs/build/html/`.
 
 ## Citation
 
