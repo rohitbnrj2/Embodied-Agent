@@ -1,0 +1,25 @@
+# @package _global_
+
+defaults:
+  - example
+  - override /task: 
+      - light_seeking
+      - multi_agent
+
+env: 
+  agents:
+    agent: 
+      eyes:
+        eye:
+          resolution: [1,1]
+          num_eyes: [1,1]
+          fov: [30, 150]
+    
+    agent1: 
+      eyes:
+        eye:
+          resolution: [1,1]
+          num_eyes: [1,1]
+          fov: [30, 150]
+
+          
