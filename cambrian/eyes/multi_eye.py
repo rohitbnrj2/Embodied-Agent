@@ -74,13 +74,14 @@ class MjCambrianMultiEye(MjCambrianEye):
     def __init__(
         self, config: MjCambrianMultiEyeConfig, name: str, disable_render: bool = True
     ):
-        super().__init__(config, name, disable_render=disable_render)
-        self._config: MjCambrianMultiEyeConfig
-
-        self._eyes: Dict[str, MjCambrianEye] = {}
+        self._config: MjCambrianMultiEyeConfig = config
+        self._name = name
 
         # Generate eyes procedurally
+        self._eyes: Dict[str, MjCambrianEye] = {}
         self._place_eyes()
+
+        super().__init__(config, name, disable_render=disable_render)
 
     def _place_eyes(self):
         """Place the eyes procedurally based on config."""

@@ -36,7 +36,7 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         config: MjCambrianAgentConfig,
         name: str,
         *,
-        kp: float = 0.75,
+        kp: float = 0.5,
     ):
         super().__init__(config, name)
 
@@ -81,11 +81,7 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         vy = v * np.sin(current_heading)
 
         # Calculate the heading velocity from input theta
-        target_heading = np.interp(action[1], [-1, 1], [-np.pi, np.pi])
-        delta_heading = np.arctan2(
-            np.sin(target_heading - current_heading),
-            np.cos(target_heading - current_heading),
-        )
+        delta_heading = np.interp(action[1], [-1, 1], [-np.pi, np.pi])
         heading_velocity = np.clip(self._kp * delta_heading, -1, 1)
 
         super().apply_action([vx, vy, heading_velocity])
@@ -195,5 +191,10 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
 
         # Update the previous target position
         target_theta = np.arctan2(target_vector[1], target_vector[0])
+        current_theta = self.qpos[2]
+        delta_theta = np.arctan2(
+            np.sin(target_theta - current_theta),
+            np.cos(target_theta - current_theta),
+        )
 
-        return [self._speed, np.interp(target_theta, [-np.pi, np.pi], [-1, 1])]
+        return [self._speed, np.interp(delta_theta, [-np.pi, np.pi], [-1, 1])]

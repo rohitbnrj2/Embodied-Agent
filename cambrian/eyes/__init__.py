@@ -7,6 +7,7 @@ from cambrian.eyes.multi_eye_approx import (
     MjCambrianMultiEyeApproxConfig,
 )
 from cambrian.eyes.optics import MjCambrianOpticsEye, MjCambrianOpticsEyeConfig
+from cambrian.eyes.tof_eye import MjCambrianToFEye, MjCambrianToFEyeConfig
 
 __all__ = [
     "MjCambrianEyeConfig",
@@ -17,4 +18,6 @@ __all__ = [
     "MjCambrianMultiEyeApprox",
     "MjCambrianOpticsEyeConfig",
     "MjCambrianOpticsEye",
+    "MjCambrianToFEyeConfig",
+    "MjCambrianToFEye",
 ]

@@ -84,10 +84,14 @@ class MjCambrianEye:
 
         self._renders_rgb = "rgb_array" in self._config.renderer.render_modes
         self._renders_depth = "depth_array" in self._config.renderer.render_modes
-        assert self._renders_rgb, f"Eye ({name}): 'rgb_array' must be a render mode."
+        assert (
+            self._renders_rgb or self._renders_depth
+        ), "Need at least one render mode."
 
+        self._prev_obs_shape = self.observation_space.shape
         self._prev_obs: torch.Tensor = None
         self._fixedcamid = -1
+        self._spec: MjCambrianSpec = None
 
         self._renderer: MjCambrianRenderer = None
         if not disable_render:
@@ -189,6 +193,8 @@ class MjCambrianEye:
         """Sets up the camera for rendering. This should be called before rendering
         the first time."""
 
+        self._spec = spec
+
         if self._renderer is None:
             return self.step()
 
@@ -201,7 +207,7 @@ class MjCambrianEye:
         self._renderer.viewer.camera.fixedcamid = self._fixedcamid
 
         self._prev_obs = torch.zeros(
-            (*self._config.resolution, 3),
+            self._prev_obs_shape,
             dtype=torch.float32,
             device=device,
         )
@@ -226,8 +232,18 @@ class MjCambrianEye:
         if obs is None:
             assert self._renderer is not None, "Cannot step without a renderer."
             obs = self._renderer.render()
-            if self._renders_depth:
+            if self._renders_rgb and self._renders_depth:
+                # If both are rendered, then we only return the rgb
+                get_logger().warning(
+                    "Both rgb and depth are rendered. Using only rgb.",
+                    extra={"once": True},
+                )
                 obs = obs[0]
+
+        return self._update_obs(obs)
+
+    def _update_obs(self, obs: ObsType) -> ObsType:
+        """Update the observation space."""
         self._prev_obs.copy_(obs, non_blocking=True)
         return self._prev_obs
 

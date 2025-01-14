@@ -145,6 +145,9 @@ class MjCambrianEnv(ParallelEnv, Env):
 
         self._xml = self.generate_xml()
         try:
+            # model = mj.MjModel.from_xml_string(self._xml.to_string())
+            # mj.mj_saveLastXML("test.xml", model)
+            # exit()
             self._spec = spec_from_xml(self._xml)
             self._spec.compile()
         except Exception:

@@ -3,11 +3,11 @@
 from typing import Dict, List, Tuple
 
 import mujoco as mj
-import numpy as np
 import torch
 import torch.nn.functional as F
 
 from cambrian.utils import device
+from cambrian.utils.constants import C
 
 
 def resize(images: torch.Tensor, height: int, width: int) -> torch.Tensor:
@@ -251,20 +251,21 @@ class CubeToEquirectangularConverter:
         return remapped.squeeze(0).permute(1, 2, 0)
 
 
-def convert_depth_distances(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
-    """Converts depth values from OpenGL to metric depth values.
+def convert_depth_distances(model: mj.MjModel, depth: torch.Tensor) -> torch.Tensor:
+    """Converts depth values from OpenGL to metric depth values using PyTorch.
 
     Args:
         model (mj.MjModel): The model.
-        depth (np.ndarray): The depth values to convert.
+        depth (torch.Tensor): The depth values to convert.
 
     Returns:
-        np.ndarray: The converted depth values.
+        torch.Tensor: The converted depth values.
 
     Note:
         This function is based on
         [this code](https://github.com/google-deepmind/mujoco/blob/main/\
             python/mujoco/renderer.py).
+        It is adapted to use PyTorch instead of NumPy.
     """
 
     # Get the distances to the near and far clipping planes.
@@ -275,18 +276,20 @@ def convert_depth_distances(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
     # Calculate OpenGL perspective matrix values in float32 precision
     # so they are close to what glFrustum returns
     # https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glFrustum.xml
-    zfar = np.float32(far)
-    znear = np.float32(near)
+    zfar = torch.tensor(far, dtype=torch.float32)
+    znear = torch.tensor(near, dtype=torch.float32)
     c_coef = -(zfar + znear) / (zfar - znear)
-    d_coef = -(np.float32(2) * zfar * znear) / (zfar - znear)
+    d_coef = -(torch.tensor(2.0, dtype=torch.float32) * zfar * znear) / (zfar - znear)
 
     # In reverse Z mode the perspective matrix is transformed by the following
-    c_coef = np.float32(-0.5) * c_coef - np.float32(0.5)
-    d_coef = np.float32(-0.5) * d_coef
+    c_coef = torch.tensor(-0.5, dtype=torch.float32) * c_coef - torch.tensor(
+        0.5, dtype=torch.float32
+    )
+    d_coef = torch.tensor(-0.5, dtype=torch.float32) * d_coef
 
     # We need 64 bits to convert Z from ndc to metric depth without noticeable
     # losses in precision
-    out_64 = depth.astype(np.float64)
+    out_64 = depth.to(dtype=torch.float64)
 
     # Undo OpenGL projection
     # Note: We do not need to take action to convert from window coordinates
@@ -296,6 +299,69 @@ def convert_depth_distances(model: mj.MjModel, depth: np.ndarray) -> np.ndarray:
 
     # Cast result back to float32 for backwards compatibility
     # This has a small accuracy cost
-    depth[:] = out_64.astype(np.float32)
+    return out_64.to(dtype=torch.float32)
 
+
+def convert_depth_to_rgb(
+    depth: torch.Tensor, znear: float | None = None, zfar: float | None = None
+) -> torch.Tensor:
+    """Converts depth values to RGB values.
+
+    Args:
+        model (mj.MjModel): The model.
+        depth (torch.Tensor): The depth values.
+
+    Returns:
+        torch.Tensor: The RGB values.
+    """
+    znear = znear or depth.min()
+    zfar = zfar or depth.max()
+    if znear != zfar:
+        depth = (depth - znear) / (zfar - znear)
+        depth = torch.clamp(depth, 0.0, 1.0)
+    depth = depth.repeat(3, 1, 1).permute(1, 2, 0)
     return depth
+
+
+def convert_depth_to_tof(
+    model: mj.MjModel, depth: torch.Tensor, timing_resolution_ns: float, num_bins: int
+) -> torch.Tensor:
+    """Converts depth values to time-of-flight. It will return a transient cube, where
+    each image is a time-of-flight image at a specific time.
+
+    Args:
+        depth (torch.Tensor): The depth values. Shape: (height, width).
+        timing_resolution_ns (float): The timing resolution in nanoseconds.
+        num_bins (int): The number of bins. The output tensor will have shape
+            (num_bins, height, width).
+
+    Returns:
+        torch.Tensor: The time-of-flight transient cube. Shape: (num_bins, height,
+            width).
+    """
+    # Ensure depth is 2D (height, width)
+    if depth.dim() != 2:
+        raise ValueError("Depth tensor must be 2-dimensional (height, width).")
+
+    # Calculate ToF in seconds: ToF = 2 * distance / c
+    tof_sec = 2 * convert_depth_distances(model, depth) / C  # Shape: (height, width)
+
+    # Convert ToF to nanoseconds
+    tof_ns = tof_sec * 1e9  # Shape: (height, width)
+
+    # Determine the bin index for each ToF value
+    bin_indices = torch.floor(tof_ns / timing_resolution_ns).long()
+
+    # Mask out invalid bin indices
+    bin_mask = (bin_indices >= 0) & (bin_indices < num_bins)
+    bin_indices = torch.clamp(bin_indices, 0, num_bins - 1)
+
+    # Create a one-hot encoding for bin indices
+    # Shape after one_hot: (height, width, num_bins)
+    transient_one_hot = torch.nn.functional.one_hot(bin_indices, num_classes=num_bins)
+    transient_one_hot[~bin_mask] = 0
+
+    # Permute to shape (num_bins, height, width)
+    transient = transient_one_hot.permute(2, 0, 1).float()
+
+    return transient

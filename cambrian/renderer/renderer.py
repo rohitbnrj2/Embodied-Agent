@@ -323,35 +323,40 @@ class MjCambrianViewer(ABC):
             overlay.draw_after_render(self._mjr_context, self._viewport)
 
     def read_pixels(
-        self, read_depth: bool = False
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, read_rgb: bool, read_depth: bool
+    ) -> Tuple[torch.Tensor | None, torch.Tensor | None]:
         if has_pycuda_gl:
-            out = self._read_pixels_cuda(read_depth)
+            out = self._read_pixels_cuda(read_rgb, read_depth)
         else:
-            out = self._read_pixels(read_depth)
+            out = self._read_pixels(read_rgb, read_depth)
         return out
 
     def _read_pixels(
-        self, read_depth: bool = False
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, read_rgb: bool, read_depth: bool
+    ) -> Tuple[torch.Tensor | None, torch.Tensor | None]:
         mj.mjr_readPixels(
-            self._rgb_uint8_cpu,
+            self._rgb_uint8_cpu if read_rgb else None,
             self._depth_cpu if read_depth else None,
             self._viewport,
             self._mjr_context,
         )
 
-        self._rgb_uint8.copy_(self._rgb_uint8_cpu, non_blocking=True)
-        torch.divide(self._rgb_uint8, 255.0, out=self._rgb_float32)
+        if read_rgb:
+            self._rgb_uint8.copy_(self._rgb_uint8_cpu, non_blocking=True)
+            torch.divide(self._rgb_uint8, 255.0, out=self._rgb_float32)
         if read_depth:
             self._depth.copy_(self._depth_cpu, non_blocking=True)
 
-        return self._rgb_float32, self._depth
+        return self._rgb_float32 if read_rgb else None, (
+            self._depth if read_depth else None
+        )
 
     def _read_pixels_cuda(
-        self, read_depth: bool = False
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        mask = GL.GL_COLOR_BUFFER_BIT
+        self, read_rgb: bool, read_depth: bool
+    ) -> Tuple[torch.Tensor | None, torch.Tensor | None]:
+        mask = 0
+        if read_depth:
+            mask = GL.GL_COLOR_BUFFER_BIT
         if read_depth:
             mask |= GL.GL_DEPTH_BUFFER_BIT
 
@@ -379,17 +384,18 @@ class MjCambrianViewer(ABC):
             GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self._mjr_context.offFBO)
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
 
-        GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, int(self._rgb_pbo))
-        GL.glReadPixels(
-            self._viewport.left,
-            self._viewport.bottom,
-            self.width,
-            self.height,
-            self._mjr_context.readPixelFormat,
-            GL.GL_UNSIGNED_BYTE,
-            ctypes.c_void_p(0),
-        )
-        GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, 0)
+        if read_rgb:
+            GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, int(self._rgb_pbo))
+            GL.glReadPixels(
+                self._viewport.left,
+                self._viewport.bottom,
+                self.width,
+                self.height,
+                self._mjr_context.readPixelFormat,
+                GL.GL_UNSIGNED_BYTE,
+                ctypes.c_void_p(0),
+            )
+            GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, 0)
 
         if read_depth:
             GL.glBindBuffer(GL.GL_PIXEL_PACK_BUFFER, int(self._depth_pbo))
@@ -409,20 +415,22 @@ class MjCambrianViewer(ABC):
         GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
 
         CUDA_CONTEXT.push()
-        cuda.memcpy_dtod(
-            int(self._rgb_uint8.data_ptr()),
-            self._rgb_ptr,
-            self.width * self.height * self._pixel_bytes,
-        )
+        if read_rgb:
+            cuda.memcpy_dtod(
+                int(self._rgb_uint8.data_ptr()),
+                self._rgb_ptr,
+                self.width * self.height * self._pixel_bytes,
+            )
+            torch.divide(self._rgb_uint8, 255.0, out=self._rgb_float32)
         if read_depth:
             cuda.memcpy_dtod(
                 int(self._depth.data_ptr()), self._depth_ptr, self.width * self.height
             )
         CUDA_CONTEXT.pop()
 
-        torch.divide(self._rgb_uint8, 255.0, out=self._rgb_float32)
-
-        return self._rgb_float32, self._depth if read_depth else None
+        return self._rgb_float32 if read_rgb else None, (
+            self._depth if read_depth else None
+        )
 
     @abstractmethod
     def make_context_current(self):
@@ -712,10 +720,6 @@ class MjCambrianRenderer:
         assert all(
             mode in self.metadata["render.modes"] for mode in self._config.render_modes
         ), f"Invalid render mode found. Valid modes are {self.metadata['render.modes']}"
-        assert (
-            "depth_array" not in self._config.render_modes
-            or "rgb_array" in self._config.render_modes
-        ), "Cannot render depth_array without rgb_array."
 
         self._viewer: MjCambrianViewer = None
         if "human" in self._config.render_modes:
@@ -729,7 +733,8 @@ class MjCambrianRenderer:
         self._should_render: bool = any(
             m in self._config.render_modes for m in ["rgb_array", "depth_array"]
         )
-        self._should_render_depth: bool = "depth_array" in self._config.render_modes
+        self._return_rgb: bool = "rgb_array" in self._config.render_modes
+        self._return_depth: bool = "depth_array" in self._config.render_modes
 
     def reset(
         self,
@@ -759,19 +764,25 @@ class MjCambrianRenderer:
         if not self._should_render:
             return
 
-        rgb, depth = self._viewer.read_pixels(read_depth=self._should_render_depth)
+        rgb, depth = self._viewer.read_pixels(
+            read_rgb=self._return_rgb, read_depth=self._return_depth
+        )
+
         if self._record and not resetting:
             rgb_to_record = rgb.clone() if rgb.device == "cpu" else rgb.cpu().clone()
             self._rgb_buffer.append(rgb_to_record)
 
-        if self._should_render_depth:
-            depth = convert_depth_distances(self._spec.model, depth)
-            return rgb, depth
+        returns = []
+        if self._return_rgb:
+            returns.append(rgb)
+
+        if self._return_depth:
+            returns.append(convert_depth_distances(self._spec.model, depth))
 
         if self._usd_exporter:
             self._usd_exporter.update_scene(self._spec.data, self._viewer.scene_options)
 
-        return rgb
+        return returns if len(returns) > 1 else returns[0]
 
     def is_running(self):
         return self._viewer.is_running()
