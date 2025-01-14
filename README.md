@@ -11,8 +11,6 @@ The incredible diversity of visual systems in the animal kingdom is a result of 
 
 ## Installation
 
-This page provides setup and installation information for the `ACI` repo. Python >= 3.11 is required.
-
 First, clone the repo:
 
 ```bash
@@ -25,6 +23,8 @@ Then you can install the `cambrian` package by doing the following.
 pip install -e .
 ```
 
+NOTE: ACI requires Python 3.11 or later.
+
 ## Usage
 
 ### Test
@@ -36,7 +36,7 @@ To test the setup and verify you can visualize the environment, you can run the 
 python cambrian/main.py --eval example=detection_optimal env.renderer.render_modes='[human]' env.frame_skip=5
 ```
 
-This command should open a window showing an agent moving towards a target. It uses an "optimal" policy which just tries to minimize the distance to the target always.
+This command should open a window showing an agent moving towards a target. It uses an "optimal" policy which just tries to minimize the distance to the target.
 
 Currently, the available examples are:
 
@@ -51,7 +51,7 @@ Any of the commands which show `example=<example>` can use any of the above exam
 
 ### Train
 
-To train a single agent in a detection-style task, you can run the following command. You will find the trained model and output files at `log/<today's date>/exp_detection`. This should take like 10 minutes to an hour depending on your computer.
+To train a single agent in a detection-style task, you can run the following command. You will find the trained model and output files at `log/<today's date>/exp_detection`. This should take 10 minutes to an hour depending on your machine.
 
 ```bash
 bash scripts/run.sh cambrian/main.py --train example=detection
@@ -75,14 +75,14 @@ First install the dev/doc dependencies.
 pip install -e '.[doc,dev]'
 ```
 
-Then to install, run the following:
+Then to build the docs, run the following:
 
 ```bash
 cd docs
 make clean html
 ```
 
-To view the build, go to your browser, and open the `index.html` file located inside `docs/build/html/`.
+To view the build, go to your browser, and open the `index.html` file located inside `build/html/` (or run `open build/html/index.html`).
 
 ## Citation
 
