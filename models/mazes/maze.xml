@@ -4,7 +4,7 @@
     </asset>
     <default>
         <default class="maze_wall_${parent:xml}">
-            <geom type="box" gap="0.05" margin="0.1" group="1" condim="1" />
+            <geom type="box" gap="0.05" margin="0.1" group="3" condim="1" />
         </default>
     </default>
     <worldbody>

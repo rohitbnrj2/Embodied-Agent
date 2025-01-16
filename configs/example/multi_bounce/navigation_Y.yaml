@@ -3,10 +3,8 @@
 defaults:
   - /example/example
 
-  - /env/agents@env.agents.adversary: object_sphere
-
   - override /task: navigation
-  - override /env/mazes@env.mazes.maze: L
+  - override /env/mazes@env.mazes.maze: Y
   - override /env/agents@env.agents.goal: object_sphere_light
 
 custom:
@@ -26,11 +24,6 @@ env:
         - 0 # mjRND_SEGMENT
         - 0 # mjRND_IDCOLOR
         - 1 # mjRND_CULL_FACE
-
-  mazes:
-    maze:
-      agent_id_map:
-        A: ${glob:adversary*,${oc.dict.keys:env.agents}}
 
   agents:
     agent:
@@ -57,7 +50,7 @@ env:
                       - light:
                           - name: ${parent:xml}_light
                           - class: object
-                          - dir: 0 -1 -0.05
+                          - dir: 0 1 -0.05
                           - pos: 0 0 10
                           - directional: "true"
               - asset:
@@ -69,11 +62,6 @@ env:
                       - name: ${parent:xml}_top_mat
                       - rgba: 0.2 0.8 0.2 1.0
                       - emission: 1
-    adversary:
-      custom:
-        # make the adversary red
-        rgba: 0.8 0.2 0.2 1.0
-
   truncation_fn:
     truncate_if_close_to_adversary:
       _target_: cambrian.envs.done_fns.done_if_close_to_agents

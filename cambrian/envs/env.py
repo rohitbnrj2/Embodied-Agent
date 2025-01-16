@@ -151,6 +151,8 @@ class MjCambrianEnv(ParallelEnv, Env):
             get_logger().error(f"Error creating model\n{self._xml.to_string()}")
             raise
 
+        self._spec.env = self
+
         self.render_mode = "rgb_array"
         self._renderer: MjCambrianRenderer = None
         if renderer_config := self._config.renderer:

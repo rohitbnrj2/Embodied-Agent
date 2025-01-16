@@ -2,6 +2,7 @@ from enum import Enum, auto
 from functools import cached_property
 from typing import Callable, Self
 
+import mujoco as mj
 import numpy as np
 import torch
 from gymnasium import spaces
@@ -161,6 +162,154 @@ class MjCambrianToFEye(MjCambrianEye):
 class MjCambrianThreeBounceToFEye(MjCambrianToFEye):
     """This eye is similar to the :class:`MjCambrianToFEye`, but supports three bounce
     transients. These three bounce ToF eyes are approximated as a single bounce ToF
-    sensor, where we compute the optical axis for each pixel and do a bunch of ray casts
-    from the contact point. The final transient is the sum of the three transients.
+    sensor, where we compute the world point for each pixel the corresponds to the
+    center of the IFOV of that pixel. We then do a bunch of ray casts
+    from this point. The final transient is the sum of the three transients.
     """
+
+    def reset(self, spec: MjCambrianSpec) -> ObsType:
+        return super().reset(spec)
+
+    def _update_obs(self, obs):
+        # 1 bounce
+        tof = self._convert_depth_to_tof(obs)
+        nlos_tof = torch.zeros_like(tof)
+
+        # For each eye, do a ray cast to get the world point to compute the 3rd bounce
+        # from
+        # print(self._parent_body.xpos)
+        camera: mj._structs._MjDataCameraViews = self._spec.data.camera(self._name)
+        pos = camera.xpos
+        mat = camera.xmat.reshape(3, 3)
+        height, width = self._config.resolution
+        fov_h, fov_v = np.radians(self._config.fov)
+        for i in range(height):
+            for j in range(width):
+                # Normalize pixel coordinates to [-1, 1]
+                x_norm = (j - width / 2) / (width / 2)
+                y_norm = (i - height / 2) / (height / 2)
+
+                # Scale by FOV to get angles
+                x_angle = x_norm * fov_h / 2
+                y_angle = y_norm * fov_v / 2
+
+                # Convert to 3D direction vector
+                vec = np.array([np.tan(x_angle), np.tan(y_angle), 1])
+                vec /= np.linalg.norm(vec)
+
+                # Rotate to world coordinates
+                vec = -np.dot(mat, vec)
+
+                geomid = np.zeros(1, np.int32)
+                geomgroup_mask = np.ones(6, np.uint8)
+                geomgroup_mask[2] = 0  # ignore agent
+                geomgroup_mask[3] = 0  # ignore walls
+                distance = mj.mj_ray(
+                    self._spec.model,
+                    self._spec.data,
+                    pos,
+                    vec,
+                    geomgroup_mask,  # can use to mask out agents to avoid self collision
+                    1,  # include static geometries
+                    -1,  # include all bodies
+                    geomid,
+                )
+                if distance == -1:
+                    continue
+                geomid = geomid[0]
+                geom = self._spec.model.geom(geomid)
+                if geom.type != mj.mjtGeom.mjGEOM_PLANE:
+                    # TODO: handle other types
+                    continue
+
+                # Get the normal of the geom
+                # TODO: assumes normal is up for now
+                normal = np.array([0, 0, 1], dtype=np.float32)
+                tangent = np.array([1, 0, 0], dtype=np.float32)
+                bitangent = np.array([0, 1, 0], dtype=np.float32)
+
+                # Calculate a bunch of new rays to sample. Should be uniformly dist
+                max_theta = np.pi / 2 - np.radians(2)
+                min_theta = np.pi / 2 - np.radians(0)
+                nrays = 20
+                rays = []
+                for _ in range(nrays):
+                    # Generate random numbers
+                    u1, u2 = np.random.rand(2)
+
+                    # Spherical coordinates for cosine-weighted hemisphere sampling
+                    theta = min_theta + (max_theta - min_theta) * u1
+                    phi = 2 * np.pi * u2
+
+                    # Convert to Cartesian coordinates in the local frame
+                    local_ray = np.array(
+                        [
+                            np.sin(theta) * np.cos(phi),
+                            np.sin(theta) * np.sin(phi),
+                            np.cos(theta),
+                        ]
+                    )
+
+                    # Transform the local ray to world coordinates
+                    world_ray = (
+                        local_ray[0] * tangent
+                        + local_ray[1] * bitangent
+                        + local_ray[2] * normal
+                    )
+                    if world_ray[2] >= 0:  # Ensure no rays go below the plane
+                        rays.append(world_ray / np.linalg.norm(world_ray))
+                rays = np.array(rays, dtype=np.float32)
+
+                # Cast the rays
+                geomid = np.zeros(nrays, np.int32) - 1
+                dist = np.zeros(nrays, np.float64)
+
+                geom_pos = pos + vec * distance
+                geom_pos[2] = 0.1
+                mj.mj_multiRay(
+                    self._spec.model,
+                    self._spec.data,
+                    geom_pos,
+                    rays.flatten(),
+                    geomgroup_mask,  # can use to mask out agents to avoid self collision
+                    1,
+                    -1,
+                    geomid,
+                    dist,
+                    nrays,
+                    mj.mjMAXVAL,
+                )
+                if False:
+                    from cambrian.renderer.overlays import MjCambrianSiteViewerOverlay
+
+                    for _i, _id in enumerate(geomid):
+                        if _id == -1:
+                            continue
+                        new_pos = geom_pos + rays[_i] * dist[_i]
+                        self._spec.env._overlays[
+                            f"other_site_{_i}"
+                        ] = MjCambrianSiteViewerOverlay(new_pos, (0, 1, 0, 1), 0.1)
+
+                    self._spec.env._overlays[
+                        f"site_{i}_{j}"
+                    ] = MjCambrianSiteViewerOverlay(geom_pos, (1, 0, 0, 1), 0.1)
+
+                # Create transient from the rays
+                dist += distance
+                for _id, _d in zip(geomid, dist):
+                    if _id == -1:
+                        continue
+                    bin_idx = int(_d * self._meters_to_bin)
+                    if bin_idx < 0 or bin_idx >= self._config.num_bins:
+                        continue
+                    nlos_tof[bin_idx, i, j] += 1
+
+        tof += nlos_tof
+
+        if self._config.render_type == MjCambrianToFRenderType.DEPTH_MAP:
+            self._prev_obs.copy_(obs, non_blocking=True)
+        elif self._config.render_type == MjCambrianToFRenderType.HISTOGRAM:
+            self._prev_obs.copy_(tof, non_blocking=True)
+        else:
+            raise ValueError(f"Unsupported render type {self._config.render_type}")
+        return tof

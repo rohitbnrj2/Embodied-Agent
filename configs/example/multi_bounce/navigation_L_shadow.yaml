@@ -1,0 +1,7 @@
+# @package _global_
+
+defaults:
+  - /example/multi_bounce/navigation_L
+
+custom:
+  shadow: 1
