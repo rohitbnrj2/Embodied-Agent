@@ -1,3 +1,4 @@
+from dataclasses import field
 from enum import Enum, auto
 from functools import cached_property
 from typing import Callable, Self
@@ -46,6 +47,12 @@ class MjCambrianToFEyeConfig(MjCambrianEyeConfig):
     subsampling_factor: tuple[int, int]
 
     render_type: MjCambrianToFRenderType
+
+    num_eyes: tuple[int, int] = field(default_factory=lambda: (1, 1))
+    lat_range: tuple[float, float] = field(default_factory=lambda: (-90, 90))
+    lon_range: tuple[float, float] = field(default_factory=lambda: (-180, 180))
+    flatten_observations: bool = False
+    eye_instance: Callable[[Self, str], "MjCambrianEye"] = None
 
 
 class MjCambrianToFEye(MjCambrianEye):

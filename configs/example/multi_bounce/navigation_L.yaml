@@ -37,8 +37,8 @@ env:
       eyes:
         eye:
           resolution: [20, 20]
-          # num_eyes: [1, 3]
-          # lon_range: [-30, 30]
+          num_eyes: [1, 3]
+          lon_range: [-30, 30]
 
           renderer:
             scene:
