@@ -41,9 +41,17 @@ def done_if_low_reward(
 
 
 def done_if_has_contacts(
-    env: MjCambrianEnv, agent: MjCambrianAgent, info: Dict[str, Any]
+    env: MjCambrianEnv,
+    agent: MjCambrianAgent,
+    info: Dict[str, Any],
+    *,
+    for_agents: Optional[List[str]] = None,
+    disable: bool = False,
 ) -> bool:
     """Done if agent has contacts."""
+    if not agent_selected(agent, for_agents) or disable:
+        return False
+
     return info["has_contacts"]
 
 

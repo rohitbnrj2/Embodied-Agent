@@ -1,17 +1,16 @@
 # @package _global_
 
 defaults:
-  - example
+  - /example/example
 
   - /env/agents@env.agents.adversary: object_sphere
 
   - override /task: navigation
   - override /env/mazes@env.mazes.maze: L
-  # - override /env/agents/eyes@env.agents.agent.eyes.eye: tof_eye
   - override /env/agents@env.agents.goal: object_sphere_light
 
 custom:
-  shadow: 1
+  shadow: 0
 
 env:
   renderer:
@@ -82,3 +81,8 @@ env:
       for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
       to_agents: ${glob:adversary*,${oc.dict.keys:env.agents}}
       distance_threshold: 1.0
+
+    truncate_if_has_contacts:
+      _target_: cambrian.envs.done_fns.done_if_has_contacts
+      _partial_: true
+      for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}

@@ -3,7 +3,7 @@
     <default>
         <default class="object">
             <light exponent="0.1" cutoff="180" dir="0 0 -1" diffuse="1 1 1" ambient="1 1 1"
-                specular="1 1 1" castshadow="false" attenuation="1.0 0.07 0.017"/>
+                specular="1 1 1" castshadow="true" attenuation="1.0 0.07 0.017"/>
         </default>
     </default>
     <worldbody>

@@ -158,5 +158,9 @@ class MjCambrianToFEye(MjCambrianEye):
         return height // height_sub, width // width_sub
 
 
-class MjCambrianMultiBounceToFEye(MjCambrianToFEye):
-    """This eye is similar to the :class:`MjCambrianToFEye`"""
+class MjCambrianThreeBounceToFEye(MjCambrianToFEye):
+    """This eye is similar to the :class:`MjCambrianToFEye`, but supports three bounce
+    transients. These three bounce ToF eyes are approximated as a single bounce ToF
+    sensor, where we compute the optical axis for each pixel and do a bunch of ray casts
+    from the contact point. The final transient is the sum of the three transients.
+    """

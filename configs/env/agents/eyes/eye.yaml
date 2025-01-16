@@ -16,7 +16,7 @@ coord: [0, 0] # placeholder
 orthographic: False
 
 renderer:
-  render_modes: [depth_array]
+  render_modes: [rgb_array]
 
   width: ${..resolution.1}
   height: ${..resolution.0}
