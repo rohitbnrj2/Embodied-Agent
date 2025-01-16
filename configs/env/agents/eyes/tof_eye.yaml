@@ -7,7 +7,7 @@ instance:
   _partial_: true
 
 num_bins: 128
-timing_resolution_ns: 1
+timing_resolution_ns: 2
 subsampling_factor: [1, 1]
 
 render_type: HISTOGRAM

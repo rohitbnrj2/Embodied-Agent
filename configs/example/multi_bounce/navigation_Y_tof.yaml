@@ -3,12 +3,12 @@
 defaults:
   - /example/multi_bounce/navigation_Y
 
-  - override /env/agents/eyes@env.agents.agent.eyes.eye: tof_eye_3b
+  - /env/agents/eyes@env.agents.agent.eyes.eye1: tof_eye_3b
 
 env:
   agents:
     agent:
       eyes:
-        eye:
+        eye1:
           coord: [-5, 0]
           resolution: [2, 2]

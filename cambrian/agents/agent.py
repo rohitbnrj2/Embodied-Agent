@@ -9,6 +9,7 @@ from gymnasium import spaces
 from hydra_config import HydraContainerConfig, config_wrapper
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
+from cambrian.renderer.render_utils import generate_composite, resize_with_aspect_fill
 from cambrian.utils import (
     MjCambrianActuator,
     MjCambrianGeometry,
@@ -430,7 +431,18 @@ class MjCambrianAgent:
         """
         if len(self._eyes) == 0:
             return None
-        return next(iter(self._eyes.values())).render()
+        if len(self._eyes) == 1:
+            return next(iter(self._eyes.values())).render()
+
+        # Stack the renders next to each other
+        renders = [eye.render() for eye in self._eyes.values()]
+        max_width, max_height = max(render.shape[1] for render in renders), max(
+            render.shape[0] for render in renders
+        )
+        renders = [
+            resize_with_aspect_fill(render, max_height, max_width) for render in renders
+        ]
+        return generate_composite({0: {i: render for i, render in enumerate(renders)}})
 
     @property
     def has_contacts(self) -> bool:

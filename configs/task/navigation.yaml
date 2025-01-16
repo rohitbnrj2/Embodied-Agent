@@ -45,12 +45,12 @@ env:
       for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
       scale_by_quickness: true
 
-    euclidean_delta_from_init:
-      _target_: cambrian.envs.reward_fns.reward_fn_euclidean_delta_from_init
+    euclidean_delta_to_goal:
+      _target_: cambrian.envs.reward_fns.reward_fn_euclidean_delta_to_agent
       _partial_: true
-      reward: 0.01
+      reward: 0.1
       for_agents: ${glob:agent*,${oc.dict.keys:env.agents}}
-      scale_by_quickness: true
+      to_agents: ${glob:goal*,${oc.dict.keys:env.agents}}
 
     penalize_if_has_contacts:
       _target_: cambrian.envs.reward_fns.reward_fn_has_contacts
@@ -83,7 +83,7 @@ eval_env:
     reward_if_done:
       termination_reward: 10.0
 
-    euclidean_delta_from_init:
+    euclidean_delta_to_goal:
       reward: 2.0
 
     penalize_if_has_contacts:
