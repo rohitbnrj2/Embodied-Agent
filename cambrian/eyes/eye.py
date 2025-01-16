@@ -13,6 +13,7 @@ from hydra_config import HydraContainerConfig, config_wrapper
 from scipy.spatial.transform import Rotation as R
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
+from cambrian.renderer.render_utils import convert_depth_distances, convert_depth_to_rgb
 from cambrian.utils import MjCambrianGeometry, device, get_logger
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.spec import MjCambrianSpec
@@ -253,6 +254,12 @@ class MjCambrianEye:
         This differs from step in that this is a debug method. The rendered image here
         will be used to visualize the eye in the viewer.
         """
+        if self._renders_depth and not self._renders_rgb:
+            return convert_depth_to_rgb(
+                convert_depth_distances(self._spec.model, self._prev_obs),
+                znear=0,
+                zfar=self._spec.model.stat.extent,
+            )
         return self._prev_obs
 
     @property
@@ -270,7 +277,11 @@ class MjCambrianEye:
         """Constructs the observation space for the eye. The observation space is a
         `spaces.Box` with the shape of the resolution of the eye."""
 
-        shape = (*self._config.resolution, 3)
+        shape = (
+            (*self._config.resolution, 3)
+            if self._renders_rgb
+            else self._config.resolution
+        )
         return spaces.Box(0.0, 1.0, shape=shape, dtype=np.float32)
 
     @property

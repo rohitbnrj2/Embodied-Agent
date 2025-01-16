@@ -65,11 +65,11 @@ class MjCambrianEnvConfig(HydraContainerConfig):
             the environment, the observations, the info dict, and any additional kwargs.
             Returns the updated observations and info dict.
         termination_fn (MjCambrianTerminationFn): The termination function to use. See
-            the `MjCambrianTerminationFn` for more info.
+            the :class:`MjCambrianTerminationFn` for more info.
         truncation_fn (MjCambrianTruncationFn): The truncation function to use. See the
-            `MjCambrianTruncationFn` for more info.
+            :class:`MjCambrianTruncationFn` for more info.
         reward_fn (MjCambrianRewardFn): The reward function type to use. See the
-            `MjCambrianRewardFn` for more info.
+            :class:`MjCambrianRewardFn` for more info.
 
         frame_skip (int): The number of mujoco simulation steps per `gym.step()` call.
         max_episode_steps (int): The maximum number of steps per episode.
@@ -145,9 +145,6 @@ class MjCambrianEnv(ParallelEnv, Env):
 
         self._xml = self.generate_xml()
         try:
-            # model = mj.MjModel.from_xml_string(self._xml.to_string())
-            # mj.mj_saveLastXML("test.xml", model)
-            # exit()
             self._spec = spec_from_xml(self._xml)
             self._spec.compile()
         except Exception:

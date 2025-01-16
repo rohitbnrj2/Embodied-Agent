@@ -19,7 +19,6 @@ from hydra_config import HydraContainerConfig, HydraFlagWrapperMeta, config_wrap
 
 import cambrian.utils
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
-from cambrian.renderer.render_utils import convert_depth_distances
 from cambrian.utils.logger import get_logger
 from cambrian.utils.spec import MjCambrianSpec
 
@@ -777,7 +776,7 @@ class MjCambrianRenderer:
             returns.append(rgb)
 
         if self._return_depth:
-            returns.append(convert_depth_distances(self._spec.model, depth))
+            returns.append(depth)
 
         if self._usd_exporter:
             self._usd_exporter.update_scene(self._spec.data, self._viewer.scene_options)

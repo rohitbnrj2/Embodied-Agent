@@ -268,6 +268,9 @@ def convert_depth_distances(model: mj.MjModel, depth: torch.Tensor) -> torch.Ten
         It is adapted to use PyTorch instead of NumPy.
     """
 
+    # Increase depth values at 1
+    depth[torch.where(depth == 1)] = 1 + 1e-6
+
     # Get the distances to the near and far clipping planes.
     extent = model.stat.extent
     near = model.vis.map.znear * extent
@@ -318,7 +321,7 @@ def convert_depth_to_rgb(
     zfar = zfar or depth.max()
     if znear != zfar:
         depth = (depth - znear) / (zfar - znear)
-        depth = torch.clamp(depth, 0.0, 1.0)
+        depth = 1 - torch.clamp(depth, 0.0, 1.0)
     depth = depth.repeat(3, 1, 1).permute(1, 2, 0)
     return depth
 
@@ -343,8 +346,11 @@ def convert_depth_to_tof(
     if depth.dim() != 2:
         raise ValueError("Depth tensor must be 2-dimensional (height, width).")
 
+    # Convert depth to distances; remove values equal to the far clipping plane
+    depth = convert_depth_distances(model, depth)
+
     # Calculate ToF in seconds: ToF = 2 * distance / c
-    tof_sec = 2 * convert_depth_distances(model, depth) / C  # Shape: (height, width)
+    tof_sec = 2 * depth / C  # Shape: (height, width)
 
     # Convert ToF to nanoseconds
     tof_ns = tof_sec * 1e9  # Shape: (height, width)
