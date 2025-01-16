@@ -268,9 +268,6 @@ def convert_depth_distances(model: mj.MjModel, depth: torch.Tensor) -> torch.Ten
         It is adapted to use PyTorch instead of NumPy.
     """
 
-    # Increase depth values at 1
-    depth[torch.where(depth == 1)] = 1 + 1e-6
-
     # Get the distances to the near and far clipping planes.
     extent = model.stat.extent
     near = model.vis.map.znear * extent
@@ -303,6 +300,35 @@ def convert_depth_distances(model: mj.MjModel, depth: torch.Tensor) -> torch.Ten
     # Cast result back to float32 for backwards compatibility
     # This has a small accuracy cost
     return out_64.to(dtype=torch.float32)
+
+
+class DepthDistanceConverter:
+    """Converts depth values from OpenGL to metric depth values using PyTorch.
+
+    Similar to the :func:`convert_depth_distances` function, but this class
+    is made to be faster given that it precomputes some values.
+    """
+
+    def __init__(self, model: mj.MjModel):
+        self.model = model
+        self.extent = model.stat.extent
+        self.near = torch.tensor(
+            model.vis.map.znear * self.extent, device=device, dtype=torch.float32
+        )
+        self.far = torch.tensor(
+            model.vis.map.zfar * self.extent, device=device, dtype=torch.float32
+        )
+
+        self._c_coef = -(self.far + self.near) / (self.far - self.near)
+        self._d_coef = -(2 * self.far * self.near) / (self.far - self.near)
+
+        self._c_coef = -0.5 * self._c_coef - 0.5
+        self._d_coef = -0.5 * self._d_coef
+
+    def convert(self, depth: torch.Tensor) -> torch.Tensor:
+        out_64 = depth.to(dtype=torch.float64)
+        out_64 = self._d_coef / (out_64 + self._c_coef)
+        return out_64.to(dtype=torch.float32)
 
 
 def convert_depth_to_rgb(

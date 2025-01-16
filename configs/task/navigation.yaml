@@ -27,16 +27,9 @@ env:
       custom:
         size: 0.25
 
-    agent:
-      # Set the initial yaw to -pi / 4.
-      init_quat: ["${eval:'math.cos(-math.pi/4)'}", 0, 0, "${eval:'math.sin(-math.pi/4)'}"]
-
-
   # Update the scale of the maze so that it's more difficult
   mazes:
     maze:
-      scale: 2.0
-
       agent_id_map:
         default: ${glob:agent*,${oc.dict.keys:env.agents}}
         E: ${glob:agent*,${oc.dict.keys:env.agents}}
@@ -85,8 +78,6 @@ eval_env:
       agent_id_map:
         # Update the default map such that the agent is only placed on R:E spaces
         default: []
-        E: ${glob:agent*,${oc.dict.keys:env.agents}}
-        O: ${glob:goal*,${oc.dict.keys:env.agents}}
 
   reward_fn:
     reward_if_done:

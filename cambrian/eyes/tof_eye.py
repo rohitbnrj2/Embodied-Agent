@@ -8,9 +8,10 @@ from gymnasium import spaces
 from hydra_config import config_wrapper
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
-from cambrian.renderer.render_utils import convert_depth_distances
+from cambrian.renderer.render_utils import DepthDistanceConverter
 from cambrian.utils import device
 from cambrian.utils.constants import C
+from cambrian.utils.spec import MjCambrianSpec
 from cambrian.utils.types import ObsType, RenderFrame
 
 
@@ -80,6 +81,13 @@ class MjCambrianToFEye(MjCambrianEye):
 
         # Some class variables to store so we don't need to keep recomputing
         self._meters_to_bin = 2 / C * 1e9 / self._config.timing_resolution_ns
+        self._depth_converter: DepthDistanceConverter = None
+
+    def reset(self, spec: MjCambrianSpec) -> ObsType:
+        # The converter to convert depth to distances
+        self._depth_converter = DepthDistanceConverter(spec.model)
+
+        return super().reset(spec)
 
     def _update_obs(self, obs: ObsType) -> ObsType:
         """Updates the observation with the ToF transient."""
@@ -94,84 +102,14 @@ class MjCambrianToFEye(MjCambrianEye):
         return tof
 
     def _convert_depth_to_tof(self, depth: ObsType) -> ObsType:
-        _depth = convert_depth_distances(self._spec.model, depth)
-        bin_indices = _depth.mul_(self._meters_to_bin).long()
+        depth = self._depth_converter.convert(depth)
+        bin_indices = depth.mul_(self._meters_to_bin).long()
         bin_mask = bin_indices < self._config.num_bins  # can assume depth is never neg
         bin_indices.clamp_(0, self._config.num_bins - 1)
 
         transient = torch.nn.functional.one_hot(bin_indices, self._config.num_bins)
         transient[~bin_mask] = 0
 
-        # Create a video of the transient
-        if not hasattr(self, "_i"):
-            self._i = 0
-        self._i += 1
-        if self._i == 80 and False:
-            import matplotlib.pyplot as plt
-            from matplotlib.animation import FuncAnimation
-            from matplotlib.widgets import Button, Slider
-
-            plt.hist(
-                range(self._config.num_bins),
-                bins=self._config.num_bins,
-                weights=transient.sum(dim=(0, 1)).cpu().numpy(),
-            )
-            plt.show()
-
-            fig, ax = plt.subplots()
-            img = ax.imshow(
-                transient[..., 0].cpu().numpy(), cmap="gray", vmin=0, vmax=1
-            )
-
-            def update(i):
-                print(i)
-                ax.set_title(f"Frame {i}")
-                img.set_data(transient[..., i].cpu().numpy())
-                return [img]
-
-            ani = FuncAnimation(
-                fig, update, frames=range(self._config.num_bins), interval=10, blit=True
-            )
-
-            paused = False
-            pause_ax = plt.axes([0.81, 0.025, 0.1, 0.04])
-            pause_button = Button(pause_ax, "Pause", hovercolor="0.975")
-
-            def toggle_pause(event):
-                nonlocal paused
-                if paused:
-                    ani.event_source.start()
-                    pause_button.label.set_text("Pause")
-                else:
-                    ani.event_source.stop()
-                    pause_button.label.set_text("Play")
-                paused = not paused
-
-            pause_button.on_clicked(toggle_pause)
-
-            slider_ax = plt.axes([0.1, 0.025, 0.65, 0.04])
-            slider = Slider(slider_ax, "Frame", 0, self._config.num_bins - 1, valinit=0)
-
-            def update_slider(val):
-                ani.event_source.stop()
-                update(int(val))
-                if not paused:
-                    ani.event_source.start()
-
-            slider.on_changed(update_slider)
-
-            plt.show()
-            exit()
-        # import cv2
-        # image = transient[..., 10].cpu().numpy()
-        # image = (image * 255).astype(np.uint8)
-        # image = cv2.resize(image, (1000, 1000))
-        # image = cv2.applyColorMap(image, cv2.COLORMAP_JET)
-        # cv2.imshow("Transient", image)
-        # cv2.waitKey(1)
-
-        # Sub-sample the transient by summing over the sub-sampling factor
-        print(transient.shape)
         height_sub, width_sub = self._config.subsampling_factor
         transient = (
             torch.nn.functional.avg_pool2d(

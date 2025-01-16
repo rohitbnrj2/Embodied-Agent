@@ -6,9 +6,9 @@ instance:
   _target_: cambrian.eyes.tof_eye.MjCambrianToFEye
   _partial_: true
 
-num_bins: 256
-timing_resolution_ns: 0.5
-subsampling_factor: [25, 25]
+num_bins: 128
+timing_resolution_ns: 1
+subsampling_factor: [1, 1]
 
 render_type: HISTOGRAM
 
