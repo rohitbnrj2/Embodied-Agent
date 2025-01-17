@@ -9,14 +9,13 @@
 defaults:
   # Use one fairly complicated maze
   - /env/mazes@env.mazes.maze: COMPLEX
-  # - /env/mazes@eval_env.mazes.maze: COMPLEX_LARGE
 
   # Use the maze_task config as the base
   - maze_task
 
   # Define one point agent with a single eye
   - /env/agents@env.agents.agent: point
-  - /env/agents/eyes@env.agents.agent.eyes.eye: multi_eye
+  - /env/agents/eyes@env.agents.agent.eyes.eye: multi_eye_approx
 
   # Define one goal object
   - /env/agents@env.agents.goal: object_sphere

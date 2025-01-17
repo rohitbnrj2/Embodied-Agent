@@ -143,6 +143,9 @@ class MjCambrianMultiEyeApprox(MjCambrianMultiEye):
             return
         else:
             super().__init__(config, name, disable_render=True)
+        assert all(
+            isinstance(eye, MjCambrianApproxEye) for eye in self._eyes.values()
+        ), f"All eyes must be or a subclass of {MjCambrianApproxEye}."
 
         self._config: MjCambrianMultiEyeApproxConfig
         self._eyes: Dict[str, MjCambrianApproxEye]
