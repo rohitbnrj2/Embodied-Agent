@@ -222,7 +222,10 @@ class MjCambrianAgent:
             zip(model.actuator_trnid, model.actuator_trntype)
         ):
             # Grab the body id associated with the actuator
-            if trntype == mj.mjtTrn.mjTRN_JOINT:
+            if (
+                trntype == mj.mjtTrn.mjTRN_JOINT
+                or trntype == mj.mjtTrn.mjTRN_JOINTINPARENT
+            ):
                 act_bodyid = model.jnt_bodyid[trnid]
             elif trntype == mj.mjtTrn.mjTRN_SITE:
                 act_bodyid = model.site_bodyid[trnid]
@@ -284,7 +287,7 @@ class MjCambrianAgent:
         It is assumed that the actions are normalized between -1 and 1.
         """
         self._last_action = actions.copy()
-        if not actions:
+        if len(actions) == 0:
             return
 
         for action, actuator in zip(actions, self._actuators):

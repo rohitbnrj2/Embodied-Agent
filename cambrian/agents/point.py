@@ -36,7 +36,7 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         config: MjCambrianAgentConfig,
         name: str,
         *,
-        kp: float = 0.5,
+        kp: float = 0.75,
     ):
         super().__init__(config, name)
 
@@ -65,7 +65,7 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
 
     def _calc_v_theta(self, action: Tuple[float, float, float]) -> Tuple[float, float]:
         """Calculates the v and theta from the action."""
-        vx, vy, theta = action
+        vx, vy, _ = action
         v = np.hypot(vx, vy)
         theta = np.arctan2(vy, vx) - self.qpos[2]
         return v, theta

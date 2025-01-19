@@ -99,10 +99,10 @@ class MjCambrianTrainer:
         model = self._make_model(env)
 
         # Save the eval environments xml
-        # All xml's _should_ be the same
-        xml_path = self._config.expdir / "env.xml"
         cambrian_env: MjCambrianEnv = eval_env.envs[0].unwrapped
-        cambrian_env.xml.write(xml_path)
+        cambrian_env.xml.write(self._config.expdir / "env.xml")
+        with open(self._config.expdir / "compiled_env.xml", "w") as f:
+            f.write(cambrian_env.spec.to_xml())
 
         # Start training
         total_timesteps = self._config.trainer.total_timesteps
@@ -143,9 +143,10 @@ class MjCambrianTrainer:
             model = model.load(self._config.expdir / "best_model")
 
         # Save the eval environments xml
-        xml_path = self._config.expdir / "eval_env.xml"
         cambrian_env: MjCambrianEnv = eval_env.envs[0].unwrapped
-        cambrian_env.xml.write(xml_path)
+        cambrian_env.xml.write(self._config.expdir / "eval_env.xml")
+        with open(self._config.expdir / "compiled_eval_env.xml", "w") as f:
+            f.write(cambrian_env.spec.to_xml())
 
         n_runs = self._config.eval_env.n_eval_episodes
         filename = self._config.eval_env.save_filename

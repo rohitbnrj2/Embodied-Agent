@@ -69,16 +69,12 @@ class MjCambrianPlotMonitorCallback(BaseCallback):
         if len(x) <= 20 or len(y) <= 20:
             get_logger().warning(f"Not enough {self.filename} data to plot.")
             return True
+        original_x, original_y = x.copy(), y.copy()
 
         get_logger().info(f"Plotting {self.filename} results at {self.evaldir}")
 
-        def moving_average(data, window=1, std: bool = False):
-            if not std:
-                return np.convolve(data, np.ones(window), "valid") / window
-            else:
-                # Calculate the rolling standard deviation with a moving window
-                result = [np.std(data[i : i + window]) for i in range(len(data))]
-                return np.array(result)
+        def moving_average(data, window=1):
+            return np.convolve(data, np.ones(window), "valid") / window
 
         n = min(len(y) // 10, 1000)
         y = y.astype(float)
@@ -88,22 +84,18 @@ class MjCambrianPlotMonitorCallback(BaseCallback):
                 "n_episodes must be a common factor of the"
                 f" number of episodes in the {self.filename} data."
             )
-            y_std = y.reshape(-1, self.n_episodes).std(axis=1)
-            y_std = moving_average(y_std, window=n)
-
             y = y.reshape(-1, self.n_episodes).mean(axis=1)
         else:
-            y_std = moving_average(y, window=n, std=True)
             y = moving_average(y, window=n)
 
         x = moving_average(x, window=n).astype(int)
 
-        # Make sure the x, y and y_std are of the same length
-        min_len = min(len(x), len(y), len(y_std))
-        x, y, y_std = x[:min_len], y[:min_len], y_std[:min_len]
+        # Make sure the x, y are of the same length
+        min_len = min(len(x), len(y))
+        x, y = x[:min_len], y[:min_len]
 
         plt.plot(x, y)
-        plt.fill_between(x, y - y_std, y + y_std, alpha=0.2)
+        plt.plot(original_x, original_y, color="grey", alpha=0.3)
 
         plt.xlabel("Number of Timesteps")
         plt.ylabel("Rewards")

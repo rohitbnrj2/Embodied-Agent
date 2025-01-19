@@ -11,6 +11,11 @@ instance:
   _partial_: true
   _convert_: all
 
+xml:
+  _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse
+  _convert_: all
+  xml_string: ${read:${path:models,agents,agent.xml}}
+
 check_contacts: ${.use_contact_obs}
 
 # Default configuration is randomly placed depending on the selected environment
