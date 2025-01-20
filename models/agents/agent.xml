@@ -1,3 +1,0 @@
-<mujoco>
-    <include file="models/settings.xml" />
-</mujoco>

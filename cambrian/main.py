@@ -1,4 +1,8 @@
+"""This is the main entrypoint for the ``cambrian`` package. It's used to run the
+training and evaluation loops."""
+
 import argparse
+from pathlib import Path
 
 from hydra_config import run_hydra
 
@@ -26,4 +30,5 @@ if __name__ == "__main__":
         elif eval:
             return runner.eval()
 
-    run_hydra(main, parser=parser)
+    config_path = Path(__file__).parent / "configs"
+    run_hydra(main, config_path=config_path, parser=parser)

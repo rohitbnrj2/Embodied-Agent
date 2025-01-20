@@ -5,10 +5,14 @@ custom:
   # Must be defined in the custom field
   frequency: ${oc.select:custom.frequency,"???"}
 
+
   # Need to define frequency, euler, and rgba of the top indicator
   # euler: <str>
   # top_rgba: <float> <float> <float> <float>
   # texture_cmap: "blackwhite"
+  size: "???"
+  euler: "???"
+  top_rgba: "???"
   texture_cmap: "redblue"
   texture: "object_textures/${.texture_cmap}_vertical_${.frequency}.png"
 

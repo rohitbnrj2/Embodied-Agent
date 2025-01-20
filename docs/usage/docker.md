@@ -33,7 +33,7 @@ docker compose exec -it aci bash
 The working directory within the `aci` container is `/home/aci/aci`. You then need to install the `aci` package in the container. You only need to do this once after building.
 
 ```bash
-poetry install
+pip install -e .
 ```
 
 ## Running

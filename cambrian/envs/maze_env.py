@@ -1,3 +1,5 @@
+"""Defines the MjCambrianMazeEnv class."""
+
 from enum import Enum
 from typing import (
     Any,
@@ -503,15 +505,18 @@ class MjCambrianMaze:
             if agent in self._agent_id_map[reset_agent]:
                 reset_locations.append(reset_pos)
         reset_locations = np.array(reset_locations)
+        if len(reset_locations) == 0:
+            raise ValueError(f"No reset locations found for agent '{agent}'.")
 
         # Reset the occupied location if the agent is already in the occupied locations
         if agent in self._agent_locations:
             del self._occupied_locations[self._agent_locations[agent]]
 
         # Generate the pos and assign that pos to the agent
-        if len(reset_locations) == 0:
-            raise ValueError(f"No reset locations found for agent '{agent}'.")
-        pos = self._generate_pos(reset_locations)
+        reset_locations = [tuple(loc) for loc in reset_locations]
+        occupied_locations = [tuple(loc) for loc in self._occupied_locations]
+        possible_locations = list(set(reset_locations) - set(occupied_locations))
+        pos = possible_locations[np.random.choice(len(possible_locations))]
         if add_as_occupied:
             self._agent_locations[agent] = len(self._occupied_locations)
             self._occupied_locations.append(pos)

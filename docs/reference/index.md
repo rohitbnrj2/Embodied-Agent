@@ -22,5 +22,5 @@ Utilities
 
 api/cambrian/renderer/index
 api/cambrian/utils/index
-api/cambrian/utils/config/index
+api/cambrian/config/index
 ```

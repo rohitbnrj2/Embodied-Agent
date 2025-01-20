@@ -337,9 +337,6 @@ class MjCambrianAgent:
                 action = np.interp(action, [-1, 1], actuator.ctrlrange)
             self._last_action.append(action)
 
-        # step here so that the observations are updated
-        mj.mj_forward(spec.model, spec.data)
-
         obs: Dict[str, Any] = {}
         for name, eye in self.eyes.items():
             eye_obs = eye.reset(spec)
@@ -387,22 +384,16 @@ class MjCambrianAgent:
 
     def _reset_pose(self, spec: MjCambrianSpec):
         """Resets the pose of the agent."""
-        body = spec.find_body(self._config.body_name)
-        body.pos = [
-            self._init_pos[i] if self._init_pos[i] is not None else body.pos[i]
-            for i in range(3)
-        ]
-        body.quat = [
-            self._init_quat[i] if self._init_quat[i] is not None else body.quat[i]
-            for i in range(4)
-        ]
+        self.pos = self._init_pos
+        self.quat = self._init_quat
+
+        # step here so that the states are updated
+        mj.mj_forward(spec.model, spec.data)
 
         if self._config.perturb_init_pos:
             pos = np.random.normal(0, self._geom.rbound / 2, 2)
             pos = np.clip(pos, -self._geom.rbound / 2, self._geom.rbound / 2)
-            body.pos += [*pos, 0]
-
-        self.body = body
+            self.pos += [*pos, 0]
 
     def step(self) -> ObsType:
         """Steps the eyes and returns the observation."""

@@ -84,11 +84,16 @@ class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
     """
 
     def __init__(
-        self, pos: np.ndarray, rgba: Tuple[float, float, float, float], size: float
+        self,
+        pos: np.ndarray,
+        rgba: Tuple[float, float, float, float],
+        size: float,
+        geom_kwargs: dict = dict(emission=0.25),
     ):
         super().__init__(pos)
         self._rgba = rgba
         self._size = size
+        self._geom_kwargs = geom_kwargs
 
     def draw_before_render(self, scene: mj.MjvScene):
         if scene.ngeom >= scene.maxgeom:
@@ -106,3 +111,5 @@ class MjCambrianSiteViewerOverlay(MjCambrianViewerOverlay):
             np.eye(3).flatten(),
             self._rgba,
         )
+        for key, value in self._geom_kwargs.items():
+            setattr(scene.geoms[scene.ngeom - 1], key, value)

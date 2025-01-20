@@ -6,5 +6,6 @@ The following examples demonstrate how to use the `cambrian` package to train ag
 :maxdepth: 1
 
 detection
-multi_agent
+navigation
+tracking
 ```

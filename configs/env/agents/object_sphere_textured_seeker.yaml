@@ -1,5 +1,0 @@
-defaults:
-  - point_textured
-  - point_seeker_random
-
-trainable: false

@@ -1,3 +1,6 @@
+"""Defines a multi-eye system that procedurally generates multiple eyes and manages
+them."""
+
 from typing import Callable, Dict, Self, Tuple
 
 import numpy as np

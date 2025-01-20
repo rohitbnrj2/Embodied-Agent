@@ -1,3 +1,5 @@
+"""Defines the types used in ``cambrian`` package."""
+
 from typing import (
     TYPE_CHECKING,
     Any,

@@ -1,5 +1,5 @@
 <mujoco>
-  <include file="models/agents/agent.xml" />
+  <include file="cambrian/models/agents/agent.xml" />
   <asset>
     <material name="${parent:xml}_mat" emission="1" rgba="0.3 0.6 0.3 1" />
     <material name="${parent:xml}_direction_mat" emission="1" rgba="0.6 0.3 0.3 1" />

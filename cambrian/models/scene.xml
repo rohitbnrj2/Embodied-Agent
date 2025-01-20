@@ -1,5 +1,5 @@
 <mujoco model="scene">
-    <include file="models/settings.xml" />
+    <include file="cambrian/models/settings.xml" />
     <option integrator="implicitfast" timestep="0.02">
         <flag frictionloss="disable" />
     </option>

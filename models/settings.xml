@@ -1,3 +1,0 @@
-<mujoco>
-    <compiler assetdir="models/assets" angle="degree" coordinate="local" inertiafromgeom="true" />
-</mujoco>

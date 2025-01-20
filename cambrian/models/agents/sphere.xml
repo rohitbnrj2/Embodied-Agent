@@ -1,5 +1,5 @@
 <mujoco>
-    <include file="models/agents/agent.xml" />
+    <include file="cambrian/models/agents/agent.xml" />
     <default>
         <default class="object">
             <light exponent="0.1" cutoff="180" dir="0 0 -1" diffuse="1 1 1" ambient="1 1 1"

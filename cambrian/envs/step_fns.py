@@ -42,7 +42,6 @@ def step_respawn_agents_if_close_to_agents(
         to_agents: List of agent names to check distance to
         from_agents: List of agent names to check distance from
     """
-    respawned = False
     for agent_name, agent in env.agents.items():
         if for_agents is not None and agent_name not in for_agents:
             continue
@@ -59,12 +58,6 @@ def step_respawn_agents_if_close_to_agents(
             if np.linalg.norm(agent.pos - other_agent.pos) < distance_threshold:
                 obs[agent_name] = respawn_agent(env, agent)
                 info[agent_name]["respawned"] = True
-                respawned = True
-
-    if respawned:
-        # recompile the spec to update the agent's pos; do this only once after all
-        # agent pos have been updated to avoid agent.pos resetting.
-        env.spec.recompile()
 
     return obs, info
 

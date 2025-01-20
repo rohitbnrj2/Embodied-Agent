@@ -1,3 +1,5 @@
+"""Defines the MjCambrianEnv class."""
+
 import pickle
 import time
 from collections import deque
@@ -234,7 +236,7 @@ class MjCambrianEnv(ParallelEnv, Env):
         # Recompile the model/data
         self._spec.recompile()
 
-        # We'll step the simulation once to allow for states to propagate
+        # 'll step the simulation once to allow for states to propagate
         self._step_mujoco_simulation(1, info)
 
         # Now update the info dict
@@ -444,7 +446,7 @@ class MjCambrianEnv(ParallelEnv, Env):
         i = self._num_resets * self._max_episode_steps + self._episode_step
         for agent in self._agents.values():
             size = agent.config.overlay_size
-            if size > 0:
+            if size == 0:
                 continue
 
             # Define a unique name so that the overlays don't get removed

@@ -48,6 +48,7 @@ This is a custom viewer that we use for debugging. There are a few shortcuts you
 use:
 
 - `R`: Reset the environment
+- `S`: Screenshot (saved as `screenshot.png`)
 - `Tab`: Switch cameras in the main view
 - `Space`: Pause the simulation
 - `Exit`: Close the window

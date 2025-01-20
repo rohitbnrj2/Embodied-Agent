@@ -1,3 +1,5 @@
+"""The configuration module for the ``cambrian`` module."""
+
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -50,6 +52,15 @@ class MjCambrianConfig(HydraContainerConfig):
 
 
 # =============================================================================
+
+
+@register_new_resolver("package")
+def package_resolver(package: str = "cambrian") -> Path:
+    """Get the path to installed package directory."""
+    import importlib.util
+
+    package_path = importlib.util.find_spec(package).submodule_search_locations[0]
+    return Path(package_path)
 
 
 @register_new_resolver("clean_overrides")

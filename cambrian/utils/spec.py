@@ -1,3 +1,5 @@
+"""Wrapper for the Mujoco MjModel and MjData classes."""
+
 from typing import Any, Self
 
 import mujoco as mj

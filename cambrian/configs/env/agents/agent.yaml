@@ -14,7 +14,7 @@ instance:
 xml:
   _target_: cambrian.utils.cambrian_xml.MjCambrianXML.parse
   _convert_: all
-  xml_string: ${read:${path:models,agents,agent.xml}}
+  xml_string: ${read:${path:${package:},models,agents,agent.xml}}
 
 check_contacts: ${.use_contact_obs}
 

@@ -54,12 +54,13 @@ The repository is structured as follows:
 ACI/
 ├── cambrian/           # Source code
 ├── docs/               # Contains documentation
-├── configs/            # Configuration files for experiments
-├── models/             # Model files for MuJoCo
 ├── scripts/            # Scripts for running experiments
 ├── tools/              # Additional tooling for processing data
+├── docker/             # Dockerfiles for running the package in a container
+├── docker-compose.yml  # Docker-compose file for running the package in a container
 ├── LICENSE
-└── setup.py           # Package description and installation instructions for pip
+├── README.md
+└── pyproject.toml      # Package description and installation instructions for pip
 ```
 
 ### Editing the Source Code
@@ -68,23 +69,16 @@ If you plan on editing the source code, please visit the `cambrian/` folder. The
 
 ```
 cambrian/
+├── configs/            # YAML configuration files for experiments
+├── models/             # XML model files for MuJoCo
 ├── utils/              # Utility files for use by the rest of the package
-│   └── ...
-├── containers/         # Containers related utilities, methods, or classes
-│   └── ...
 ├── agents/             # Agent related utilities, methods, or classes
-│   └── ...
 ├── envs/               # Environment related utilities, methods, or classes
-│   └── ...
 ├── eyes/               # Eye related utilities, methods, or classes
-│   └── ...
 ├── ml/                 # Machine learning related utilities, methods, or classes
-│   └── ...
 ├── renderer/           # Renderer related utilities, methods, or classes
-│   └── ...
-├── utils/              # Utility files for use by the rest of the package
-│   └── ...
-└── __init__.py         # Package initialization file
+├── config.py           # Configuration file for the Hydra-based system
+└── main.py             # Package initialization file
 ```
 
 #### Commenting
@@ -104,8 +98,8 @@ docs/
 ├── _static/            # Static files that persist through the build process
 │   ├── css/custom.css  # Custom css changes that are different from the default furo theme
 │   └── ...             # Images, favicons, etc.
+├── examples/           # Example tutorials for the ACI package
 ├── usage/              # Usage reference guide for the ACI package
-│   └── ...
 ├── setup.md            # Installation build instructions
 ├── contributing.md     # Contributing tab with instructions on how to contribute to the repo
 ├── conf.py             # Settings related to extensions, themes, etc.
