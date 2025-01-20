@@ -1,13 +1,10 @@
 """Rendering utilities."""
 
-from typing import Dict, List, Tuple
+from typing import Dict
 
 import mujoco as mj
 import torch
 import torch.nn.functional as F
-
-from cambrian.utils import device
-from cambrian.utils.constants import C
 
 
 def resize(images: torch.Tensor, height: int, width: int) -> torch.Tensor:
@@ -134,123 +131,6 @@ def generate_composite(images: Dict[float, Dict[float, torch.Tensor]]) -> torch.
     return composite
 
 
-class CubeToEquirectangularConverter:
-    def __init__(self, size: Tuple[int, int], image_size: Tuple[int, int]):
-        self.full_size = size
-        full_height, full_width = size
-        self.image_size = image_size
-        img_height, img_width = image_size
-
-        theta = torch.linspace(-torch.pi, torch.pi, steps=full_width, device=device)
-        phi = torch.linspace(
-            -torch.pi / 2, torch.pi / 2, steps=full_height, device=device
-        )
-        theta, phi = torch.meshgrid(theta, phi, indexing="ij")
-        theta = theta.transpose(0, 1)
-        phi = phi.transpose(0, 1)
-
-        x = torch.cos(phi) * torch.sin(theta)
-        y = torch.sin(phi)
-        z = torch.cos(phi) * torch.cos(theta)
-
-        cos45 = torch.cos(torch.tensor(45.0 * torch.pi / 180, device=device))
-        sin45 = torch.sin(torch.tensor(45.0 * torch.pi / 180, device=device))
-
-        x_rot = x * cos45 + z * sin45
-        z_rot = -x * sin45 + z * cos45
-
-        abs_x_rot = x_rot.abs()
-        abs_y = y.abs()
-        abs_z_rot = z_rot.abs()
-
-        face_indices = torch.zeros((full_height, full_width), dtype=int, device=device)
-        u = torch.zeros((full_height, full_width), dtype=torch.float32, device=device)
-        v = torch.zeros((full_height, full_width), dtype=torch.float32, device=device)
-
-        mask_left = (abs_x_rot >= abs_y) & (abs_x_rot >= abs_z_rot) & (x_rot < 0)
-        face_indices[mask_left] = 0
-        u[mask_left] = z_rot[mask_left] / abs_x_rot[mask_left]
-        v[mask_left] = y[mask_left] / abs_x_rot[mask_left]
-
-        mask_front = (abs_z_rot >= abs_x_rot) & (abs_z_rot >= abs_y) & (z_rot > 0)
-        face_indices[mask_front] = 1
-        u[mask_front] = x_rot[mask_front] / abs_z_rot[mask_front]
-        v[mask_front] = y[mask_front] / abs_z_rot[mask_front]
-
-        mask_right = (abs_x_rot >= abs_y) & (abs_x_rot >= abs_z_rot) & (x_rot > 0)
-        face_indices[mask_right] = 2
-        u[mask_right] = -z_rot[mask_right] / abs_x_rot[mask_right]
-        v[mask_right] = y[mask_right] / abs_x_rot[mask_right]
-
-        mask_back = (abs_z_rot >= abs_x_rot) & (abs_z_rot >= abs_y) & (z_rot < 0)
-        face_indices[mask_back] = 3
-        u[mask_back] = -x_rot[mask_back] / abs_z_rot[mask_back]
-        v[mask_back] = y[mask_back] / abs_z_rot[mask_back]
-
-        mask_top = (abs_y >= abs_x_rot) & (abs_y >= abs_z_rot) & (y > 0)
-        face_indices[mask_top] = 4
-        u[mask_top] = x_rot[mask_top] / abs_y[mask_top]
-        v[mask_top] = -z_rot[mask_top] / abs_y[mask_top]
-
-        mask_bottom = (abs_y >= abs_x_rot) & (abs_y >= abs_z_rot) & (y < 0)
-        face_indices[mask_bottom] = 5
-        u[mask_bottom] = x_rot[mask_bottom] / abs_y[mask_bottom]
-        v[mask_bottom] = z_rot[mask_bottom] / abs_y[mask_bottom]
-
-        u_img = ((u + 1) / 2) * (img_width - 1)
-        v_img = (1 - (v + 1) / 2) * (img_height - 1)
-
-        offsets_x = torch.zeros_like(face_indices, dtype=torch.float32)
-        offsets_y = torch.zeros_like(face_indices, dtype=torch.float32)
-
-        offsets_x[face_indices == 0] = 0
-        offsets_y[face_indices == 0] = 1
-        offsets_x[face_indices == 1] = 1
-        offsets_y[face_indices == 1] = 1
-        offsets_x[face_indices == 2] = 2
-        offsets_y[face_indices == 2] = 1
-        offsets_x[face_indices == 3] = 3
-        offsets_y[face_indices == 3] = 1
-        offsets_x[face_indices == 4] = 1
-        offsets_y[face_indices == 4] = 0
-        offsets_x[face_indices == 5] = 1
-        offsets_y[face_indices == 5] = 2
-
-        map_x = u_img + offsets_x * img_width
-        map_y = v_img + offsets_y * img_height
-
-        norm_x = (map_x / (4 * img_width - 1)) * 2 - 1
-        norm_y = (map_y / (3 * img_height - 1)) * 2 - 1
-
-        grid = torch.stack((norm_x, norm_y), dim=-1).unsqueeze(0)
-        self.grid = grid.to(device)
-
-        self.combined_image = torch.zeros(
-            (3 * img_height, 4 * img_width, 3),
-            dtype=torch.float32,
-            device=device,
-        )
-
-    def convert(self, images: List[torch.Tensor]) -> torch.Tensor:
-        h, w = self.image_size
-        self.combined_image[h : 2 * h, 0:w] = images[0]
-        self.combined_image[h : 2 * h, w : 2 * w] = images[1]
-        self.combined_image[h : 2 * h, 2 * w : 3 * w] = images[2]
-        self.combined_image[h : 2 * h, 3 * w : 4 * w] = images[3]
-        self.combined_image[:h, w : 2 * w] = images[4]
-        self.combined_image[2 * h : 3 * h, w : 2 * w] = images[5]
-
-        combined_image = self.combined_image.unsqueeze(0).permute(0, 3, 1, 2)
-        remapped = F.grid_sample(
-            combined_image,
-            self.grid,
-            mode="nearest",
-            padding_mode="zeros",
-            align_corners=False,
-        )
-        return remapped.squeeze(0).permute(1, 2, 0)
-
-
 def convert_depth_distances(model: mj.MjModel, depth: torch.Tensor) -> torch.Tensor:
     """Converts depth values from OpenGL to metric depth values using PyTorch.
 
@@ -302,35 +182,6 @@ def convert_depth_distances(model: mj.MjModel, depth: torch.Tensor) -> torch.Ten
     return out_64.to(dtype=torch.float32)
 
 
-class DepthDistanceConverter:
-    """Converts depth values from OpenGL to metric depth values using PyTorch.
-
-    Similar to the :func:`convert_depth_distances` function, but this class
-    is made to be faster given that it precomputes some values.
-    """
-
-    def __init__(self, model: mj.MjModel):
-        self.model = model
-        self.extent = model.stat.extent
-        self.near = torch.tensor(
-            model.vis.map.znear * self.extent, device=device, dtype=torch.float32
-        )
-        self.far = torch.tensor(
-            model.vis.map.zfar * self.extent, device=device, dtype=torch.float32
-        )
-
-        self._c_coef = -(self.far + self.near) / (self.far - self.near)
-        self._d_coef = -(2 * self.far * self.near) / (self.far - self.near)
-
-        self._c_coef = -0.5 * self._c_coef - 0.5
-        self._d_coef = -0.5 * self._d_coef
-
-    def convert(self, depth: torch.Tensor) -> torch.Tensor:
-        out_64 = depth.to(dtype=torch.float64)
-        out_64 = self._d_coef / (out_64 + self._c_coef)
-        return out_64.to(dtype=torch.float32)
-
-
 def convert_depth_to_rgb(
     depth: torch.Tensor, znear: float | None = None, zfar: float | None = None
 ) -> torch.Tensor:
@@ -350,50 +201,3 @@ def convert_depth_to_rgb(
         depth = 1 - torch.clamp(depth, 0.0, 1.0)
     depth = depth.repeat(3, 1, 1).permute(1, 2, 0)
     return depth
-
-
-def convert_depth_to_tof(
-    model: mj.MjModel, depth: torch.Tensor, timing_resolution_ns: float, num_bins: int
-) -> torch.Tensor:
-    """Converts depth values to time-of-flight. It will return a transient cube, where
-    each image is a time-of-flight image at a specific time.
-
-    Args:
-        depth (torch.Tensor): The depth values. Shape: (height, width).
-        timing_resolution_ns (float): The timing resolution in nanoseconds.
-        num_bins (int): The number of bins. The output tensor will have shape
-            (num_bins, height, width).
-
-    Returns:
-        torch.Tensor: The time-of-flight transient cube. Shape: (num_bins, height,
-            width).
-    """
-    # Ensure depth is 2D (height, width)
-    if depth.dim() != 2:
-        raise ValueError("Depth tensor must be 2-dimensional (height, width).")
-
-    # Convert depth to distances; remove values equal to the far clipping plane
-    depth = convert_depth_distances(model, depth)
-
-    # Calculate ToF in seconds: ToF = 2 * distance / c
-    tof_sec = 2 * depth / C  # Shape: (height, width)
-
-    # Convert ToF to nanoseconds
-    tof_ns = tof_sec * 1e9  # Shape: (height, width)
-
-    # Determine the bin index for each ToF value
-    bin_indices = torch.floor(tof_ns / timing_resolution_ns).long()
-
-    # Mask out invalid bin indices
-    bin_mask = (bin_indices >= 0) & (bin_indices < num_bins)
-    bin_indices = torch.clamp(bin_indices, 0, num_bins - 1)
-
-    # Create a one-hot encoding for bin indices
-    # Shape after one_hot: (height, width, num_bins)
-    transient_one_hot = torch.nn.functional.one_hot(bin_indices, num_classes=num_bins)
-    transient_one_hot[~bin_mask] = 0
-
-    # Permute to shape (num_bins, height, width)
-    transient = transient_one_hot.permute(2, 0, 1).float()
-
-    return transient

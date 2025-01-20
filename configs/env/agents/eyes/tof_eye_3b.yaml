@@ -1,6 +1,0 @@
-defaults:
-  - tof_eye
-
-instance:
-  _target_: cambrian.eyes.tof_eye.MjCambrianThreeBounceToFEye
-  _partial_: true

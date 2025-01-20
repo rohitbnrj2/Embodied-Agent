@@ -2,22 +2,13 @@
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
 from cambrian.eyes.multi_eye import MjCambrianMultiEye, MjCambrianMultiEyeConfig
-from cambrian.eyes.multi_eye_approx import (
-    MjCambrianMultiEyeApprox,
-    MjCambrianMultiEyeApproxConfig,
-)
 from cambrian.eyes.optics import MjCambrianOpticsEye, MjCambrianOpticsEyeConfig
-from cambrian.eyes.tof_eye import MjCambrianToFEye, MjCambrianToFEyeConfig
 
 __all__ = [
     "MjCambrianEyeConfig",
     "MjCambrianEye",
     "MjCambrianMultiEyeConfig",
     "MjCambrianMultiEye",
-    "MjCambrianMultiEyeApproxConfig",
-    "MjCambrianMultiEyeApprox",
     "MjCambrianOpticsEyeConfig",
     "MjCambrianOpticsEye",
-    "MjCambrianToFEyeConfig",
-    "MjCambrianToFEye",
 ]

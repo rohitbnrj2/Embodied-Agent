@@ -1,9 +1,8 @@
 """This module contains the trainer class for training and evaluating agents."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Concatenate, Dict, List, Optional
+from typing import TYPE_CHECKING, Callable, Concatenate, Dict, Optional
 
-import torch
 from hydra_config import HydraContainerConfig, config_wrapper
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.vec_env import (
@@ -168,29 +167,6 @@ class MjCambrianTrainer:
 
         return fitness
 
-    def eval_fast(self) -> float:
-        """This method is used to quickly evaluate the agent. It will not save any
-        videos or render the environment. This is useful for evaluating the agent
-        quickly to determine if it is worth rendering the environment."""
-        return self.eval(record=False)
-
-    def test(self) -> float:
-        """This is a test method which tests the evolutionary loop. It will return a
-        fitness consistent with the expected performance of the agent given the config.
-        This can be used to test the optimizer."""
-
-        self._config.save(self._config.expdir / "test_config.yaml")
-
-        # Calculate fitness
-        fitness = self._config.trainer.fitness_fn(self._config)
-        get_logger().info(f"Final Fitness: {fitness}")
-
-        # Save the final fitness to a file
-        with open(self._config.expdir / "test_fitness.txt", "w") as f:
-            f.write(str(fitness))
-
-        return fitness
-
     # ========
 
     def _calc_seed(self, i: int) -> int:
@@ -247,34 +223,3 @@ class MjCambrianTrainer:
     def _make_model(self, env: VecEnv) -> MjCambrianModel:
         """This method creates the model."""
         return self._config.trainer.model(env=env)
-
-
-# ===========
-
-
-def get_policy_weights(
-    wrappers: Dict[str, Callable[[VecEnv], VecEnv] | None],
-    model: Callable[[VecEnv], MjCambrianModel],
-    env: MjCambrianEnvConfig = None,
-    initialization_method: str = "zero",
-) -> int:
-    wrappers = [w for w in wrappers.values() if w]
-    env = DummyVecEnv([make_wrapped_env(env, wrappers=wrappers)])
-    model: MjCambrianModel = model(env=env)
-
-    policy_weights: Dict[str, List[float]] = {}
-    for name, param in model.policy.named_parameters():
-        name = name.replace(".", "__")
-
-        weights = param.data.cpu()
-        if initialization_method == "zero":
-            weights = torch.zeros_like(weights)
-        elif initialization_method == "random":
-            weights = (torch.rand_like(weights) - 0.5) * 2
-        elif initialization_method == "default":
-            pass
-        else:
-            raise ValueError(f"Unknown initialization method: {initialization_method}")
-        policy_weights[name] = weights.tolist()
-
-    return policy_weights

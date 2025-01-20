@@ -691,6 +691,14 @@ class MjCambrianOnscreenViewer(MjCambrianViewer):
         if key == glfw.KEY_SPACE:
             self._is_paused = not self._is_paused
 
+        # Screenshot
+        if key == glfw.KEY_S:
+            rgb, _ = self._read_pixels(read_rgb=True, read_depth=False)
+            rgb = (rgb * 255.0).to(torch.uint8).cpu().numpy()
+            rgb = np.flipud(rgb)
+            imageio.imwrite("screenshot.png", rgb)
+            get_logger().info("Saved screenshot at screenshot.png.")
+
         # Custom key callback
         if self.custom_key_callback is not None:
             self.custom_key_callback(window, key, scancode, action, mods)

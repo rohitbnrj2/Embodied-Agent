@@ -16,6 +16,7 @@ logs/
 *.mp4
 *.gif
 *.webp
+screenshot.png
 
 # Mujoco
 MJDATA.TXT

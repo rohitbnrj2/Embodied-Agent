@@ -9,6 +9,6 @@ env:
     agent:
       eyes:
         eye:
-          resolution: [10, 10]
+          resolution: [20, 20]
           num_eyes: [1, 3]
           lon_range: [-30, 30]

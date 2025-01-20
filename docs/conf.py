@@ -81,6 +81,10 @@ napoleon_attr_annotations = True
 
 # MyST
 myst_heading_anchors = 7
+myst_enable_extensions = [
+    "dollarmath",
+    "amsmath",
+]
 
 viewcode_enable_epub = True
 

@@ -80,15 +80,7 @@ class MjCambrianAgentPoint(MjCambrianAgent2D):
         vx = v * np.cos(current_heading)
         vy = v * np.sin(current_heading)
 
-        # Calculate the heading velocity from input theta
-        target_heading = np.interp(action[1], [-1, 1], [-np.pi, np.pi])
-        delta_heading = np.arctan2(
-            np.sin(target_heading - current_heading),
-            np.cos(target_heading - current_heading),
-        )
-        heading_velocity = np.clip(self._kp * delta_heading, -1, 1)
-
-        super().apply_action([vx, vy, heading_velocity])
+        super().apply_action([vx, vy, action[1]])
 
     @cached_property
     def action_space(self) -> spaces.Space:
@@ -143,12 +135,15 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
 
     def get_action_privileged(self, env: MjCambrianMazeEnv) -> ActionType:
         if self._target is None:
-            # Generate a random position to navigate to
-            # Chooses one of the empty spaces in the maze
-            rows, cols = np.where(env.maze.map == "0")
-            assert rows.size > 0, "No empty spaces in the maze"
-            index = np.random.randint(rows.size)
-            target_pos = env.maze.rowcol_to_xy((rows[index], cols[index]))
+            if self._optimal_trajectory is None or len(self._optimal_trajectory) == 0:
+                # Generate a random position to navigate to
+                # Chooses one of the empty spaces in the maze
+                rows, cols = np.where(env.maze.map == "0")
+                assert rows.size > 0, "No empty spaces in the maze"
+                index = np.random.randint(rows.size)
+                target_pos = env.maze.rowcol_to_xy((rows[index], cols[index]))
+            else:
+                target_pos = self._optimal_trajectory[0]
         else:
             assert self._target in env.agents, f"Target {self._target} not found in env"
             target_pos = env.agents[self._target].pos
@@ -195,5 +190,6 @@ class MjCambrianAgentPointSeeker(MjCambrianAgentPoint):
 
         # Update the previous target position
         target_theta = np.arctan2(target_vector[1], target_vector[0])
+        theta_action = np.interp(target_theta, [-np.pi, np.pi], [-1, 1])
 
-        return [self._speed, np.interp(target_theta, [-np.pi, np.pi], [-1, 1])]
+        return [self._speed, theta_action]

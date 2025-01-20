@@ -10,9 +10,7 @@ defaults:
   # Override the goal and adversary, which both move around the map
   - override /env/agents@env.agents.goal0:
       - object_sphere_textured_goal
-      - point_textured
-      - point_seeker_random
+      - object_sphere_textured_seeker
   - override /env/agents@env.agents.adversary0:
       - object_sphere_textured_adversary
-      - point_textured
-      - point_seeker_random
+      - object_sphere_textured_seeker
