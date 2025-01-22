@@ -5,7 +5,7 @@ RUN apt-get update && \
             wget \
             gpg \
             software-properties-common \
-            lsb-release
+            lsb-release \
             openjdk-17-jre-headless \
             libgles2-mesa-dev \
             libglfw3-dev \
