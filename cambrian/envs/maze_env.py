@@ -181,11 +181,13 @@ class MjCambrianMazeEnv(MjCambrianEnv):
         obs, info = super().reset(seed=seed, options=options)
 
         if (renderer := self.renderer) and (viewer := renderer.viewer):
-            # Update the camera positioning to match the current maze
-            viewer.camera.lookat = self._maze.lookat
+            if viewer.config.config.get("camera", {}).get("lookat", None) is None:
+                # Update the camera positioning to match the current maze
+                viewer.camera.lookat = self._maze.lookat
 
             # Update the camera distance to match the current maze's extent
-            viewer.camera.distance = viewer.config.camera.distance
+            if viewer.config.config.get("camera", {}).get("distance", None) is None:
+                viewer.camera.distance = viewer.config.camera.distance
             viewer.camera.distance *= self._maze.max_dim / renderer.ratio
             if self._maze.ratio < 2.0:
                 viewer.camera.distance *= 2

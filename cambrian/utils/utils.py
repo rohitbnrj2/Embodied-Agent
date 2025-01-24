@@ -23,7 +23,8 @@ from stable_baselines3.common.vec_env import VecEnv
 from cambrian.utils.logger import get_logger
 
 if TYPE_CHECKING:
-    from cambrian.agents import MjCambrianAgent
+    from cambrian.agents.agent import MjCambrianAgent
+    from cambrian.envs.env import MjCambrianEnv
     from cambrian.ml.model import MjCambrianModel
 
 # ============
@@ -39,8 +40,8 @@ def evaluate_policy(
     num_runs: int,
     *,
     record_kwargs: Optional[Dict[str, Any]] = None,
-    step_callback: Optional[Callable[[], bool]] = lambda: True,
-    done_callback: Optional[Callable[[int], bool]] = lambda _: True,
+    step_callback: Optional[Callable[["MjCambrianEnv"], bool | None]] = lambda _: True,
+    done_callback: Optional[Callable[[int], bool | None]] = lambda _: True,
 ) -> float:
     """Evaluate a policy.
 
@@ -84,16 +85,16 @@ def evaluate_policy(
                 f"Cumulative reward: {cambrian_env.stashed_cumulative_reward}"
             )
 
-            if not done_callback(run):
+            if done_callback(run) is False:
                 break
 
             run += 1
 
+        if step_callback(cambrian_env) is False:
+            break
+
         if record_kwargs is not None:
             env.render()
-
-        if not step_callback():
-            break
 
     if record_kwargs is not None:
         cambrian_env.save(**record_kwargs)

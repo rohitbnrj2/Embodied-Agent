@@ -43,6 +43,9 @@ extensions = [
     "sphinx_copybutton",
     "sphinxcontrib.video",
     "sphinxcontrib.googleanalytics",
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.extlinks',
+    "sphinx_design",
 ]
 
 # autoapi config
@@ -102,6 +105,15 @@ exclude_patterns = ["env"]
 # Google Analytics
 googleanalytics_id = "G-TB8Y1XJVV1"
 
+# InterSphinx
+intersphinx_mapping = {
+    'hydra_config': ('https://aaronyoung5.github.io/hydra-config', None),
+}
+
+# External links
+extlinks = {
+    'src': ('https://github.com/cambrian-org/ACI/blob/main/%s', None),
+}
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -117,7 +129,7 @@ html_theme_options = {
     "announcement": """
         <a style=\"text-decoration: none; color: white;\"
            href=\"https://www.media.mit.edu/groups/camera-culture/overview/\">
-           <img src=\"/cc-hardware/_static/cc-transparent.png\"
+           <img src=\"/ACI/_static/cc-transparent.png\"
                 style=\"
                     vertical-align: middle;
                     display: inline;

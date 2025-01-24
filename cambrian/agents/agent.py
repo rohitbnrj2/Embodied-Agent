@@ -163,10 +163,12 @@ class MjCambrianAgent:
         self._parse_geometry(spec)
         self._parse_actuators(spec)
 
-        self._place_eyes()
+        self._create_eyes()
 
-        self._init_pos = [None] * 3
-        self._init_quat = [None] * 4
+        assert len(self._config.init_pos) == 3, "init_pos must have 3 elements."
+        self._init_pos = self._config.init_pos
+        assert len(self._config.init_quat) == 4, "init_quat must have 4 elements."
+        self._init_quat = self._config.init_quat
 
     def _parse_geometry(self, spec: MjCambrianSpec):
         """Parse the geometry to get the root body, number of controls, joints, and
@@ -261,9 +263,8 @@ class MjCambrianAgent:
         if self.trainable:
             assert len(self._actuators) > 0, f"Body {body_name} has no actuators."
 
-    def _place_eyes(self):
+    def _create_eyes(self):
         """Place the eyes on the agent."""
-
         for name, eye_config in self._config.eyes.items():
             self._eyes[name] = eye_config.instance(eye_config, f"{self._name}_{name}")
 
@@ -581,10 +582,15 @@ class MjCambrianAgent:
         """Sets the initial position of the agent in the environment. The value is a
         tuple of the x, y, and z positions. If the value is None, the position is not
         updated."""
-        self._init_pos = [
-            value[i] if i < len(value) and value[i] is not None else self._init_pos[i]
-            for i in range(3)
-        ]
+        init_pos = [None, None, None]
+        for i in range(3):
+            if self._config.init_pos[i] is not None:
+                init_pos[i] = self._config.init_pos[i]
+            elif i < len(value) and value[i] is not None:
+                init_pos[i] = value[i]
+            else:
+                init_pos[i] = self._init_pos[i]
+        self._init_pos = init_pos
 
     @property
     def quat(self) -> np.ndarray:

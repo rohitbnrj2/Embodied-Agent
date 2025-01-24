@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Any, List, Optional
 
+from omegaconf import DictConfig, OmegaConf
 from hydra_config import HydraContainerConfig, config_wrapper, register_new_resolver
 
 from cambrian.envs.env import MjCambrianEnvConfig
@@ -124,3 +125,7 @@ def num_cpus_resolver() -> int:
     import multiprocessing
 
     return multiprocessing.cpu_count()
+
+@register_new_resolver("unresolved")
+def unresolved_resolver(path: str, *, _parent_: DictConfig) -> str:
+    return OmegaConf.to_container(OmegaConf.select(_parent_, path))

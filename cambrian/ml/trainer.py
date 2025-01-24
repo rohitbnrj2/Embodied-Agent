@@ -132,6 +132,7 @@ class MjCambrianTrainer:
         filename: Optional[Path | str] = None,
         record: bool = True,
         load_if_exists: bool = False,
+        **callback_kwargs,
     ) -> float:
         self._config.save(self._config.expdir / "eval_config.yaml")
 
@@ -155,7 +156,9 @@ class MjCambrianTrainer:
         )
         if not record:
             record_kwargs = None
-        evaluate_policy(eval_env, model, n_runs, record_kwargs=record_kwargs)
+        evaluate_policy(
+            eval_env, model, n_runs, record_kwargs=record_kwargs, **callback_kwargs
+        )
 
         # Calculate fitness
         fitness = self._config.trainer.fitness_fn(self._config)

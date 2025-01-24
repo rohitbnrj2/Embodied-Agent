@@ -14,7 +14,7 @@ services:
         # Madrona requires 12 <= CUDA_VERSION <= 12.5
         IMAGE_TAG: "12.5.1-devel-ubuntu20.04"
         USER_GROUPS: "dialout video"
-        PIP_REQUIREMENTS: "poetry"
+        PIP_REQUIREMENTS: ""
         CONDA_PACKAGES: "python=3.12"
         APT_DEPENDENCIES: ""
     volumes:

@@ -6,6 +6,7 @@
 .ruff_cache
 .bash_history
 _version.py
+outputs/
 
 # Data files
 logs/

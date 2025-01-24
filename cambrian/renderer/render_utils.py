@@ -201,3 +201,39 @@ def convert_depth_to_rgb(
         depth = 1 - torch.clamp(depth, 0.0, 1.0)
     depth = depth.repeat(3, 1, 1).permute(1, 2, 0)
     return depth
+
+
+def add_text(
+    image: torch.Tensor,
+    text: str,
+    position: tuple[int, int] = (0, 0),
+    size: int | None = None,
+    **kwargs,
+) -> torch.Tensor:
+    """Add text to an image.
+
+    Note:
+        This is slow, so use it sparingly.
+
+    Args:
+        image (torch.Tensor): The image to add text to.
+        text (str): The text to add.
+        position (tuple[int, int]): The position to add the text.
+        color (tuple[int, int, int], optional): The color of the text. Defaults to (255, 255, 255).
+
+    Returns:
+        torch.Tensor: The image with the text added.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+    import numpy as np
+
+    device = image.device
+
+    image = Image.fromarray((torch.flipud(image) * 255).cpu().numpy().astype("uint8"))
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default(size)
+    draw.text(position, text, font=font, **kwargs)
+    image = torch.tensor(np.array(image), device=device) / 255
+    image = torch.flipud(image)
+
+    return image

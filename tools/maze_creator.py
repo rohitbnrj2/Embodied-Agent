@@ -98,6 +98,7 @@ class MazeEditor(tk.Tk):
         tk.Button(toolbar, text="Reset", command=self.reset_grid).pack(side=tk.RIGHT)
 
     def create_grid_controls(self):
+        # flake8: noqa
         # fmt: off
         # Add Row Bottom
         tk.Button(self, text='+ Row', command=lambda: self.add_row(1)).pack(side=tk.BOTTOM, fill=tk.X)
@@ -115,6 +116,7 @@ class MazeEditor(tk.Tk):
         tk.Button(self, text='+ Column', command=lambda: self.add_column(2)).pack(side=tk.LEFT, fill=tk.Y)
         tk.Button(self, text='- Column', command=lambda: self.remove_column(-2)).pack(side=tk.LEFT, fill=tk.Y)
         # fmt: on
+        # flake8: noqa
 
     def create_grid(self, add_row: int = 0, add_col: int = 0):
         """

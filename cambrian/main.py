@@ -30,5 +30,5 @@ if __name__ == "__main__":
         elif eval:
             return runner.eval()
 
-    config_path = Path(__file__).parent / "configs"
+    config_path = "pkg://cambrian/configs"
     run_hydra(main, config_path=config_path, parser=parser)

@@ -78,6 +78,7 @@ class MjCambrianEnvConfig(HydraContainerConfig):
         n_eval_episodes (int): The number of episodes to evaluate for.
 
         add_overlays (bool): Whether to add overlays or not.
+        add_text_overlays (bool): Whether to add text overlays or not.
         clear_overlays_on_reset (bool): Whether to clear the overlays on reset or not.
             Consequence of setting to False is that when drawing position overlays
             and when mazes change between evaluations, the sites will be drawn on top
@@ -112,6 +113,7 @@ class MjCambrianEnvConfig(HydraContainerConfig):
     n_eval_episodes: int
 
     add_overlays: bool
+    add_text_overlays: bool
     clear_overlays_on_reset: bool
     debug_overlays_size: float
     renderer: Optional[MjCambrianRendererConfig] = None
@@ -437,6 +439,11 @@ class MjCambrianEnv(ParallelEnv, Env):
         overlays = []
         if self._config.add_overlays:
             overlays = self._generate_overlays()
+
+        if not self._config.add_text_overlays:
+            overlays = [
+                o for o in overlays if not isinstance(o, MjCambrianTextViewerOverlay)
+            ]
 
         return self._renderer.render(overlays=overlays)
 

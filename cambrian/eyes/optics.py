@@ -1,19 +1,34 @@
 """This is an optics-enabled eye, which implements a height map and a PSF on top
 of the existing eye."""
 
+from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Optional, Self, Tuple
 
-import numpy as np
 import torch
 from hydra_config import HydraContainerConfig, config_wrapper
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
-from cambrian.utils import make_odd
+from cambrian.utils import make_odd, device, RenderFrame
+from cambrian.renderer.render_utils import resize_with_aspect_fill, add_text
 
 
 @config_wrapper
-class MjCambrianApertureConfig(HydraContainerConfig):
-    pass
+class MjCambrianApertureConfig(HydraContainerConfig, ABC):
+    @abstractmethod
+    def calculate_aperture_mask(
+        self, X1_Y1: torch.Tensor, Lx: float, Ly: float
+    ) -> torch.Tensor:
+        """This method calculates the aperture mask.
+
+        Args:
+            X1_Y1 (torch.Tensor): Squared distance from the center of the aperture.
+            Lx (float): Width of the aperture.
+            Ly (float): Height of the aperture.
+
+        Returns:
+            torch.Tensor: Aperture mask.
+        """
+        pass
 
 
 @config_wrapper
@@ -26,6 +41,12 @@ class MjCambrianCircularApertureConfig(MjCambrianApertureConfig):
     """
 
     radius: float
+
+    def calculate_aperture_mask(
+        self, X1_Y1: torch.Tensor, Lx: float, Ly: float
+    ) -> torch.Tensor:
+        aperture_radius = min(Lx / 2, Ly / 2) * self.radius + 1e-7
+        return torch.nan_to_num(torch.sqrt(X1_Y1) / aperture_radius) <= 1.0
 
 
 @config_wrapper
@@ -43,15 +64,38 @@ class MjCambrianMaskApertureConfig(MjCambrianApertureConfig):
             randomized.
         random_prob (Optional[float]): Probability of the aperture mask being 1. If
             None, the probability is 0.5. Defaults to None.
-        size (Optional[Tuple[int, int]]): Size of the aperture mask. This is the size
-            of the aperture mask. If None, the size is the same as the pupil resolution.
-            Defaults to None.
+        size (Optional[Tuple[int, int]]): Size of the aperture mask. If None, the size 
+            is the same as the pupil resolution. Defaults to None.
     """
 
     mask: Optional[List[List[int]]] = None
     randomize: bool
     random_prob: Optional[float] = None
     size: Optional[Tuple[int, int]] = None
+
+    def calculate_aperture_mask(self, X1_Y1: torch.Tensor, *_) -> torch.Tensor:
+        size = self.size if self.size is not None else X1_Y1.shape
+        if self.mask is None:
+            assert self.randomize or self.size is not None, "Mask or size must be set."
+            mask = torch.randint(0, 2, size, dtype=torch.float32)
+            if self.random_prob is not None:
+                mask = mask > self.random_prob
+        else:
+            mask = torch.tensor(self.mask, dtype=torch.float32)
+        assert mask.shape[0] == mask.shape[1]
+        if self.randomize:
+            mask = torch.randint(0, 2, mask.shape, dtype=torch.float32)
+
+        mask = (
+            torch.nn.functional.interpolate(
+                mask.unsqueeze(0).unsqueeze(0),
+                size=size,
+                mode="bicubic",
+            )
+            .squeeze(0)
+            .squeeze(0)
+        )
+        return mask > 0.5
 
 
 @config_wrapper
@@ -72,6 +116,8 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
         height_map (List[float]): Height map of the lens. This is used to
             calculate the phase shift of the light passing through the lens. Uses a
             radially symmetric approximation.
+        scale_intensity (bool): Whether to scale the intensity of the PSF by the
+            overall throughput of the aperture.
 
         aperture (MjCambrianApertureConfig): Aperture config. This defines the
             aperture of the lens. The aperture can be circular or custom.
@@ -90,6 +136,7 @@ class MjCambrianOpticsEyeConfig(MjCambrianEyeConfig):
     f_stop: float
     refractive_index: float
     height_map: List[float]
+    scale_intensity: bool
 
     aperture: MjCambrianApertureConfig
 
@@ -110,15 +157,11 @@ class MjCambrianOpticsEye(MjCambrianEye):
         self._renders_depth = "depth_array" in self._config.renderer.render_modes
         assert self._renders_depth, "Eye: 'depth_array' must be a render mode."
 
-        self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
         self._psfs: Dict[torch.Tensor, torch.Tensor] = {}
-        self._depths = torch.tensor(self._config.depths).to(self._device)
-        self._initialize()
-        if self._config.depths:
-            self._precompute_psfs()
+        self._depths = torch.tensor(self._config.depths).to(device)
+        self.initialize()
 
-    def _initialize(self):
+    def initialize(self):
         """This will initialize the parameters used during the PSF calculation."""
         # pupil_Mx,pupil_My defines the number of pixels in x,y direction
         # (i.e. width, height) of the pupil
@@ -155,7 +198,7 @@ class MjCambrianOpticsEye(MjCambrianEye):
         FX, FY = torch.meshgrid(freqx, freqy, indexing="ij")
 
         # Aperture mask
-        A = self._calculate_aperture_mask(X1_Y1, Lx, Ly)
+        A = self._config.aperture.calculate_aperture_mask(X1_Y1, Lx, Ly)
 
         # Going to scale the intensity by the overall throughput of the aperture
         self._scaling_intensity = (A.sum() / (max(pupil_Mx * pupil_My, 1))) ** 2
@@ -173,7 +216,7 @@ class MjCambrianOpticsEye(MjCambrianEye):
             torch.arange(pupil_Mx), torch.arange(pupil_My), indexing="ij"
         )
         r = torch.sqrt((x - pupil_Mx / 2).square() + (y - pupil_My / 2).square())
-        height_map = h_r[r.to(torch.int64)]  # (n, n)
+        height_map: torch.Tensor = h_r[r.to(torch.int64)]  # (n, n)
         height_map *= torch.max(wavelengths / (self._config.refractive_index - 1.0))
         phi_m = k * (self._config.refractive_index - 1.0) * height_map
         pupil = A * torch.exp(phi_m)
@@ -196,63 +239,27 @@ class MjCambrianOpticsEye(MjCambrianEye):
         H = H_valid * FX_FY
 
         # Now store all as class attributes
-        self._X1, self._Y1 = X1.to(self._device), Y1.to(self._device)
-        self._X1_Y1 = X1_Y1.to(self._device)
-        self._H_valid = H_valid.to(self._device)
-        self._H = H.to(self._device)
-        self._FX, self._FY = FX.to(self._device), FY.to(self._device)
-        self._FX_FY = FX_FY.to(self._device)
-        self._k = k.to(self._device)
-        self._A = A.to(self._device)
-        self._pupil = pupil.to(self._device)
-        self._height_map = height_map.to(self._device)
+        self._X1, self._Y1 = X1.to(device), Y1.to(device)
+        self._X1_Y1 = X1_Y1.to(device)
+        self._H_valid = H_valid.to(device)
+        self._H = H.to(device)
+        self._FX, self._FY = FX.to(device), FY.to(device)
+        self._FX_FY = FX_FY.to(device)
+        self._k = k.to(device)
+        self._A = A.to(device)
+        self._pupil = pupil.to(device)
+        self._height_map = height_map.to(device)
         self._psf_resolution = psf_resolution
 
-    def _calculate_aperture_mask(
-        self, X1_Y1: torch.Tensor, Lx: float, Ly: float
-    ) -> torch.Tensor:
-        aperture = self._config.aperture
-        if aperture.get_typename() == "MjCambrianCircularApertureConfig":
-            aperture: MjCambrianCircularApertureConfig
-            assert 0.0 <= aperture.radius <= 1.0
-            aperture_radius = min(Lx / 2, Ly / 2) * aperture.radius + 1e-7  # (m)
-            A = torch.nan_to_num(torch.sqrt(X1_Y1) / aperture_radius) <= 1.0
-        elif aperture.get_typename() == "MjCambrianMaskApertureConfig":
-            aperture: MjCambrianMaskApertureConfig
-            size = (self._config.pupil_resolution[0], self._config.pupil_resolution[1])
-
-            if aperture.mask is None:
-                assert aperture.randomize
-                random_prob = aperture.random_prob or 0.5
-                temp_size = size if aperture.size is None else tuple(aperture.size)
-                mask = torch.bernoulli(torch.full(temp_size, random_prob))
-            else:
-                mask = torch.tensor(aperture.mask, dtype=torch.float32)
-                assert mask.shape[0] == mask.shape[1]
-                if aperture.randomize:
-                    mask = torch.randint(0, 2, mask.shape, dtype=torch.float32)
-
-            # Resize with bicupic interpolation to the size of the pupil
-            mask = (
-                torch.nn.functional.interpolate(
-                    mask.unsqueeze(0).unsqueeze(0),
-                    size=size,
-                    mode="bicubic",
-                )
-                .squeeze(0)
-                .squeeze(0)
-            )
-            A = mask > 0.5
-        else:
-            raise ValueError(f"Unknown aperture type: {aperture.get_type()}")
-
-        return A
+        # Precompute the PSFs, if necessary
+        if self._config.depths:
+            self._precompute_psfs()
 
     def _precompute_psfs(self):
         """This will precompute the PSFs for all depths. This is done to avoid
         recomputing the PSF for each render call."""
         for depth in self._depths:
-            self._psfs[depth.item()] = self._calculate_psf(depth).to(self._device)
+            self._psfs[depth.item()] = self._calculate_psf(depth).to(device)
 
     def _calculate_psf(self, depth: torch.Tensor):
         # electric field originating from point source
@@ -278,20 +285,21 @@ class MjCambrianOpticsEye(MjCambrianEye):
 
         return psf
 
-    def step(self) -> np.ndarray:
+    def step(
+        self, obs: Tuple[torch.Tensor, torch.Tensor] | None = None
+    ) -> torch.Tensor:
         """Overwrites the default render method to apply the depth invariant PSF to the
         image."""
-        image, depth = self._renderer.render()
-
-        # pytorch doesn't support negative strides, so copy if there are any
-        image = image.copy() if any(s < 0 for s in image.strides) else image
-        image = torch.from_numpy(image).to(self._device)
+        if obs is not None:
+            image, depth = obs
+        else:
+            image, depth = self._renderer.render()
 
         # Calculate the depth. Remove the sky depth, which is capped at the extent
         # of the configured environment and apply a far field approximation assumption.
-        depth = depth[depth < np.max(depth)]
-        depth = np.clip(depth, 5 * max(self.config.focal), np.inf)
-        mean_depth = torch.tensor(np.mean(depth), device=self._device)
+        depth = depth[depth < torch.max(depth)]
+        depth = torch.clamp(depth, 5 * max(self.config.focal), None)
+        mean_depth = torch.mean(depth)
 
         # Add noise to the image
         image = self._apply_noise(image, self._config.noise_std)
@@ -305,21 +313,22 @@ class MjCambrianOpticsEye(MjCambrianEye):
         image = torch.nn.functional.conv2d(image, psf, padding="same", groups=3)
 
         # Apply the scaling intensity ratio
-        image *= self._scaling_intensity
+        if self._config.scale_intensity:
+            image *= self._scaling_intensity
 
         # Post-process the image
         image = image.squeeze(0).permute(1, 2, 0)
         image = self._crop(image)
         image = torch.clip(image, 0, 1)
 
-        return super().step(obs=image.cpu().numpy())
+        return super().step(obs=image)
 
     def _apply_noise(self, image: torch.Tensor, std: float) -> torch.Tensor:
         """Add Gaussian noise to the image."""
         if std == 0.0:
             return image
 
-        noise = torch.normal(mean=0.0, std=std, size=image.shape, device=self._device)
+        noise = torch.normal(mean=0.0, std=std, size=image.shape, device=device)
         return torch.clamp(image + noise, 0, 1)
 
     def _get_psf(self, depth: torch.Tensor) -> torch.Tensor:

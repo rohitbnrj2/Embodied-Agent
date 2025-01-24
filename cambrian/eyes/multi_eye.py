@@ -1,7 +1,7 @@
 """Defines a multi-eye system that procedurally generates multiple eyes and manages
 them."""
 
-from typing import Callable, Dict, Self, Tuple
+from typing import Callable, Dict, Self, Tuple, Any
 
 import numpy as np
 import torch
@@ -25,9 +25,9 @@ class MjCambrianMultiEyeConfig(MjCambrianEyeConfig):
         instance (Callable[[Self, str], MjCambrianEye]): The class instance to use
             when creating the eye. Takes the config and the name of the eye as
             arguments.
-        eye_instance (Callable[[Self, str], MjCambrianEye]): The class instance to use
-            when creating the single eye instances. Takes the config and the name of the
-            eye as arguments.
+
+        single_eye (MjCambrianEyeConfig): The config for a single eye. This is used as 
+            the base configuration for all eyes in the multi-eye system.
 
         lat_range (Optional[Tuple[float, float]]): The x range of the eye. This is
             used to determine the placement of the eye on the agent. Specified in
@@ -54,7 +54,12 @@ class MjCambrianMultiEyeConfig(MjCambrianEyeConfig):
     """
 
     instance: Callable[[Self, str], "MjCambrianMultiEye"]
-    eye_instance: Callable[[Self, str], "MjCambrianEye"]
+
+    single_eye: MjCambrianEyeConfig
+
+    # private attribute used as a workaround to allow overriding eye attributes from
+    # command line without adding single_eye in the argument.
+    _single_eye: MjCambrianEyeConfig | Any
 
     lat_range: Tuple[float, float]
     lon_range: Tuple[float, float]
@@ -94,11 +99,11 @@ class MjCambrianMultiEye(MjCambrianEye):
         for lat_idx, lat in enumerate(lat_bins):
             for lon_idx, lon in enumerate(lon_bins):
                 eye_name = f"{self._name}_{lat_idx}_{lon_idx}"
-                eye_config = self._config.copy()
+                eye_config = self._config._single_eye.copy()
                 # Update the eye's coord to the current lat, lon
                 eye_config.coord = [lat, lon]
                 # Create the eye instance
-                eye = eye_config.eye_instance(eye_config, eye_name)
+                eye = eye_config.instance(eye_config, eye_name)
                 self._eyes[eye_name] = eye
 
     def generate_xml(
