@@ -2,19 +2,18 @@
 training and evaluation loops."""
 
 import argparse
-from pathlib import Path
 
 from hydra_config import run_hydra
 
 from cambrian import MjCambrianConfig, MjCambrianTrainer
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--train", action="store_true", help="Train the model")
     action.add_argument("--eval", action="store_true", help="Evaluate the model")
 
-    def main(
+    def _main(
         config: MjCambrianConfig,
         *,
         train: bool,
@@ -31,4 +30,7 @@ if __name__ == "__main__":
             return runner.eval()
 
     config_path = "pkg://cambrian/configs"
-    run_hydra(main, config_path=config_path, parser=parser)
+    run_hydra(_main, config_path=config_path, parser=parser)
+
+if __name__ == "__main__":
+    main()

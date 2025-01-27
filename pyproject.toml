@@ -59,6 +59,9 @@ docs = [
     "sphinx_design >= 0.6.1"
 ]
 
+[project.scripts]
+cambrian = "cambrian.main:main"
+
 [tool.setuptools]
 packages = ["cambrian"]
 
