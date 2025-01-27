@@ -1,7 +1,7 @@
 """Defines a multi-eye system that procedurally generates multiple eyes and manages
 them."""
 
-from typing import Callable, Dict, Self, Tuple, Any
+from typing import Any, Callable, Dict, Self, Tuple
 
 import numpy as np
 import torch
@@ -26,7 +26,7 @@ class MjCambrianMultiEyeConfig(MjCambrianEyeConfig):
             when creating the eye. Takes the config and the name of the eye as
             arguments.
 
-        single_eye (MjCambrianEyeConfig): The config for a single eye. This is used as 
+        single_eye (MjCambrianEyeConfig): The config for a single eye. This is used as
             the base configuration for all eyes in the multi-eye system.
 
         lat_range (Optional[Tuple[float, float]]): The x range of the eye. This is

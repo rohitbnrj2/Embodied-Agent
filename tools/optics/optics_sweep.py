@@ -1,20 +1,20 @@
 from pathlib import Path
 
-import torch
 import numpy as np
+import torch
 from hydra_config import run_hydra
 
 from cambrian import MjCambrianConfig, MjCambrianTrainer
-from cambrian.utils import RenderFrame
-from cambrian.renderer.render_utils import add_text, resize_with_aspect_fill
 from cambrian.envs.env import MjCambrianEnv
 from cambrian.eyes.multi_eye import MjCambrianMultiEye
 from cambrian.eyes.optics import (
-    MjCambrianOpticsEye,
-    MjCambrianOpticsEyeConfig,
     MjCambrianCircularApertureConfig,
     MjCambrianMaskApertureConfig,
+    MjCambrianOpticsEye,
+    MjCambrianOpticsEyeConfig,
 )
+from cambrian.renderer.render_utils import add_text, resize_with_aspect_fill
+from cambrian.utils import RenderFrame
 
 
 def sine_wave(step, min=0.1, max=1):

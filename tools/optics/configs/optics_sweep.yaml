@@ -16,9 +16,9 @@ trainer:
   wrappers:
     constant_action_wrapper:
       # have the agent be stationary
-      constant_actions: 
-        0: -1 
-        1: 0 
+      constant_actions:
+        0: -1
+        1: 0
 
 env:
   debug_overlays_size: 0.6
@@ -45,7 +45,7 @@ env:
       distance: 0.33
       azimuth: -30
       elevation: -15
-      lookat: 
+      lookat:
         - ${env.agents.agent.init_pos.0}
         - ${env.agents.agent.init_pos.1}
         - -1.5

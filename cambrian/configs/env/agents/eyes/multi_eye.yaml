@@ -9,9 +9,9 @@ instance:
   _partial_: true
 
 # Ugly workaround to allow command line arguments to override the single_eye config
-# If we didn't use the private _single_eye attribute, setting from the command line 
-# would require appending single_eye to the command line argument; for example, now 
-# it's just env.agents.agent.eyes.eye.fov=... instead of 
+# If we didn't use the private _single_eye attribute, setting from the command line
+# would require appending single_eye to the command line argument; for example, now
+# it's just env.agents.agent.eyes.eye.fov=... instead of
 # env.agents.agent.eyes.eye.single_eye.fov=...
 _single_eye:
   _target_: hydra_config.utils.merge_with_kwargs

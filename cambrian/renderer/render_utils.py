@@ -219,13 +219,14 @@ def add_text(
         image (torch.Tensor): The image to add text to.
         text (str): The text to add.
         position (tuple[int, int]): The position to add the text.
-        color (tuple[int, int, int], optional): The color of the text. Defaults to (255, 255, 255).
+        color (tuple[int, int, int], optional): The color of the text.
+            Defaults to (255, 255, 255).
 
     Returns:
         torch.Tensor: The image with the text added.
     """
-    from PIL import Image, ImageDraw, ImageFont
     import numpy as np
+    from PIL import Image, ImageDraw, ImageFont
 
     device = image.device
 

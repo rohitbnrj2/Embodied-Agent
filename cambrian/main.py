@@ -7,6 +7,7 @@ from hydra_config import run_hydra
 
 from cambrian import MjCambrianConfig, MjCambrianTrainer
 
+
 def main():
     parser = argparse.ArgumentParser()
     action = parser.add_mutually_exclusive_group(required=True)
@@ -31,6 +32,7 @@ def main():
 
     config_path = "pkg://cambrian/configs"
     run_hydra(_main, config_path=config_path, parser=parser)
+
 
 if __name__ == "__main__":
     main()

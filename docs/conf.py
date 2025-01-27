@@ -43,8 +43,8 @@ extensions = [
     "sphinx_copybutton",
     "sphinxcontrib.video",
     "sphinxcontrib.googleanalytics",
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.extlinks',
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.extlinks",
     "sphinx_design",
 ]
 
@@ -107,12 +107,12 @@ googleanalytics_id = "G-TB8Y1XJVV1"
 
 # InterSphinx
 intersphinx_mapping = {
-    'hydra_config': ('https://aaronyoung5.github.io/hydra-config', None),
+    "hydra_config": ("https://aaronyoung5.github.io/hydra-config", None),
 }
 
 # External links
 extlinks = {
-    'src': ('https://github.com/cambrian-org/ACI/blob/main/%s', None),
+    "src": ("https://github.com/cambrian-org/ACI/blob/main/%s", None),
 }
 
 # -- Options for HTML output -------------------------------------------------

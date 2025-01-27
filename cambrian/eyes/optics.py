@@ -8,8 +8,7 @@ import torch
 from hydra_config import HydraContainerConfig, config_wrapper
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
-from cambrian.utils import make_odd, device, RenderFrame
-from cambrian.renderer.render_utils import resize_with_aspect_fill, add_text
+from cambrian.utils import device, make_odd
 
 
 @config_wrapper
@@ -64,7 +63,7 @@ class MjCambrianMaskApertureConfig(MjCambrianApertureConfig):
             randomized.
         random_prob (Optional[float]): Probability of the aperture mask being 1. If
             None, the probability is 0.5. Defaults to None.
-        size (Optional[Tuple[int, int]]): Size of the aperture mask. If None, the size 
+        size (Optional[Tuple[int, int]]): Size of the aperture mask. If None, the size
             is the same as the pupil resolution. Defaults to None.
     """
 

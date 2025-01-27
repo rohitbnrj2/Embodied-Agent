@@ -315,8 +315,8 @@ class MjCambrianViewer(ABC):
 
         if len(overlays) > 0:
             # Do a single mjr_overlay call to initialize underlying 2D rendering
-            # If we don't do this, calling mjr_drawPixels without first calling mjr_overlay
-            # will result in the pixels being drawn behind the 3D scene.
+            # If we don't do this, calling mjr_drawPixels without first calling
+            # mjr_overlay will result in the pixels being drawn behind the 3D scene.
             mj.mjr_overlay(
                 mj.mjtFont.mjFONT_NORMAL,
                 mj.mjtGridPos.mjGRID_BOTTOMLEFT,
@@ -325,7 +325,7 @@ class MjCambrianViewer(ABC):
                 "",
                 self._mjr_context,
             )
-        
+
         for overlay in overlays:
             overlay.draw_before_render(self._scene)
 
