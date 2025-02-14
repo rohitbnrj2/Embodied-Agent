@@ -108,8 +108,10 @@ To view the build, go to your browser, and open the `index.html` file located in
 
 ## Citation
 
+If you use ACI in your research, please consider citing:
+
 ```bibtex
-@misc{aci,
+@software{aci,
     author = {Aaron Young and Kushagra Tiwary and Zaid Tasneem and Tzofi Klinghoffer and Bhavya Agrawalla and Sanjana Duttagupta and Akshat Dave and Brian Cheung},
     title = {{Artificial Cambrian Intelligence}},
     year = {2025},
