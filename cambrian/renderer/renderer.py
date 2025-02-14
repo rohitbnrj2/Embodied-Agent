@@ -6,12 +6,11 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from enum import Flag, auto
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from typing import Callable, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
 
 import glfw
 import imageio
 import mujoco as mj
-import mujoco.usd.exporter
 import numpy as np
 import OpenGL.GL as GL
 import torch
@@ -21,6 +20,12 @@ import cambrian.utils
 from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.utils.logger import get_logger
 from cambrian.utils.spec import MjCambrianSpec
+
+if TYPE_CHECKING:
+    try:
+        import mujoco.usd.exporter
+    except ImportError:
+        pass
 
 has_pycuda_gl = False  # disable pycuda for now
 try:
@@ -749,7 +754,7 @@ class MjCambrianRenderer:
 
         self._record: bool = False
         self._rgb_buffer: List[torch.Tensor] = []
-        self._usd_exporter: Optional[mujoco.usd.exporter.USDExporter] = None
+        self._usd_exporter: Optional['mujoco.usd.exporter.USDExporter'] = None
         self._should_render: bool = any(
             m in self._config.render_modes for m in ["rgb_array", "depth_array"]
         )
@@ -889,6 +894,15 @@ class MjCambrianRenderer:
 
         save_mode = save_mode or self._config.save_mode
         if record and MjCambrianRendererSaveMode.USD & save_mode:
+            try:
+                import mujoco.usd.exporter
+            except ImportError:
+                get_logger().error(
+                    "MuJoCo wasn't installed with USD support. You may need to "
+                    "run `pip install mujoco[usd]`."
+                )
+                return
+
             camera_names = [
                 self._spec.get_camera_name(i) for i in range(self._spec.model.ncam)
             ]
