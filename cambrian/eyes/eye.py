@@ -13,11 +13,12 @@ from hydra_config import HydraContainerConfig, config_wrapper
 from scipy.spatial.transform import Rotation as R
 
 from cambrian.renderer import MjCambrianRenderer, MjCambrianRendererConfig
+from cambrian.renderer.overlays import MjCambrianCursor, MjCambrianViewerOverlay
 from cambrian.renderer.render_utils import convert_depth_distances, convert_depth_to_rgb
 from cambrian.utils import MjCambrianGeometry, device, get_logger
 from cambrian.utils.cambrian_xml import MjCambrianXML
 from cambrian.utils.spec import MjCambrianSpec
-from cambrian.utils.types import ObsType, RenderFrame
+from cambrian.utils.types import ObsType
 
 
 @config_wrapper
@@ -248,19 +249,24 @@ class MjCambrianEye:
         self._prev_obs.copy_(obs, non_blocking=True)
         return self._prev_obs
 
-    def render(self) -> RenderFrame:
+    def render(self) -> List[MjCambrianViewerOverlay]:
         """Render the image from the camera. Will always only return the rgb array.
 
         This differs from step in that this is a debug method. The rendered image here
         will be used to visualize the eye in the viewer.
         """
         if self._renders_depth and not self._renders_rgb:
-            return convert_depth_to_rgb(
+            image = convert_depth_to_rgb(
                 convert_depth_distances(self._spec.model, self._prev_obs),
                 znear=0,
                 zfar=self._spec.model.stat.extent,
             )
-        return self._prev_obs
+        image = self._prev_obs
+
+        position = MjCambrianCursor.Position.BOTTOM_LEFT
+        layer = MjCambrianCursor.Layer.BACK
+        cursor = MjCambrianCursor(position=position, x=0, y=0, layer=layer)
+        return [MjCambrianViewerOverlay.create_image_overlay(image, cursor=cursor)]
 
     @property
     def config(self) -> MjCambrianEyeConfig:

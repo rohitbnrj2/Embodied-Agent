@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from enum import Flag, auto
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, Type
 
 import glfw
 import imageio
@@ -318,6 +318,20 @@ class MjCambrianViewer(ABC):
         self.make_context_current()
         self.update(self._viewport.width, self._viewport.height)
 
+        # Reorder the overlays based on their layer type
+        overlays = sorted(overlays, key=lambda overlay: overlay.layer.value)
+
+        self._draw_before_render(overlays)
+
+        mj.mjr_render(self._viewport, self._scene, self._mjr_context)
+
+        self._draw_after_render(overlays)
+
+    def _draw_before_render(self, overlays: List[MjCambrianViewerOverlay]):
+        for overlay in overlays:
+            overlay.draw_before_render(self._scene)
+
+    def _draw_after_render(self, overlays: List[MjCambrianViewerOverlay]):
         if len(overlays) > 0:
             # Do a single mjr_overlay call to initialize underlying 2D rendering
             # If we don't do this, calling mjr_drawPixels without first calling
@@ -330,11 +344,6 @@ class MjCambrianViewer(ABC):
                 "",
                 self._mjr_context,
             )
-
-        for overlay in overlays:
-            overlay.draw_before_render(self._scene)
-
-        mj.mjr_render(self._viewport, self._scene, self._mjr_context)
 
         for overlay in overlays:
             overlay.draw_after_render(self._mjr_context, self._viewport)
@@ -754,7 +763,7 @@ class MjCambrianRenderer:
 
         self._record: bool = False
         self._rgb_buffer: List[torch.Tensor] = []
-        self._usd_exporter: Optional['mujoco.usd.exporter.USDExporter'] = None
+        self._usd_exporter: Optional["mujoco.usd.exporter.USDExporter"] = None
         self._should_render: bool = any(
             m in self._config.render_modes for m in ["rgb_array", "depth_array"]
         )

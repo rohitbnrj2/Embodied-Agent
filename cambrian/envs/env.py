@@ -8,7 +8,6 @@ from typing import Any, Callable, Dict, List, Optional, Self, Tuple
 
 import mujoco as mj
 import numpy as np
-import torch
 from gymnasium import Env, spaces
 from hydra_config import HydraContainerConfig, config_wrapper
 from pettingzoo import ParallelEnv
@@ -18,18 +17,8 @@ from cambrian.renderer import (
     MjCambrianRenderer,
     MjCambrianRendererConfig,
     MjCambrianRendererSaveMode,
-    resize_with_aspect_fill,
 )
-from cambrian.renderer.overlays import (
-    TEXT_HEIGHT,
-    TEXT_MARGIN,
-    MjCambrianCursor,
-    MjCambrianImageViewerOverlay,
-    MjCambrianSiteViewerOverlay,
-    MjCambrianTextViewerOverlay,
-    MjCambrianViewerOverlay,
-)
-from cambrian.utils import device
+from cambrian.renderer.overlays import MjCambrianCursor, MjCambrianViewerOverlay
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.logger import get_logger
 from cambrian.utils.spec import MjCambrianSpec, spec_from_xml
@@ -78,7 +67,6 @@ class MjCambrianEnvConfig(HydraContainerConfig):
         n_eval_episodes (int): The number of episodes to evaluate for.
 
         add_overlays (bool): Whether to add overlays or not.
-        add_text_overlays (bool): Whether to add text overlays or not.
         clear_overlays_on_reset (bool): Whether to clear the overlays on reset or not.
             Consequence of setting to False is that when drawing position overlays
             and when mazes change between evaluations, the sites will be drawn on top
@@ -113,7 +101,6 @@ class MjCambrianEnvConfig(HydraContainerConfig):
     n_eval_episodes: int
 
     add_overlays: bool
-    add_text_overlays: bool
     clear_overlays_on_reset: bool
     debug_overlays_size: float
     renderer: Optional[MjCambrianRendererConfig] = None
@@ -426,111 +413,36 @@ class MjCambrianEnv(ParallelEnv, Env):
         """Renders the environment.
 
         Returns:
-            Dict[str, RenderFrame]: The rendered image for each render mode mapped to
-                its corresponding str.
-
-        Todo:
-            Make the cursor stuff clearer
+            RenderFrame: The rendered frame.
         """
 
         assert self._renderer is not None, "Renderer has not been initialized! "
         "Ensure `use_renderer` is set to True in the constructor."
 
         overlays = []
-        if self._config.add_overlays:
+        if self._config.add_overlays and self._config.debug_overlays_size > 0:
             overlays = self._generate_overlays()
-
-        if not self._config.add_text_overlays:
-            overlays = [
-                o for o in overlays if not isinstance(o, MjCambrianTextViewerOverlay)
-            ]
 
         return self._renderer.render(overlays=overlays)
 
     def _generate_overlays(self) -> List[MjCambrianViewerOverlay]:
-        # First add site overlays for each agent
         overlays: List[MjCambrianViewerOverlay] = []
-        i = self._num_resets * self._max_episode_steps + self._episode_step
+
+        renderer_width = self._renderer.width
+        renderer_height = self._renderer.height
+
+        trainable_agents = {n: a for n, a in self._agents.items() if a.trainable}
+        num_agents = len(trainable_agents)
+        overlay_width = int(renderer_width // num_agents) if num_agents > 0 else 0
+        overlay_height = int(renderer_height * self._config.debug_overlays_size)
+        cursor = MjCambrianCursor(
+            overlay_width, overlay_height, position=MjCambrianCursor.Position.TOP_LEFT
+        )
         for agent in self._agents.values():
-            size = agent.config.overlay_size
-            if size == 0:
-                continue
-
-            # Define a unique name so that the overlays don't get removed
-            key = f"{agent.name}_pos_{i}"
-
-            # If the agent is contacting an object, the color will be flipped
-            color = tuple(agent.config.overlay_color)
-            if self._info[agent.name].get("has_contacts", False):
-                color = (1 - color[0], 1 - color[1], 1 - color[2], 1)
-
-            # Add the overlay
-            overlay = MjCambrianSiteViewerOverlay(agent.pos.copy(), color, size)
-            self._overlays[key] = overlay
-
-        # Add overlays defined by the user
-        cursor = MjCambrianCursor(x=0, y=self._renderer.height - TEXT_MARGIN * 2)
-        for key, value in self._overlays.items():
-            if issubclass(type(value), MjCambrianViewerOverlay):
-                overlays.append(value)
-            else:
-                cursor.y -= TEXT_HEIGHT + TEXT_MARGIN
-                overlays.append(MjCambrianTextViewerOverlay(f"{key}: {value}", cursor))
-
-        if self._config.debug_overlays_size > 0:
-            renderer_width = self._renderer.width
-            renderer_height = self._renderer.height
-
-            # Set the overlay size to be a fraction of the renderer size relative to
-            # the agent count.
-            trainable_agents = {n: a for n, a in self._agents.items() if a.trainable}
-            num_agents = len(trainable_agents)
-            overlay_width = int(renderer_width // num_agents) if num_agents > 0 else 0
-            overlay_height = int(renderer_height * self._config.debug_overlays_size)
-            overlay_size = (overlay_height, overlay_width)
-
-            cursor = MjCambrianCursor(0, 0)
-            for i, (name, agent) in enumerate(trainable_agents.items()):
-                cursor.x = i * overlay_width
-                cursor.y = 0
-                if cursor.x + overlay_width > renderer_width:
-                    get_logger().warning("Renderer width is too small!!")
-                    continue
-
-                if (composite := agent.render()) is None:
-                    # Make the composite image black so we can still render other
-                    # overlays
-                    composite = torch.zeros(
-                        (1, 1, 3), dtype=torch.float32, device=device
-                    )
-                composite = resize_with_aspect_fill(composite, *overlay_size)
-
-                overlay = MjCambrianImageViewerOverlay(composite * 255.0, cursor)
+            agent_overlays = agent.render()
+            for overlay in agent_overlays:
+                cursor = overlay.place(cursor)
                 overlays.append(overlay)
-
-                cursor.x -= TEXT_MARGIN
-                cursor.y -= TEXT_MARGIN
-                overlay_text = f"Num Eyes: {agent.num_eyes}"
-                overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-                cursor.y += TEXT_HEIGHT
-                if len(agent.eyes) > 0:
-                    eye0 = next(iter(agent.eyes.values()))
-                    overlay_text = f"Res: {tuple(eye0.config.resolution)}"
-                    overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-                    cursor.y += TEXT_HEIGHT
-                    overlay_text = f"FOV: {tuple(f'{f:.2f}' for f in eye0.config.fov)}"
-                    overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-                    cursor.y = overlay_height - TEXT_HEIGHT * 2 + TEXT_MARGIN * 2
-                overlay_text = f"agent: {name}"
-                overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-                overlay_text = (
-                    f"Action: {', '.join([f'{a: .3f}' for a in agent.last_action])}"
-                )
-                cursor.y -= TEXT_HEIGHT
-                overlays.append(MjCambrianTextViewerOverlay(overlay_text, cursor))
-
-                cursor.x += overlay_width
-
         return overlays
 
     @property

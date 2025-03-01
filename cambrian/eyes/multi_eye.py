@@ -9,6 +9,7 @@ from gymnasium import spaces
 from hydra_config import config_wrapper
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
+from cambrian.renderer.overlays import MjCambrianCursor, MjCambrianViewerOverlay
 from cambrian.renderer.render_utils import generate_composite
 from cambrian.utils import MjCambrianGeometry, generate_sequence_from_range
 from cambrian.utils.cambrian_xml import MjCambrianXML
@@ -140,7 +141,7 @@ class MjCambrianMultiEye(MjCambrianEye):
             obs = torch.cat(list(obs.values()), dim=0)
         return obs
 
-    def render(self) -> torch.Tensor | None:
+    def render(self) -> list[MjCambrianViewerOverlay]:
         """This is a debug method which renders the eye's as a composite image.
 
         Will appear as a compound eye. For example, if we have a 3x3 grid of eyes:
@@ -151,7 +152,9 @@ class MjCambrianMultiEye(MjCambrianEye):
         Each eye has a red border around it.
         """
         if self._config.num_eyes == 0:
-            return
+            return []
+
+        overlays = []
 
         # Sort the eyes based on their lat/lon
         images: Dict[float, Dict[float, torch.Tensor]] = {}
@@ -162,9 +165,25 @@ class MjCambrianMultiEye(MjCambrianEye):
             assert lon not in images[lat], f"Duplicate eye at {lat}, {lon}."
 
             # Add the image to the dictionary
-            images[lat][lon] = eye.render()
+            images[lat][lon] = eye.prev_obs
 
-        return generate_composite(images)
+        # Add text overlays
+        create_text_overlay = MjCambrianViewerOverlay.create_text_overlay
+        overlays.append(create_text_overlay(f"Num Eyes: {self.num_eyes}"))
+        overlays.append(create_text_overlay(f"FOV: {self.config.fov}"))
+        overlays.append(create_text_overlay(f"Resolution: {self.config.resolution}"))
+
+        # Add image overlays
+        position = MjCambrianCursor.Position.BOTTOM_LEFT
+        layer = MjCambrianCursor.Layer.BACK
+        cursor = MjCambrianCursor(position=position, x=0, y=0, layer=layer)
+        image = generate_composite(images) * 255.0
+        image_overlay = MjCambrianViewerOverlay.create_image_overlay(
+            image, cursor=cursor
+        )
+        overlays.append(image_overlay)
+
+        return overlays
 
     @property
     def observation_space(self) -> spaces.Space:

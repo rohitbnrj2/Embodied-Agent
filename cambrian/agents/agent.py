@@ -9,7 +9,7 @@ from gymnasium import spaces
 from hydra_config import HydraContainerConfig, config_wrapper
 
 from cambrian.eyes.eye import MjCambrianEye, MjCambrianEyeConfig
-from cambrian.renderer.render_utils import generate_composite, resize_with_aspect_fill
+from cambrian.renderer.overlays import MjCambrianViewerOverlay
 from cambrian.utils import (
     MjCambrianActuator,
     MjCambrianGeometry,
@@ -18,7 +18,7 @@ from cambrian.utils import (
 )
 from cambrian.utils.cambrian_xml import MjCambrianXML, MjCambrianXMLConfig
 from cambrian.utils.spec import MjCambrianSpec, spec_from_xml_string
-from cambrian.utils.types import ActionType, ObsType, RenderFrame
+from cambrian.utils.types import ActionType, ObsType
 
 if TYPE_CHECKING:
     from cambrian.envs import MjCambrianEnv
@@ -144,6 +144,7 @@ class MjCambrianAgent:
         self._body: mj.MjsBody = None
         self._actadrs: List[int] = []
         self._body_id: int = None
+        self._persistant_overlays: List[MjCambrianViewerOverlay] = []
         self._initialize()
 
     def _initialize(self):
@@ -319,6 +320,7 @@ class MjCambrianAgent:
         positions during the simulation.
         """
         self._spec = spec
+        self._persistant_overlays.clear()
 
         # Parse actuators; this is the second time we're doing this, but we need to
         # get the adrs of the actuators in the current model
@@ -418,26 +420,34 @@ class MjCambrianAgent:
 
         return obs
 
-    def render(self) -> RenderFrame:
-        """Renders the eyes and returns the debug image.
-
-        We don't know where the eyes are placed, so for simplicity, we'll just return
-        the first eye's render.
-        """
+    def render(self) -> list[MjCambrianViewerOverlay]:
+        """Creates a list of overlays to render for the agent within the viewer."""
         if len(self._eyes) == 0:
-            return None
-        if len(self._eyes) == 1:
-            return next(iter(self._eyes.values())).render()
+            return []
 
-        # Stack the renders next to each other
-        renders = [eye.render() for eye in self._eyes.values()]
-        max_width, max_height = max(render.shape[1] for render in renders), max(
-            render.shape[0] for render in renders
-        )
-        renders = [
-            resize_with_aspect_fill(render, max_height, max_width) for render in renders
-        ]
-        return generate_composite({0: {i: render for i, render in enumerate(renders)}})
+        overlays = []
+        create_text_overlay = MjCambrianViewerOverlay.create_text_overlay
+        create_site_overlay = MjCambrianViewerOverlay.create_site_overlay
+
+        # Add text overlays
+        overlays.append(create_text_overlay(f"Agent: {self.name}"))
+        action = f"Action: {', '.join([f'{a:.3f}' for a in self.last_action])}"
+        overlays.append(create_text_overlay(action))
+        if self._config.overlay_size > 0:
+            rgba = self._config.overlay_color
+            size = self._config.overlay_size
+            if self.has_contacts:
+                # Invert the color if there are contacts
+                rgba = (1 - rgba[0], 1 - rgba[1], 1 - rgba[2], rgba[3])
+            site_overlay = create_site_overlay(self.pos.copy(), rgba, size)
+            self._persistant_overlays.append(site_overlay)
+
+        # Add eye overlays
+        for eye in self._eyes.values():
+            overlays.extend(eye.render())
+
+        overlays.extend(self._persistant_overlays)
+        return overlays
 
     @property
     def has_contacts(self) -> bool:

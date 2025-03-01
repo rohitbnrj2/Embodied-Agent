@@ -36,6 +36,7 @@ Computational methods unveil intricate processes of visual system evolution by s
 ### Prerequisites
 
 - Python 3.11 or higher
+- Java (for [Hydra](https://hydra.cc/docs/intro/); required until [\#3029](https://github.com/facebookresearch/hydra/pull/3029) is merged)
 
 ### Installation
 
