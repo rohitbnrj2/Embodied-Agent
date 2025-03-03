@@ -16,9 +16,6 @@ dependencies = [
     "stable_baselines3[extra] >= 2.4.0",
     "pettingzoo >= 1.24.3",
     "mujoco >= 3.2.6",
-    "mujoco-mjx >= 3.2.6",
-    "brax >= 0.12.1",
-    "jax >= 0.4.38",
     "pyyaml >= 6.0.2",
     "scipy >= 1.14.1",
     "scikit-image >= 0.24.0",
@@ -29,11 +26,12 @@ dependencies = [
     "nevergrad >= 1.0.3",
     "bayesian-optimization >= 1.4.0",
     "hydra-config >= 0.0.10",
-    "omegaconf @ git+https://github.com/omry/omegaconf.git",
-    "hydra-core @ git+https://github.com/AaronYoung5/hydra.git",
-    "hydra-nevergrad-sweeper @ git+https://github.com/AaronYoung5/hydra.git@main#subdirectory=plugins/hydra_nevergrad_sweeper",
-    "hydra-submitit-launcher @ git+https://github.com/AaronYoung5/hydra.git@main#subdirectory=plugins/hydra_submitit_launcher",
-    "hydra-joblib-launcher @ git+https://github.com/AaronYoung5/hydra.git@main#subdirectory=plugins/hydra_joblib_launcher",
+    "omegaconf >= 2.4.0.dev3",
+    "hydra-core >= 1.4.0.dev1",
+    "hydra-submitit-launcher >= 1.2.0",
+    "hydra-joblib-launcher >= 1.2.0",
+    # Use the custom nevergrad-only branch until #3029 is merged
+    "hydra-nevergrad-sweeper @ git+https://github.com/AaronYoung5/hydra.git@nevergrad-only#subdirectory=plugins/hydra_nevergrad_sweeper",
 ]
 
 [project.optional-dependencies]
