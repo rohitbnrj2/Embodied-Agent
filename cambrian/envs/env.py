@@ -420,8 +420,24 @@ class MjCambrianEnv(ParallelEnv, Env):
         "Ensure `use_renderer` is set to True in the constructor."
 
         overlays = []
-        if self._config.add_overlays and self._config.debug_overlays_size > 0:
-            overlays = self._generate_overlays()
+        if self._config.add_overlays:
+            cursor = MjCambrianCursor(
+                self._renderer.width,
+                self._renderer.height,
+                position=MjCambrianCursor.Position.TOP_LEFT,
+            )
+            for key, value in self._overlays.items():
+                if issubclass(type(value), MjCambrianViewerOverlay):
+                    overlay = value
+                else:
+                    overlay = MjCambrianViewerOverlay.create_text_overlay(
+                        f"{key}: {value}"
+                    )
+                cursor = overlay.place(cursor)
+                overlays.append(overlay)
+
+            if self._config.debug_overlays_size > 0:
+                overlays.extend(self._generate_overlays())
 
         return self._renderer.render(overlays=overlays)
 
