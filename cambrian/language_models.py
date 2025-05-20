@@ -4,34 +4,32 @@ for a Cambrian Agent.
 """
 from __future__ import annotations
 
-import random
-from typing import Tuple, Optional, List, Dict, Union
-from loguru import logger
-from string import Template
-from pydantic import BaseModel, Field
 import json
+import random
+from string import Template
+from typing import Dict, List, Optional, Union
 
-from enum import Enum
-from ollama import chat, ChatResponse
-
-from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+from loguru import logger
+from ollama import ChatResponse, chat
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-# Options google/gemma-2-2b-it,  
-MODEL_NAME   = "google/gemma-2-2b-it"
+# Options google/gemma-2-2b-it,
+MODEL_NAME = "google/gemma-2-2b-it"
 # Options: dolphin3, exaone3.5:2.4b
 OLLAMA_MODEL = "exaone3.5:2.4b"
-NUM_RETRIES  = 25
+NUM_RETRIES = 25
 
 
 class SystemPrompt:
     """
     System prompt provided to LLM to generate a structured response.
-    
+
     The system prompt is a template that includes the substitution variables.
     """
 
-    GEMINI_PROMPT = Template("""
+    GEMINI_PROMPT = Template(
+        """
         You are an AI Scientist. The agent's last fitness score was ${fitness_score}.
         Current eye configuration: ${eye_config}
         Instructions:
@@ -40,7 +38,7 @@ class SystemPrompt:
         - Lat and lon range should be in the range of [-90, 90] and [-180, 180] respectively.
 
         <start_of_turn>user
-        Recommend a new eye configuration to maximize fitness, using evolutionary principles. 
+        Recommend a new eye configuration to maximize fitness, using evolutionary principles.
         The agent is trying to detect items in a 2D enviornment.
 
         Respond ONLY in this xml format provided below:
@@ -54,21 +52,22 @@ class SystemPrompt:
     """
     )
 
-    PHI_PROMPT = Template("""
+    PHI_PROMPT = Template(
+        """
         <|system|>
         You are an AI Scientist. The agent's last fitness score was ${fitness_score}.
         Current eye configuration: ${eye_config}
         <|end|>
         <|user|>
         Recommend a new eye configuration to maximize fitness, using evolutionary principles.
-        
+
         Respond ONLY in this xml format provided below:
         <reasoning> [Your reasoning here] </reasoning>
         <eye_config>
         {{"num_eyes": [int, int], "fov": [float, float], "resolution": [int, int], \n
         "lat_range": [float, float], "lon_range": [float, float]}}
         </eye_config>
-        
+
         DO NOT include any other text or explanation. Do not hallucinate. Include all thinking
         within the <reasoning> tag.
         <|end|>
@@ -76,7 +75,8 @@ class SystemPrompt:
         """
     )
 
-    LLAMA_PROMPT = Template("""
+    LLAMA_PROMPT = Template(
+        """
         You are an AI Scientist. The agent's last fitness score was ${fitness_score}.
         Current eye configuration: ${eye_config}
 
@@ -85,7 +85,7 @@ class SystemPrompt:
         <eye_config>
         {{"num_eyes": [int, int], "fov": [float, float], "resolution": [int, int], "lat_range": [float, float], "lon_range": [float, float]}}
         </eye_config>
-        DO NOT include any other text or explanation. Do not hallucinate.                    
+        DO NOT include any other text or explanation. Do not hallucinate.
         """
     )
 
@@ -102,13 +102,13 @@ class SystemPrompt:
         """
 
         # Substitute the fitness score and eye configuration
-        system_prompt : str = self.LLAMA_PROMPT.safe_substitute(
+        system_prompt: str = self.LLAMA_PROMPT.safe_substitute(
             fitness_score=fitness_score,
             eye_config=json.dumps(eye_config),
         )
         logger.debug(f"System prompt: {system_prompt}")
         return system_prompt
-    
+
 
 class UserPrompt:
     """
@@ -116,7 +116,6 @@ class UserPrompt:
     """
 
     def __init__(self):
-        
         self._prompt: Optional[str] = None
 
         self.default_prompt: str = """
@@ -130,7 +129,6 @@ class UserPrompt:
             - Add eyes only if you must.
             """
 
-
     def __call__(self, user_choice: bool = False) -> str:
         """
         Returns the user prompt, based on the user preference.
@@ -141,22 +139,25 @@ class UserPrompt:
             str : User prompt.
         """
 
-        prompt: str = input("Please enter a custom prompt for the LLM") if user_choice \
-                        else self.default_prompt
-    
+        prompt: str = (
+            input("Please enter a custom prompt for the LLM")
+            if user_choice
+            else self.default_prompt
+        )
+
         self.prompt = prompt
         return self.prompt
 
-
     @property
-    def prompt(self,) -> str:
+    def prompt(
+        self,
+    ) -> str:
         """
         Returns the user prompt/
         """
         if self._prompt is None:
-            raise ValueError('User prompt is not set. Please set it before proceeding.')
+            raise ValueError("User prompt is not set. Please set it before proceeding.")
         return self._prompt
-
 
     @prompt.setter
     def prompt(self, prompt: str) -> None:
@@ -164,8 +165,8 @@ class UserPrompt:
         Sets the user prompt
         """
         if prompt is None:
-            raise ValueError('User prompt cannot be None.')
-        
+            raise ValueError("User prompt cannot be None.")
+
         self._prompt = prompt
 
 
@@ -174,46 +175,46 @@ class LanguageManager:
     Uses the Gemini LLM model to generate a new eye configuration for the Cambrian agent.
     """
 
-    def __init__(self,) -> None:
+    def __init__(
+        self,
+    ) -> None:
         super().__init__()
 
-        self.counter : int = 0
-        self.model_name : str = MODEL_NAME
-        self.system_prompt : object = SystemPrompt()
+        self.counter: int = 0
+        self.model_name: str = MODEL_NAME
+        self.system_prompt: object = SystemPrompt()
         self.tokenizer: Optional[AutoTokenizer] = None
-        self.model : Optional[AutoModelForCausalLM] = None
+        self.model: Optional[AutoModelForCausalLM] = None
 
         # Setup llm
         self.setup_llm()
 
-
     def __call__(self, fitness_score: float, eye_config: Dict[str, list]) -> str:
         """
         Generates a new eye configuration for the agent using the LLM.
-        
+
         Args:
             fitness_score (float) : Score received by the agent in the environment.
             eye_config (Dict[str, list]) : Last Eye configuration generated by LLM.
-        
+
         Returns:
             eye_config (Dict[str, list]) : New eye configuration generated by LLM.
         """
 
         # Get the system prompt
-        system_prompt : str = SystemPrompt().substitute(
+        system_prompt: str = SystemPrompt().substitute(
             fitness_score=fitness_score,
             eye_config=eye_config,
         )
-        
+
         # Generate a new eye configuration
-        new_eye_cfg : str = self.generate_response(
-            system_prompt=system_prompt
-        )
+        new_eye_cfg: str = self.generate_response(system_prompt=system_prompt)
 
         return new_eye_cfg
-     
 
-    def setup_llm(self,) -> None:
+    def setup_llm(
+        self,
+    ) -> None:
         """
         Sets up the LLM Model and tokenizer.
         """
@@ -234,8 +235,9 @@ class LanguageManager:
 
         logger.info(f"Successfully loaded the model: {self.model_name}")
 
-
-    def generate_response(self, system_prompt : str) -> Dict[str, List[Union[float, int]]]:
+    def generate_response(
+        self, system_prompt: str
+    ) -> Dict[str, List[Union[float, int]]]:
         """
         Generates a new eye configuration for the agent using the LLM.
         Args:
@@ -247,7 +249,7 @@ class LanguageManager:
 
         # Tokenize the input
         inputs = self.tokenizer(system_prompt, return_tensors="pt")
-        inputs = {k : v.to(self.model.device) for k, v in inputs.items()}
+        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
 
         # Generate the response
         outputs = self.model.generate(
@@ -258,34 +260,31 @@ class LanguageManager:
         )
 
         decoded_op = self.tokenizer.decode(
-            outputs[0][inputs['input_ids'].shape[-1]:],  # Skip input tokens
+            outputs[0][inputs["input_ids"].shape[-1] :],  # Skip input tokens
         )
         logger.debug(f"Response: {decoded_op}")
 
         # Parse the response & retry if error occurs
         try:
-            new_eye_cfg : str = self.parse_response(raw_response=decoded_op)
-        
+            new_eye_cfg: str = self.parse_response(raw_response=decoded_op)
+
         except Exception as e:
-            logger.error(f'Error parsing the response : {e}')
+            logger.error(f"Error parsing the response : {e}")
             self.counter += 1
 
             if self.counter < NUM_RETRIES:
                 logger.info("Retrying to generate the response.")
                 return self.generate_response(system_prompt=system_prompt)
 
-            raise RuntimeError(
-                f'LLM failed to generate a valid response with {str(e)}'
-            )
+            raise RuntimeError(f"LLM failed to generate a valid response with {str(e)}")
         logger.info(f"New eye configuration: {new_eye_cfg}")
         return new_eye_cfg
-
 
     def parse_response(self, raw_response: str) -> Dict[str, list]:
         """
         Parses the response from the LLM to extract the new eye config.
-        The parsed new eye config will be same as the one provided in the 
-        response structure. 
+        The parsed new eye config will be same as the one provided in the
+        response structure.
 
         Args:
             raw_response (str) : Response from the LLM.
@@ -298,31 +297,31 @@ class LanguageManager:
             """
             Removes '{{ }}' from the string and replaces it with '{ }'.
             """
-            if bad_json.startswith('{{'):
+            if bad_json.startswith("{{"):
                 bad_json = bad_json[1:]
 
-            if bad_json.endswith('}}'):
+            if bad_json.endswith("}}"):
                 bad_json = bad_json[:-1]
-            
+
             return bad_json
 
         # extract the reasoning from the response
-        reasoning : str = raw_response.split("<reasoning>")[-1].split(
-            "</reasoning>"
-        )[0].strip()
+        reasoning: str = (
+            raw_response.split("<reasoning>")[-1].split("</reasoning>")[0].strip()
+        )
         logger.info(f"Reasoning: {reasoning}")
 
         # Extract the eye config from the response
-        eye_config : str = raw_response.split("<eye_config>")[-1].split(
-            "</eye_config>"
-        )[0].strip()
+        eye_config: str = (
+            raw_response.split("<eye_config>")[-1].split("</eye_config>")[0].strip()
+        )
         logger.debug(f"Eye config: {eye_config}")
- 
+
         # Remove any '' characters from the start and end of the string
-        eye_config = eye_config.replace('\'', '')
-        eye_config = eye_config.replace(' ', '')
+        eye_config = eye_config.replace("'", "")
+        eye_config = eye_config.replace(" ", "")
         eye_config = fix_json(eye_config)
-        
+
         parsed_response = json.loads(eye_config)
         return parsed_response
 
@@ -335,15 +334,19 @@ class OllamaManager(LanguageManager):
     def __init__(self):
         super().__init__()
 
-        self.model_name : str = OLLAMA_MODEL
+        self.model_name: str = OLLAMA_MODEL
 
-    def setup_llm(self,) -> None:
+    def setup_llm(
+        self,
+    ) -> None:
         """
         Sets up the OLLAMA Model and tokenizer.
         """
         pass
 
-    def generate_response(self, system_prompt:str) -> Dict[str, List[Union[float, int]]]:
+    def generate_response(
+        self, system_prompt: str
+    ) -> Dict[str, List[Union[float, int]]]:
         """
         Generates a new eye configuration for the agent using the LLM.
         Args:
@@ -354,7 +357,7 @@ class OllamaManager(LanguageManager):
         """
 
         # Post to the OLLAMA API
-        input:str = UserPrompt()
+        input: str = UserPrompt()
         ollama_response: ChatResponse = chat(
             model=self.model_name,
             messages=[
@@ -369,19 +372,17 @@ class OllamaManager(LanguageManager):
 
         # Parse the response & retry if error occurs
         try:
-            new_eye_cfg : str = self.parse_response(raw_response=response)
-        
+            new_eye_cfg: str = self.parse_response(raw_response=response)
+
         except Exception as e:
-            logger.error(f'Error parsing the response : {e}')
+            logger.error(f"Error parsing the response : {e}")
             self.counter += 1
 
             if self.counter < NUM_RETRIES:
                 logger.info("Retrying to generate the response.")
                 return self.generate_response(system_prompt=system_prompt)
 
-            raise RuntimeError(
-                f'LLM failed to generate a valid response with {str(e)}'
-            )
+            raise RuntimeError(f"LLM failed to generate a valid response with {str(e)}")
 
         return new_eye_cfg
 
@@ -391,7 +392,7 @@ def main():
     """
     Main function to test the LanguageManager.
     """
-    
+
     random.seed(0)
     torch.random.manual_seed(0)
 
@@ -420,14 +421,10 @@ def main():
             fitness_score = random.sample([-1000.0, 1000.0], 1)[0]
 
             # Generate a new eye configuration
-            new_eye_cfg = llm(
-                fitness_score=fitness_score, eye_config=current_eye_cfg
-            )
+            new_eye_cfg = llm(fitness_score=fitness_score, eye_config=current_eye_cfg)
 
             # Log the results
-            log_file.write(
-                f"{run},{fitness_score},{json.dumps(new_eye_cfg)}\n"
-            )
+            log_file.write(f"{run},{fitness_score},{json.dumps(new_eye_cfg)}\n")
 
             # Update the current eye configuration for the next run
             current_eye_cfg = new_eye_cfg
