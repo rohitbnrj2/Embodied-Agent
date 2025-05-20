@@ -6,12 +6,12 @@ instance:
   _target_: cambrian.eyes.eye.MjCambrianEye
   _partial_: true
 
-fov: [45, 45]
+fov: [45, 45] # update (along x, y)
 focal: [0.01, 0.01]
 sensorsize:
   - ${eval:'2 * ${..focal.0} * math.tan(math.radians(${..fov.0}) / 2)'}
   - ${eval:'2 * ${..focal.1} * math.tan(math.radians(${..fov.1}) / 2)'}
-resolution: [1, 1]
+resolution: [1, 1] # update
 coord: [0, 0] # placeholder
 orthographic: False
 

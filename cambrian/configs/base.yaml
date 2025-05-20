@@ -12,7 +12,7 @@ defaults:
 
   # We require a task. Optionally can specify an exp which should define the task
   # explicitly
-  - task: "???"
+  - task: "detection"
   - exp: exp
 
   # Add optional overlay or example configs here

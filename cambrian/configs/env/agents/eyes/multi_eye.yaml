@@ -36,8 +36,8 @@ resolution: ${.single_eye.resolution}
 coord: ${.single_eye.coord}
 orthographic: ${.single_eye.orthographic}
 
-lat_range: [-5, 5]
-lon_range: [-90, 90]
-num_eyes: [1, 1]
+lat_range: [-5, 5] # update
+lon_range: [-90, 90] # update
+num_eyes: [1, 1] # update
 
 flatten_observations: False

@@ -30,6 +30,7 @@ dependencies = [
     "hydra-core >= 1.4.0.dev1",
     "hydra-submitit-launcher >= 1.2.0",
     "hydra-joblib-launcher >= 1.2.0",
+    "pydantic>= 2.11.4",
     # Use the custom nevergrad-only branch until #3029 is merged
     "hydra-nevergrad-sweeper @ git+https://github.com/AaronYoung5/hydra.git@nevergrad-only#subdirectory=plugins/hydra_nevergrad_sweeper",
 ]
@@ -58,7 +59,7 @@ docs = [
 ]
 
 [project.scripts]
-cambrian = "cambrian.main:main"
+cambrian = "cambrian.embodied_agent:main"
 
 [tool.setuptools]
 packages = ["cambrian"]
